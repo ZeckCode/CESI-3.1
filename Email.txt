@@ -1,0 +1,141 @@
+[16/Feb/2026 16:46:37] "OPTIONS /api/enrollments/1/mark_active/ HTTP/1.1" 200 0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+Subject: Your Parent Portal Account
+From: noreply@cesi.local
+To: ral531715@gmail.com
+Date: Mon, 16 Feb 2026 08:46:38 +0000
+Message-ID: <177123159800.1484.1338611699291977854@Zeck>
+
+Your enrollment has been approved.
+
+Your Parent Portal account is ready.
+Set your password here:
+http://localhost:5173/set-password/Mw/d43qlq-28cd833bb4edd4efbcbc15e65de94430
+
+If you did not request this, ignore this email.
+
+
+
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+Subject: Your Parent Portal Account
+From: noreply@cesi.local
+To: r21313@gmail.com
+Date: Mon, 16 Feb 2026 09:02:01 +0000
+Message-ID: <177123252161.1484.12884306848913615908@Zeck>
+
+Your enrollment has been approved.
+
+Your Parent Portal account is ready.
+Set your password here:
+http://localhost:5173/set-password/OQ/d43rbd-9b1abfbeac4f9da358323b5ff2cad773
+
+If you did not request this, ignore this email.
+[16/Feb/2026 17:02:01] "OPTIONS /api/enrollments/5/mark_active/ HTTP/1.1" 200 0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+Subject: Your Parent Portal Account
+From: noreply@cesi.local
+To: r21313@gmail.com
+Date: Mon, 16 Feb 2026 09:02:01 +0000
+Message-ID: <177123252161.1484.12884306848913615908@Zeck>
+
+Your enrollment has been approved.
+
+Your Parent Portal account is ready.
+Set your password here:
+http://localhost:5173/set-password/OQ/d43rbd-9b1abfbeac4f9da358323b5ff2cad773
+
+If you did not request this, ignore this email.
+
+
+
+
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+Subject: Your Parent Portal Account
+From: noreply@cesi.local
+To: ral531712@gmail.com
+Date: Tue, 17 Feb 2026 07:05:22 +0000
+Message-ID: <177131192228.19804.12024794769558671171@Zeck>
+
+Student: Pao Ogma
+
+Username: paoogma
+Email: ral531712@gmail.com
+
+Set your password here:
+http://localhost:5173/set-password/MTQ/d45gky-2eb164e1c0bb53096e33c40e0f5a6f7a
+
+If you did not request this, ignore this email.
+
+
+#for checking accounts
+from accounts.models import User
+User.objects.filter(email__iexact="r21313@gmail.com").values("id","username","email","role","is_active")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from accounts.models import UserProfile
+from enrollment.models import Enrollment
+
+VALID = {"prek","kinder","grade1","grade2","grade3","grade4","grade5","grade6"}
+
+qs = UserProfile.objects.filter(grade_level="")
+fixed = 0
+
+for p in qs.select_related("user", "section"):
+    enr = (Enrollment.objects.filter(parent_user=p.user).order_by("-updated_at", "-id").first())
+
+    if enr and enr.grade_level in VALID:
+        p.grade_level = enr.grade_level
+
+        if not p.lrn and getattr(enr, "lrn", None):
+            p.lrn = enr.lrn
+
+        if not p.student_number and getattr(enr, "student_number", None):
+            p.student_number = enr.student_number
+
+        if not p.payment_mode and getattr(enr, "payment_mode", None):
+            p.payment_mode = enr.payment_mode
+
+        p.save()
+        fixed += 1
+        continue
+
+    # fallback if no enrollment found
+    if p.section and p.section.grade_level:
+        gl = int(p.section.grade_level)
+        if gl == 0:
+            p.grade_level = "kinder"
+        else:
+            p.grade_level = f"grade{gl}"
+        p.save()
+        fixed += 1
+        continue
+
+    # last fallback
+    p.grade_level = "kinder"
+    p.save()
+    fixed += 1
+
+print("Fixed profiles:", fixed)
