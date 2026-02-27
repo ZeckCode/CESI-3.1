@@ -1,0 +1,299 @@
+:root{
+  --as-blue:#24148a;
+  --as-yellow:#FDEF3B;
+  --as-yellow-soft:#fdfd96;
+
+  --as-wide: 260px;
+  --as-narrow: 72px;
+}
+
+/* ===== Admin app shell ===== */
+.admin-app-container{
+  display:flex;
+  min-height: 100vh;
+  background: #f8f9fa;
+  overflow-x: hidden;
+}
+
+@media (max-width: 767.98px){
+  .admin-app-container{
+    display:block;
+    min-height: 100vh;
+  }
+}
+
+/* ===== Mobile topbar ===== */
+.as-topbar{
+  position: sticky;
+  top: 0;
+  z-index: 1200;
+  height: 56px;
+  background: var(--as-blue);
+  color: #fff;
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  padding: 0 14px;
+}
+.as-topbar-title{
+  font-weight: 900;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  max-width: 70vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.as-topbar-spacer{ width: 38px; }
+
+.as-iconbtn{
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+}
+.as-iconbtn:hover{ background: rgba(255,255,255,.18); }
+
+.as-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 1250;
+}
+
+/* ===== Sidebar ===== */
+.as-sidebar{
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: var(--as-wide);
+  background: var(--as-blue);
+  color: #fff;
+  z-index: 1300;
+
+  display:flex;
+  flex-direction: column;
+
+  overflow: hidden;
+  transition: width .25s ease;
+}
+
+.as-sidebar.as-hidden{ display:none; }
+.as-sidebar.as-visible{ display:flex; }
+
+.as-sidebar.as-mobile{
+  width: 82%;
+  max-width: 340px;
+  z-index: 1300;
+}
+
+.as-sidebar.as-collapsed{
+  width: var(--as-narrow);
+}
+
+/* ===== Header ===== */
+.as-head{
+  padding: 12px;
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.as-brand{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  min-width: 0;
+}
+.as-badge{
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--as-blue);
+  display:grid;
+  place-items:center;
+  font-weight: 900;
+}
+.as-brandtext{ min-width: 0; }
+.as-title{ font-weight: 900; }
+.as-subtitle{ font-size:.8rem; opacity:.85; }
+
+/* ===== User card ===== */
+.as-usercard{
+  margin: 0 12px 12px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.10);
+  display:flex;
+  gap: 12px;
+  align-items: center;
+}
+.as-avatar{
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--as-blue);
+  display:grid;
+  place-items:center;
+  font-weight: 900;
+  font-size: 1.05rem;
+}
+.as-usermeta{ min-width:0; }
+.as-userrow{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.as-username{ font-weight: 900; font-size: 1rem; white-space: nowrap; overflow:hidden; text-overflow: ellipsis; }
+.as-role{ font-size:.8rem; opacity:.9; }
+.as-usersub{
+  margin-top: 4px;
+  font-size: .78rem;
+  opacity: .9;
+  display:flex;
+  flex-direction: column;
+}
+
+/* Collapsed header/user layout */
+.as-sidebar.as-collapsed .as-head{
+  padding: 10px 0;
+  justify-content: center;
+}
+.as-sidebar.as-collapsed .as-usercard{
+  margin: 6px auto 10px;
+  padding: 6px;
+  background: transparent;
+  justify-content: center;
+}
+.as-sidebar.as-collapsed .as-avatar{
+  width: 44px;
+  height: 44px;
+  font-size: .95rem;
+}
+
+/* ===== Nav ===== */
+.as-nav{
+  padding: 12px 12px;
+  display:flex;
+  flex-direction: column;
+  gap: 8px;
+
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.as-nav::-webkit-scrollbar{ width: 0; height: 0; }
+
+.as-item{
+  width:100%;
+  border:0;
+  border-radius: 12px;
+  padding: 12px 12px;
+  background: transparent;
+  color:#fff;
+
+  display:flex;
+  align-items:center;
+  gap: 10px;
+
+  cursor:pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.as-item:hover{
+  background: var(--as-yellow-soft);
+  color:#222;
+  font-weight: 800;
+}
+.as-item.active{
+  background: var(--as-yellow);
+  color:#222;
+  font-weight: 900;
+}
+
+.as-ico{
+  width: 24px;
+  text-align:center;
+  flex: 0 0 auto;
+}
+.as-label{
+  flex: 1;
+  text-align:left;
+}
+
+/* Collapsed rail */
+.as-sidebar.as-collapsed .as-item{
+  justify-content:center;
+  padding: 12px 0;
+}
+.as-sidebar.as-collapsed .as-label{ display:none; }
+.as-sidebar.as-collapsed .as-item.active{
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  border-radius: 12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.as-subnav{
+  margin: 8px 0 8px 44px;
+  display:flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.as-subitem{
+  border:0;
+  border-radius: 10px;
+  padding: 10px 10px;
+  background: rgba(255,255,255,.10);
+  color:#fff;
+  cursor:pointer;
+  text-align:left;
+}
+.as-subitem:hover{
+  background: rgba(255,255,255,.16);
+}
+.as-subitem.active{
+  background: rgba(255,255,255,.22);
+  font-weight: 900;
+}
+
+.as-logout{
+  margin-top: 12px;
+  background: #dc3545;
+}
+.as-logout:hover{ filter: brightness(.95); }
+
+/* ===== Admin main offset (you add this class to your admin main container) ===== */
+.admin-main{
+  margin-left: var(--as-wide);
+  min-height: 100vh;
+  width: calc(100% - var(--as-wide));
+  overflow-y: visible;
+  min-width: 0;
+  transition: margin-left .25s ease;
+}
+.admin-main.collapsed{
+  margin-left: var(--as-narrow);
+   width: calc(100% - var(--as-narrow));
+}
+
+@media (max-width: 767.98px){
+  .admin-main,
+  .admin-main.collapsed{
+    margin-left: 0 !important;
+    height: auto;
+    overflow-y: visible;
+     width: 100% !important;
+  }
+}
+/* ===== Card example ===== */
