@@ -1,251 +1,211 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@600;700;800&display=swap');
+
 /* ============================================
-   ENROLLMENT MANAGEMENT - CSS STYLES
+   ENROLLMENT MANAGEMENT - REDESIGNED
    ============================================ */
 
+*, *::before, *::after { box-sizing: border-box; }
+
 .enrollment-management {
-  padding: 20px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 28px;
+  background: #f0f2f7;
   min-height: 100vh;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'DM Sans', sans-serif;
 }
 
-/* ========== HEADER SECTION ========== */
+/* ========== HEADER ========== */
 .enrollment-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 28px;
+  background: #1a1d2e;
+  padding: 22px 28px;
+  border-radius: 16px;
 }
 
 .enrollment-header h1 {
   margin: 0;
-  font-size: 28px;
-  color: #1f2937;
-  font-weight: 600;
+  font-family: 'Syne', sans-serif;
+  font-size: 24px;
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
 }
 
 /* ========== BUTTONS ========== */
-.btn-primary,
-.btn-secondary,
-.btn-edit,
-.btn-delete {
+.btn-primary {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  background: #4f6ef7;
+  color: white;
+  transition: background 0.2s, transform 0.15s;
+}
+.btn-primary:hover { background: #3a57e8; transform: translateY(-1px); }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  background: #e8eaf0;
+  color: #374151;
+  transition: background 0.2s;
+}
+.btn-secondary:hover { background: #d4d7e3; }
+
+.btn-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  font-family: inherit;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
-}
-
-.btn-secondary {
-  background: #e5e7eb;
-  color: #374151;
-}
-
-.btn-secondary:hover {
-  background: #d1d5db;
-}
-
-.btn-edit {
-  background: #3b82f6;
-  color: white;
-  padding: 8px 12px;
   font-size: 12px;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  background: #4f6ef7;
+  color: white;
+  transition: background 0.2s;
 }
-
-.btn-edit:hover {
-  background: #2563eb;
-  transform: scale(1.05);
-}
+.btn-edit:hover { background: #3a57e8; }
 
 .btn-delete {
-  background: #ef4444;
-  color: white;
-  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
   font-size: 12px;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  background: #fee2e2;
+  color: #dc2626;
+  transition: background 0.2s;
 }
+.btn-delete:hover { background: #fecaca; }
 
-.btn-delete:hover {
-  background: #dc2626;
-  transform: scale(1.05);
+.btn-promote {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  background: #eff6ff;
+  color: #1d4ed8;
+  transition: background 0.2s;
+  white-space: nowrap;
 }
+.btn-promote:hover { background: #dbeafe; }
 
-/* ========== STATISTICS GRID ========== */
+.btn-approve {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  background: #d1fae5;
+  color: #065f46;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.btn-approve:hover { background: #a7f3d0; }
+
+.btn-decline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  background: #fee2e2;
+  color: #991b1b;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.btn-decline:hover { background: #fecaca; }
+
+/* ========== STATS ========== */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  margin-bottom: 30px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .stat-card {
   background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid #667eea;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+  padding: 20px 22px;
+  border-radius: 14px;
+  border: 1px solid #e5e8f0;
 }
 
 .stat-card h3 {
-  margin: 0;
-  font-size: 14px;
-  color: #6b7280;
-  font-weight: 500;
+  margin: 0 0 8px 0;
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
 }
 
 .stat-number {
-  margin: 10px 0 0 0;
-  font-size: 32px;
+  margin: 0;
+  font-family: 'Syne', sans-serif;
+  font-size: 34px;
   font-weight: 700;
-  color: #1f2937;
+  color: #1a1d2e;
 }
+.stat-number.active  { color: #059669; }
+.stat-number.pending { color: #d97706; }
+.stat-number.overdue   { color: #dc2626; }
+.stat-number.expired  { color: #9333ea; }
 
-.stat-number.active {
-  color: #10b981;
-}
-
-.stat-number.pending {
-  color: #f59e0b;
-}
-
-.stat-number.paid {
-  color: #667eea;
-}
-
-/* ========== MODAL STYLES ========== */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.modal-content {
-  background: white;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  max-width: 500px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  animation: slideUp 0.3s ease;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(50px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.modal-content h2 {
-  margin: 0 0 20px 0;
-  font-size: 22px;
-  color: #1f2937;
-  font-weight: 600;
-}
-
-/* ========== FORM STYLES ========== */
-.form-group {
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-}
-
-.form-group label {
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-}
-
-.form-group input,
-.form-group select {
-  padding: 12px;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  font-family: inherit;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.form-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 30px;
-}
-
-.form-actions button {
-  flex: 1;
-}
-
-/* ========== SEARCH & FILTER ========== */
+/* ========== CONTROLS ========== */
 .enrollment-controls {
   display: grid;
-  grid-template-columns: 1fr 200px;
-  gap: 15px;
-  margin-bottom: 25px;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .search-box,
@@ -254,11 +214,9 @@
   align-items: center;
   gap: 10px;
   background: white;
-  padding: 12px 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  border: 2px solid #e5e7eb;
-  transition: border-color 0.3s ease;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: 1px solid #e5e8f0;
 }
 
 .search-box input,
@@ -267,114 +225,109 @@
   border: none;
   outline: none;
   background: transparent;
-  font-size: 14px;
+  font-size: 13px;
   color: #374151;
-  font-family: inherit;
+  font-family: 'DM Sans', sans-serif;
 }
 
-.search-box input::placeholder {
-  color: #9ca3af;
-}
+.search-box input::placeholder { color: #b0b7c8; }
+.search-box svg, .filter-box svg { color: #9ca3af; flex-shrink: 0; }
 
-.search-box svg,
-.filter-box svg {
-  color: #6b7280;
-  flex-shrink: 0;
-}
-
-.search-box:focus-within,
-.filter-box:focus-within {
-  border-color: #667eea;
-}
-
-/* ========== TABLE STYLES ========== */
+/* ========== TABLE ========== */
 .enrollments-container {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  margin-bottom: 25px;
+  border-radius: 14px;
+  border: 1px solid #e5e8f0;
+  overflow-x: auto;
+  overflow-y: visible;
+  margin-bottom: 20px;
 }
 
 .enrollments-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 1100px;
 }
 
 .enrollments-table thead {
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-  border-bottom: 2px solid #d1d5db;
+  background: #f8f9fc;
+  border-bottom: 1px solid #e5e8f0;
 }
 
 .enrollments-table th {
-  padding: 15px;
+  padding: 13px 16px;
   text-align: left;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  color: #374151;
+  color: #9ca3af;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.7px;
+  white-space: nowrap;
 }
 
 .enrollments-table tbody tr {
-  border-bottom: 1px solid #e5e7eb;
-  transition: background-color 0.2s ease;
+  border-bottom: 1px solid #f3f4f8;
+  transition: background 0.15s;
 }
-
-.enrollments-table tbody tr:hover {
-  background-color: #f9fafb;
-}
+.enrollments-table tbody tr:last-child { border-bottom: none; }
+.enrollments-table tbody tr:hover { background: #f8f9fc; }
 
 .enrollments-table td {
-  padding: 15px;
-  font-size: 14px;
+  padding: 14px 16px;
+  font-size: 13px;
   color: #1f2937;
+  vertical-align: middle;
 }
 
-/* ========== STATUS & FEE BADGES ========== */
-.status-badge,
+/* ========== STATUS BADGES — FULLY SELF-CONTAINED ========== */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.status-badge.active    { background: #d1fae5; color: #065f46; }
+.status-badge.pending   { background: #fef3c7; color: #92400e; }
+.status-badge.dropped   { background: #fee2e2; color: #7f1d1d; }
+.status-badge.completed { background: #dbeafe; color: #1e40af; }
+
 .fee-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 5px;
+  padding: 5px 11px;
   border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  line-height: 1;
 }
 
-.status-badge.active {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.status-badge.pending {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.fee-badge.paid {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.fee-badge.pending {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.fee-badge.overdue {
-  background: #fee2e2;
-  color: #7f1d1d;
-}
+.fee-badge.paid    { background: #d1fae5; color: #065f46; }
+.fee-badge.pending { background: #fef3c7; color: #92400e; }
+.fee-badge.overdue { background: #fee2e2; color: #7f1d1d; }
 
 /* ========== ACTION BUTTONS ========== */
+.approve-decline-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .action-buttons {
   display: flex;
-  gap: 8px;
-  justify-content: center;
+  gap: 6px;
+  align-items: center;
 }
 
 /* ========== NO RESULTS ========== */
@@ -382,113 +335,118 @@
   padding: 60px 20px;
   text-align: center;
   color: #9ca3af;
+  font-size: 14px;
 }
 
-.no-results p {
+/* ========== MODAL ========== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 25, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(3px);
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal-content {
+  background: white;
+  padding: 28px 32px;
+  border-radius: 18px;
+  width: 90%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.25s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.modal-content h2 {
   margin: 0;
-  font-size: 16px;
+  font-family: 'Syne', sans-serif;
+  font-size: 20px;
+  color: #1a1d2e;
+  font-weight: 700;
 }
 
-/* ========== DEVELOPMENT NOTE ========== */
-.note {
-  background: #ecfdf5;
-  border-left: 4px solid #10b981;
-  padding: 15px;
-  border-radius: 8px;
-  font-size: 13px;
-  color: #047857;
-  margin-top: 20px;
+.modal-content h3 {
+  margin: 20px 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #9ca3af;
+  border-bottom: 1px solid #f0f2f7;
+  padding-bottom: 8px;
 }
 
-.note strong {
+/* ========== FORM ========== */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 14px;
+}
+
+.form-group label {
+  margin-bottom: 6px;
+  font-size: 12px;
   font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
-/* ========== RESPONSIVE DESIGN ========== */
+.form-group input,
+.form-group select {
+  padding: 10px 13px;
+  border: 1.5px solid #e5e8f0;
+  border-radius: 9px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  color: #1f2937;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #4f6ef7;
+}
+
+.form-group input:disabled,
+.form-group select:disabled {
+  background: #f8f9fc;
+  color: #6b7280;
+  cursor: default;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+.form-actions button { flex: 1; justify-content: center; padding: 12px; }
+
+/* ========== RESPONSIVE ========== */
 @media (max-width: 768px) {
-  .enrollment-header {
-    flex-direction: column;
-    gap: 15px;
-    text-align: center;
-  }
-
-  .enrollment-header h1 {
-    font-size: 22px;
-  }
-
-  .btn-primary {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .enrollment-controls {
-    grid-template-columns: 1fr;
-  }
-
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-
-  .enrollments-table {
-    font-size: 12px;
-  }
-
-  .enrollments-table th,
-  .enrollments-table td {
-    padding: 10px;
-  }
-
-  .modal-content {
-    max-width: 95%;
-    padding: 20px;
-  }
-
-  .action-buttons {
-    flex-direction: column;
-  }
-
-  .btn-edit,
-  .btn-delete {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-@media (max-width: 480px) {
-  .enrollment-management {
-    padding: 10px;
-  }
-
-  .enrollment-header {
-    padding: 15px;
-  }
-
-  .enrollment-header h1 {
-    font-size: 18px;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-    gap: 15px;
-  }
-
-  .stat-card {
-    padding: 15px;
-  }
-
-  .enrollments-table th,
-  .enrollments-table td {
-    padding: 8px;
-    font-size: 11px;
-  }
-
-  .status-badge,
-  .fee-badge {
-    padding: 4px 8px;
-    font-size: 10px;
-  }
+  .enrollment-management { padding: 14px; }
+  .enrollment-header { flex-direction: column; gap: 14px; text-align: center; }
+  .enrollment-controls { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
