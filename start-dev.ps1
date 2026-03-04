@@ -81,9 +81,29 @@ if (-not $npmExe) {
 # =============================================
 Write-Step "Setting up Backend..."
 
-# Create venv if missing
+# Create venv if missing or broken
+$venvNeedsRecreate = $false
 if (-not (Test-Path $VenvPython)) {
-    Write-Warn "Virtual environment not found - creating one..."
+    $venvNeedsRecreate = $true
+    Write-Warn "Virtual environment not found"
+} else {
+    # Test if the venv actually works (catches venvs created on different machines)
+    Write-Step "Verifying virtual environment..."
+    $testResult = & "$VenvPython" -c "print('ok')" 2>&1
+    if ($testResult -ne "ok") {
+        Write-Warn "Virtual environment is broken (was created on a different machine)"
+        Write-Warn "Error: $testResult"
+        $venvNeedsRecreate = $true
+    }
+}
+
+if ($venvNeedsRecreate) {
+    # Remove broken venv if it exists
+    if (Test-Path $VenvDir) {
+        Write-Warn "Removing broken virtual environment..."
+        Remove-Item -Recurse -Force "$VenvDir"
+    }
+    Write-Warn "Creating new virtual environment..."
     & python -m venv "$VenvDir"
     if (-not (Test-Path $VenvPython)) {
         Write-Err "Failed to create venv at: $VenvDir"
@@ -93,7 +113,7 @@ if (-not (Test-Path $VenvPython)) {
     }
     Write-Ok "Virtual environment created"
 } else {
-    Write-Ok "Virtual environment exists"
+    Write-Ok "Virtual environment exists and is valid"
 }
 
 # Activate venv
