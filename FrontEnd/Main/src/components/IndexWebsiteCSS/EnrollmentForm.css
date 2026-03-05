@@ -221,3 +221,146 @@
     gap: 10px;
   }
 }
+
+
+/* Full-width field inside the 2-col grid */
+.form-group--full {
+  grid-column: 1 / -1;
+}
+
+/* Live address preview */
+.address-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: -8px 0 20px 0;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #166534;
+  line-height: 1.5;
+}
+
+.address-preview span:first-child {
+  flex-shrink: 0;
+  font-size: 15px;
+}
+
+
+/* ── Add these to your EnrollmentForm.css ── */
+
+/* Parent/Guardian section sub-labels */
+.parent-section-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+  margin: 16px 0 8px 0;
+  padding: 6px 12px;
+  background: #f3f4f6;
+  border-left: 3px solid #4f6ef7;
+  border-radius: 0 6px 6px 0;
+}
+
+
+/* Full-width field inside the 2-col grid */
+.form-group--full {
+  grid-column: 1 / -1;
+}
+
+/* Live address preview */
+.address-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: -8px 0 20px 0;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #166534;
+  line-height: 1.5;
+}
+.address-preview span:first-child { flex-shrink: 0; font-size: 15px; }
+
+/* ── Countdown timer banner ── */
+.enrollment-timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #f0f9ff;
+  border: 1.5px solid #7dd3fc;
+  color: #0369a1;
+}
+.enrollment-timer--urgent {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #c2410c;
+  font-weight: 500;
+}
+
+/* ── Age/grade validation hint ── */
+.age-check-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin: -8px 0 18px 0;
+}
+.age-check-hint--ok {
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  color: #166534;
+}
+.age-check-hint--error {
+  background: #fff7ed;
+  border: 1.5px solid #fdba74;
+  color: #92400e;
+  font-weight: 500;
+}
+
+/* ── Small hint below a field ── */
+.field-hint {
+  display: block;
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+/* ── Expired screen ── */
+.enrollment-expired {
+  text-align: center;
+  padding: 48px 24px;
+}
+.enrollment-expired__icon {
+  font-size: 56px;
+  margin-bottom: 16px;
+}
+.enrollment-expired h2 {
+  font-size: 22px;
+  color: #1f2937;
+  margin-bottom: 12px;
+}
+.enrollment-expired p {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+
+
+
+
+
+
+
+
