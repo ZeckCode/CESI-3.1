@@ -5,7 +5,7 @@ import re
 from .models import Enrollment, ParentInfo
 from accounts.models import User
 from accounts.serializers import UserSerializer
-
+from enrollment.models import EnrollmentSettings
 # -------------------- Helpers --------------------
 PRESCHOOL = {"prek", "kinder"}
 ELEMENTARY = {"grade1", "grade2", "grade3", "grade4", "grade5", "grade6"}
@@ -232,3 +232,13 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             )
 
         return instance
+    
+    
+from .models import EnrollmentSettings  # ← already imported via models
+
+
+class EnrollmentSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = EnrollmentSettings
+        fields = ["open_date", "window_days", "academic_year", "updated_at"]
+        read_only_fields = ["updated_at"]

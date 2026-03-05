@@ -139,7 +139,50 @@ class ParentInfo(models.Model):
 
     def __str__(self):
         return f"Parent Info - {self.enrollment}"
-    
+
+
+
+
+class EnrollmentSettings(models.Model):
+    """
+    Singleton model — only ONE row ever exists (pk=1).
+    Controls the enrollment window and current school year.
+    """
+    # Manual override for the enrollment open date.
+    # If null → auto-calculated as June 1 of the current school year start.
+    open_date = models.DateField(
+        null=True, blank=True,
+        help_text="Enrollment window start date. Leave blank to use auto default (June 1)."
+    )
+
+    # How many days the window stays open after open_date. Default: 7.
+    window_days = models.PositiveIntegerField(
+        default=7,
+        help_text="Number of days the enrollment form is open."
+    )
+
+    # Current academic year shown on the form and new enrollments.
+    # If null → auto-calculated from open_date (e.g. 2025-2026).
+    academic_year = models.CharField(
+        max_length=9, null=True, blank=True,
+        help_text="Current academic year, e.g. 2025-2026. Leave blank to auto-calculate."
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name         = "Enrollment Settings"
+        verbose_name_plural  = "Enrollment Settings"
+
+    def __str__(self):
+        return f"Enrollment Settings (AY {self.academic_year or 'auto'}, opens {self.open_date or 'auto'})"
+
+    @classmethod
+    def get_solo(cls):
+        """Always returns the single settings row, creating it if needed."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+   
     
     
 # from django.db.models import Count

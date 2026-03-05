@@ -13,9 +13,13 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
 from django.utils import timezone
 # ============================
 from django.db.models import Max
+
+from .models import EnrollmentSettings
+from .serializers import EnrollmentSettingsSerializer
 
 from .models import Enrollment
 from .serializers import (
@@ -23,6 +27,34 @@ from .serializers import (
     EnrollmentDetailedSerializer,
     EnrollmentCreateSerializer,
 )
+
+
+class EnrollmentSettingsView(APIView):
+    """
+    GET  /api/enrollment-settings/  — returns current settings
+    PATCH /api/enrollment-settings/ — updates settings (admin only)
+
+    The public EnrollmentForm also calls GET to check if enrollment is open.
+    """
+    def get_permissions(self):
+        # Allow GET for everyone (public form needs to check open/closed)
+        # Restrict PATCH to admin only
+        if self.request.method == "GET":
+            return []
+        return [IsAdminUser()]
+
+    def get(self, request):
+        settings   = EnrollmentSettings.get_solo()
+        serializer = EnrollmentSettingsSerializer(settings)
+        return Response(serializer.data)
+
+    def patch(self, request):
+        settings   = EnrollmentSettings.get_solo()
+        serializer = EnrollmentSettingsSerializer(settings, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class EnrollmentViewSet(viewsets.ModelViewSet):

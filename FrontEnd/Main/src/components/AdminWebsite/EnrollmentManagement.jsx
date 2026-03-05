@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Edit2, Trash2, Search, Filter,
-  CheckCircle, Clock, AlertCircle, XCircle, Eye, RefreshCw, AlertTriangle, ArrowUpCircle,
+  CheckCircle, Clock, AlertCircle, XCircle, Eye, RefreshCw,
+  AlertTriangle, ArrowUpCircle, Settings, Calendar, X,
 } from "lucide-react";
 import "../AdminWebsiteCSS/EnrollmentManagement.css";
 import { getToken } from "../Auth/auth";
@@ -31,22 +32,21 @@ const statusLabel = (s) => ({
 }[s] || s || "");
 
 /* ─────────────────────────────────────────────
-   AGE VALIDATION PER GRADE (Philippine Standard)
-   Each entry: [minAge, maxAge] (inclusive)
+   AGE VALIDATION
 ───────────────────────────────────────────── */
 const GRADE_AGE_RULES = {
-  prek:   { min: 3,  max: 5,  label: "Pre-Kinder"   },
-  kinder: { min: 4,  max: 6,  label: "Kindergarten"  },
-  grade1: { min: 5,  max: 7,  label: "Grade 1"       },
-  grade2: { min: 6,  max: 8,  label: "Grade 2"       },
-  grade3: { min: 7,  max: 9,  label: "Grade 3"       },
-  grade4: { min: 8,  max: 10, label: "Grade 4"       },
-  grade5: { min: 9,  max: 11, label: "Grade 5"       },
-  grade6: { min: 10, max: 12, label: "Grade 6"       },
+  prek:   { min: 3,  max: 5,  label: "Pre-Kinder"  },
+  kinder: { min: 4,  max: 6,  label: "Kindergarten" },
+  grade1: { min: 5,  max: 7,  label: "Grade 1"      },
+  grade2: { min: 6,  max: 8,  label: "Grade 2"      },
+  grade3: { min: 7,  max: 9,  label: "Grade 3"      },
+  grade4: { min: 8,  max: 10, label: "Grade 4"      },
+  grade5: { min: 9,  max: 11, label: "Grade 5"      },
+  grade6: { min: 10, max: 12, label: "Grade 6"      },
 };
 
 /* ─────────────────────────────────────────────
-   GRADE PROGRESSION (for Promote feature)
+   GRADE PROGRESSION
 ───────────────────────────────────────────── */
 const GRADE_PROGRESSION = {
   prek:   { next: "kinder",  nextEdu: "preschool"  },
@@ -56,7 +56,7 @@ const GRADE_PROGRESSION = {
   grade3: { next: "grade4",  nextEdu: "elementary" },
   grade4: { next: "grade5",  nextEdu: "elementary" },
   grade5: { next: "grade6",  nextEdu: "elementary" },
-  grade6: { next: null,      nextEdu: null          }, // graduated
+  grade6: { next: null,      nextEdu: null          },
 };
 
 const getNextGrade = (gradeCode) => GRADE_PROGRESSION[gradeCode] || { next: null, nextEdu: null };
@@ -65,9 +65,8 @@ const advanceAcademicYear = (academicYear) => {
   if (!academicYear) return getCurrentAcademicYear();
   const parts = String(academicYear).split("-");
   if (parts.length !== 2) return getCurrentAcademicYear();
-  const start = parseInt(parts[0], 10);
-  const end   = parseInt(parts[1], 10);
-  if (isNaN(start) || isNaN(end)) return getCurrentAcademicYear();
+  const end = parseInt(parts[1], 10);
+  if (isNaN(end)) return getCurrentAcademicYear();
   return `${end}-${end + 1}`;
 };
 
@@ -75,24 +74,18 @@ const validateAgeForGrade = (birthDate, gradeCode) => {
   if (!birthDate || !gradeCode) return true;
   const rule = GRADE_AGE_RULES[gradeCode];
   if (!rule) return true;
-
   const bd = new Date(birthDate + "T00:00:00");
   const today = new Date();
   let age = today.getFullYear() - bd.getFullYear();
   const m = today.getMonth() - bd.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < bd.getDate())) age--;
-
-  if (age < rule.min)
-    return `Student is too young for ${rule.label}. Minimum age is ${rule.min} years old (current age: ${age}).`;
-  if (age > rule.max)
-    return `Student is too old for ${rule.label}. Maximum age is ${rule.max} years old (current age: ${age}).`;
+  if (age < rule.min) return `Student is too young for ${rule.label}. Minimum age is ${rule.min} (current age: ${age}).`;
+  if (age > rule.max) return `Student is too old for ${rule.label}. Maximum age is ${rule.max} (current age: ${age}).`;
   return true;
 };
 
 /* ─────────────────────────────────────────────
    ENROLLMENT EXPIRY
-   Academic year "YYYY-YYYY" expires on March 31 of the end year
-   e.g. "2024-2025" -> March 31, 2025
 ───────────────────────────────────────────── */
 const getAcademicYearExpiry = (academicYear) => {
   if (!academicYear) return null;
@@ -100,13 +93,12 @@ const getAcademicYearExpiry = (academicYear) => {
   if (parts.length !== 2) return null;
   const endYear = parseInt(parts[1], 10);
   if (isNaN(endYear)) return null;
-  return new Date(endYear, 2, 31, 23, 59, 59); // March 31
+  return new Date(endYear, 2, 31, 23, 59, 59);
 };
 
 const isEnrollmentExpired = (academicYear) => {
   const expiry = getAcademicYearExpiry(academicYear);
-  if (!expiry) return false;
-  return new Date() > expiry;
+  return expiry ? new Date() > expiry : false;
 };
 
 const formatExpiryDate = (academicYear) => {
@@ -115,8 +107,48 @@ const formatExpiryDate = (academicYear) => {
   return expiry.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" });
 };
 
+const fmtDate = (date) =>
+  date instanceof Date
+    ? date.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })
+    : "—";
+
 /* ─────────────────────────────────────────────
-   EMPTY FORM
+   ENROLLMENT WINDOW HELPERS  (uses live settings)
+───────────────────────────────────────────── */
+const computeEnrollmentWindow = (settings) => {
+  // Auto-calculate: June 1 of the current school-year's start year
+  const autoOpen = () => {
+    const today = new Date();
+    const year  = today.getFullYear();
+    const startYear = today.getMonth() >= 5 ? year : year - 1;
+    return new Date(startYear, 5, 1); // June 1
+  };
+
+  const openDate = settings?.open_date
+    ? new Date(settings.open_date + "T00:00:00")
+    : autoOpen();
+
+  const days      = Math.max(1, parseInt(settings?.window_days ?? 7, 10));
+  const closeDate = new Date(openDate);
+  closeDate.setDate(openDate.getDate() + days - 1);
+  closeDate.setHours(23, 59, 59, 999);
+
+  const today    = new Date(); today.setHours(0, 0, 0, 0);
+  const isOpen   = today >= openDate && today <= closeDate;
+  const daysLeft = isOpen ? Math.ceil((closeDate - today) / 86_400_000) : 0;
+
+  // Auto academic year: e.g. "2025-2026"
+  const autoAY = () => {
+    const y = openDate.getFullYear();
+    return `${y}-${y + 1}`;
+  };
+  const academicYear = settings?.academic_year || autoAY();
+
+  return { isOpen, openDate, closeDate, daysLeft, academicYear };
+};
+
+/* ─────────────────────────────────────────────
+   EMPTY FORM / HELPERS
 ───────────────────────────────────────────── */
 const emptyForm = () => ({
   first_name: "", last_name: "", middle_name: "",
@@ -135,7 +167,7 @@ const emptyForm = () => ({
 
 const getCurrentAcademicYear = () => {
   const today = new Date();
-  const year = today.getFullYear();
+  const year  = today.getFullYear();
   return today.getMonth() >= 5 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 };
 
@@ -143,21 +175,21 @@ const todayISO = () => new Date().toISOString().split("T")[0];
 
 const calcAge = (yyyyMMdd) => {
   if (!yyyyMMdd) return null;
-  const bd = new Date(yyyyMMdd + "T00:00:00");
-  const today = new Date();
-  let age = today.getFullYear() - bd.getFullYear();
-  const m = today.getMonth() - bd.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < bd.getDate())) age--;
+  const bd  = new Date(yyyyMMdd + "T00:00:00");
+  const now = new Date();
+  let age   = now.getFullYear() - bd.getFullYear();
+  const m   = now.getMonth() - bd.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < bd.getDate())) age--;
   return age;
 };
 
 const validateBirthDate = (yyyyMMdd) => {
   if (!yyyyMMdd) return true;
-  const bd = new Date(yyyyMMdd + "T00:00:00");
+  const bd    = new Date(yyyyMMdd + "T00:00:00");
   const today = new Date(); today.setHours(0, 0, 0, 0);
   if (bd >= today) return "Birth date must be in the past.";
   const age = calcAge(yyyyMMdd);
-  if (age < 3) return "Student must be at least 3 years old.";
+  if (age < 3)  return "Student must be at least 3 years old.";
   if (age > 18) return "Student age exceeds allowed school range.";
   return true;
 };
@@ -165,13 +197,13 @@ const validateBirthDate = (yyyyMMdd) => {
 const normalizePHMobile = (number) => {
   if (!number) return "";
   const cleaned = number.replace(/\s+/g, "");
-  if (/^09\d{9}$/.test(cleaned)) return "+63" + cleaned.slice(1);
+  if (/^09\d{9}$/.test(cleaned))    return "+63" + cleaned.slice(1);
   if (/^\+639\d{9}$/.test(cleaned)) return cleaned;
   return null;
 };
 
 /* ─────────────────────────────────────────────
-   BADGE STYLES (pure inline — no CSS cascade)
+   BADGE STYLES
 ───────────────────────────────────────────── */
 const STATUS_STYLES = {
   ACTIVE:    { background: "#d1fae5", color: "#065f46" },
@@ -189,60 +221,40 @@ const FEE_STYLES = {
 };
 
 const badgeStyle = (map, key) => ({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "5px",
-  padding: "4px 10px",
-  borderRadius: "20px",
-  fontSize: "11px",
-  fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: "0.4px",
-  whiteSpace: "nowrap",
-  lineHeight: 1,
+  display: "inline-flex", alignItems: "center", gap: "5px",
+  padding: "4px 10px", borderRadius: "20px", fontSize: "11px",
+  fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4px",
+  whiteSpace: "nowrap", lineHeight: 1,
   ...(map[key] || { background: "#f3f4f6", color: "#6b7280" }),
 });
 
 const StatusBadge = ({ code, expired }) => {
   const displayCode = expired && code !== "DROPPED" && code !== "COMPLETED" ? "EXPIRED" : code;
   const icon =
-    displayCode === "EXPIRED"                           ? <AlertTriangle size={12} /> :
+    displayCode === "EXPIRED"   ? <AlertTriangle size={12} /> :
     displayCode === "ACTIVE" || displayCode === "COMPLETED" ? <CheckCircle size={12} /> :
-    displayCode === "DROPPED"                           ? <XCircle size={12} /> :
-    <Clock size={12} />;
-  return (
-    <span style={badgeStyle(STATUS_STYLES, displayCode)}>
-      {icon}{statusLabel(displayCode)}
-    </span>
-  );
+    displayCode === "DROPPED"   ? <XCircle size={12} /> : <Clock size={12} />;
+  return <span style={badgeStyle(STATUS_STYLES, displayCode)}>{icon}{statusLabel(displayCode)}</span>;
 };
 
 const FeeBadge = ({ fee }) => {
   const icon =
-    fee === "cash" || fee === "Paid"              ? <CheckCircle size={12} /> :
-    fee === "installment" || fee === "Pending"    ? <Clock size={12} /> :
+    fee === "cash" || fee === "Paid"           ? <CheckCircle size={12} /> :
+    fee === "installment" || fee === "Pending" ? <Clock size={12} /> :
     <AlertCircle size={12} />;
-  return (
-    <span style={badgeStyle(FEE_STYLES, fee)}>
-      {icon}{String(fee).toUpperCase()}
-    </span>
-  );
+  return <span style={badgeStyle(FEE_STYLES, fee)}>{icon}{String(fee).toUpperCase()}</span>;
 };
 
 /* ─────────────────────────────────────────────
-   TOAST COMPONENT
+   TOAST
 ───────────────────────────────────────────── */
 const Toast = ({ toasts, onDismiss }) => (
-  <div style={{
-    position: "fixed", top: 20, right: 20, zIndex: 9999,
-    display: "flex", flexDirection: "column", gap: 10, maxWidth: 380,
-  }}>
+  <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", gap: 10, maxWidth: 380 }}>
     {toasts.map((t) => (
       <div key={t.id} style={{
         background: t.type === "error" ? "#1c0a0a" : t.type === "success" ? "#052e16" : "#1a1d2e",
         color: "white", padding: "14px 18px", borderRadius: 12,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
-        display: "flex", alignItems: "flex-start", gap: 10,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.25)", display: "flex", alignItems: "flex-start", gap: 10,
         borderLeft: `4px solid ${t.type === "error" ? "#ef4444" : t.type === "success" ? "#22c55e" : "#f59e0b"}`,
       }}>
         <AlertTriangle size={17} style={{ flexShrink: 0, marginTop: 1, color: t.type === "error" ? "#f87171" : t.type === "success" ? "#4ade80" : "#fbbf24" }} />
@@ -250,32 +262,46 @@ const Toast = ({ toasts, onDismiss }) => (
           <div style={{ fontWeight: 700, marginBottom: 3 }}>{t.title}</div>
           <div style={{ opacity: 0.8 }}>{t.message}</div>
         </div>
-        <button onClick={() => onDismiss(t.id)} style={{
-          background: "none", border: "none", color: "white",
-          cursor: "pointer", padding: 0, fontSize: 16, opacity: 0.6, flexShrink: 0,
-        }}>✕</button>
+        <button onClick={() => onDismiss(t.id)} style={{ background: "none", border: "none", color: "white", cursor: "pointer", padding: 0, fontSize: 16, opacity: 0.6, flexShrink: 0 }}>✕</button>
       </div>
     ))}
   </div>
 );
 
-/* ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════
    MAIN COMPONENT
-───────────────────────────────────────────── */
+═══════════════════════════════════════════════ */
 export default function EnrollmentManagement() {
+
+  /* ── Enrollment list ── */
   const [enrollments, setEnrollments]   = useState([]);
   const [loading, setLoading]           = useState(true);
   const [searchTerm, setSearchTerm]     = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
 
-  const [modalOpen, setModalOpen]       = useState(false);
-  const [modalMode, setModalMode]       = useState("view");
-  const [editingId, setEditingId]       = useState(null);
-  const [formData, setFormData]         = useState(emptyForm());
-  const [modalStatus, setModalStatus]   = useState(null);
+  /* ── Modal ── */
+  const [modalOpen, setModalOpen]                     = useState(false);
+  const [modalMode, setModalMode]                     = useState("view");
+  const [editingId, setEditingId]                     = useState(null);
+  const [formData, setFormData]                       = useState(emptyForm());
+  const [modalStatus, setModalStatus]                 = useState(null);
   const [modalExpired, setModalExpired]               = useState(false);
   const [editingAcademicYear, setEditingAcademicYear] = useState(false);
 
+  /* ── Settings panel ── */
+  const [settingsOpen, setSettingsOpen]   = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsSaving, setSettingsSaving]   = useState(false);
+  // Live settings fetched from backend
+  const [settings, setSettings] = useState(null);
+  // Draft values while editing in the panel
+  const [draft, setDraft] = useState({
+    open_date:    "",   // "" means auto
+    window_days:  7,
+    academic_year: "",  // "" means auto
+  });
+
+  /* ── Toasts ── */
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((title, message, type = "warning") => {
@@ -288,45 +314,95 @@ export default function EnrollmentManagement() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  /* ── API ── */
+  /* ── Computed enrollment window from live settings ── */
+  const window_ = useMemo(() => computeEnrollmentWindow(settings), [settings]);
+
+  /* ═══════════ API: ENROLLMENTS ═══════════ */
   const fetchEnrollments = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/enrollments/`, {
-        method: "GET", headers: authHeaders(true), credentials: "include",
-      });
+      const res  = await fetch(`${API_BASE}/api/enrollments/`, { method: "GET", headers: authHeaders(), credentials: "include" });
       const data = await res.json().catch(() => []);
-      if (!res.ok) throw new Error("Failed to load enrollments.");
+      if (!res.ok) throw new Error();
       const list = Array.isArray(data) ? data : [];
       setEnrollments(list);
 
-      // Notify about expired enrollments
-      const expiredList = list.filter(
-        (e) => isEnrollmentExpired(e.academic_year) &&
-               e.status !== "DROPPED" && e.status !== "COMPLETED"
-      );
+      const expiredList = list.filter((e) => isEnrollmentExpired(e.academic_year) && e.status !== "DROPPED" && e.status !== "COMPLETED");
       if (expiredList.length > 0) {
         const names = expiredList.slice(0, 3).map((e) => `${e.first_name} ${e.last_name}`).join(", ");
         const more  = expiredList.length > 3 ? ` and ${expiredList.length - 3} more` : "";
-        addToast(
-          `${expiredList.length} Expired Enrollment${expiredList.length > 1 ? "s" : ""}`,
-          `${names}${more} — academic year has ended. Editing is blocked.`,
-          "warning"
-        );
+        addToast(`${expiredList.length} Expired Enrollment${expiredList.length > 1 ? "s" : ""}`, `${names}${more} — academic year has ended.`, "warning");
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
       alert("Failed to load enrollments. Check admin login/token + backend permissions.");
       setEnrollments([]);
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchEnrollments(); }, []); // eslint-disable-line
+  /* ═══════════ API: SETTINGS ═══════════ */
+  const fetchSettings = useCallback(async () => {
+    setSettingsLoading(true);
+    try {
+      const res  = await fetch(`${API_BASE}/api/enrollment-settings/`, { method: "GET", headers: authHeaders(), credentials: "include" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error();
+      setSettings(data);
+      // Populate draft with current values
+      setDraft({
+        open_date:     data.open_date    || "",
+        window_days:   data.window_days  ?? 7,
+        academic_year: data.academic_year || "",
+      });
+    } catch {
+      // If endpoint doesn't exist yet, use defaults silently
+      setSettings(null);
+    } finally { setSettingsLoading(false); }
+  }, []);
 
+  const handleSaveSettings = async () => {
+    setSettingsSaving(true);
+     try {
+    const payload = {
+      open_date:     draft.open_date     || null,
+      window_days:   parseInt(draft.window_days, 10) || 7,
+      academic_year: draft.academic_year.replace(/\s+/g, "") || null, // ← strip all spaces
+    };
+      const res  = await fetch(`${API_BASE}/api/enrollment-settings/`, {
+        method: "PATCH", headers: authHeaders(), credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert("Save error: " + JSON.stringify(data)); return; }
+      setSettings(data);
+      addToast("Settings Saved", "Enrollment window has been updated successfully.", "success");
+    } catch {
+      alert("Failed to save settings.");
+    } finally { setSettingsSaving(false); }
+  };
+
+  const handleResetSettings = async () => {
+    if (!window.confirm("Reset to auto-calculated defaults? This will clear the manual open date and academic year.")) return;
+    setDraft({ open_date: "", window_days: 7, academic_year: "" });
+    setSettingsSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/enrollment-settings/`, {
+        method: "PATCH", headers: authHeaders(), credentials: "include",
+        body: JSON.stringify({ open_date: null, window_days: 7, academic_year: null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert("Reset error: " + JSON.stringify(data)); return; }
+      setSettings(data);
+      addToast("Settings Reset", "Enrollment window is now auto-calculated.", "success");
+    } catch {
+      alert("Failed to reset settings.");
+    } finally { setSettingsSaving(false); }
+  };
+
+  useEffect(() => { fetchEnrollments(); fetchSettings(); }, []); // eslint-disable-line
+
+  /* ═══════════ API: ENROLLMENT ACTIONS ═══════════ */
   const callAction = async (id, actionName) => {
-    const res = await fetch(`${API_BASE}/api/enrollments/${id}/${actionName}/`, {
-      method: "POST", headers: authHeaders(true), credentials: "include",
-    });
+    const res  = await fetch(`${API_BASE}/api/enrollments/${id}/${actionName}/`, { method: "POST", headers: authHeaders(), credentials: "include" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error("Action failed.");
     await fetchEnrollments();
@@ -339,54 +415,35 @@ export default function EnrollmentManagement() {
   const handleDeleteEnrollment = async (id) => {
     if (!window.confirm("Delete this enrollment?")) return;
     try {
-      const res = await fetch(`${API_BASE}/api/enrollments/${id}/`, {
-        method: "DELETE", headers: authHeaders(false), credentials: "include",
-      });
-      if (!res.ok) throw new Error("Delete failed.");
+      const res = await fetch(`${API_BASE}/api/enrollments/${id}/`, { method: "DELETE", headers: authHeaders(false), credentials: "include" });
+      if (!res.ok) throw new Error();
       await fetchEnrollments();
       if (editingId === id) closeModal();
-    } catch (e) {
-      console.error(e);
-      alert("Delete failed. Check permissions/token.");
-    }
+    } catch { alert("Delete failed. Check permissions/token."); }
   };
 
-  /* ── Normalize ── */
+  /* ═══════════ NORMALIZED DATA ═══════════ */
   const normalized = useMemo(() => enrollments.map((e) => {
     const statusCode = String(e.status || "PENDING").toUpperCase();
-    const expired    = isEnrollmentExpired(e.academic_year) &&
-                       statusCode !== "DROPPED" && statusCode !== "COMPLETED";
+    const expired    = isEnrollmentExpired(e.academic_year) && statusCode !== "DROPPED" && statusCode !== "COMPLETED";
     return {
       id: e.id, raw: e,
-      studentName: `${e.first_name || ""} ${e.last_name || ""}`.trim(),
-      gradeLevel: gradeLabel(e.grade_level),
+      studentName:    `${e.first_name || ""} ${e.last_name || ""}`.trim(),
+      gradeLevel:     gradeLabel(e.grade_level),
       enrollmentDate: e.enrolled_at || e.created_at || null,
       statusCode, statusText: statusLabel(statusCode),
       expired, academicYear: e.academic_year || "",
-      fee: e.payment_mode || "Pending",
-      parentName:
-        e?.parent_info?.guardian_name ||
-        e?.parent_info?.mother_name   ||
-        e?.parent_info?.father_name   || "(not set)",
-      phone:
-        e?.parent_info?.guardian_contact ||
-        e?.parent_info?.mother_contact   ||
-        e?.parent_info?.father_contact   ||
-        e?.mobile_number || e?.telephone_number || "(not set)",
+      fee:        e.payment_mode || "Pending",
+      parentName: e?.parent_info?.guardian_name || e?.parent_info?.mother_name || e?.parent_info?.father_name || "(not set)",
+      phone:      e?.parent_info?.guardian_contact || e?.parent_info?.mother_contact || e?.parent_info?.father_contact || e?.mobile_number || e?.telephone_number || "(not set)",
     };
   }), [enrollments]);
 
   const filteredEnrollments = useMemo(() => {
     const s = searchTerm.toLowerCase().trim();
     return normalized.filter((row) => {
-      const matchesSearch = !s ||
-        row.studentName.toLowerCase().includes(s) ||
-        row.parentName.toLowerCase().includes(s)  ||
-        String(row.phone).includes(searchTerm);
-      const matchesStatus =
-        filterStatus === "All"     ? true :
-        filterStatus === "Expired" ? row.expired :
-        row.statusText === filterStatus;
+      const matchesSearch = !s || row.studentName.toLowerCase().includes(s) || row.parentName.toLowerCase().includes(s) || String(row.phone).includes(searchTerm);
+      const matchesStatus = filterStatus === "All" ? true : filterStatus === "Expired" ? row.expired : row.statusText === filterStatus;
       return matchesSearch && matchesStatus;
     });
   }, [normalized, searchTerm, filterStatus]);
@@ -400,38 +457,27 @@ export default function EnrollmentManagement() {
   }), [normalized]);
 
   const gradeOptions = useMemo(() => {
-    if (formData.education_level === "preschool")
-      return [{ value: "prek", label: "Pre-Kinder" }, { value: "kinder", label: "Kindergarten" }];
-    if (formData.education_level === "elementary")
-      return ["grade1","grade2","grade3","grade4","grade5","grade6"]
-        .map((v) => ({ value: v, label: gradeLabel(v) }));
+    if (formData.education_level === "preschool")  return [{ value: "prek", label: "Pre-Kinder" }, { value: "kinder", label: "Kindergarten" }];
+    if (formData.education_level === "elementary") return ["grade1","grade2","grade3","grade4","grade5","grade6"].map((v) => ({ value: v, label: gradeLabel(v) }));
     return [];
   }, [formData.education_level]);
 
-  /* ── Modal ── */
+  /* ═══════════ MODAL ═══════════ */
   const openModal = (row, mode = "view") => {
     const e       = row.raw;
-    const expired = isEnrollmentExpired(e.academic_year) &&
-                    e.status !== "DROPPED" && e.status !== "COMPLETED";
+    const expired = isEnrollmentExpired(e.academic_year) && e.status !== "DROPPED" && e.status !== "COMPLETED";
 
     if (mode === "edit" && expired) {
-      addToast(
-        "Enrollment Expired",
-        `${e.first_name} ${e.last_name}'s enrollment ended on ${formatExpiryDate(e.academic_year)}. Editing is blocked.`,
-        "error"
-      );
+      addToast("Enrollment Expired", `${e.first_name} ${e.last_name}'s enrollment ended on ${formatExpiryDate(e.academic_year)}. Editing is blocked.`, "error");
       mode = "view";
     }
 
-    setEditingId(e.id);
-    setModalMode(mode);
-    setModalStatus(e.status || "PENDING");
-    setModalExpired(expired);
-    setEditingAcademicYear(false);
+    setEditingId(e.id); setModalMode(mode); setModalStatus(e.status || "PENDING");
+    setModalExpired(expired); setEditingAcademicYear(false);
 
     const inferredEdu = e.education_level ||
-      (["prek","kinder"].includes(e.grade_level)                                         ? "preschool"  :
-       ["grade1","grade2","grade3","grade4","grade5","grade6"].includes(e.grade_level)   ? "elementary" : "");
+      (["prek","kinder"].includes(e.grade_level) ? "preschool" :
+       ["grade1","grade2","grade3","grade4","grade5","grade6"].includes(e.grade_level) ? "elementary" : "");
 
     setFormData({
       ...emptyForm(),
@@ -447,14 +493,10 @@ export default function EnrollmentManagement() {
       mobile_number: e.mobile_number || "", parent_facebook: e.parent_facebook || "",
       remarks: e.remarks || "",
       parent_info: {
-        father_name: e?.parent_info?.father_name || "",
-        father_contact: e?.parent_info?.father_contact || "",
-        father_occupation: e?.parent_info?.father_occupation || "",
-        mother_name: e?.parent_info?.mother_name || "",
-        mother_contact: e?.parent_info?.mother_contact || "",
-        mother_occupation: e?.parent_info?.mother_occupation || "",
-        guardian_name: e?.parent_info?.guardian_name || "",
-        guardian_contact: e?.parent_info?.guardian_contact || "",
+        father_name: e?.parent_info?.father_name || "",        father_contact: e?.parent_info?.father_contact || "",
+        father_occupation: e?.parent_info?.father_occupation || "", mother_name: e?.parent_info?.mother_name || "",
+        mother_contact: e?.parent_info?.mother_contact || "",   mother_occupation: e?.parent_info?.mother_occupation || "",
+        guardian_name: e?.parent_info?.guardian_name || "",    guardian_contact: e?.parent_info?.guardian_contact || "",
         guardian_relationship: e?.parent_info?.guardian_relationship || "",
       },
     });
@@ -462,87 +504,44 @@ export default function EnrollmentManagement() {
   };
 
   const openCreateModal = () => {
-    setEditingId(null); setModalMode("edit");
-    setModalStatus(null); setModalExpired(false);
-    setEditingAcademicYear(false);
-    setFormData(emptyForm()); setModalOpen(true);
+    setEditingId(null); setModalMode("edit"); setModalStatus(null);
+    setModalExpired(false); setEditingAcademicYear(false);
+    setFormData({ ...emptyForm(), academic_year: window_.academicYear });
+    setModalOpen(true);
   };
 
-  // ── Promote: open create modal pre-filled with next grade + next AY ──
   const handlePromote = (row) => {
     const e = row.raw;
     const { next, nextEdu } = getNextGrade(e.grade_level);
-
-    if (!next) {
-      addToast(
-        "Already at Highest Grade",
-        `${e.first_name} ${e.last_name} has completed Grade 6. No further promotion available.`,
-        "warning"
-      );
-      return;
-    }
-
+    if (!next) { addToast("Already at Highest Grade", `${e.first_name} ${e.last_name} has completed Grade 6.`, "warning"); return; }
     const nextYear = advanceAcademicYear(e.academic_year);
-
-    setEditingId(null);          // new record
-    setModalMode("edit");
-    setModalStatus(null);
-    setModalExpired(false);
-    setEditingAcademicYear(false);
+    setEditingId(null); setModalMode("edit"); setModalStatus(null); setModalExpired(false); setEditingAcademicYear(false);
     setFormData({
       ...emptyForm(),
-      // ── Personal info carried over ──
-      first_name:        e.first_name        || "",
-      last_name:         e.last_name         || "",
-      middle_name:       e.middle_name       || "",
-      birth_date:        e.birth_date        || "",
-      gender:            e.gender            || "",
-      lrn:               e.lrn               || "",
-      email:             e.email             || "",
-      address:           e.address           || "",
-      religion:          e.religion          || "",
-      telephone_number:  e.telephone_number  || "",
-      mobile_number:     e.mobile_number     || "",
-      parent_facebook:   e.parent_facebook   || "",
-      // ── Auto-advanced academic info ──
-      education_level: nextEdu,
-      grade_level:     next,
-      academic_year:   nextYear,
-      student_type:    "old",        // returning student
-      status:          "PENDING",    // starts as pending
-      payment_mode:    "",           // admin picks fresh
-      remarks:         "",
-      // ── Parent info carried over ──
+      first_name: e.first_name || "", last_name: e.last_name || "", middle_name: e.middle_name || "",
+      birth_date: e.birth_date || "", gender: e.gender || "", lrn: e.lrn || "",
+      email: e.email || "", address: e.address || "", religion: e.religion || "",
+      telephone_number: e.telephone_number || "", mobile_number: e.mobile_number || "", parent_facebook: e.parent_facebook || "",
+      education_level: nextEdu, grade_level: next, academic_year: nextYear,
+      student_type: "old", status: "PENDING", payment_mode: "", remarks: "",
       parent_info: {
-        father_name:            e?.parent_info?.father_name            || "",
-        father_contact:         e?.parent_info?.father_contact         || "",
-        father_occupation:      e?.parent_info?.father_occupation      || "",
-        mother_name:            e?.parent_info?.mother_name            || "",
-        mother_contact:         e?.parent_info?.mother_contact         || "",
-        mother_occupation:      e?.parent_info?.mother_occupation      || "",
-        guardian_name:          e?.parent_info?.guardian_name          || "",
-        guardian_contact:       e?.parent_info?.guardian_contact       || "",
-        guardian_relationship:  e?.parent_info?.guardian_relationship  || "",
+        father_name: e?.parent_info?.father_name || "",        father_contact: e?.parent_info?.father_contact || "",
+        father_occupation: e?.parent_info?.father_occupation || "", mother_name: e?.parent_info?.mother_name || "",
+        mother_contact: e?.parent_info?.mother_contact || "",   mother_occupation: e?.parent_info?.mother_occupation || "",
+        guardian_name: e?.parent_info?.guardian_name || "",    guardian_contact: e?.parent_info?.guardian_contact || "",
+        guardian_relationship: e?.parent_info?.guardian_relationship || "",
       },
     });
     setModalOpen(true);
   };
 
-  const closeModal = () => {
-    setModalOpen(false); setModalMode("view");
-    setEditingId(null); setModalStatus(null);
-    setModalExpired(false); setEditingAcademicYear(false);
-  };
-
+  const closeModal = () => { setModalOpen(false); setModalMode("view"); setEditingId(null); setModalStatus(null); setModalExpired(false); setEditingAcademicYear(false); };
   const isReadOnly = (modalMode === "view" && editingId !== null) || modalExpired;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((p) => name === "education_level"
-      ? { ...p, education_level: value, grade_level: "" }
-      : { ...p, [name]: value });
+    setFormData((p) => name === "education_level" ? { ...p, education_level: value, grade_level: "" } : { ...p, [name]: value });
   };
-
   const handleParentChange = (e) => {
     const { name, value } = e.target;
     setFormData((p) => ({ ...p, parent_info: { ...p.parent_info, [name]: value } }));
@@ -550,183 +549,248 @@ export default function EnrollmentManagement() {
 
   const validateCreate = () => {
     const missing = [];
-    if (!formData.first_name?.trim())  missing.push("First Name");
-    if (!formData.last_name?.trim())   missing.push("Last Name");
-    if (!formData.grade_level)         missing.push("Grade Level");
-    if (!formData.education_level)     missing.push("Education Level");
-    if (!formData.student_type)        missing.push("Student Type");
-    if (!formData.payment_mode)        missing.push("Payment Mode");
-    if (!formData.academic_year)       missing.push("Academic Year");
+    if (!formData.first_name?.trim()) missing.push("First Name");
+    if (!formData.last_name?.trim())  missing.push("Last Name");
+    if (!formData.grade_level)        missing.push("Grade Level");
+    if (!formData.education_level)    missing.push("Education Level");
+    if (!formData.student_type)       missing.push("Student Type");
+    if (!formData.payment_mode)       missing.push("Payment Mode");
+    if (!formData.academic_year)      missing.push("Academic Year");
     if (missing.length) { alert("Please fill required:\n- " + missing.join("\n- ")); return false; }
     return true;
   };
 
   const handleApproveModal = async () => {
     if (!editingId) return;
-    try {
-      const updated = await handleApprove(editingId);
-      setModalStatus("ACTIVE");
-      setFormData((p) => ({ ...p, status: "ACTIVE", remarks: updated?.remarks ?? p.remarks }));
-      setModalMode("view");
-    } catch (e) { console.error(e); alert("Approve failed."); }
+    try { const u = await handleApprove(editingId); setModalStatus("ACTIVE"); setFormData((p) => ({ ...p, status: "ACTIVE", remarks: u?.remarks ?? p.remarks })); setModalMode("view"); }
+    catch { alert("Approve failed."); }
   };
-
   const handleDeclineModal = async () => {
     if (!editingId) return;
-    try {
-      const updated = await handleDecline(editingId);
-      setModalStatus("DROPPED");
-      setFormData((p) => ({ ...p, status: "DROPPED", remarks: updated?.remarks ?? p.remarks }));
-      setModalMode("view");
-    } catch (e) { console.error(e); alert("Decline failed."); }
+    try { const u = await handleDecline(editingId); setModalStatus("DROPPED"); setFormData((p) => ({ ...p, status: "DROPPED", remarks: u?.remarks ?? p.remarks })); setModalMode("view"); }
+    catch { alert("Decline failed."); }
   };
 
   const handleSaveAcademicYear = async () => {
     if (!editingId) return;
     const newYear = formData.academic_year?.trim();
-    if (!newYear || !/^\d{4}-\d{4}$/.test(newYear)) {
-      alert("Invalid format. Use YYYY-YYYY (e.g. 2025-2026).");
-      return;
-    }
+    if (!newYear || !/^\d{4}-\d{4}$/.test(newYear)) { alert("Invalid format. Use YYYY-YYYY (e.g. 2025-2026)."); return; }
     try {
-      // Send full payload — backend requires all fields even on PATCH
-      const payload = {
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        middle_name: formData.middle_name,
-        birth_date: formData.birth_date || null,
-        gender: formData.gender,
-        lrn: formData.lrn,
-        education_level: formData.education_level,
-        grade_level: formData.grade_level,
-        student_type: formData.student_type,
-        academic_year: newYear,           // ← the updated value
-        status: formData.status,
-        payment_mode: formData.payment_mode,
-        email: formData.email,
-        address: formData.address,
-        religion: formData.religion,
-        telephone_number: formData.telephone_number,
-        mobile_number: formData.mobile_number,
-        parent_facebook: formData.parent_facebook,
-        remarks: formData.remarks,
-        parent_info: formData.parent_info,
-      };
-
-      const res = await fetch(`${API_BASE}/api/enrollments/${editingId}/`, {
-        method: "PATCH",
-        headers: authHeaders(true),
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
+      const payload = { ...formData, birth_date: formData.birth_date || null, academic_year: newYear, mobile_number: formData.mobile_number, parent_info: formData.parent_info };
+      const res  = await fetch(`${API_BASE}/api/enrollments/${editingId}/`, { method: "PATCH", headers: authHeaders(), credentials: "include", body: JSON.stringify(payload) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { alert("Save error: " + JSON.stringify(data)); return; }
-
       await fetchEnrollments();
       const nowExpired = isEnrollmentExpired(newYear);
-      setModalExpired(nowExpired);
-      setEditingAcademicYear(false);
-      if (!nowExpired) {
-        addToast("Academic Year Updated", `Enrollment is now active for ${newYear}.`, "success");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Save failed.");
-    }
+      setModalExpired(nowExpired); setEditingAcademicYear(false);
+      if (!nowExpired) addToast("Academic Year Updated", `Enrollment is now active for ${newYear}.`, "success");
+    } catch { alert("Save failed."); }
   };
 
   const handleSaveEnrollment = async () => {
     if (!editingId && !validateCreate()) return;
-
     const bdCheck = validateBirthDate(formData.birth_date);
     if (bdCheck !== true) { alert(bdCheck); return; }
-
-    // Age vs grade validation
     const ageCheck = validateAgeForGrade(formData.birth_date, formData.grade_level);
     if (ageCheck !== true) { alert(ageCheck); return; }
-
-    // Expired academic year warning
     if (isEnrollmentExpired(formData.academic_year)) {
-      const ok = window.confirm(
-        `Warning: The academic year "${formData.academic_year}" has already ended (expired on ${formatExpiryDate(formData.academic_year)}).\n\nDo you still want to save?`
-      );
-      if (!ok) return;
+      if (!window.confirm(`Warning: AY "${formData.academic_year}" has already ended.\n\nDo you still want to save?`)) return;
     }
-
     let normalizedMobile = null;
     if (formData.mobile_number?.trim()) {
       normalizedMobile = normalizePHMobile(formData.mobile_number);
       if (!normalizedMobile) { alert("Invalid PH mobile number.\nUse 09XXXXXXXXX or +639XXXXXXXXX format."); return; }
     }
-
     const payload = {
-      first_name: formData.first_name,  last_name: formData.last_name,
-      middle_name: formData.middle_name, birth_date: formData.birth_date || null,
-      gender: formData.gender,           lrn: formData.lrn,
+      first_name: formData.first_name, last_name: formData.last_name, middle_name: formData.middle_name,
+      birth_date: formData.birth_date || null, gender: formData.gender, lrn: formData.lrn,
       education_level: formData.education_level, grade_level: formData.grade_level,
       student_type: formData.student_type, academic_year: formData.academic_year,
-      status: formData.status,           payment_mode: formData.payment_mode,
-      email: formData.email,             address: formData.address,
-      religion: formData.religion,       telephone_number: formData.telephone_number,
-      mobile_number: normalizedMobile ?? formData.mobile_number,
+      status: formData.status, payment_mode: formData.payment_mode,
+      email: formData.email, address: formData.address, religion: formData.religion,
+      telephone_number: formData.telephone_number, mobile_number: normalizedMobile ?? formData.mobile_number,
       parent_facebook: formData.parent_facebook, remarks: formData.remarks,
       parent_info: formData.parent_info,
     };
-
-    const url    = editingId ? `${API_BASE}/api/enrollments/${editingId}/` : `${API_BASE}/api/enrollments/`;
-    const method = editingId ? "PATCH" : "POST";
-
+    const url = editingId ? `${API_BASE}/api/enrollments/${editingId}/` : `${API_BASE}/api/enrollments/`;
     try {
-      const res = await fetch(url, {
-        method, headers: authHeaders(true), credentials: "include",
-        body: JSON.stringify(payload),
-      });
+      const res  = await fetch(url, { method: editingId ? "PATCH" : "POST", headers: authHeaders(), credentials: "include", body: JSON.stringify(payload) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { console.error("Save error:", data); alert("Save error: " + JSON.stringify(data)); return; }
+      if (!res.ok) { alert("Save error: " + JSON.stringify(data)); return; }
       await fetchEnrollments();
       if (!editingId) closeModal();
       else { setModalMode("view"); setModalStatus(data?.status ?? formData.status); }
-    } catch (e) { console.error(e); alert("Save failed."); }
+    } catch { alert("Save failed."); }
   };
 
-  /* ─────────────────────────────────────────────
+  /* ═══════════════════════════════════════════════
      RENDER
-  ───────────────────────────────────────────── */
+  ═══════════════════════════════════════════════ */
   return (
     <div className="enrollment-management">
-
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Header */}
+      {/* ── HEADER ── */}
       <div className="enrollment-header">
         <h1>Enrollment Management</h1>
         <div className="header-actions">
           <button className="btn-primary" onClick={openCreateModal}>+ Add Enrollee</button>
-          <button className="btn-secondary" onClick={fetchEnrollments}>
-            <RefreshCw size={14} /> Refresh
+          <button className="btn-secondary" onClick={fetchEnrollments}><RefreshCw size={14} /> Refresh</button>
+          <button
+            className={`btn-settings ${settingsOpen ? "btn-settings--active" : ""}`}
+            onClick={() => setSettingsOpen((v) => !v)}
+            title="Enrollment Window Settings"
+          >
+            <Settings size={15} /> School Year Settings
           </button>
         </div>
       </div>
 
-      {/* Stats — includes Expired */}
+      {/* ══════════════════════════════════════
+          SETTINGS PANEL (collapsible)
+      ══════════════════════════════════════ */}
+      {settingsOpen && (
+        <div className="settings-panel">
+          <div className="settings-panel__header">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Calendar size={16} style={{ color: "#4f6ef7" }} />
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Enrollment Window & School Year</span>
+            </div>
+            <button onClick={() => setSettingsOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", display: "flex" }}>
+              <X size={16} />
+            </button>
+          </div>
+
+          {settingsLoading ? (
+            <div style={{ padding: "20px", textAlign: "center", color: "#6b7280", fontSize: 13 }}>Loading settings…</div>
+          ) : (
+            <>
+              {/* ── Current window status ── */}
+              <div className="settings-panel__status">
+                <div className="settings-panel__status-badge" style={{ background: window_.isOpen ? "#d1fae5" : "#fee2e2", color: window_.isOpen ? "#065f46" : "#7f1d1d" }}>
+                  {window_.isOpen ? <CheckCircle size={13} /> : <XCircle size={13} />}
+                  {window_.isOpen ? `Open — ${window_.daysLeft} day${window_.daysLeft !== 1 ? "s" : ""} left` : "Closed"}
+                </div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>
+                  {fmtDate(window_.openDate)} → {fmtDate(window_.closeDate)}
+                  {" · "}AY <strong>{window_.academicYear}</strong>
+                </div>
+              </div>
+
+              {/* ── Settings fields ── */}
+              <div className="settings-panel__fields">
+
+                {/* Academic Year */}
+                <div className="settings-panel__field">
+                  <label className="settings-panel__label">
+                    Academic Year
+                    <span className="settings-panel__hint">Leave blank to auto-calculate from open date</span>
+                  </label>
+                  <input
+                    className="settings-panel__input"
+                    value={draft.academic_year}
+                    onChange={(e) => setDraft((p) => ({ ...p, academic_year: e.target.value.replace(/\s+/g, "") }))}
+
+                    placeholder={`Auto: ${window_.academicYear}`}
+                  />
+                </div>
+
+                {/* Enrollment Open Date */}
+                <div className="settings-panel__field">
+                  <label className="settings-panel__label">
+                    Enrollment Open Date
+                    <span className="settings-panel__hint">Leave blank to use auto default (June 1)</span>
+                  </label>
+                  <input
+                    type="date"
+                    className="settings-panel__input"
+                    value={draft.open_date}
+                    onChange={(e) => setDraft((p) => ({ ...p, open_date: e.target.value }))}
+                  />
+                  {draft.open_date && (
+                    <button
+                      onClick={() => setDraft((p) => ({ ...p, open_date: "" }))}
+                      style={{ fontSize: 11, color: "#6b7280", background: "none", border: "none", cursor: "pointer", marginTop: 4, textDecoration: "underline" }}
+                    >
+                      Clear (use auto)
+                    </button>
+                  )}
+                </div>
+
+                {/* Window Duration */}
+                <div className="settings-panel__field">
+                  <label className="settings-panel__label">
+                    Enrollment Window Duration
+                    <span className="settings-panel__hint">Number of days the form stays open</span>
+                  </label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="number"
+                      min={1}
+                      max={60}
+                      className="settings-panel__input"
+                      style={{ width: 80 }}
+                      value={draft.window_days}
+                      onChange={(e) => setDraft((p) => ({ ...p, window_days: e.target.value }))}
+                    />
+                    <span style={{ fontSize: 13, color: "#6b7280" }}>
+                      days
+                      {draft.open_date || settings?.open_date
+                        ? ` · closes ${fmtDate((() => { const d = new Date((draft.open_date || settings?.open_date) + "T00:00:00"); d.setDate(d.getDate() + parseInt(draft.window_days, 10) - 1); return d; })())}`
+                        : ""}
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* ── Preview of new window ── */}
+              {(draft.open_date || draft.academic_year || draft.window_days !== (settings?.window_days ?? 7)) && (
+                <div className="settings-panel__preview">
+                  <span style={{ fontSize: 12, color: "#4f6ef7", fontWeight: 600 }}>📋 Preview after saving:</span>
+                  <span style={{ fontSize: 12, color: "#374151" }}>
+                    {" "}AY <strong>{draft.academic_year || computeEnrollmentWindow({ ...settings, ...draft, open_date: draft.open_date || null, academic_year: draft.academic_year || null }).academicYear}</strong>
+                    {" · "}Window: {fmtDate(computeEnrollmentWindow({ ...settings, ...draft, open_date: draft.open_date || null }).openDate)}
+                    {" → "}{fmtDate(computeEnrollmentWindow({ ...settings, ...draft, open_date: draft.open_date || null, window_days: draft.window_days }).closeDate)}
+                  </span>
+                </div>
+              )}
+
+              {/* ── Actions ── */}
+              <div className="settings-panel__actions">
+                <button className="btn-primary" onClick={handleSaveSettings} disabled={settingsSaving}>
+                  {settingsSaving ? "Saving…" : <><CheckCircle size={13} /> Save Settings</>}
+                </button>
+                <button className="btn-secondary" onClick={handleResetSettings} disabled={settingsSaving}>
+                  Reset to Defaults
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── STATS ── */}
       <div className="stats-grid">
         <div className="stat-card"><h3>Total</h3><p className="stat-number">{stats.total}</p></div>
         <div className="stat-card"><h3>Active</h3><p className="stat-number active">{stats.active}</p></div>
         <div className="stat-card"><h3>Pending</h3><p className="stat-number pending">{stats.pending}</p></div>
         <div className="stat-card"><h3>Dropped</h3><p className="stat-number overdue">{stats.dropped}</p></div>
         <div className="stat-card"><h3>Expired</h3><p className="stat-number expired">{stats.expired}</p></div>
+        {/* Live enrollment window indicator */}
+        <div className="stat-card" style={{ borderLeft: `3px solid ${window_.isOpen ? "#059669" : "#dc2626"}` }}>
+          <h3>Enrollment</h3>
+          <p className="stat-number" style={{ color: window_.isOpen ? "#059669" : "#dc2626", fontSize: 14 }}>
+            {window_.isOpen ? `Open · ${window_.daysLeft}d left` : "Closed"}
+          </p>
+        </div>
       </div>
 
-      {/* Controls */}
+      {/* ── CONTROLS ── */}
       <div className="enrollment-controls">
         <div className="search-box">
           <Search size={16} />
-          <input
-            type="text"
-            placeholder="Search by student, parent name or phone…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <input type="text" placeholder="Search by student, parent name or phone…" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
         <div className="filter-box">
           <Filter size={16} />
@@ -741,7 +805,7 @@ export default function EnrollmentManagement() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* ── TABLE ── */}
       <div className="enrollments-container">
         {loading ? (
           <div className="no-results">Loading…</div>
@@ -751,15 +815,9 @@ export default function EnrollmentManagement() {
           <table className="enrollments-table">
             <thead>
               <tr>
-                <th>Student Name</th>
-                <th>Grade Level</th>
-                <th>Enrollment Date</th>
-                <th>Status</th>
-                <th>Fee Status</th>
-                <th>Parent/Guardian</th>
-                <th>Phone</th>
-                <th>Approve / Decline</th>
-                <th>Actions</th>
+                <th>Student Name</th><th>Grade Level</th><th>Enrollment Date</th>
+                <th>Status</th><th>Fee Status</th><th>Parent/Guardian</th>
+                <th>Phone</th><th>Approve / Decline</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -767,11 +825,7 @@ export default function EnrollmentManagement() {
                 <tr key={row.id} style={row.expired ? { background: "#fdf4ff" } : {}}>
                   <td style={{ fontWeight: 500 }}>
                     {row.studentName}
-                    {row.expired && (
-                      <div style={{ fontSize: 10, color: "#9333ea", fontWeight: 600, marginTop: 2 }}>
-                        Expired · {formatExpiryDate(row.academicYear)}
-                      </div>
-                    )}
+                    {row.expired && <div style={{ fontSize: 10, color: "#9333ea", fontWeight: 600, marginTop: 2 }}>Expired · {formatExpiryDate(row.academicYear)}</div>}
                   </td>
                   <td>{row.gradeLevel}</td>
                   <td>{row.enrollmentDate ? new Date(row.enrollmentDate).toLocaleDateString() : "—"}</td>
@@ -779,63 +833,30 @@ export default function EnrollmentManagement() {
                   <td><FeeBadge fee={row.fee} /></td>
                   <td>{row.parentName}</td>
                   <td>{row.phone}</td>
-
                   <td>
                     {row.expired ? (
-                      <span style={{ color: "#9333ea", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                        <AlertTriangle size={13} /> Expired
-                      </span>
+                      <span style={{ color: "#9333ea", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}><AlertTriangle size={13} /> Expired</span>
                     ) : row.statusCode === "PENDING" ? (
                       <div className="approve-decline-group">
-                        <button className="btn-approve" onClick={() => handleApprove(row.id)}>
-                          <CheckCircle size={12} /> Approve
-                        </button>
-                        <button className="btn-decline" onClick={() => handleDecline(row.id)}>
-                          <XCircle size={12} /> Decline
-                        </button>
+                        <button className="btn-approve" onClick={() => handleApprove(row.id)}><CheckCircle size={12} /> Approve</button>
+                        <button className="btn-decline" onClick={() => handleDecline(row.id)}><XCircle size={12} /> Decline</button>
                       </div>
                     ) : row.statusCode === "ACTIVE" ? (
-                      <span style={{ color: "#059669", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                        <CheckCircle size={13} /> Approved
-                      </span>
+                      <span style={{ color: "#059669", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}><CheckCircle size={13} /> Approved</span>
                     ) : row.statusCode === "DROPPED" ? (
-                      <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                        <XCircle size={13} /> Declined
-                      </span>
+                      <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}><XCircle size={13} /> Declined</span>
                     ) : row.statusCode === "COMPLETED" ? (
-                      <span style={{ color: "#1d4ed8", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                        <CheckCircle size={13} /> Completed
-                      </span>
+                      <span style={{ color: "#1d4ed8", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}><CheckCircle size={13} /> Completed</span>
                     ) : <span style={{ opacity: 0.4 }}>—</span>}
                   </td>
-
                   <td>
                     <div className="action-buttons">
-                      <button className="btn-edit" title="View" onClick={() => openModal(row, "view")}>
-                        <Eye size={14} />
-                      </button>
-                      <button
-                        className="btn-edit"
-                        title={row.expired ? "Editing blocked — enrollment expired" : "Edit"}
-                        onClick={() => openModal(row, "edit")}
-                        style={row.expired ? { opacity: 0.35, cursor: "not-allowed" } : {}}
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      {/* Promote button — only for ACTIVE or COMPLETED */}
-                      {(row.statusCode === "ACTIVE" || row.statusCode === "COMPLETED") &&
-                       getNextGrade(row.raw.grade_level).next && (
-                        <button
-                          className="btn-promote"
-                          title={`Promote to ${gradeLabel(getNextGrade(row.raw.grade_level).next)}`}
-                          onClick={() => handlePromote(row)}
-                        >
-                          <ArrowUpCircle size={14} />
-                        </button>
+                      <button className="btn-edit" title="View" onClick={() => openModal(row, "view")}><Eye size={14} /></button>
+                      <button className="btn-edit" title={row.expired ? "Editing blocked — enrollment expired" : "Edit"} onClick={() => openModal(row, "edit")} style={row.expired ? { opacity: 0.35, cursor: "not-allowed" } : {}}><Edit2 size={14} /></button>
+                      {(row.statusCode === "ACTIVE" || row.statusCode === "COMPLETED") && getNextGrade(row.raw.grade_level).next && (
+                        <button className="btn-promote" title={`Promote to ${gradeLabel(getNextGrade(row.raw.grade_level).next)}`} onClick={() => handlePromote(row)}><ArrowUpCircle size={14} /></button>
                       )}
-                      <button className="btn-delete" title="Delete" onClick={() => handleDeleteEnrollment(row.id)}>
-                        <Trash2 size={14} />
-                      </button>
+                      <button className="btn-delete" title="Delete" onClick={() => handleDeleteEnrollment(row.id)}><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -845,17 +866,16 @@ export default function EnrollmentManagement() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* ══════════════════════════════════════
+          MODAL
+      ══════════════════════════════════════ */}
       {modalOpen && (
         <div className="modal-overlay">
           <div className="modal-content">
 
             {/* Expired banner */}
             {modalExpired && (
-              <div style={{
-                background: "#fdf4ff", border: "1.5px solid #d8b4fe",
-                borderRadius: 10, padding: "14px 16px", marginBottom: 18,
-              }}>
+              <div style={{ background: "#fdf4ff", border: "1.5px solid #d8b4fe", borderRadius: 10, padding: "14px 16px", marginBottom: 18 }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                   <AlertTriangle size={17} style={{ color: "#9333ea", flexShrink: 0, marginTop: 1 }} />
                   <div style={{ flex: 1 }}>
@@ -864,47 +884,22 @@ export default function EnrollmentManagement() {
                       This enrollment ended on <strong>{formatExpiryDate(formData.academic_year)}</strong>.
                       Editing is disabled — you can update the academic year to re-activate it.
                     </div>
-
-                    {/* ── Inline Academic Year Edit ── */}
                     {editingAcademicYear ? (
                       <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          <input
-                            name="academic_year"
-                            value={formData.academic_year}
-                            onChange={handleInputChange}
-                            placeholder="e.g. 2025-2026"
-                            style={{
-                              padding: "8px 12px", borderRadius: 8, fontSize: 13,
-                              border: "1.5px solid #a855f7", outline: "none",
-                              fontFamily: "inherit", width: 140,
-                            }}
-                          />
+                          <input name="academic_year" value={formData.academic_year} onChange={handleInputChange} placeholder="e.g. 2025-2026"
+                            style={{ padding: "8px 12px", borderRadius: 8, fontSize: 13, border: "1.5px solid #a855f7", outline: "none", fontFamily: "inherit", width: 140 }} />
                           {formData.academic_year && (
                             <span style={{ fontSize: 11, color: isEnrollmentExpired(formData.academic_year) ? "#9333ea" : "#059669" }}>
-                              {isEnrollmentExpired(formData.academic_year)
-                                ? `Still expired — ends ${formatExpiryDate(formData.academic_year)}`
-                                : `✓ Valid — expires ${formatExpiryDate(formData.academic_year)}`}
+                              {isEnrollmentExpired(formData.academic_year) ? `Still expired — ends ${formatExpiryDate(formData.academic_year)}` : `✓ Valid — expires ${formatExpiryDate(formData.academic_year)}`}
                             </span>
                           )}
                         </div>
-                        <button className="btn-primary" onClick={handleSaveAcademicYear}>
-                          <CheckCircle size={13} /> Save
-                        </button>
-                        <button className="btn-secondary" onClick={() => setEditingAcademicYear(false)}>
-                          Cancel
-                        </button>
+                        <button className="btn-primary" onClick={handleSaveAcademicYear}><CheckCircle size={13} /> Save</button>
+                        <button className="btn-secondary" onClick={() => setEditingAcademicYear(false)}>Cancel</button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => setEditingAcademicYear(true)}
-                        style={{
-                          marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6,
-                          padding: "7px 14px", borderRadius: 8, border: "1.5px solid #a855f7",
-                          background: "white", color: "#7e22ce", fontSize: 12, fontWeight: 600,
-                          cursor: "pointer", fontFamily: "inherit",
-                        }}
-                      >
+                      <button onClick={() => setEditingAcademicYear(true)} style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, border: "1.5px solid #a855f7", background: "white", color: "#7e22ce", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                         <Edit2 size={12} /> Edit Academic Year
                       </button>
                     )}
@@ -914,59 +909,29 @@ export default function EnrollmentManagement() {
             )}
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-              <h2>
-                {editingId
-                  ? "Enrollment Details"
-                  : formData.student_type === "old" && formData.grade_level
-                  ? `Promote to ${gradeLabel(formData.grade_level)}`
-                  : "Add Enrollee"}
-              </h2>
+              <h2>{editingId ? "Enrollment Details" : formData.student_type === "old" && formData.grade_level ? `Promote to ${gradeLabel(formData.grade_level)}` : "Add Enrollee"}</h2>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {editingId && !modalExpired && (
-                  modalMode === "view"
-                    ? <button className="btn-primary"   onClick={() => setModalMode("edit")}>Edit</button>
-                    : <button className="btn-secondary" onClick={() => setModalMode("view")}>View</button>
-                )}
-                {editingId && !modalExpired && modalStatus === "PENDING" && (
-                  <>
-                    <button className="btn-approve" onClick={handleApproveModal}><CheckCircle size={13} /> Approve</button>
-                    <button className="btn-decline" onClick={handleDeclineModal}><XCircle size={13} /> Decline</button>
-                  </>
-                )}
+                {editingId && !modalExpired && (modalMode === "view" ? <button className="btn-primary" onClick={() => setModalMode("edit")}>Edit</button> : <button className="btn-secondary" onClick={() => setModalMode("view")}>View</button>)}
+                {editingId && !modalExpired && modalStatus === "PENDING" && (<><button className="btn-approve" onClick={handleApproveModal}><CheckCircle size={13} /> Approve</button><button className="btn-decline" onClick={handleDeclineModal}><XCircle size={13} /> Decline</button></>)}
                 {editingId && modalStatus === "ACTIVE"    && !modalExpired && <span style={{ color: "#059669", fontWeight: 700, fontSize: 13 }}>✔ Approved</span>}
                 {editingId && modalStatus === "DROPPED"   && <span style={{ color: "#dc2626", fontWeight: 700, fontSize: 13 }}>✖ Declined</span>}
                 {editingId && modalStatus === "COMPLETED" && <span style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 13 }}>✔ Completed</span>}
                 {modalExpired && <span style={badgeStyle(STATUS_STYLES, "EXPIRED")}><AlertTriangle size={11} /> Expired</span>}
-                {/* Promote button in modal — for ACTIVE or COMPLETED */}
-                {editingId && (modalStatus === "ACTIVE" || modalStatus === "COMPLETED") && !modalExpired &&
-                  getNextGrade(formData.grade_level).next && (
-                  <button
-                    className="btn-promote"
-                    onClick={() => {
-                      // find the row and promote
-                      const match = normalized.find((r) => r.id === editingId);
-                      if (match) { closeModal(); handlePromote(match); }
-                    }}
-                  >
-                    <ArrowUpCircle size={13} />
-                    Promote to {gradeLabel(getNextGrade(formData.grade_level).next)}
+                {editingId && (modalStatus === "ACTIVE" || modalStatus === "COMPLETED") && !modalExpired && getNextGrade(formData.grade_level).next && (
+                  <button className="btn-promote" onClick={() => { const m = normalized.find((r) => r.id === editingId); if (m) { closeModal(); handlePromote(m); } }}>
+                    <ArrowUpCircle size={13} /> Promote to {gradeLabel(getNextGrade(formData.grade_level).next)}
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Promote info banner — shown when creating a promoted enrollment */}
+            {/* Promote info banner */}
             {!editingId && formData.student_type === "old" && formData.grade_level && (
-              <div style={{
-                background: "#f0fdf4", border: "1.5px solid #86efac",
-                borderRadius: 10, padding: "12px 16px", marginBottom: 18,
-                display: "flex", alignItems: "flex-start", gap: 10,
-              }}>
+              <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", borderRadius: 10, padding: "12px 16px", marginBottom: 18, display: "flex", alignItems: "flex-start", gap: 10 }}>
                 <ArrowUpCircle size={17} style={{ color: "#16a34a", flexShrink: 0, marginTop: 1 }} />
                 <div style={{ fontSize: 13, color: "#166534", lineHeight: 1.6 }}>
                   <strong>Promotion Enrollment</strong><br />
-                  Creating a new enrollment for <strong>{formData.first_name} {formData.last_name}</strong> —
-                  promoted to <strong>{gradeLabel(formData.grade_level)}</strong> for AY <strong>{formData.academic_year}</strong>.
+                  Creating a new enrollment for <strong>{formData.first_name} {formData.last_name}</strong> — promoted to <strong>{gradeLabel(formData.grade_level)}</strong> for AY <strong>{formData.academic_year}</strong>.
                   Personal and parent info has been carried over. Please set the <strong>Payment Mode</strong> before saving.
                 </div>
               </div>
@@ -982,22 +947,13 @@ export default function EnrollmentManagement() {
               <div className="form-group"><label>Birth Date</label><input type="date" name="birth_date" value={formData.birth_date || ""} onChange={handleInputChange} disabled={isReadOnly} max={todayISO()} /></div>
             </div>
 
-            {/* Live age/grade compatibility hint */}
             {formData.birth_date && formData.grade_level && !isReadOnly && (() => {
               const check = validateAgeForGrade(formData.birth_date, formData.grade_level);
               const age   = calcAge(formData.birth_date);
               const rule  = GRADE_AGE_RULES[formData.grade_level];
               return (
-                <div style={{
-                  padding: "9px 13px", borderRadius: 8, marginBottom: 12, fontSize: 12,
-                  background: check === true ? "#f0fdf4" : "#fff7ed",
-                  border: `1.5px solid ${check === true ? "#86efac" : "#fed7aa"}`,
-                  color: check === true ? "#166534" : "#92400e",
-                  display: "flex", alignItems: "center", gap: 7,
-                }}>
-                  {check === true
-                    ? <><CheckCircle size={13} /> Age {age} is valid for {rule?.label} (allowed: {rule?.min}–{rule?.max} yrs)</>
-                    : <><AlertTriangle size={13} /> {check}</>}
+                <div style={{ padding: "9px 13px", borderRadius: 8, marginBottom: 12, fontSize: 12, background: check === true ? "#f0fdf4" : "#fff7ed", border: `1.5px solid ${check === true ? "#86efac" : "#fed7aa"}`, color: check === true ? "#166534" : "#92400e", display: "flex", alignItems: "center", gap: 7 }}>
+                  {check === true ? <><CheckCircle size={13} /> Age {age} is valid for {rule?.label} (allowed: {rule?.min}–{rule?.max} yrs)</> : <><AlertTriangle size={13} /> {check}</>}
                 </div>
               );
             })()}
@@ -1006,9 +962,7 @@ export default function EnrollmentManagement() {
               <div className="form-group">
                 <label>Gender</label>
                 <select name="gender" value={formData.gender} onChange={handleInputChange} disabled={isReadOnly}>
-                  <option value="">Select</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
+                  <option value="">Select</option><option value="male">Male</option><option value="female">Female</option>
                 </select>
               </div>
               <div className="form-group"><label>LRN</label><input name="lrn" value={formData.lrn} onChange={handleInputChange} disabled={isReadOnly} /></div>
@@ -1018,13 +972,8 @@ export default function EnrollmentManagement() {
                 <label>Academic Year *</label>
                 <input name="academic_year" value={formData.academic_year} onChange={handleInputChange} disabled={isReadOnly} />
                 {formData.academic_year && (
-                  <span style={{
-                    fontSize: 11, marginTop: 4,
-                    color: isEnrollmentExpired(formData.academic_year) ? "#9333ea" : "#059669",
-                  }}>
-                    {isEnrollmentExpired(formData.academic_year)
-                      ? `Expired on ${formatExpiryDate(formData.academic_year)}`
-                      : `Expires ${formatExpiryDate(formData.academic_year)}`}
+                  <span style={{ fontSize: 11, marginTop: 4, color: isEnrollmentExpired(formData.academic_year) ? "#9333ea" : "#059669" }}>
+                    {isEnrollmentExpired(formData.academic_year) ? `Expired on ${formatExpiryDate(formData.academic_year)}` : `Expires ${formatExpiryDate(formData.academic_year)}`}
                   </span>
                 )}
               </div>
@@ -1035,17 +984,13 @@ export default function EnrollmentManagement() {
               <div className="form-group">
                 <label>Education Level *</label>
                 <select name="education_level" value={formData.education_level} onChange={handleInputChange} disabled={isReadOnly}>
-                  <option value="">Select</option>
-                  <option value="preschool">Preschool</option>
-                  <option value="elementary">Elementary</option>
+                  <option value="">Select</option><option value="preschool">Preschool</option><option value="elementary">Elementary</option>
                 </select>
               </div>
               <div className="form-group">
                 <label>Student Type *</label>
                 <select name="student_type" value={formData.student_type} onChange={handleInputChange} disabled={isReadOnly}>
-                  <option value="">Select</option>
-                  <option value="new">New / Transferee</option>
-                  <option value="old">Old Student</option>
+                  <option value="">Select</option><option value="new">New / Transferee</option><option value="old">Old Student</option>
                 </select>
               </div>
             </div>
@@ -1054,20 +999,13 @@ export default function EnrollmentManagement() {
                 <label>Grade Level *</label>
                 <select name="grade_level" value={formData.grade_level} onChange={handleInputChange} disabled={isReadOnly || !formData.education_level}>
                   <option value="">Select</option>
-                  {gradeOptions.map((g) => (
-                    <option key={g.value} value={g.value}>
-                      {g.label} (age {GRADE_AGE_RULES[g.value]?.min}–{GRADE_AGE_RULES[g.value]?.max})
-                    </option>
-                  ))}
+                  {gradeOptions.map((g) => <option key={g.value} value={g.value}>{g.label} (age {GRADE_AGE_RULES[g.value]?.min}–{GRADE_AGE_RULES[g.value]?.max})</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>Status</label>
                 <select name="status" value={formData.status} onChange={handleInputChange} disabled={isReadOnly}>
-                  <option value="PENDING">Pending</option>
-                  <option value="ACTIVE">Active</option>
-                  <option value="DROPPED">Dropped</option>
-                  <option value="COMPLETED">Completed</option>
+                  <option value="PENDING">Pending</option><option value="ACTIVE">Active</option><option value="DROPPED">Dropped</option><option value="COMPLETED">Completed</option>
                 </select>
               </div>
             </div>
@@ -1075,9 +1013,7 @@ export default function EnrollmentManagement() {
               <div className="form-group">
                 <label>Payment Mode *</label>
                 <select name="payment_mode" value={formData.payment_mode} onChange={handleInputChange} disabled={isReadOnly}>
-                  <option value="">Select</option>
-                  <option value="cash">Cash</option>
-                  <option value="installment">Installment</option>
+                  <option value="">Select</option><option value="cash">Cash</option><option value="installment">Installment</option>
                 </select>
               </div>
               <div className="form-group"><label>Remarks</label><input name="remarks" value={formData.remarks} onChange={handleInputChange} disabled={isReadOnly} /></div>
@@ -1121,9 +1057,7 @@ export default function EnrollmentManagement() {
             <div className="form-actions">
               <button className="btn-secondary" onClick={closeModal}>Close</button>
               {modalMode === "edit" && !modalExpired && (
-                <button className="btn-primary" onClick={handleSaveEnrollment}>
-                  {editingId ? "Save Changes" : "Create Enrollee"}
-                </button>
+                <button className="btn-primary" onClick={handleSaveEnrollment}>{editingId ? "Save Changes" : "Create Enrollee"}</button>
               )}
             </div>
           </div>

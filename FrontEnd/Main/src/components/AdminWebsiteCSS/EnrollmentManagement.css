@@ -450,3 +450,520 @@
   .form-row { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@600;700;800&display=swap');
+
+/* ============================================
+   ENROLLMENT MANAGEMENT - REDESIGNED
+   ============================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+.enrollment-management {
+  padding: 28px;
+  background: #f0f2f7;
+  min-height: 100vh;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ========== HEADER ========== */
+.enrollment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+  background: #1a1d2e;
+  padding: 22px 28px;
+  border-radius: 16px;
+}
+
+.enrollment-header h1 {
+  margin: 0;
+  font-family: 'Syne', sans-serif;
+  font-size: 24px;
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* ========== BUTTONS ========== */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  background: #4f6ef7;
+  color: white;
+  transition: background 0.2s, transform 0.15s;
+}
+.btn-primary:hover { background: #3a57e8; transform: translateY(-1px); }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  background: #e8eaf0;
+  color: #374151;
+  transition: background 0.2s;
+}
+.btn-secondary:hover { background: #d4d7e3; }
+
+.btn-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  background: #4f6ef7;
+  color: white;
+  transition: background 0.2s;
+}
+.btn-edit:hover { background: #3a57e8; }
+
+.btn-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  background: #fee2e2;
+  color: #dc2626;
+  transition: background 0.2s;
+}
+.btn-delete:hover { background: #fecaca; }
+
+/* ── Settings button ── */
+.btn-settings {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+  background: white; color: #374151; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s;
+}
+.btn-settings:hover           { border-color: #4f6ef7; color: #4f6ef7; }
+.btn-settings--active         { border-color: #4f6ef7; background: #eff2ff; color: #4f6ef7; }
+
+/* ── Settings panel ── */
+.settings-panel {
+  background: white;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.settings-panel__header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 20px;
+  background: #f9fafb;
+  border-bottom: 1.5px solid #e5e7eb;
+}
+.settings-panel__status {
+  display: flex; align-items: center; gap: 12; flex-wrap: wrap;
+  gap: 10px; padding: 14px 20px;
+  background: #f9fafb; border-bottom: 1px solid #f3f4f6;
+}
+.settings-panel__status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border-radius: 20px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+}
+.settings-panel__fields {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px; padding: 20px;
+}
+.settings-panel__field { display: flex; flex-direction: column; gap: 6px; }
+.settings-panel__label {
+  font-size: 12px; font-weight: 600; color: #374151;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.settings-panel__hint { font-weight: 400; color: #9ca3af; font-size: 11px; }
+.settings-panel__input {
+  padding: 8px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+  font-size: 13px; font-family: 'DM Sans', sans-serif; color: #1f2937;
+  transition: border-color 0.2s; outline: none;
+}
+.settings-panel__input:focus { border-color: #4f6ef7; }
+.settings-panel__preview {
+  margin: 0 20px 16px; padding: 10px 14px;
+  background: #eff2ff; border-radius: 8px;
+  display: flex; align-items: center; gap: 8; flex-wrap: wrap; gap: 6px;
+}
+.settings-panel__actions {
+  display: flex; gap: 10px; align-items: center;
+  padding: 14px 20px; border-top: 1.5px solid #f3f4f6;
+  background: #f9fafb;
+}
+
+.btn-promote {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  background: #eff6ff;
+  color: #1d4ed8;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.btn-promote:hover { background: #dbeafe; }
+
+.btn-approve {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  background: #d1fae5;
+  color: #065f46;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.btn-approve:hover { background: #a7f3d0; }
+
+.btn-decline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  background: #fee2e2;
+  color: #991b1b;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.btn-decline:hover { background: #fecaca; }
+
+/* ========== STATS ========== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: white;
+  padding: 20px 22px;
+  border-radius: 14px;
+  border: 1px solid #e5e8f0;
+}
+
+.stat-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.stat-number {
+  margin: 0;
+  font-family: 'Syne', sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  color: #1a1d2e;
+}
+.stat-number.active  { color: #059669; }
+.stat-number.pending { color: #d97706; }
+.stat-number.overdue   { color: #dc2626; }
+.stat-number.expired  { color: #9333ea; }
+
+/* ========== CONTROLS ========== */
+.enrollment-controls {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.search-box,
+.filter-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: white;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: 1px solid #e5e8f0;
+}
+
+.search-box input,
+.filter-box select {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  color: #374151;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.search-box input::placeholder { color: #b0b7c8; }
+.search-box svg, .filter-box svg { color: #9ca3af; flex-shrink: 0; }
+
+/* ========== TABLE ========== */
+.enrollments-container {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e5e8f0;
+  overflow-x: auto;
+  overflow-y: visible;
+  margin-bottom: 20px;
+}
+
+.enrollments-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1100px;
+}
+
+.enrollments-table thead {
+  background: #f8f9fc;
+  border-bottom: 1px solid #e5e8f0;
+}
+
+.enrollments-table th {
+  padding: 13px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  white-space: nowrap;
+}
+
+.enrollments-table tbody tr {
+  border-bottom: 1px solid #f3f4f8;
+  transition: background 0.15s;
+}
+.enrollments-table tbody tr:last-child { border-bottom: none; }
+.enrollments-table tbody tr:hover { background: #f8f9fc; }
+
+.enrollments-table td {
+  padding: 14px 16px;
+  font-size: 13px;
+  color: #1f2937;
+  vertical-align: middle;
+}
+
+/* ========== STATUS BADGES — FULLY SELF-CONTAINED ========== */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.status-badge.active    { background: #d1fae5; color: #065f46; }
+.status-badge.pending   { background: #fef3c7; color: #92400e; }
+.status-badge.dropped   { background: #fee2e2; color: #7f1d1d; }
+.status-badge.completed { background: #dbeafe; color: #1e40af; }
+
+.fee-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.fee-badge.paid    { background: #d1fae5; color: #065f46; }
+.fee-badge.pending { background: #fef3c7; color: #92400e; }
+.fee-badge.overdue { background: #fee2e2; color: #7f1d1d; }
+
+/* ========== ACTION BUTTONS ========== */
+.approve-decline-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ========== NO RESULTS ========== */
+.no-results {
+  padding: 60px 20px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+/* ========== MODAL ========== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 25, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(3px);
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal-content {
+  background: white;
+  padding: 28px 32px;
+  border-radius: 18px;
+  width: 90%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.25s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.modal-content h2 {
+  margin: 0;
+  font-family: 'Syne', sans-serif;
+  font-size: 20px;
+  color: #1a1d2e;
+  font-weight: 700;
+}
+
+.modal-content h3 {
+  margin: 20px 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #9ca3af;
+  border-bottom: 1px solid #f0f2f7;
+  padding-bottom: 8px;
+}
+
+/* ========== FORM ========== */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 14px;
+}
+
+.form-group label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.form-group input,
+.form-group select {
+  padding: 10px 13px;
+  border: 1.5px solid #e5e8f0;
+  border-radius: 9px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  color: #1f2937;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #4f6ef7;
+}
+
+.form-group input:disabled,
+.form-group select:disabled {
+  background: #f8f9fc;
+  color: #6b7280;
+  cursor: default;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+.form-actions button { flex: 1; justify-content: center; padding: 12px; }
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .enrollment-management { padding: 14px; }
+  .enrollment-header { flex-direction: column; gap: 14px; text-align: center; }
+  .enrollment-controls { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
