@@ -12,7 +12,7 @@ body, html {
   justify-content: center;
   align-items: center;
   background: 
-    linear-gradient(135deg, rgba(0, 123, 255, 0.6), rgba(255, 204, 0, 0.6)), 
+    linear-gradient(135deg, rgba(84, 155, 231, 0.6), rgba(227, 205, 115, 0.669)), 
     url('../../assets/CESI-cover.png') no-repeat center center;
   background-size: cover;
 }
