@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { TUITION_FEES } from "../../config/tuitionConfig";
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import { GRADE_AGE_RULES } from "../../config/EnrollmentConfig.js";
+=======
+import { GRADE_AGE_RULES } from "../../config/enrollmentConfig";
+>>>>>>> Stashed changes
 =======
 import { GRADE_AGE_RULES } from "../../config/enrollmentConfig";
 >>>>>>> Stashed changes
