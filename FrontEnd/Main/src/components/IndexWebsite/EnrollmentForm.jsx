@@ -316,13 +316,13 @@ const EnrollmentForm = ({ onClose }) => {
   ───────────────────────────────────────────── */
   return (
     <div className="enrollment-container">
-      <h2>📄 Enrollment Form</h2>
+      <h2>Enrollment Form</h2>
 
       {/* ── Enrollment window countdown ── */}
       <div className={`enrollment-window-notice ${daysLeft === 1 ? "enrollment-window-notice--urgent" : ""}`}>
-        <span>📅</span>
+        <span></span>
         <span>
-          Enrollment is open until <strong>{fmtDate(closeDate)}</strong>.{" "}
+          Enrollment is open until <strong >{fmtDate(closeDate)}</strong>.{" "}
           {daysLeft === 1 ? "⚠️ Last day today! Submit before midnight." : `${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining.`}
         </span>
       </div>
@@ -339,7 +339,7 @@ const EnrollmentForm = ({ onClose }) => {
         <div className="form-grid">
           <div className="form-group">
             <label>LRN</label>
-            <input value={lrn} onChange={(e) => setLrn(e.target.value)} />
+            <input value={lrn} onChange={(e) => setLrn(e.target.value)} placeholder="Pre-Kinder students may leave this field blank."/>
           </div>
           <div className="form-group">
             <label>Student Type</label>
@@ -579,7 +579,7 @@ const EnrollmentForm = ({ onClose }) => {
           </div>
           <div className="form-group">
             <label>Relationship to Student</label>
-            <input value={guardianRelationship} onChange={(e) => setGuardianRelationship(e.target.value)} placeholder="e.g. Aunt, Uncle, Grandparent" />
+            <input value={guardianRelationship} onChange={(e) => setGuardianRelationship(e.target.value)} placeholder="e.g. Sibling, Aunt/Uncle, Grandparent" />
           </div>
         </div>
 

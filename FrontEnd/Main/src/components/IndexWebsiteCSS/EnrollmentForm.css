@@ -21,6 +21,11 @@
   color: #2c3e50;
 }
 
+.enrollment-container h3 {
+font-size: 25px;
+}
+
+
 .enrollment-container .subtitle {
   text-align: center;
   color: #666;
@@ -253,7 +258,7 @@
 
 /* Parent/Guardian section sub-labels */
 .parent-section-label {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: #374151;
   margin: 16px 0 8px 0;
@@ -303,6 +308,12 @@
   border-color: #fdba74;
   color: #c2410c;
   font-weight: 500;
+}
+.enrollment-window-notice {
+  text-align: center;
+  margin-top: 10px;
+  margin-bottom: 30px;
+  font-style: italic ;
 }
 
 /* ── Age/grade validation hint ── */
