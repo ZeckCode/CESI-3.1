@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { TUITION_FEES } from "../../config/tuitionConfig";
+import { GRADE_AGE_RULES } from "../../config/EnrollmentConfig.js";
 import "../IndexWebsiteCSS/EnrollmentForm.css";
 
 const API_BASE = "http://127.0.0.1:8000";
