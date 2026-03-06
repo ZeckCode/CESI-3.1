@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { TUITION_FEES } from "../../config/tuitionConfig";
+<<<<<<< Updated upstream
 import { GRADE_AGE_RULES } from "../../config/EnrollmentConfig.js";
+=======
+import { GRADE_AGE_RULES } from "../../config/enrollmentConfig";
+>>>>>>> Stashed changes
 import "../IndexWebsiteCSS/EnrollmentForm.css";
 
 const API_BASE = "http://127.0.0.1:8000";
