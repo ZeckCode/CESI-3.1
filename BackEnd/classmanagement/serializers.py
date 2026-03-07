@@ -1,5 +1,17 @@
 from rest_framework import serializers
-from .models import Schedule
+from .models import Schedule, Room, SchoolYear
+
+
+class RoomSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Room
+        fields = ["id", "code", "name", "capacity", "is_active"]
+
+
+class SchoolYearSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SchoolYear
+        fields = ["id", "name", "start_date", "end_date", "is_active", "created_at"]
 
 
 class ScheduleReadSerializer(serializers.ModelSerializer):
@@ -9,6 +21,8 @@ class ScheduleReadSerializer(serializers.ModelSerializer):
     subject_code = serializers.CharField(source="subject.code", read_only=True)
     section_name = serializers.CharField(source="section.name", read_only=True)
     grade_level = serializers.IntegerField(source="section.grade_level", read_only=True)
+    room_code = serializers.CharField(source="room.code", read_only=True, allow_null=True)
+    school_year_name = serializers.CharField(source="school_year.name", read_only=True, allow_null=True)
 
     class Meta:
         model = Schedule
@@ -16,7 +30,9 @@ class ScheduleReadSerializer(serializers.ModelSerializer):
             "id", "teacher", "teacher_name",
             "subject", "subject_name", "subject_code",
             "section", "section_name", "grade_level",
-            "day_of_week", "start_time", "end_time", "room",
+            "day_of_week", "start_time", "end_time",
+            "room", "room_code",
+            "school_year", "school_year_name",
         ]
 
 
@@ -25,7 +41,7 @@ class ScheduleWriteSerializer(serializers.ModelSerializer):
         model = Schedule
         fields = [
             "id", "teacher", "subject", "section",
-            "day_of_week", "start_time", "end_time", "room",
+            "day_of_week", "start_time", "end_time", "room", "school_year",
         ]
 
     def validate(self, data):

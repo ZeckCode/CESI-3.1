@@ -7,11 +7,19 @@
       2. Install/update backend Python dependencies
       3. Install/update frontend npm packages
       4. Run Django migrations
-      5. Start Django dev server (port 8000)
-      6. Start Vite/React dev server (port 5173)
+      5. Import seed data from db_backup.json (if available)
+      6. Set up default school rooms
+      7. Start Django dev server (port 8000)
+      8. Start Vite/React dev server (port 5173)
 
     Both servers run side-by-side. Press Ctrl+C in either
     terminal window to stop that server.
+
+    To export database to JSON for version control:
+      cd BackEnd
+      .\venv\Scripts\Activate.ps1
+      python manage.py export_to_json --output db_backup.json
+
 .NOTES
     Run from the project ROOT folder (where BackEnd/ and FrontEnd/ live):
       .\start-dev.ps1
@@ -143,6 +151,21 @@ Write-Step "Applying database migrations..."
 Push-Location "$BackendDir"
 & "$VenvPython" manage.py migrate --run-syncdb 2>&1 | Out-Null
 Write-Ok "Migrations applied"
+
+# Import seed data from JSON if available and database is empty
+Write-Step "Checking for seed data..."
+$DbBackupFile = Join-Path $BackendDir "db_backup.json"
+if (Test-Path $DbBackupFile) {
+    Write-Ok "Found db_backup.json - checking for data import..."
+    & "$VenvPython" manage.py import_from_json --input "$DbBackupFile" 2>&1 | ForEach-Object { Write-Host "   $_" }
+} else {
+    Write-Warn "No db_backup.json found - database will use existing data"
+}
+
+# Set up default rooms if they don't exist
+Write-Step "Setting up default rooms..."
+& "$VenvPython" manage.py setup_rooms 2>&1 | ForEach-Object { Write-Host "   $_" }
+
 Pop-Location
 
 # =============================================
