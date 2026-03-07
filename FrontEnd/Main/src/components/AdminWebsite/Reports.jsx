@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { FileText, Download, Filter } from 'lucide-react';
+import { FileText, Download, Filter, BarChart2, Clock, CheckCircle } from 'lucide-react';
+import StatCard, { StatsGrid } from './StatCard';
 import '../AdminWebsiteCSS/ClassManagement.css'; // Reusing similar styles
 
 const Reports = () => {
-  const [reportType, setReportType] = useState('students');
+  const [reportType, setReportType] = useState('all');
   const [dateRange, setDateRange] = useState('all');
 
   const reports = [
@@ -14,13 +15,26 @@ const Reports = () => {
     { id: 5, name: 'Attendance Summary', type: 'attendance', date: '2026-01-13', format: 'PDF' },
   ];
 
+  const now = new Date();
+  const filteredReports = reports.filter((r) => {
+    if (reportType !== 'all' && r.type !== reportType) return false;
+    if (dateRange !== 'all') {
+      const d = new Date(r.date);
+      if (dateRange === 'month') {
+        if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false;
+      } else if (dateRange === 'quarter') {
+        const qNow = Math.floor(now.getMonth() / 3);
+        const qD = Math.floor(d.getMonth() / 3);
+        if (qD !== qNow || d.getFullYear() !== now.getFullYear()) return false;
+      } else if (dateRange === 'year') {
+        if (d.getFullYear() !== now.getFullYear()) return false;
+      }
+    }
+    return true;
+  });
+
   return (
     <div className="class-management">
-      {/* Header */}
-      <div className="class-header">
-        <h1>Reports & Analytics</h1>
-      </div>
-
       {/* Filters */}
       <div className="class-controls">
         <div className="filter-box">
@@ -43,6 +57,14 @@ const Reports = () => {
         </div>
       </div>
 
+      {/* Statistics */}
+      <StatsGrid>
+        <StatCard label="Total Reports" value={filteredReports.length} icon={<FileText size={20} />} color="blue" />
+        <StatCard label="This Month" value={reports.filter(r => { const d = new Date(r.date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length} icon={<BarChart2 size={20} />} color="green" />
+        <StatCard label="Pending" value={2} icon={<Clock size={20} />} color="yellow" />
+        <StatCard label="Generated Today" value={reports.filter(r => r.date === now.toISOString().slice(0, 10)).length} icon={<CheckCircle size={20} />} color="purple" />
+      </StatsGrid>
+
       {/* Reports Table */}
       <div className="classes-container">
         <div className="teacher-assignment-table">
@@ -56,7 +78,7 @@ const Reports = () => {
               </tr>
             </thead>
             <tbody>
-              {reports.map(report => (
+              {filteredReports.map(report => (
                 <tr key={report.id}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -76,26 +98,6 @@ const Reports = () => {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* Statistics */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <h3>Total Reports</h3>
-          <p className="stat-number">{reports.length}</p>
-        </div>
-        <div className="stat-card">
-          <h3>This Month</h3>
-          <p className="stat-number">5</p>
-        </div>
-        <div className="stat-card">
-          <h3>Pending</h3>
-          <p className="stat-number">2</p>
-        </div>
-        <div className="stat-card">
-          <h3>Generated Today</h3>
-          <p className="stat-number">1</p>
         </div>
       </div>
 

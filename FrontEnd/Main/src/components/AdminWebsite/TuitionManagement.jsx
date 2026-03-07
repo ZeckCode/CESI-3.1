@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, Filter, Download, Plus, Edit2, Trash2, 
   DollarSign, AlertCircle, CheckCircle, Clock, ToggleLeft, ToggleRight
 } from 'lucide-react';
+import Pagination from './Pagination';
 import '../AdminWebsiteCSS/TuitionManagement.css';
 
 const TuitionManagement = () => {
@@ -13,6 +14,8 @@ const TuitionManagement = () => {
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
   const [selectedFee, setSelectedFee] = useState(null);
   const [viewMode, setViewMode] = useState('student'); // 'student' or 'grade'
+  const [tmPage, setTmPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // Mock student data with tuition information
   const studentTuition = [
@@ -277,6 +280,9 @@ const TuitionManagement = () => {
   };
 
   const filteredData = getFilteredData();
+  const tmTotalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+  const paginatedData = filteredData.slice((tmPage - 1) * ITEMS_PER_PAGE, tmPage * ITEMS_PER_PAGE);
+  useEffect(() => { setTmPage(1); }, [searchTerm, filterGrade, viewMode]);
   const stats = getPaymentStats();
 
   return (
@@ -335,10 +341,6 @@ const TuitionManagement = () => {
               {viewMode === 'student' ? <ToggleLeft size={18} /> : <ToggleRight size={18} />}
               {viewMode === 'student' ? 'Student View' : 'Grade View'}
             </button>
-            <button className="tm-btn-secondary" onClick={handleExportData}>
-              <Download size={18} />
-              Export
-            </button>
             <button className="tm-btn-primary" onClick={handleAddNew}>
               <Plus size={18} />
               Add New Fee
@@ -358,6 +360,10 @@ const TuitionManagement = () => {
               className="tm-search-input"
             />
           </div>
+          <button className="tm-btn-export" onClick={handleExportData}>
+            <Download size={18} />
+            Export
+          </button>
           <div className="tm-filter-group">
             <Filter size={20} />
             <select 
@@ -406,7 +412,7 @@ const TuitionManagement = () => {
             </thead>
             <tbody>
               {filteredData.length > 0 ? (
-                filteredData.map(item => (
+                paginatedData.map(item => (
                   <tr
                     key={item.id}
                     className={`tm-table-row ${hoveredRow === item.id ? 'tm-row-hover' : ''}`}
@@ -487,6 +493,7 @@ const TuitionManagement = () => {
               )}
             </tbody>
           </table>
+          <Pagination currentPage={tmPage} totalPages={tmTotalPages} onPageChange={setTmPage} totalItems={filteredData.length} itemsPerPage={ITEMS_PER_PAGE} />
         </div>
       </section>
 

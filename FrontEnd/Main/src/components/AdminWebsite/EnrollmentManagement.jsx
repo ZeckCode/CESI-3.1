@@ -3,7 +3,10 @@ import {
   Edit2, Trash2, Search, Filter,
   CheckCircle, Clock, AlertCircle, XCircle, Eye, RefreshCw,
   AlertTriangle, ArrowUpCircle, Settings, Calendar, X,
+  Users, UserCheck, UserMinus, UserX,
 } from "lucide-react";
+import StatCard, { StatsGrid } from './StatCard';
+import Pagination from './Pagination';
 import "../AdminWebsiteCSS/EnrollmentManagement.css";
 import { getToken } from "../Auth/auth";
 
@@ -278,6 +281,8 @@ export default function EnrollmentManagement() {
   const [loading, setLoading]           = useState(true);
   const [searchTerm, setSearchTerm]     = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
+  const [enrollPage, setEnrollPage]     = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   /* ── Modal ── */
   const [modalOpen, setModalOpen]                     = useState(false);
@@ -447,6 +452,11 @@ export default function EnrollmentManagement() {
       return matchesSearch && matchesStatus;
     });
   }, [normalized, searchTerm, filterStatus]);
+
+  // pagination
+  const enrollTotalPages = Math.ceil(filteredEnrollments.length / ITEMS_PER_PAGE);
+  const paginatedEnrollments = filteredEnrollments.slice((enrollPage - 1) * ITEMS_PER_PAGE, enrollPage * ITEMS_PER_PAGE);
+  useEffect(() => { setEnrollPage(1); }, [searchTerm, filterStatus]);
 
   const stats = useMemo(() => ({
     total:   normalized.length,
@@ -630,20 +640,38 @@ export default function EnrollmentManagement() {
     <div className="enrollment-management">
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
-      {/* ── HEADER ── */}
-      <div className="enrollment-header">
-        <h1>Enrollment Management</h1>
-        <div className="header-actions">
-          <button className="btn-primary" onClick={openCreateModal}>+ Add Enrollee</button>
-          <button className="btn-secondary" onClick={fetchEnrollments}><RefreshCw size={14} /> Refresh</button>
-          <button
-            className={`btn-settings ${settingsOpen ? "btn-settings--active" : ""}`}
-            onClick={() => setSettingsOpen((v) => !v)}
-            title="Enrollment Window Settings"
-          >
-            <Settings size={15} /> School Year Settings
-          </button>
+      {/* ── STATS + ACTIONS ── */}
+      <div className="enrollment-stats-section">
+        <div className="enrollment-stats-header">
+          <div className="enrollment-stats-title">Overview</div>
+          <div className="header-actions">
+            <button className="btn-primary" onClick={openCreateModal}>+ Add Enrollee</button>
+            <button className="btn-icon" onClick={fetchEnrollments} title="Refresh">
+              <RefreshCw size={16} />
+            </button>
+            <button
+              className={`btn-icon ${settingsOpen ? 'btn-icon--active' : ''}`}
+              onClick={() => setSettingsOpen((v) => !v)}
+              title="School Year Settings"
+            >
+              <Settings size={16} />
+            </button>
+          </div>
         </div>
+        <StatsGrid>
+          <StatCard label="Total" value={stats.total} icon={<Users size={20} />} color="blue" subtitle="All enrollees" />
+          <StatCard label="Active" value={stats.active} icon={<UserCheck size={20} />} color="green" subtitle={stats.total ? `${Math.round((stats.active / stats.total) * 100)}% of total` : '—'} subtitleType="positive" />
+          <StatCard label="Pending" value={stats.pending} icon={<Clock size={20} />} color="yellow" subtitle={stats.total ? `${Math.round((stats.pending / stats.total) * 100)}% of total` : '—'} />
+          <StatCard label="Dropped" value={stats.dropped} icon={<UserMinus size={20} />} color="red" subtitle={stats.total ? `${Math.round((stats.dropped / stats.total) * 100)}% of total` : '—'} subtitleType="negative" />
+          <StatCard label="Expired" value={stats.expired} icon={<UserX size={20} />} color="purple" subtitle={stats.total ? `${Math.round((stats.expired / stats.total) * 100)}% of total` : '—'} subtitleType="negative" />
+          <StatCard
+            label="Enrollment"
+            value={window_.isOpen ? `Open · ${window_.daysLeft}d left` : 'Closed'}
+            icon={<Calendar size={20} />}
+            color={window_.isOpen ? 'teal' : 'red'}
+            subtitle={window_.isOpen ? 'Accepting enrollees' : 'Window closed'}
+          />
+        </StatsGrid>
       </div>
 
       {/* ══════════════════════════════════════
@@ -770,22 +798,6 @@ export default function EnrollmentManagement() {
         </div>
       )}
 
-      {/* ── STATS ── */}
-      <div className="stats-grid">
-        <div className="stat-card"><h3>Total</h3><p className="stat-number">{stats.total}</p></div>
-        <div className="stat-card"><h3>Active</h3><p className="stat-number active">{stats.active}</p></div>
-        <div className="stat-card"><h3>Pending</h3><p className="stat-number pending">{stats.pending}</p></div>
-        <div className="stat-card"><h3>Dropped</h3><p className="stat-number overdue">{stats.dropped}</p></div>
-        <div className="stat-card"><h3>Expired</h3><p className="stat-number expired">{stats.expired}</p></div>
-        {/* Live enrollment window indicator */}
-        <div className="stat-card" style={{ borderLeft: `3px solid ${window_.isOpen ? "#059669" : "#dc2626"}` }}>
-          <h3>Enrollment</h3>
-          <p className="stat-number" style={{ color: window_.isOpen ? "#059669" : "#dc2626", fontSize: 14 }}>
-            {window_.isOpen ? `Open · ${window_.daysLeft}d left` : "Closed"}
-          </p>
-        </div>
-      </div>
-
       {/* ── CONTROLS ── */}
       <div className="enrollment-controls">
         <div className="search-box">
@@ -821,7 +833,7 @@ export default function EnrollmentManagement() {
               </tr>
             </thead>
             <tbody>
-              {filteredEnrollments.map((row) => (
+              {paginatedEnrollments.map((row) => (
                 <tr key={row.id} style={row.expired ? { background: "#fdf4ff" } : {}}>
                   <td style={{ fontWeight: 500 }}>
                     {row.studentName}
@@ -864,6 +876,7 @@ export default function EnrollmentManagement() {
             </tbody>
           </table>
         )}
+        <Pagination currentPage={enrollPage} totalPages={enrollTotalPages} onPageChange={setEnrollPage} totalItems={filteredEnrollments.length} itemsPerPage={ITEMS_PER_PAGE} />
       </div>
 
       {/* ══════════════════════════════════════

@@ -1,9 +1,7 @@
 /* Grades & Records Styles */
 .grades-records-main {
-  padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
-  background-color: #f8f9fa;
+  padding: 20px;
+  background-color: #ffffff;
   box-sizing: border-box;
 }
 
@@ -34,22 +32,27 @@
 
 .gr-stat-blue {
   border-left-color: #2196F3;
+  background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
 }
 
 .gr-stat-green {
   border-left-color: #10b981;
+  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
 }
 
 .gr-stat-yellow {
   border-left-color: #fbbf24;
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
 }
 
 .gr-stat-purple {
   border-left-color: #8b5cf6;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ffffff 100%);
 }
 
 .gr-stat-red {
   border-left-color: #ef4444;
+  background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
 }
 
 .gr-stat-header {
@@ -510,11 +513,48 @@ transform: translateY(-2px);
 }
 /* Responsive */
 @media (max-width: 768px) {
-.grades-records-main {
-padding: 1rem;
-}
-.gr-section-header {
-flex-direction: column;
+  .grades-records-main {
+    padding: 1rem;
+  }
+  .gr-section-header {
+    flex-direction: column;
+  }
+  .gr-header-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+  .gr-header-actions button,
+  .gr-date-input {
+    width: 100%;
+    justify-content: center;
+  }
+  .gr-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .gr-deadline-header {
+    flex-direction: column;
+  }
+  .gr-deadline-info {
+    flex-direction: column;
+    text-align: center;
+  }
+  .gr-btn-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+  .gr-tabs-container {
+    flex-direction: column;
+  }
+  .gr-filters-container {
+    flex-direction: column;
+  }
+  .gr-search-box {
+    min-width: 100%;
+  }
+  .gr-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* Mobile: convert table to stacked cards to avoid horizontal scrolling */
@@ -525,38 +565,23 @@ flex-direction: column;
   .gr-table tbody tr td { display: flex; justify-content: space-between; padding: 0.6rem 0.5rem; border-bottom: 1px dashed rgba(15,23,42,0.03); }
   .gr-table tbody tr td:last-child { border-bottom: 0; }
   .gr-search-box { min-width: 0; }
+  .gr-deadline-card { padding: 1.25rem; }
+  .gr-deadline-title { font-size: 1.2rem; }
 }
-.gr-header-actions {
-width: 100%;
-flex-direction: column;
-}
-.gr-header-actions button,
-.gr-date-input {
-width: 100%;
-justify-content: center;
-}
-.gr-stats-grid {
-grid-template-columns: 1fr;
-}
-.gr-deadline-header {
-flex-direction: column;
-}
-.gr-deadline-info {
-flex-direction: column;
-text-align: center;
-}
-.gr-btn-toggle {
-width: 100%;
-justify-content: center;
-}
-.gr-tabs-container {
-flex-direction: column;
-}
-.gr-filters-container {
-flex-direction: column;
-}
-.gr-search-box {
-min-width: 100%;
-}
+
+@media (max-width: 480px) {
+  .grades-records-main {
+    padding: 0.75rem;
+  }
+  .gr-stat-card {
+    padding: 1rem;
+  }
+  .gr-stat-value {
+    font-size: 1.5rem;
+  }
+  .gr-tab-button {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
 }
 

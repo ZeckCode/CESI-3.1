@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Edit2, Search, Filter, Users,
-  BookOpen, GraduationCap, Save, X,
+  BookOpen, GraduationCap, Save, X, UserCheck, UserX,
 } from 'lucide-react';
 import { apiFetch } from '../api/apiFetch';
+import StatCard, { StatsGrid } from './StatCard';
+import Pagination from './Pagination';
 import '../AdminWebsiteCSS/UserManagement.css';
 
 const UserManagement = () => {
@@ -18,6 +20,9 @@ const UserManagement = () => {
   const [activeTab, setActiveTab] = useState('students');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
+  const [studentPage, setStudentPage] = useState(1);
+  const [teacherPage, setTeacherPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // create teacher modal
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -136,6 +141,15 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
     return matchSearch && matchStatus;
   });
 
+  // ── pagination slicing ──
+  const studentTotalPages = Math.ceil(filteredStudents.length / ITEMS_PER_PAGE);
+  const paginatedStudents = filteredStudents.slice((studentPage - 1) * ITEMS_PER_PAGE, studentPage * ITEMS_PER_PAGE);
+  const teacherTotalPages = Math.ceil(filteredTeachers.length / ITEMS_PER_PAGE);
+  const paginatedTeachers = filteredTeachers.slice((teacherPage - 1) * ITEMS_PER_PAGE, teacherPage * ITEMS_PER_PAGE);
+
+  // reset page on filter/search/tab changes
+  useEffect(() => { setStudentPage(1); setTeacherPage(1); }, [searchTerm, filterStatus, activeTab]);
+
   // ── create teacher ──
   const handleCreateTeacher = async () => {
     setCreateError('');
@@ -235,7 +249,20 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
     <div className="user-management">
       {/* Header */}
       <div className="user-header">
-        <h1>User Management</h1>
+        <div className="tabs-container">
+          <button
+            className={`tab-btn ${activeTab === 'students' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('students'); setSearchTerm(''); setFilterStatus('All'); }}
+          >
+            <GraduationCap size={18} /> Students ({studentStats.total})
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'teachers' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('teachers'); setSearchTerm(''); setFilterStatus('All'); }}
+          >
+            <BookOpen size={18} /> Teachers ({teacherStats.total})
+          </button>
+        </div>
         {activeTab === 'teachers' && (
           <button className="btn-primary" onClick={() => setShowCreateForm(true)}>
             <Plus size={18} /> Add New Teacher
@@ -243,36 +270,20 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="tabs-container">
-        <button
-          className={`tab-btn ${activeTab === 'students' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('students'); setSearchTerm(''); setFilterStatus('All'); }}
-        >
-          <GraduationCap size={18} /> Students ({studentStats.total})
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'teachers' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('teachers'); setSearchTerm(''); setFilterStatus('All'); }}
-        >
-          <BookOpen size={18} /> Teachers ({teacherStats.total})
-        </button>
-      </div>
-
       {/* Stats */}
       {activeTab === 'students' && (
-        <div className="stats-grid">
-          <div className="stat-card"><h3>Total Students</h3><p className="stat-number">{studentStats.total}</p></div>
-          <div className="stat-card"><h3>Active</h3><p className="stat-number active">{studentStats.active}</p></div>
-          <div className="stat-card"><h3>Inactive</h3><p className="stat-number inactive">{studentStats.inactive}</p></div>
-        </div>
+        <StatsGrid>
+          <StatCard label="Total Students" value={studentStats.total} icon={<Users size={20} />} color="blue" />
+          <StatCard label="Active" value={studentStats.active} icon={<UserCheck size={20} />} color="green" />
+          <StatCard label="Inactive" value={studentStats.inactive} icon={<UserX size={20} />} color="red" />
+        </StatsGrid>
       )}
       {activeTab === 'teachers' && (
-        <div className="stats-grid">
-          <div className="stat-card"><h3>Total Teachers</h3><p className="stat-number">{teacherStats.total}</p></div>
-          <div className="stat-card"><h3>Active</h3><p className="stat-number active">{teacherStats.active}</p></div>
-          <div className="stat-card"><h3>Assigned to Subject</h3><p className="stat-number">{teacherStats.assigned}</p></div>
-        </div>
+        <StatsGrid>
+          <StatCard label="Total Teachers" value={teacherStats.total} icon={<BookOpen size={20} />} color="blue" />
+          <StatCard label="Active" value={teacherStats.active} icon={<UserCheck size={20} />} color="green" />
+          <StatCard label="Assigned to Subject" value={teacherStats.assigned} icon={<GraduationCap size={20} />} color="purple" />
+        </StatsGrid>
       )}
 
       {/* ── Create Teacher Modal ── */}
@@ -362,6 +373,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
       {activeTab === 'students' && (
         <div className="users-container">
           {filteredStudents.length > 0 ? (
+            <>
             <table className="users-table">
               <thead>
                 <tr>
@@ -377,7 +389,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                 </tr>
               </thead>
               <tbody>
-                {filteredStudents.map((u) => (
+                {paginatedStudents.map((u) => (
                   <tr key={u.id}>
                     <td><strong>{studentName(u)}</strong></td>
                     <td>{u.profile?.lrn || "—"}</td>
@@ -390,6 +402,8 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                 ))}
               </tbody>
             </table>
+            <Pagination currentPage={studentPage} totalPages={studentTotalPages} onPageChange={setStudentPage} totalItems={filteredStudents.length} itemsPerPage={ITEMS_PER_PAGE} />
+            </>
           ) : (
             <div className="no-results"><Users size={48} /><p>No students found.</p></div>
           )}
@@ -401,6 +415,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         <div className="users-container">
           {assignError && <div className="form-error" style={{ marginBottom: '1rem' }}>{assignError}</div>}
           {filteredTeachers.length > 0 ? (
+            <>
             <table className="users-table">
               <thead>
                 <tr>
@@ -414,7 +429,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                 </tr>
               </thead>
               <tbody>
-                {filteredTeachers.map((u) => {
+                {paginatedTeachers.map((u) => {
                   const isEditing = editingId === u.id;
                   const tp = u.teacher_profile;
                   return (
@@ -475,6 +490,8 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                 })}
               </tbody>
             </table>
+            <Pagination currentPage={teacherPage} totalPages={teacherTotalPages} onPageChange={setTeacherPage} totalItems={filteredTeachers.length} itemsPerPage={ITEMS_PER_PAGE} />
+            </>
           ) : (
             <div className="no-results"><BookOpen size={48} /><p>No teachers found.</p></div>
           )}

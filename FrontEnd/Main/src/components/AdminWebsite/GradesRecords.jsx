@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FileText, Download, Upload, Calendar, Lock, Unlock, 
   AlertCircle, CheckCircle, Search, Filter, Edit, Eye, 
   Users, XCircle, Clock, TrendingUp
 } from 'lucide-react';
+import Pagination from './Pagination';
 import '../AdminWebsiteCSS/GradesRecords.css';
 
 const GradesRecords = () => {
@@ -13,6 +14,8 @@ const GradesRecords = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedDate, setSelectedDate] = useState('2026-01-16');
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [grPage, setGrPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // Deadline status
   const [deadlineStatus, setDeadlineStatus] = useState({
@@ -196,6 +199,10 @@ const GradesRecords = () => {
     }
   });
 
+  const grTotalPages = Math.ceil(filteredStudents.length / ITEMS_PER_PAGE);
+  const paginatedStudents = filteredStudents.slice((grPage - 1) * ITEMS_PER_PAGE, grPage * ITEMS_PER_PAGE);
+  useEffect(() => { setGrPage(1); }, [searchTerm, filterGrade, filterStatus, activeTab]);
+
   const getGradeColor = (grade) => {
     if (grade === null) return 'gr-grade-pending';
     if (grade >= 90) return 'gr-grade-excellent';
@@ -206,6 +213,54 @@ const GradesRecords = () => {
 
   return (
     <main className="grades-records-main">
+      {/* Deadline Control - Only show for Grades tab */}
+      {activeTab === 'grades' && (
+        <section className="gr-section">
+          <div className="gr-deadline-card">
+            <div className="gr-deadline-header">
+              <div className="gr-deadline-info">
+                <div className="gr-deadline-icon">
+                  {deadlineStatus.isOpen ? (
+                    <Unlock size={32} className="gr-icon-open" />
+                  ) : (
+                    <Lock size={32} className="gr-icon-closed" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="gr-deadline-title">
+                    Grade Submission {deadlineStatus.isOpen ? 'Open' : 'Closed'}
+                  </h3>
+                  <p className="gr-deadline-subtitle">
+                    {deadlineStatus.isOpen 
+                      ? `Deadline: ${deadlineStatus.deadline}` 
+                      : 'Teachers cannot submit grades'}
+                  </p>
+                  <div className="gr-deadline-meta">
+                    <span>Last modified by {deadlineStatus.openedBy} on {deadlineStatus.openedDate}</span>
+                  </div>
+                </div>
+              </div>
+              <button 
+                className={`gr-btn-toggle ${deadlineStatus.isOpen ? 'gr-btn-close' : 'gr-btn-open'}`}
+                onClick={handleToggleDeadline}
+              >
+                {deadlineStatus.isOpen ? (
+                  <>
+                    <Lock size={18} />
+                    Close Deadline
+                  </>
+                ) : (
+                  <>
+                    <Unlock size={18} />
+                    Open Deadline
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Stats Overview */}
       <section className="gr-section">
         {activeTab === 'grades' ? (
@@ -290,54 +345,6 @@ const GradesRecords = () => {
           </div>
         )}
       </section>
-
-      {/* Deadline Control - Only show for Grades tab */}
-      {activeTab === 'grades' && (
-        <section className="gr-section">
-          <div className="gr-deadline-card">
-            <div className="gr-deadline-header">
-              <div className="gr-deadline-info">
-                <div className="gr-deadline-icon">
-                  {deadlineStatus.isOpen ? (
-                    <Unlock size={32} className="gr-icon-open" />
-                  ) : (
-                    <Lock size={32} className="gr-icon-closed" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="gr-deadline-title">
-                    Grade Submission {deadlineStatus.isOpen ? 'Open' : 'Closed'}
-                  </h3>
-                  <p className="gr-deadline-subtitle">
-                    {deadlineStatus.isOpen 
-                      ? `Deadline: ${deadlineStatus.deadline}` 
-                      : 'Teachers cannot submit grades'}
-                  </p>
-                  <div className="gr-deadline-meta">
-                    <span>Last modified by {deadlineStatus.openedBy} on {deadlineStatus.openedDate}</span>
-                  </div>
-                </div>
-              </div>
-              <button 
-                className={`gr-btn-toggle ${deadlineStatus.isOpen ? 'gr-btn-close' : 'gr-btn-open'}`}
-                onClick={handleToggleDeadline}
-              >
-                {deadlineStatus.isOpen ? (
-                  <>
-                    <Lock size={18} />
-                    Close Deadline
-                  </>
-                ) : (
-                  <>
-                    <Unlock size={18} />
-                    Open Deadline
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Tab Navigation */}
       <div className="gr-tabs-container">
@@ -463,7 +470,7 @@ const GradesRecords = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredStudents.map(student => (
+                {paginatedStudents.map(student => (
                   <tr 
                     key={student.id}
                     className={hoveredRow === student.id ? 'gr-row-hover' : ''}
@@ -547,7 +554,7 @@ const GradesRecords = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredStudents.map(student => (
+                {paginatedStudents.map(student => (
                   <tr 
                     key={student.id}
                     className={hoveredRow === student.id ? 'gr-row-hover' : ''}
@@ -589,6 +596,7 @@ const GradesRecords = () => {
               </tbody>
             </table>
           )}
+          <Pagination currentPage={grPage} totalPages={grTotalPages} onPageChange={setGrPage} totalItems={filteredStudents.length} itemsPerPage={ITEMS_PER_PAGE} />
         </div>
       </section>
     </main>

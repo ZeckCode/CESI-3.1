@@ -79,6 +79,10 @@ body {
   .main-content-sidebar-collapsed {
     margin-left: 70px;
   }
+
+  .main-content-collapsed {
+    margin-left: 0;
+  }
 }
 
 @media (max-width: 360px) {
@@ -89,7 +93,8 @@ body {
   .main-content-sidebar-collapsed {
     margin-left: 65px;
   }
-}
+
   .main-content-collapsed {
     margin-left: 0;
   }
+}

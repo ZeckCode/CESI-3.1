@@ -1,0 +1,343 @@
+/* Payment Reminders Styles — unified with GradesRecords */
+.pr-main {
+  padding: 20px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.pr-section {
+  margin-bottom: 2rem;
+}
+
+/* Stats Grid */
+.pr-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.pr-stat-card {
+  background-color: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid;
+  transition: all 0.3s ease;
+}
+
+.pr-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.pr-stat-blue {
+  border-left-color: #2196F3;
+  background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+}
+
+.pr-stat-yellow {
+  border-left-color: #fbbf24;
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+}
+
+.pr-stat-green {
+  border-left-color: #10b981;
+  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
+}
+
+.pr-stat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.pr-stat-label {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.pr-stat-icon {
+  color: #94a3b8;
+}
+
+.pr-stat-value {
+  font-size: 1.875rem;
+  font-weight: bold;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+}
+
+.pr-stat-change {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+/* Section Header */
+.pr-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.pr-section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.pr-section-subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+.pr-header-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* Buttons */
+.pr-btn-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.pr-btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.pr-btn-send {
+  background: linear-gradient(135deg, #2196F3, #1976D2);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
+}
+
+.pr-btn-send:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+}
+
+/* Filters */
+.pr-filters-container {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.pr-search-box {
+  flex: 1;
+  min-width: 300px;
+  position: relative;
+}
+
+.pr-search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+.pr-search-input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 3rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.pr-search-input:focus {
+  outline: none;
+  border-color: #2196F3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.pr-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #64748b;
+}
+
+.pr-filter-select {
+  padding: 0.75rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: white;
+}
+
+.pr-filter-select:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+/* Table */
+.pr-table-container {
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pr-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.pr-table thead {
+  background-color: #f8fafc;
+}
+
+.pr-table th {
+  padding: 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.pr-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  transition: background-color 0.2s ease;
+}
+
+.pr-table tbody tr:hover,
+.pr-row-hover {
+  background-color: #f8fafc;
+}
+
+.pr-table td {
+  padding: 1rem;
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.pr-student-name {
+  font-weight: 600;
+}
+
+.pr-amount {
+  font-weight: 700;
+  color: #ef4444;
+  font-size: 1rem;
+}
+
+/* Status Badge */
+.pr-status-badge {
+  padding: 0.375rem 0.875rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.pr-status-pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.pr-status-reminded {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+/* No Data */
+.pr-no-data {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #94a3b8;
+}
+
+.pr-no-data svg {
+  margin-bottom: 0.75rem;
+  opacity: 0.5;
+}
+
+.pr-no-data p {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pr-main {
+    padding: 1rem;
+  }
+
+  .pr-section-header {
+    flex-direction: column;
+  }
+
+  .pr-header-actions {
+    width: 100%;
+  }
+
+  .pr-btn-success {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pr-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pr-filters-container {
+    flex-direction: column;
+  }
+
+  .pr-search-box {
+    min-width: 100%;
+  }
+
+  .pr-table-container {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .pr-table { border: 0; }
+  .pr-table thead { display: none; }
+  .pr-table tbody tr { display: block; margin-bottom: 0.75rem; border: 1px solid rgba(15,23,42,0.04); border-radius: 8px; padding: 0.5rem; background: white; }
+  .pr-table tbody tr td { display: flex; justify-content: space-between; padding: 0.6rem 0.5rem; border-bottom: 1px dashed rgba(15,23,42,0.03); }
+  .pr-table tbody tr td:last-child { border-bottom: 0; }
+  .pr-search-box { min-width: 0; }
+}

@@ -60,6 +60,10 @@
   .header-subtitle {
     font-size: 0.75rem;
   }
+
+  .collapse-button {
+    display: none;
+  }
 }
 
 /* Make header respect the main container width */
