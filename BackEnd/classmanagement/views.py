@@ -6,8 +6,107 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.models import User, Subject, Section, TeacherProfile, UserProfile
-from .models import Schedule
-from .serializers import ScheduleReadSerializer, ScheduleWriteSerializer
+from .models import Schedule, Room, SchoolYear
+from .serializers import (
+    ScheduleReadSerializer, ScheduleWriteSerializer,
+    RoomSerializer, SchoolYearSerializer
+)
+
+
+# ══════════════════════════════════════════════════════
+# ROOM CRUD
+# ══════════════════════════════════════════════════════
+
+class RoomListCreate(generics.ListCreateAPIView):
+    """List all rooms or create a new one (admin only)."""
+    queryset = Room.objects.all()
+    serializer_class = RoomSerializer
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        if request.user.role != "ADMIN":
+            return Response({"detail": "Forbidden"}, status=403)
+        return super().create(request, *args, **kwargs)
+
+
+class RoomDetail(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update, or delete a room (admin only for write ops)."""
+    queryset = Room.objects.all()
+    serializer_class = RoomSerializer
+    permission_classes = [IsAuthenticated]
+
+    def update(self, request, *args, **kwargs):
+        if request.user.role != "ADMIN":
+            return Response({"detail": "Forbidden"}, status=403)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != "ADMIN":
+            return Response({"detail": "Forbidden"}, status=403)
+        return super().destroy(request, *args, **kwargs)
+
+
+# ══════════════════════════════════════════════════════
+# SCHOOL YEAR CRUD
+# ══════════════════════════════════════════════════════
+
+class SchoolYearListCreate(generics.ListCreateAPIView):
+    """List all school years or create a new one (admin only)."""
+    queryset = SchoolYear.objects.all()
+    serializer_class = SchoolYearSerializer
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        if request.user.role != "ADMIN":
+            return Response({"detail": "Forbidden"}, status=403)
+        return super().create(request, *args, **kwargs)
+
+
+class SchoolYearDetail(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update, or delete a school year."""
+    queryset = SchoolYear.objects.all()
+    serializer_class = SchoolYearSerializer
+    permission_classes = [IsAuthenticated]
+
+    def update(self, request, *args, **kwargs):
+        if request.user.role != "ADMIN":
+            return Response({"detail": "Forbidden"}, status=403)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != "ADMIN":
+            return Response({"detail": "Forbidden"}, status=403)
+        # Prevent deleting active school year
+        instance = self.get_object()
+        if instance.is_active:
+            return Response({"detail": "Cannot delete active school year. Deactivate it first."}, status=400)
+        return super().destroy(request, *args, **kwargs)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def activate_school_year(request, pk):
+    """Activate a specific school year (deactivates all others)."""
+    if request.user.role != "ADMIN":
+        return Response({"detail": "Forbidden"}, status=403)
+    try:
+        school_year = SchoolYear.objects.get(pk=pk)
+    except SchoolYear.DoesNotExist:
+        return Response({"detail": "School year not found"}, status=404)
+    
+    school_year.is_active = True
+    school_year.save()  # This will deactivate all others
+    return Response(SchoolYearSerializer(school_year).data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_active_school_year(request):
+    """Get the currently active school year."""
+    school_year = SchoolYear.objects.filter(is_active=True).first()
+    if not school_year:
+        return Response({"detail": "No active school year"}, status=404)
+    return Response(SchoolYearSerializer(school_year).data)
 
 
 # ══════════════════════════════════════════════════════
@@ -16,7 +115,7 @@ from .serializers import ScheduleReadSerializer, ScheduleWriteSerializer
 
 class ScheduleListCreate(generics.ListCreateAPIView):
     """
-    GET  — list schedules (filterable by ?section=, ?teacher=, ?subject=, ?day=)
+    GET  — list schedules (filterable by ?section=, ?teacher=, ?subject=, ?day=, ?school_year=)
     POST — create a single schedule entry (admin only)
     """
     permission_classes = [IsAuthenticated]
@@ -27,11 +126,13 @@ class ScheduleListCreate(generics.ListCreateAPIView):
         return ScheduleReadSerializer
 
     def get_queryset(self):
-        qs = Schedule.objects.select_related("teacher", "subject", "section").all()
+        qs = Schedule.objects.select_related("teacher", "subject", "section", "room", "school_year").all()
         section = self.request.query_params.get("section")
         teacher = self.request.query_params.get("teacher")
         subject = self.request.query_params.get("subject")
         day = self.request.query_params.get("day")
+        school_year = self.request.query_params.get("school_year")
+        room = self.request.query_params.get("room")
         if section:
             qs = qs.filter(section_id=section)
         if teacher:
@@ -40,6 +141,10 @@ class ScheduleListCreate(generics.ListCreateAPIView):
             qs = qs.filter(subject_id=subject)
         if day:
             qs = qs.filter(day_of_week=day.upper())
+        if school_year:
+            qs = qs.filter(school_year_id=school_year)
+        if room:
+            qs = qs.filter(room_id=room)
         return qs
 
     def create(self, request, *args, **kwargs):
@@ -47,16 +152,16 @@ class ScheduleListCreate(generics.ListCreateAPIView):
             return Response({"detail": "Forbidden"}, status=403)
         ser = ScheduleWriteSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        conflict = self._check_conflicts(ser.validated_data)
-        if conflict:
-            return Response({"detail": conflict}, status=400)
+        conflicts = self._check_conflicts(ser.validated_data)
+        if conflicts:
+            return Response({"detail": conflicts["message"], "conflicts": conflicts["details"]}, status=400)
         self.perform_create(ser)
-        obj = Schedule.objects.select_related("teacher", "subject", "section").get(pk=ser.instance.pk)
+        obj = Schedule.objects.select_related("teacher", "subject", "section", "room").get(pk=ser.instance.pk)
         return Response(ScheduleReadSerializer(obj).data, status=201)
 
     @staticmethod
     def _check_conflicts(data, exclude_id=None):
-        """Check for teacher or section time overlaps on the same day."""
+        """Check for teacher, section, or room time overlaps on the same day."""
         day = data["day_of_week"]
         start = data["start_time"]
         end = data["end_time"]
@@ -65,28 +170,53 @@ class ScheduleListCreate(generics.ListCreateAPIView):
         if exclude_id:
             base = base.exclude(pk=exclude_id)
 
+        conflicts = []
+        
+        # Teacher conflict
         teacher_conflict = base.filter(teacher=data["teacher"]).first()
         if teacher_conflict:
-            return (
-                f"Teacher {data['teacher'].username} already has "
-                f"{teacher_conflict.subject.name} at "
-                f"{teacher_conflict.start_time:%H:%M}\u2013{teacher_conflict.end_time:%H:%M} "
-                f"on {teacher_conflict.get_day_of_week_display()}"
-            )
+            conflicts.append({
+                "type": "teacher",
+                "message": f"Teacher {data['teacher'].username} already has "
+                          f"{teacher_conflict.subject.name} at "
+                          f"{teacher_conflict.start_time:%H:%M}–{teacher_conflict.end_time:%H:%M} "
+                          f"on {teacher_conflict.get_day_of_week_display()}"
+            })
 
+        # Section conflict
         section_conflict = base.filter(section=data["section"]).first()
         if section_conflict:
-            return (
-                f"Section {data['section'].name} already has "
-                f"{section_conflict.subject.name} at "
-                f"{section_conflict.start_time:%H:%M}\u2013{section_conflict.end_time:%H:%M} "
-                f"on {section_conflict.get_day_of_week_display()}"
-            )
+            conflicts.append({
+                "type": "section",
+                "message": f"Section {data['section'].name} already has "
+                          f"{section_conflict.subject.name} at "
+                          f"{section_conflict.start_time:%H:%M}–{section_conflict.end_time:%H:%M} "
+                          f"on {section_conflict.get_day_of_week_display()}"
+            })
+
+        # Room conflict (if room is specified)
+        room = data.get("room")
+        if room:
+            room_conflict = base.filter(room=room).first()
+            if room_conflict:
+                conflicts.append({
+                    "type": "room",
+                    "message": f"Room {room.code} is already booked for "
+                              f"{room_conflict.section.name} ({room_conflict.subject.name}) at "
+                              f"{room_conflict.start_time:%H:%M}–{room_conflict.end_time:%H:%M} "
+                              f"on {room_conflict.get_day_of_week_display()}"
+                })
+
+        if conflicts:
+            return {
+                "message": " | ".join([c["message"] for c in conflicts]),
+                "details": conflicts
+            }
         return None
 
 
 class ScheduleDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Schedule.objects.select_related("teacher", "subject", "section").all()
+    queryset = Schedule.objects.select_related("teacher", "subject", "section", "room", "school_year").all()
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
@@ -102,18 +232,20 @@ class ScheduleDetail(generics.RetrieveUpdateDestroyAPIView):
         ser = ScheduleWriteSerializer(instance, data=request.data, partial=partial)
         ser.is_valid(raise_exception=True)
         merged = {
-            **{f: getattr(instance, f) for f in ("teacher", "subject", "section", "day_of_week", "start_time", "end_time")},
+            **{f: getattr(instance, f) for f in ("teacher", "subject", "section", "day_of_week", "start_time", "end_time", "room")},
             **ser.validated_data,
         }
         if isinstance(merged.get("teacher"), int):
             merged["teacher"] = User.objects.get(pk=merged["teacher"])
         if isinstance(merged.get("section"), int):
             merged["section"] = Section.objects.get(pk=merged["section"])
-        conflict = ScheduleListCreate._check_conflicts(merged, exclude_id=instance.pk)
-        if conflict:
-            return Response({"detail": conflict}, status=400)
+        if isinstance(merged.get("room"), int):
+            merged["room"] = Room.objects.get(pk=merged["room"])
+        conflicts = ScheduleListCreate._check_conflicts(merged, exclude_id=instance.pk)
+        if conflicts:
+            return Response({"detail": conflicts["message"], "conflicts": conflicts["details"]}, status=400)
         ser.save()
-        obj = Schedule.objects.select_related("teacher", "subject", "section").get(pk=instance.pk)
+        obj = Schedule.objects.select_related("teacher", "subject", "section", "room").get(pk=instance.pk)
         return Response(ScheduleReadSerializer(obj).data)
 
     def destroy(self, request, *args, **kwargs):
@@ -153,7 +285,7 @@ def bulk_delete_schedules(request):
 def bulk_update_schedules(request):
     """
     Update multiple schedules at once. Only the fields supplied will be changed.
-    Body: { "ids": [1,2,3], "updates": { "teacher": 5, "day_of_week": "MON", "start_time": "08:00:00", "end_time": "09:00:00", "room": "Room 201" } }
+    Body: { "ids": [1,2,3], "updates": { "teacher": 5, "day_of_week": "MON", "start_time": "08:00:00", "end_time": "09:00:00", "room": 1 } }
     """
     if request.user.role != "ADMIN":
         return Response({"detail": "Forbidden"}, status=403)
@@ -165,11 +297,11 @@ def bulk_update_schedules(request):
     if not isinstance(updates, dict) or len(updates) == 0:
         return Response({"detail": "Provide at least one field to update."}, status=400)
 
-    allowed_fields = {"teacher", "subject", "section", "day_of_week", "start_time", "end_time", "room"}
+    allowed_fields = {"teacher", "subject", "section", "day_of_week", "start_time", "end_time", "room", "school_year"}
     clean = {}
     for k, v in updates.items():
         if k in allowed_fields and v not in (None, ""):
-            if k in ("teacher", "subject", "section"):
+            if k in ("teacher", "subject", "section", "room", "school_year"):
                 clean[k + "_id"] = int(v)
             else:
                 clean[k] = v

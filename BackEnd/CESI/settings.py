@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'enrollment',
     'finance',
     'grades',
+    'attendance',
+    'classmanagement',
 ]
 
 
