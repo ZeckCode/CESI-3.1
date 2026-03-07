@@ -388,7 +388,6 @@ const TuitionManagement = () => {
                   <>
                     <th>Student Name</th>
                     <th>Grade Level</th>
-                    <th>Parent/Guardian</th>
                     <th>Annual Fee</th>
                     <th>Amount Paid</th>
                     <th>Balance</th>
@@ -423,7 +422,6 @@ const TuitionManagement = () => {
                       <>
                         <td className="tm-table-cell tm-cell-bold">{item.studentName}</td>
                         <td className="tm-table-cell">{item.gradeLevel}</td>
-                        <td className="tm-table-cell">{item.parentName}</td>
                         <td className="tm-table-cell">₱{item.annualFee.toLocaleString()}</td>
                         <td className="tm-table-cell">₱{item.amountPaid.toLocaleString()}</td>
                         <td className="tm-table-cell">₱{item.balance.toLocaleString()}</td>
