@@ -183,7 +183,7 @@ const Dashboard = () => {
                 >
                   <div className="ann-list-title">{a.title || "Untitled"}</div>
                   <div className="ann-list-meta">
-                    {(a.target_role || "all").toUpperCase()} •{" "}
+                    {/* {(a.target_role ).toUpperCase()} •{" "} */}
                     {a.publish_date || a.created_at
                       ? new Date(a.publish_date || a.created_at).toLocaleString()
                       : ""}
@@ -289,7 +289,7 @@ function AnnouncementDetailModal({ a, onClose }) {
         <h2 className="ann-modal-title">{a.title || "Untitled"}</h2>
 
         <div className="ann-modal-meta">
-          {(a.target_role || "all").toUpperCase()} •{" "}
+          {(a.target_role ).toUpperCase()} •{" "}
           {a.publish_date || a.created_at
             ? new Date(a.publish_date || a.created_at).toLocaleString()
             : ""}

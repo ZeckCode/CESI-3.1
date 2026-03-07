@@ -450,8 +450,8 @@ const EnrollmentForm = ({ onClose }) => {
             <input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="09XXXXXXXXX or +639XXXXXXXXX" required />
           </div>
           <div className="form-group">
-            <label>Parent Facebook</label>
-            <input value={parentFacebook} onChange={(e) => setParentFacebook(e.target.value)} />
+            <label>Parent Facebook<span className="required">*</span></label>
+            <input value={parentFacebook} onChange={(e) => setParentFacebook(e.target.value)} required   />
           </div>
         </div>
 
@@ -510,29 +510,7 @@ const EnrollmentForm = ({ onClose }) => {
         <h3>👨‍👩‍👧 Parent / Guardian Information</h3>
 
         {/* ── Father ── */}
-        <p className="parent-section-label">Father</p>
-        <div className="form-grid">
-          <div className="form-group">
-            <label>First Name</label>
-            <input value={fatherFirst} onChange={(e) => setFatherFirst(e.target.value)} placeholder="First name" />
-          </div>
-          <div className="form-group">
-            <label>Middle Name</label>
-            <input value={fatherMiddle} onChange={(e) => setFatherMiddle(e.target.value)} placeholder="Middle name" />
-          </div>
-          <div className="form-group">
-            <label>Last Name</label>
-            <input value={fatherLast} onChange={(e) => setFatherLast(e.target.value)} placeholder="Last name" />
-          </div>
-          <div className="form-group">
-            <label>Contact Number</label>
-            <input value={fatherContact} onChange={(e) => setFatherContact(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label>Occupation</label>
-            <input value={fatherOccupation} onChange={(e) => setFatherOccupation(e.target.value)} />
-          </div>
-        </div>
+      
 
         {/* ── Mother ── */}
         <p className="parent-section-label">Mother</p>
@@ -556,6 +534,30 @@ const EnrollmentForm = ({ onClose }) => {
           <div className="form-group">
             <label>Occupation</label>
             <input value={motherOccupation} onChange={(e) => setMotherOccupation(e.target.value)} />
+          </div>
+        </div>
+
+          <p className="parent-section-label">Father</p>
+        <div className="form-grid">
+          <div className="form-group">
+            <label>First Name</label>
+            <input value={fatherFirst} onChange={(e) => setFatherFirst(e.target.value)} placeholder="First name" />
+          </div>
+          <div className="form-group">
+            <label>Middle Name</label>
+            <input value={fatherMiddle} onChange={(e) => setFatherMiddle(e.target.value)} placeholder="Middle name" />
+          </div>
+          <div className="form-group">
+            <label>Last Name</label>
+            <input value={fatherLast} onChange={(e) => setFatherLast(e.target.value)} placeholder="Last name" />
+          </div>
+          <div className="form-group">
+            <label>Contact Number</label>
+            <input value={fatherContact} onChange={(e) => setFatherContact(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label>Occupation</label>
+            <input value={fatherOccupation} onChange={(e) => setFatherOccupation(e.target.value)} />
           </div>
         </div>
 

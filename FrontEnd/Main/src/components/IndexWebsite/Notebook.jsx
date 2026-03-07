@@ -60,7 +60,7 @@ const Notebook = ({ onClose, openEnrollment }) => {
                     <div className="ann-top">
                       <div className="ann-title">{a.title || "Untitled"}</div>
                       <div className="ann-meta">
-                        <span className="ann-role">{a.target_role || "all"}</span>
+                        <span hidden className="ann-role">{a.target_role || "all"}</span>
                         <span>
                           {a.publish_date || a.created_at
                             ? new Date(a.publish_date || a.created_at).toLocaleString()
