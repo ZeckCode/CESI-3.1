@@ -51,7 +51,7 @@ const fmtDate = (date) =>
    ENROLLMENT CLOSED SCREEN
 ───────────────────────────────────────────── */
 const EnrollmentClosed = ({ window_, onClose }) => (
-  <div className="enrollment-container">
+  <div className="enrollment-container1">
     <div className="enrollment-closed">
       <div className="enrollment-closed__icon">🔒</div>
       <h2 className="enrollment-closed__title">Enrollment is Currently Closed</h2>
