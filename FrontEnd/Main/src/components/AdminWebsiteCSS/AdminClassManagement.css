@@ -5,30 +5,82 @@
 /* Note: Global reset styles (*, html, body, #root) are defined in index.css */
 
 .admin-class-management {
-  padding: 20px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 28px;
+  background: #ffffff;
   min-height: 100vh;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'DM Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* ========== HEADER SECTION ========== */
-.admin-class-header {
+/* ========== OVERVIEW STATS SECTION ========== */
+.cm-stats-section {
+  background: white;
+  border-radius: 16px;
+  padding: 20px 24px 24px;
+  margin-bottom: 24px;
+  border: 1px solid #e5e8f0;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+
+.cm-stats-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 25px;
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 18px;
 }
 
-.admin-class-header h1 {
-  margin: 0;
-  font-size: 28px;
-  color: #1f2937;
-  font-weight: 600;
+.cm-stats-title {
+  font-family: 'Syne', 'Segoe UI', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1d2e;
 }
+
+.cm-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cm-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1.5px solid #e5e8f0;
+  border-radius: 10px;
+  background: white;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cm-btn-icon:hover {
+  border-color: #4f6ef7;
+  color: #4f6ef7;
+  background: #f0f3ff;
+}
+
+/* ── Stat card overrides for class management ── */
+.admin-class-management .unified-stats-grid {
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 0;
+}
+
+.admin-class-management .unified-stat-card {
+  padding: 1.5rem 1.75rem;
+}
+
+.admin-class-management .unified-stat-value {
+  font-size: 2rem;
+}
+
+/* Colored background tints per card */
+.admin-class-management .unified-stat-card.blue   { background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%); }
+.admin-class-management .unified-stat-card.green  { background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%); }
+.admin-class-management .unified-stat-card.yellow { background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%); }
+.admin-class-management .unified-stat-card.red    { background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%); }
+.admin-class-management .unified-stat-card.purple { background: linear-gradient(135deg, #f5f3ff 0%, #ffffff 100%); }
+.admin-class-management .unified-stat-card.teal   { background: linear-gradient(135deg, #f0fdfa 0%, #ffffff 100%); }
 
 /* ========== SECTION HEADER ========== */
 .admin-section-header {
@@ -606,6 +658,8 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   margin-bottom: 25px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-schedule-table {
@@ -933,8 +987,12 @@
 
 @media (max-width: 768px) {
   .admin-class-management {
-    padding: 10px;
+    padding: 14px;
   }
+
+  .cm-stats-section { padding: 14px 16px 18px; }
+  .cm-stats-header { flex-direction: column; gap: 12px; text-align: center; }
+  .admin-class-management .unified-stats-grid { grid-template-columns: repeat(2, 1fr); }
 
   .admin-class-controls {
     grid-template-columns: 1fr;
@@ -1002,14 +1060,8 @@
     padding: 10px;
   }
 
-  .admin-class-header {
-    flex-direction: column;
-    gap: 15px;
-    align-items: flex-start;
-  }
-
-  .admin-class-header .admin-btn-primary {
-    width: 100%;
+  .admin-class-management .unified-stats-grid {
+    grid-template-columns: 1fr;
   }
 
   .admin-tabs-container {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Edit2, Trash2, Search, Filter, Clock, Users, BookOpen,
   Calendar, Save, X, UserCheck, Zap, ChevronDown, CheckSquare,
-  Home, AlertTriangle, Settings, AlertCircle,
+  Home, AlertTriangle, Settings, AlertCircle, RefreshCw,
 } from 'lucide-react';
 import StatCard, { StatsGrid } from './StatCard';
 import { apiFetch } from '../api/apiFetch';
@@ -162,7 +162,24 @@ const ClassManagement = () => {
 
   return (
     <div className="admin-class-management">
-      <div className="admin-class-header"><h1>Class Management</h1></div>
+
+      {/* ── OVERVIEW STATS + ACTIONS ── */}
+      <div className="cm-stats-section">
+        <div className="cm-stats-header">
+          <div className="cm-stats-title">Overview</div>
+          <div className="cm-header-actions">
+            <button className="cm-btn-icon" onClick={refreshAll} title="Refresh">
+              <RefreshCw size={16} />
+            </button>
+          </div>
+        </div>
+        <StatsGrid>
+          <StatCard label="Sections" value={sections.length} icon={<BookOpen size={20} />} color="blue" subtitle="Total classes" />
+          <StatCard label="Total Students" value={totalStudents} icon={<Users size={20} />} color="green" subtitle={sections.length ? `Across ${sections.length} sections` : '—'} />
+          <StatCard label="Subjects" value={subjects.length} icon={<BookOpen size={20} />} color="yellow" subtitle={subjects.length ? `${subjects.length} registered` : '—'} />
+          <StatCard label="Schedule Entries" value={schedules.length} icon={<Clock size={20} />} color="purple" subtitle={schedules.length ? `${schedules.length} slots` : '—'} />
+        </StatsGrid>
+      </div>
 
       {/* Tabs */}
       <div className="admin-tabs-container">
@@ -182,13 +199,6 @@ const ClassManagement = () => {
           <Settings size={18} /> School Year
         </button>
       </div>
-
-      <StatsGrid>
-        <StatCard label="Sections" value={sections.length} icon={<BookOpen size={22} />} color="blue" />
-        <StatCard label="Total Students" value={totalStudents} icon={<Users size={22} />} color="green" />
-        <StatCard label="Subjects" value={subjects.length} icon={<BookOpen size={22} />} color="yellow" />
-        <StatCard label="Schedule Entries" value={schedules.length} icon={<Clock size={22} />} color="purple" />
-      </StatsGrid>
 
       {activeTab === 'classes' && (
         <ClassesTab sections={sections} teachers={teachers} schedules={schedules}

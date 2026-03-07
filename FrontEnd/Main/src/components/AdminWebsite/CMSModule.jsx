@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "../AdminWebsiteCSS/CMSModule.css";
+import Pagination from './Pagination';
 import { useAuth } from "../Auth/useAuth";
 import { getToken } from "../Auth/auth";
 
@@ -269,6 +270,12 @@ export default function CMSModule() {
 
     return posts;
   }, [posts, audienceTab]);
+
+  const [cmsPage, setCmsPage] = useState(1);
+  const CMS_PER_PAGE = 6;
+  const cmsTotalPages = Math.ceil(filteredPosts.length / CMS_PER_PAGE);
+  const paginatedPosts = filteredPosts.slice((cmsPage - 1) * CMS_PER_PAGE, cmsPage * CMS_PER_PAGE);
+  useEffect(() => { setCmsPage(1); }, [audienceTab]);
 
   
   const [postOpen, setPostOpen] = useState(false);
@@ -572,7 +579,8 @@ export default function CMSModule() {
         ) : filteredPosts.length === 0 ? (
           <p>No announcements yet.</p>
         ) : (
-          filteredPosts.map((post) => {
+          <>
+          {paginatedPosts.map((post) => {
             const firstMedia = post?.media?.[0];
             const firstUrl = firstMedia?.file_url || firstMedia?.file || "";
             const firstName = String(firstMedia?.file || "").toLowerCase();
@@ -629,7 +637,9 @@ export default function CMSModule() {
                 </div>
               </div>
             );
-          })
+          })}
+          <Pagination currentPage={cmsPage} totalPages={cmsTotalPages} onPageChange={setCmsPage} totalItems={filteredPosts.length} itemsPerPage={CMS_PER_PAGE} />
+          </>
         )}
       </div>
             {/* view */}

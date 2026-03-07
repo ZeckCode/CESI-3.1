@@ -5,6 +5,7 @@ import {
   Plus, X, ChevronDown, ChevronUp, Edit2, Trash2
 } from 'lucide-react';
 import '../AdminWebsiteCSS/TransactionHistory.css';
+import Pagination from './Pagination';
 import { getToken } from '../Auth/auth';
 
 const API_BASE = '';
@@ -60,6 +61,8 @@ const TransactionHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [txnPage, setTxnPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // expandable student detail row
   const [expandedRow, setExpandedRow] = useState(null);
@@ -122,6 +125,11 @@ const TransactionHistory = () => {
     fetchTransactions();
     fetchStats();
   }, [fetchTransactions, fetchStats]);
+
+  // pagination
+  const txnTotalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
+  const paginatedTransactions = transactions.slice((txnPage - 1) * ITEMS_PER_PAGE, txnPage * ITEMS_PER_PAGE);
+  useEffect(() => { setTxnPage(1); }, [searchTerm, filterStatus]);
 
   // ── parent search ──
   const searchParents = useCallback(async (query) => {
@@ -441,7 +449,7 @@ const TransactionHistory = () => {
                   </td>
                 </tr>
               ) : (
-                transactions.map((txn) => (
+                paginatedTransactions.map((txn) => (
                   <React.Fragment key={txn.id}>
                   <tr
                     className={hoveredRow === txn.id ? 'th-row-hover' : ''}
@@ -528,6 +536,7 @@ const TransactionHistory = () => {
               )}
             </tbody>
           </table>
+          <Pagination currentPage={txnPage} totalPages={txnTotalPages} onPageChange={setTxnPage} totalItems={transactions.length} itemsPerPage={ITEMS_PER_PAGE} />
         </div>
       </section>
 

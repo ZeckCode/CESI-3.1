@@ -139,6 +139,10 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
   const toggleMenu = (menuId) => setExpandedMenus((p) => ({ ...p, [menuId]: !p[menuId] }));
 
   const handleMenuClick = (menuId, hasSubItems) => {
+    // Auto-expand sidebar when clicking in collapsed/icon mode
+    if (isCollapsed && !isMobile) {
+      onToggleCollapse?.();
+    }
     if (hasSubItems) {
       toggleMenu(menuId);
       return;

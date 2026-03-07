@@ -3,8 +3,8 @@
    ============================================ */
 
 .user-management {
-  padding: 20px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 28px;
+  background: #ffffff;
   min-height: 100vh;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -14,11 +14,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 25px;
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
 }
 
 .user-header h1 {
@@ -29,14 +25,19 @@
 }
 
 /* ========== TABS ========== */
+.user-header .tabs-container {
+  display: flex;
+  gap: 8px;
+  background: white;
+  padding: 6px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
 .tabs-container {
   display: flex;
-  gap: 10px;
-  margin-bottom: 25px;
-  background: white;
-  padding: 10px;
-  border-radius: 10px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  gap: 8px;
+  margin-bottom: 0;
 }
 
 .tab-btn {
@@ -130,51 +131,7 @@
   transform: scale(1.05);
 }
 
-/* ========== STATISTICS GRID ========== */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 20px;
-  margin-bottom: 25px;
-}
-
-.stat-card {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid #667eea;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
-}
-
-.stat-card h3 {
-  margin: 0;
-  font-size: 14px;
-  color: #6b7280;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.stat-number {
-  margin: 10px 0 0 0;
-  font-size: 28px;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.stat-number.active {
-  color: #10b981;
-}
-
-.stat-number.inactive {
-  color: #ef4444;
-}
+/* ========== STATISTICS (using unified StatCard) ========== */
 
 /* ========== MODAL STYLES ========== */
 .modal-overlay {
@@ -331,6 +288,8 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   margin-bottom: 25px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .users-table {
@@ -474,12 +433,14 @@
   }
 
   .tabs-container {
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
   }
 
   .tab-btn {
     justify-content: center;
-    width: 100%;
+    flex: 1;
+    min-width: 0;
   }
 
   .stats-grid {
@@ -556,6 +517,14 @@
     padding: 10px 15px;
     font-size: 13px;
   }
+}
+
+@media (max-width: 600px) {
+  .users-table { border: 0; }
+  .users-table thead { display: none; }
+  .users-table tbody tr { display: block; margin-bottom: 0.75rem; border: 1px solid rgba(15,23,42,0.04); border-radius: 8px; padding: 0.5rem; background: white; }
+  .users-table tbody tr td { display: flex; justify-content: space-between; padding: 0.6rem 0.5rem; border-bottom: 1px dashed rgba(15,23,42,0.03); }
+  .users-table tbody tr td:last-child { border-bottom: 0; }
 }
 
 /* ========== INLINE EDITING ========== */

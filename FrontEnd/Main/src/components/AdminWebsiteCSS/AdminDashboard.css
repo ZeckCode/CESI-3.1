@@ -7,6 +7,10 @@
   --as-narrow: 72px;
 }
 
+.admin-app-container{
+  background: #ffffff;
+}
+
 .admin-main{
   margin-left: var(--as-wide);
   width: calc(100% - var(--as-wide));
@@ -15,6 +19,7 @@
   overflow-x: hidden;
   min-width: 0;
   transition: margin-left .25s ease, width .25s ease;
+  background: #ffffff;
 }
 
 .admin-main.collapsed{

@@ -1,9 +1,7 @@
 /* Transaction History Styles */
 .transaction-history-main {
-  padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
-  background-color: #f8f9fa;
+  padding: 20px;
+  background-color: #ffffff;
 }
 
 .th-section {
@@ -33,14 +31,17 @@
 
 .th-stat-blue {
   border-left-color: #2196F3;
+  background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
 }
 
 .th-stat-green {
   border-left-color: #10b981;
+  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
 }
 
 .th-stat-yellow {
   border-left-color: #fbbf24;
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
 }
 
 .th-stat-header {
@@ -82,6 +83,8 @@
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .th-section-title {
@@ -182,7 +185,8 @@
   background-color: white;
   border-radius: 0.75rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .th-table {
@@ -210,7 +214,8 @@
   transition: background-color 0.2s ease;
 }
 
-.th-table tbody tr:hover {
+.th-table tbody tr:hover,
+.th-row-hover {
   background-color: #f8fafc;
 }
 
@@ -266,6 +271,16 @@
   color: #991b1b;
 }
 
+.th-status-overdue {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.th-status-reminded {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .transaction-history-main {
@@ -306,6 +321,15 @@
   .th-form-row {
     flex-direction: column;
   }
+}
+
+@media (max-width: 600px) {
+  .th-table { border: 0; min-width: 0; }
+  .th-table thead { display: none; }
+  .th-table tbody tr { display: block; margin-bottom: 0.75rem; border: 1px solid rgba(15,23,42,0.04); border-radius: 8px; padding: 0.5rem; background: white; }
+  .th-table tbody tr td { display: flex; justify-content: space-between; padding: 0.6rem 0.5rem; border-bottom: 1px dashed rgba(15,23,42,0.03); }
+  .th-table tbody tr td:last-child { border-bottom: 0; }
+  .th-search-box { min-width: 0; }
 }
 
 /* ═══════════════════════════════════

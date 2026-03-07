@@ -69,11 +69,31 @@ function AdminDashboard() {
       grades: "Grades & Records",
       cms: "CMS Module",
       reports: "Reports",
-      
+      tuition_management: "Tuition Management",
+      "transaction-history": "Transaction History",
+      "payment-reminders": "Payment Reminders",
       tuition: "Tuition Management",
       notifications: "SMS & Email",
     };
     return titles[activeMenu] || "Dashboard";
+  };
+
+  const getPageSubtitle = () => {
+    const subtitles = {
+      dashboard: "Welcome back! Here's what's happening today.",
+      enrollment: "Manage student enrollment records and applications.",
+      tuition_management: "Manage tuition fees and student billing.",
+      "transaction-history": "View and manage all payment transactions.",
+      "payment-reminders": "Send payment reminders to parents and guardians.",
+      grades: "View and manage student grades and attendance records.",
+      users: "Manage system users and access permissions.",
+      classes: "Organize and manage class sections.",
+      subjects: "Configure subject offerings.",
+      "assign-teachers": "Assign teachers to classes and subjects.",
+      cms: "Manage website content and announcements.",
+      reports: "Generate and view system reports.",
+    };
+    return subtitles[activeMenu] || "Welcome back! Here's what's happening today.";
   };
 
   return (
@@ -89,7 +109,7 @@ function AdminDashboard() {
       <main className={`admin-main ${sidebarCollapsed ? "collapsed" : ""}`}>
         <Header
           title={getPageTitle()}
-          subtitle="Welcome back! Here's what's happening today."
+          subtitle={getPageSubtitle()}
           onToggleCollapse={handleToggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />

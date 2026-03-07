@@ -6,12 +6,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 .cms-container {
-  padding: 32px;
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 20px;
+  margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   color: #1e293b;
-  background-color: #f8fafc;
+  background-color: #ffffff;
   min-height: 100vh;
 }
 

@@ -4,7 +4,7 @@
 
 .class-management {
   padding: 20px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: #ffffff;
   min-height: 100vh;
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
@@ -559,6 +559,8 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   margin-bottom: 25px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .schedule-table {
@@ -679,6 +681,8 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   margin-bottom: 25px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .assignments-table {
@@ -776,6 +780,10 @@
 
 /* ========== RESPONSIVE DESIGN ========== */
 @media (max-width: 768px) {
+  .class-management {
+    padding: 10px;
+  }
+
   .class-controls {
     grid-template-columns: 1fr;
   }
@@ -789,6 +797,10 @@
   }
 
   .subjects-grid-view {
+    grid-template-columns: 1fr;
+  }
+
+  .teachers-grid {
     grid-template-columns: 1fr;
   }
 
@@ -814,6 +826,22 @@
   .section-header .btn-primary {
     width: 100%;
     justify-content: center;
+  }
+
+  .class-header {
+    flex-direction: column;
+    gap: 15px;
+    padding: 16px;
+  }
+
+  .class-header .btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .schedule-table,
+  .assignments-table {
+    min-width: 700px;
   }
 }
 
@@ -1101,4 +1129,12 @@
     width: 100%;
   }
 }
+
+/* Colored background tints for stat cards */
+.class-management .unified-stat-card.blue   { background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%); }
+.class-management .unified-stat-card.green  { background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%); }
+.class-management .unified-stat-card.yellow { background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%); }
+.class-management .unified-stat-card.purple { background: linear-gradient(135deg, #f5f3ff 0%, #ffffff 100%); }
+.class-management .unified-stat-card.red    { background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%); }
+.class-management .unified-stat-card.teal   { background: linear-gradient(135deg, #f0fdfa 0%, #ffffff 100%); }
 
