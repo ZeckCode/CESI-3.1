@@ -89,7 +89,7 @@ function TeacherAnnouncementsPanel() {
                       <div className="tann-title">{a.title || "Untitled"}</div>
 
                       <div className="tann-meta">
-                        <span className="tann-role">
+                        <span hidden className="tann-role">
                           {(a.target_role || "all").replace("_", " ")}
                         </span>
                         <span>
@@ -158,7 +158,7 @@ function TeacherAnnouncementsPanel() {
                     <div className="tann-modal-right">
                       <div className="tann-modal-itemTitle">{a.title || "Untitled"}</div>
                       <div className="tann-modal-itemMeta">
-                        {(a.target_role || "all").replace("_", " ").toUpperCase()} •{" "}
+                        {/* {(a.target_role || "all").replace("_", " ").toUpperCase()} •{" "} */}
                         {a.publish_date || a.created_at
                           ? new Date(a.publish_date || a.created_at).toLocaleString()
                           : ""}
@@ -198,7 +198,7 @@ function TeacherAnnouncementDetailModal({ a, onClose }) {
         <h2 className="tann-modal-title">{a.title || "Untitled"}</h2>
 
         <div className="tann-modal-meta">
-          {(a.target_role || "all").replace("_", " ").toUpperCase()} •{" "}
+          {/* {(a.target_role || "all").replace("_", " ").toUpperCase()} •{" "} */}
           {a.publish_date || a.created_at
             ? new Date(a.publish_date || a.created_at).toLocaleString()
             : ""}
