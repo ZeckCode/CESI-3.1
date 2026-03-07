@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from "react";
-import AnnouncementCard from "./AnnouncementCard";
 import { useNavigate } from "react-router-dom";
 import "../IndexWebsiteCSS/Notebook.css";
 import "../IndexWebsiteCSS/AnnouncementCard.css";
 
-const API_BASE = "";  // use Vite proxy
+const API_BASE = ""; // use Vite proxy
 
 const Notebook = ({ onClose, openEnrollment }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("announcements");
   const [announcements, setAnnouncements] = useState([]);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
 
-  // ✅ Fetch announcements (public endpoint, no auth needed)
   useEffect(() => {
     fetch(`${API_BASE}/api/announcements/`)
       .then((res) => res.json())
@@ -21,19 +20,19 @@ const Notebook = ({ onClose, openEnrollment }) => {
       })
       .catch((err) => console.error("Error fetching announcements:", err));
   }, []);
-  function toAbsUrl(path) {
-  if (!path) return null;
-  return path.startsWith("http") ? path : `${API_BASE}${path}`;
-}
 
-  // ✅ helper: pick first image from media[]
+  function toAbsUrl(path) {
+    if (!path) return null;
+    return path.startsWith("http") ? path : `${API_BASE}${path}`;
+  }
+
   function getFirstImagePath(a) {
     const firstImage = a?.media?.find((m) =>
       /\.(jpg|jpeg|png|gif|webp)$/i.test(m?.file || m?.file_url || "")
     );
     return firstImage?.file || firstImage?.file_url || null;
   }
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+
   const content = {
     announcements: {
       title: "Announcements",
@@ -45,7 +44,6 @@ const Notebook = ({ onClose, openEnrollment }) => {
             announcements.map((a) => {
               const img = getFirstImagePath(a);
               const imgUrl = toAbsUrl(img);
-
               return (
                 <div
                   key={a.id}
@@ -58,11 +56,9 @@ const Notebook = ({ onClose, openEnrollment }) => {
                       <img src={imgUrl} alt="" />
                     </div>
                   )}
-
                   <div className="ann-right">
                     <div className="ann-top">
                       <div className="ann-title">{a.title || "Untitled"}</div>
-
                       <div className="ann-meta">
                         <span className="ann-role">{a.target_role || "all"}</span>
                         <span>
@@ -72,7 +68,6 @@ const Notebook = ({ onClose, openEnrollment }) => {
                         </span>
                       </div>
                     </div>
-
                     <p className="ann-desc">{a.content || a.description || ""}</p>
                   </div>
                 </div>
@@ -82,7 +77,6 @@ const Notebook = ({ onClose, openEnrollment }) => {
 
           {selectedAnnouncement && (() => {
             const modalImg = toAbsUrl(getFirstImagePath(selectedAnnouncement));
-
             return (
               <div
                 className="ann-modal-overlay"
@@ -95,29 +89,18 @@ const Notebook = ({ onClose, openEnrollment }) => {
                   >
                     ✕
                   </span>
-
-                  {modalImg && (
-                    <img src={modalImg} alt="" className="ann-modal-image" />
-                  )}
-
-                  <h2 className="ann-modal-title">
-                    {selectedAnnouncement.title || "Untitled"}
-                  </h2>
-
+                  {modalImg && <img src={modalImg} alt="" className="ann-modal-image" />}
+                  <h2 className="ann-modal-title">{selectedAnnouncement.title || "Untitled"}</h2>
                   <div className="ann-modal-meta">
                     {selectedAnnouncement.target_role || "all"} •{" "}
                     {selectedAnnouncement.publish_date || selectedAnnouncement.created_at
                       ? new Date(
-                          selectedAnnouncement.publish_date ||
-                            selectedAnnouncement.created_at
+                          selectedAnnouncement.publish_date || selectedAnnouncement.created_at
                         ).toLocaleString()
                       : ""}
                   </div>
-
                   <p className="ann-modal-content">
-                    {selectedAnnouncement.content ||
-                      selectedAnnouncement.description ||
-                      ""}
+                    {selectedAnnouncement.content || selectedAnnouncement.description || ""}
                   </p>
                 </div>
               </div>
@@ -126,7 +109,6 @@ const Notebook = ({ onClose, openEnrollment }) => {
         </div>
       ),
     },
-  
 
     "school-info": {
       title: "School Information",
@@ -171,7 +153,7 @@ const Notebook = ({ onClose, openEnrollment }) => {
           <h3>Our Mission</h3>
           <p style={{ textAlign: "justify", textIndent: "2em" }}>
             The mission of the School aims to train young people in the basic
-            skills necessary for success in everyday living through a effective,
+            skills necessary for success in everyday living through effective,
             flexible and challenging curriculum and approaches that will develop
             in them autonomy, appropriate knowledge and attitude, proper study
             habits, desirable Christian values, acceptable social behavior,
@@ -246,15 +228,9 @@ const Notebook = ({ onClose, openEnrollment }) => {
       </div>
 
       <div className="notebook-content">
-        {/* Left Bookmarks */}
+        {/* Left Sidebar / Bookmarks + Quick Links */}
         <div className="bookmarks-left">
-          {[
-            "announcements",
-            "school-info",
-            "mission-vision",
-            "enrollment-form",
-            "contact",
-          ].map((tab) => (
+          {Object.keys(content).map((tab) => (
             <button
               key={tab}
               className={`bookmark-btn ${activeTab === tab ? "active" : ""}`}
@@ -263,11 +239,39 @@ const Notebook = ({ onClose, openEnrollment }) => {
               {content[tab].title}
             </button>
           ))}
+
+          <hr className="sidebar-divider" />
+
+          <div className="quick-links">
+            <h4>🔗 Quick Links</h4>
+            <div className="quick-links-btns">
+              <a
+                href="https://www.facebook.com/cesicaloocan"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <button className="link-btn">🔔 Facebook</button>
+              </a>
+              <a
+                href="../../../public/oh.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <button className="link-btn">📅 School Calendar</button>
+              </a>
+              <a
+                href="../../../public/oh.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <button className="link-btn">📚 Tuition Fees</button>
+              </a>
+            </div>
+          </div>
         </div>
 
-        {/* Notebook Pages */}
+        {/* Right Page / Main Content */}
         <div className="notebook-pages">
-          {/* Left Page */}
           <div className="page-left">
             <div className="page-content">
               <h2>{content[activeTab].title}</h2>
@@ -293,50 +297,6 @@ const Notebook = ({ onClose, openEnrollment }) => {
             <div className="page-footer">
               <div className="page-number">CESI Elementary</div>
               <div className="page-date">Student Edition</div>
-            </div>
-          </div>
-
-          {/* Right Page */}
-          <div className="page-right">
-            <div className="action-section">
-              <h3>📋 Quick Actions</h3>
-              <button
-                className="action-btn enrollment-btn"
-                onClick={() => navigate("./login")}
-              >
-                👤 Login
-              </button>
-              <button
-                className="action-btn enrollment-btn"
-                onClick={() => setActiveTab("enrollment-form")}
-              >
-                🎓 Enrollment Procedure
-              </button>
-
-              <div className="quick-info">
-                <h4>❓ Need Help?</h4>
-                <p>
-                  For admission inquiries, visit our Registrar's Office from
-                  Monday to Friday, 8:00 AM to 4:30 PM.
-                </p>
-              </div>
-
-              <div className="quick-links">
-                <h4>🔗 Quick Links</h4>
-                <a
-                  href="https://www.facebook.com/cesicaloocan"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <button className="link-btn">🔔 Facebook</button>
-                </a>
-                <a href="../../../public/oh.pdf" target="_blank" rel="noopener noreferrer">
-                  <button className="link-btn">📅 School Calendar</button>
-                </a>
-                <a href="../../../public/oh.pdf" target="_blank" rel="noopener noreferrer">
-                  <button className="link-btn">📚 Tuition Fees</button>
-                </a>
-              </div>
             </div>
           </div>
         </div>
