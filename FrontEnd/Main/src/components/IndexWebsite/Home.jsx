@@ -1,39 +1,58 @@
 import React, { useState } from 'react';
 import '../IndexWebsiteCSS/Home.css';
-// import '../IndexWebsiteCSS/App.css';
+import { useNavigate } from "react-router-dom";
 import Notebook from './Notebook';
 import logo from "../../assets/CESI-logo.jpg";
 import EnrollmentForm from './EnrollmentForm';
 
 
 function App() {
+  const navigate = useNavigate();
   const [notebookOpen, setNotebookOpen] = useState(false);
   const [enrollmentOpen, setEnrollmentOpen] = useState(false);
-
 
   return (
     <div className="app">
       {/* Header - Full width */}
       <header className="index-header">
         <div className="index-header-container">
-          <div className="logo-section">
+          <div
+            className="logo-section"
+            onClick={() => {
+              setEnrollmentOpen(false);
+              setNotebookOpen(false);
+            }}
+          >
             <div className="logo-circle">
               <img src={logo} alt="CESI Logo" className="logo-image" />
             </div>
+
             <div className="school-name">
               <h1>Caloocan Evangelical School Inc.</h1>
               <p>Preschool and Elementary Education</p>
             </div>
           </div>
-          <button
-            className="apply-btn"
+          <div className="header-button">
+            <button
+              className="apply-btn"
+              onClick={() => {
+                setEnrollmentOpen(true);
+                setNotebookOpen(false); // close notebook automatically
+              }}
+            >
+              Apply Now
+            </button>
+
+            <button
+            className="login-btn"
             onClick={() => {
-              setEnrollmentOpen(true);
-              setNotebookOpen(false); // close notebook automatically
+              // navigate to login page
+              navigate("/login");
             }}
-          >
-            Apply Now
-          </button>
+            >
+              Login
+            </button>
+          </div>
         </div>
       </header>
 

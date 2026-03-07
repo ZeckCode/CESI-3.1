@@ -134,14 +134,6 @@
   font-size: 0.9rem;
 }
 
-.page-right {
-  flex: 1;
-  background-color: var(--yellow-light);
-  padding: 30px;
-  border-radius: 10px;
-  border: 2px dashed var(--yellow-dark);
-}
-
 .action-section h3 {
   color: var(--blue-dark);
   margin-bottom: 25px;
@@ -162,12 +154,6 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-}
-
-.admission-btn {
-  background-color: var(--primary-blue);
-  color: white;
-  box-shadow: 0 4px 0 var(--blue-dark);
 }
 
 .enrollment-btn {
@@ -226,23 +212,6 @@
   .notebook-pages {
     flex-direction: column;
   }
-  
-  .header {
-    padding: 15px 20px;
-  }
-  
-  .school-name h1 {
-    font-size: 1.4rem;
-  }
-  
-  .cover-title h2 {
-    font-size: 2.5rem;
-  }
-  
-  .book-cover {
-    width: 300px;
-    height: 400px;
-  }
 }
 
 /* Add to Notebook.css */
@@ -265,13 +234,12 @@
 
 
 
-.quick-links {
-  margin-top: 25px;
-}
 
 .quick-links h4 {
   color: var(--primary-blue);
-  margin-bottom: 15px;
+  margin-bottom: 5px;
+  font-size: 20px;
+  text-align: center;
 }
 
 
