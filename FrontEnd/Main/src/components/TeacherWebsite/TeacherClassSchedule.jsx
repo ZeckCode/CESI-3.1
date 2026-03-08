@@ -61,7 +61,7 @@ const TeacherClassSchedule = () => {
   // Assign colors to subjects
   const subjectColorMap = useMemo(() => {
     const map = {};
-    const uniqueSubjects = [...new Set(schedules.map(s => s.subject?.id || s.subject))];
+    const uniqueSubjects = [...new Set(schedules.map(s => s.subject))];
     uniqueSubjects.forEach((subj, idx) => {
       map[subj] = SUBJECT_COLORS[idx % SUBJECT_COLORS.length];
     });
@@ -70,7 +70,7 @@ const TeacherClassSchedule = () => {
 
   // Stats
   const stats = useMemo(() => {
-    const uniqueSections = new Set(schedules.map(s => s.section?.id || s.section));
+    const uniqueSections = new Set(schedules.map(s => s.section));
     const totalHours = schedules.reduce((sum, s) => {
       if (s.start_time && s.end_time) {
         const [sh, sm] = s.start_time.split(":").map(Number);
@@ -97,13 +97,19 @@ const TeacherClassSchedule = () => {
     return `${hour12}:${m} ${ampm}`;
   };
 
-  // Get class for a time slot and day
+  // Get class for a time slot and day (checks if class overlaps this hour)
   const getClassForSlot = (day, timeSlot) => {
+    const slotHour = parseInt(timeSlot.split(":")[0]);
+    
     return schedules.find((s) => {
       if (s.day_of_week !== day) return false;
       if (!s.start_time) return false;
-      const startHour = s.start_time.slice(0, 5);
-      return startHour === timeSlot;
+      
+      const startHour = parseInt(s.start_time.split(":")[0]);
+      const endHour = s.end_time ? parseInt(s.end_time.split(":")[0]) : startHour + 1;
+      
+      // Check if this slot is within the class time range
+      return slotHour >= startHour && slotHour < endHour;
     });
   };
 
@@ -211,13 +217,13 @@ const TeacherClassSchedule = () => {
                     .map((sched) => (
                       <tr className="tcsTr" key={sched.id}>
                         <td className="tcsTd tcsTd--subject">
-                          {sched.subject?.name || sched.subject_name}
-                          {sched.subject?.code && (
-                            <span className="tcsTd__code">{sched.subject.code}</span>
+                          {sched.subject_name}
+                          {sched.subject_code && (
+                            <span className="tcsTd__code">{sched.subject_code}</span>
                           )}
                         </td>
                         <td className="tcsTd">
-                          <span className="tcsPill">{sched.section?.name || sched.section_name}</span>
+                          <span className="tcsPill">{sched.section_name}</span>
                         </td>
                         <td className="tcsTd">
                           <span className="tcsDay">{DAY_MAP[sched.day_of_week]?.full || sched.day_of_week}</span>
@@ -228,7 +234,7 @@ const TeacherClassSchedule = () => {
                         <td className="tcsTd">
                           <span className="tcsRoom">
                             <MapPin size={14} />
-                            {sched.room?.name || sched.room_name || "TBA"}
+                            {sched.room_code || "TBA"}
                           </span>
                         </td>
                       </tr>
@@ -259,7 +265,7 @@ const TeacherClassSchedule = () => {
                     <td className="calTime">{formatTime(timeSlot + ":00")}</td>
                     {DAYS_ORDER.map((day) => {
                       const sched = getClassForSlot(day, timeSlot);
-                      const bgColor = sched ? subjectColorMap[sched.subject?.id || sched.subject] : "transparent";
+                      const bgColor = sched ? subjectColorMap[sched.subject] : "transparent";
                       return (
                         <td
                           key={day}
@@ -269,13 +275,13 @@ const TeacherClassSchedule = () => {
                           {sched && (
                             <div className="calBlock">
                               <div className="calBlock__title">
-                                {sched.subject?.name || sched.subject_name}
+                                {sched.subject_name}
                               </div>
                               <div className="calBlock__meta">
-                                {sched.section?.name || sched.section_name}
+                                {sched.section_name}
                               </div>
                               <div className="calBlock__meta">
-                                {sched.room?.name || sched.room_name || "TBA"}
+                                {sched.room_code || "TBA"}
                               </div>
                               <div className="calBlock__time">
                                 {formatTime(sched.start_time)} - {formatTime(sched.end_time)}
