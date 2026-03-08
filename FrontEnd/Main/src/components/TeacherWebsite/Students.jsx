@@ -1,56 +1,111 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { Search, Users, User, Mail, Phone, Calendar, ChevronDown, ChevronUp, FileText } from "lucide-react";
 import "../TeacherWebsiteCSS/Students.css";
+import { apiFetch } from "../api/apiFetch";
+
+const API = "";
 
 const Students = () => {
-  const [selectedClass, setSelectedClass] = useState("Grade 1 - Einstein");
+  const [sections, setSections] = useState([]);
+  const [selectedSection, setSelectedSection] = useState("");
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingStudents, setLoadingStudents] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedStudentId, setExpandedStudentId] = useState(null);
+  const [schoolYear, setSchoolYear] = useState(null);
 
-  const classes = useMemo(
-    () => [
-      "Grade 1 - Einstein",
-      "Grade 2 - Newton",
-      "Grade 3 - Galileo",
-      "Grade 4 - Pascal",
-      "Grade 5 - Darwin",
-      "Grade 6 - Atom",
-    ],
-    []
-  );
+  // Fetch sections on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const [secRes, syRes] = await Promise.all([
+          apiFetch(`${API}/api/attendance/my-sections/`),
+          apiFetch(`${API}/api/classmanagement/school-years/active/`),
+        ]);
 
-  const generateStudents = () => {
-    const allStudents = [];
-    classes.forEach((gradeName, gradeIdx) => {
-      for (let i = 1; i <= 10; i++) {
-        allStudents.push({
-          id: `LRN-10${gradeIdx + 1}${i.toString().padStart(2, "0")}`,
-          name: `Student ${i} (${gradeName.split(" - ")[0]})`,
-          grade: gradeName,
-          gender: i % 2 === 0 ? "Female" : "Male",
-          age: 6 + gradeIdx,
-          email: `student${i}.g${gradeIdx + 1}@school.edu`,
-          guardian: "Juan Dela Cruz",
-          guardianContact: "0917-000-0000",
-        });
+        if (secRes.ok) {
+          const data = await secRes.json();
+          setSections(data);
+          if (data.length > 0) {
+            setSelectedSection(String(data[0].id));
+          }
+        }
+
+        if (syRes.ok) {
+          const syData = await syRes.json();
+          setSchoolYear(syData);
+        }
+      } catch (e) {
+        console.error("Failed to load sections:", e);
+      } finally {
+        setLoading(false);
       }
-    });
-    return allStudents;
-  };
+    })();
+  }, []);
 
-  const [studentData] = useState(generateStudents);
+  // Fetch students when section changes
+  useEffect(() => {
+    if (!selectedSection) {
+      setStudents([]);
+      return;
+    }
 
+    (async () => {
+      setLoadingStudents(true);
+      try {
+        const res = await apiFetch(
+          `${API}/api/attendance/records/section_students/?section=${selectedSection}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setStudents(data);
+        } else {
+          setStudents([]);
+        }
+      } catch (e) {
+        console.error("Failed to load students:", e);
+        setStudents([]);
+      } finally {
+        setLoadingStudents(false);
+        setExpandedStudentId(null);
+      }
+    })();
+  }, [selectedSection]);
+
+  // Filter students by search term
   const filteredStudents = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    return studentData.filter(
-      (s) =>
-        s.grade === selectedClass &&
-        (s.name.toLowerCase().includes(term) || s.id.toLowerCase().includes(term))
-    );
-  }, [studentData, selectedClass, searchTerm]);
+    if (!term) return students;
+
+    return students.filter((s) => {
+      const fullName = `${s.user?.first_name || ""} ${s.user?.last_name || ""}`.toLowerCase();
+      const lrn = (s.lrn || "").toLowerCase();
+      const email = (s.user?.email || "").toLowerCase();
+      return fullName.includes(term) || lrn.includes(term) || email.includes(term);
+    });
+  }, [students, searchTerm]);
 
   const toggleStudent = (id) => {
     setExpandedStudentId((prev) => (prev === id ? null : id));
   };
+
+  // Get current section name
+  const currentSectionName = useMemo(() => {
+    const sec = sections.find((s) => String(s.id) === String(selectedSection));
+    return sec?.name || "—";
+  }, [sections, selectedSection]);
+
+  // Stats
+  const stats = useMemo(() => {
+    const male = filteredStudents.filter((s) => s.gender?.toLowerCase() === "male").length;
+    const female = filteredStudents.filter((s) => s.gender?.toLowerCase() === "female").length;
+    return {
+      total: filteredStudents.length,
+      male,
+      female,
+    };
+  }, [filteredStudents]);
 
   return (
     <div className="sr">
@@ -59,13 +114,18 @@ const Students = () => {
         <div className="sr__headerLeft">
           <h2 className="sr__title">Students Roster</h2>
           <p className="sr__subtitle">
-            Managing students for <span className="sr__classTag">{selectedClass}</span>
+            {schoolYear && (
+              <span className="sr__syTag">
+                <Calendar size={14} style={{ marginRight: 4, verticalAlign: "middle" }} />
+                S.Y. {schoolYear.name || `${schoolYear.start_year}-${schoolYear.end_year}`}
+              </span>
+            )}
           </p>
         </div>
 
         <div className="sr__headerRight">
           <div className="srSearch">
-            <span className="srSearch__icon" aria-hidden="true">🔎</span>
+            <Search size={16} className="srSearch__icon" />
             <input
               type="text"
               className="srSearch__input"
@@ -77,121 +137,189 @@ const Students = () => {
 
           <select
             className="sr__select"
-            value={selectedClass}
-            onChange={(e) => {
-              setSelectedClass(e.target.value);
-              setExpandedStudentId(null);
-            }}
+            value={selectedSection}
+            onChange={(e) => setSelectedSection(e.target.value)}
+            disabled={loading}
           >
-            {classes.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
+            {loading ? (
+              <option>Loading...</option>
+            ) : sections.length === 0 ? (
+              <option>No sections assigned</option>
+            ) : (
+              sections.map((sec) => (
+                <option key={sec.id} value={sec.id}>
+                  {sec.name}
+                </option>
+              ))
+            )}
           </select>
         </div>
       </header>
 
-      {/* Table */}
-      <section className="sr__card">
-        <div className="sr__tableWrap">
-          <table className="srTable">
-            <thead>
-              <tr>
-                <th className="srTh srTh--left">Student Name</th>
-                <th className="srTh">LRN (Student ID)</th>
-                <th className="srTh">Gender</th>
-                <th className="srTh">Action</th>
-              </tr>
-            </thead>
+      {/* Stats */}
+      <section className="sr__stats">
+        <div className="srStat">
+          <div className="srStat__icon srStat__icon--primary">
+            <Users size={20} />
+          </div>
+          <div>
+            <div className="srStat__label">Total Students</div>
+            <div className="srStat__value">{stats.total}</div>
+          </div>
+        </div>
 
-            <tbody>
-              {filteredStudents.map((student) => {
-                const isOpen = expandedStudentId === student.id;
-                const initial =
-                  student.name
-                    .replace("Student ", "")
-                    .trim()
-                    .charAt(0) || "S";
+        <div className="srStat">
+          <div className="srStat__icon srStat__icon--info">
+            <User size={20} />
+          </div>
+          <div>
+            <div className="srStat__label">Male</div>
+            <div className="srStat__value">{stats.male}</div>
+          </div>
+        </div>
 
-                return (
-                  <React.Fragment key={student.id}>
-                    <tr className="srTr">
-                      <td className="srTd srTd--left">
-                        <div className="srRow">
-                          <div className="srAvatar" aria-hidden="true">
-                            {initial.toUpperCase()}
-                          </div>
+        <div className="srStat">
+          <div className="srStat__icon srStat__icon--pink">
+            <User size={20} />
+          </div>
+          <div>
+            <div className="srStat__label">Female</div>
+            <div className="srStat__value">{stats.female}</div>
+          </div>
+        </div>
 
-                          <div className="srMain">
-                            <div className="srName">{student.name}</div>
-                            <div className="srEmail">{student.email}</div>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="srTd srId">{student.id}</td>
-                      <td className="srTd">{student.gender}</td>
-
-                      <td className="srTd">
-                        <button
-                          type="button"
-                          className={"srBtn " + (isOpen ? "srBtn--dark" : "srBtn--outline")}
-                          onClick={() => toggleStudent(student.id)}
-                        >
-                          {isOpen ? "Hide Info" : "View Info"}
-                        </button>
-                      </td>
-                    </tr>
-
-                    {isOpen && (
-                      <tr className="srDetailRow">
-                        <td colSpan={4} className="srDetailCell">
-                          <div className="srDetail">
-                            <div className="srDetail__grid">
-                              <div className="srField">
-                                <div className="srLabel">Age</div>
-                                <div className="srValue">{student.age} Years</div>
-                              </div>
-
-                              <div className="srField">
-                                <div className="srLabel">Guardian Name</div>
-                                <div className="srValue">{student.guardian}</div>
-                              </div>
-
-                              <div className="srField">
-                                <div className="srLabel">Guardian Contact</div>
-                                <div className="srValue">📞 {student.guardianContact}</div>
-                              </div>
-
-                              <div className="srActions">
-                                <button className="srMiniBtn srMiniBtn--light" type="button">
-                                  Edit
-                                </button>
-                                <button className="srMiniBtn srMiniBtn--primary" type="button">
-                                  Message
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-
-              {filteredStudents.length === 0 && (
-                <tr>
-                  <td className="srTd" colSpan={4}>
-                    No students found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="srStat">
+          <div className="srStat__icon srStat__icon--success">
+            <FileText size={20} />
+          </div>
+          <div>
+            <div className="srStat__label">Section</div>
+            <div className="srStat__value srStat__value--small">{currentSectionName}</div>
+          </div>
         </div>
       </section>
+
+      {/* Loading */}
+      {loadingStudents && (
+        <div className="sr__loading">Loading students...</div>
+      )}
+
+      {/* Table */}
+      {!loadingStudents && (
+        <section className="sr__card">
+          <div className="sr__tableWrap">
+            <table className="srTable">
+              <thead>
+                <tr>
+                  <th className="srTh srTh--left">Student Name</th>
+                  <th className="srTh">LRN</th>
+                  <th className="srTh">Gender</th>
+                  <th className="srTh">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredStudents.length === 0 ? (
+                  <tr>
+                    <td className="srTd sr__empty" colSpan={4}>
+                      {selectedSection ? "No students found." : "Select a section to view students."}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredStudents.map((student) => {
+                    const isOpen = expandedStudentId === student.id;
+                    const firstName = student.user?.first_name || "";
+                    const lastName = student.user?.last_name || "";
+                    const fullName = `${firstName} ${lastName}`.trim() || "Unknown Student";
+                    const initial = firstName.charAt(0) || lastName.charAt(0) || "S";
+                    const email = student.user?.email || "—";
+                    const lrn = student.lrn || "—";
+                    const gender = student.gender || "—";
+
+                    return (
+                      <React.Fragment key={student.id}>
+                        <tr className="srTr">
+                          <td className="srTd srTd--left">
+                            <div className="srRow">
+                              <div className="srAvatar" aria-hidden="true">
+                                {initial.toUpperCase()}
+                              </div>
+
+                              <div className="srMain">
+                                <div className="srName">{fullName}</div>
+                                <div className="srEmail">
+                                  <Mail size={12} />
+                                  {email}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="srTd srId">{lrn}</td>
+                          <td className="srTd">{gender}</td>
+
+                          <td className="srTd">
+                            <button
+                              type="button"
+                              className={`srBtn ${isOpen ? "srBtn--dark" : "srBtn--outline"}`}
+                              onClick={() => toggleStudent(student.id)}
+                            >
+                              {isOpen ? (
+                                <>
+                                  <ChevronUp size={14} />
+                                  Hide
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown size={14} />
+                                  View
+                                </>
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+
+                        {isOpen && (
+                          <tr className="srDetailRow">
+                            <td colSpan={4} className="srDetailCell">
+                              <div className="srDetail">
+                                <div className="srDetail__grid">
+                                  <div className="srField">
+                                    <div className="srLabel">Grade Level</div>
+                                    <div className="srValue">{student.grade_level || "—"}</div>
+                                  </div>
+
+                                  <div className="srField">
+                                    <div className="srLabel">Guardian Name</div>
+                                    <div className="srValue">{student.guardian_name || "—"}</div>
+                                  </div>
+
+                                  <div className="srField">
+                                    <div className="srLabel">Guardian Contact</div>
+                                    <div className="srValue">
+                                      <Phone size={12} />
+                                      {student.guardian_contact || "—"}
+                                    </div>
+                                  </div>
+
+                                  <div className="srField">
+                                    <div className="srLabel">Payment Mode</div>
+                                    <div className="srValue">{student.payment_mode || "—"}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   );
 };

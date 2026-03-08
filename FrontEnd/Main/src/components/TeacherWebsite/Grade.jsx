@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Plus, X, Edit2, Trash2, Save, ChevronDown, Settings } from "lucide-react";
+import { Plus, X, Edit2, Trash2, Save, ChevronDown, Settings, Calendar } from "lucide-react";
 import "../TeacherWebsiteCSS/Grade.css";
 import { apiFetch } from "../api/apiFetch";
 
@@ -30,6 +30,7 @@ const Grade = () => {
   const [gradeLevel, setGradeLevel] = useState(0);
   const [quarter, setQuarter] = useState(1);
   const [teacherSubject, setTeacherSubject] = useState(null); // {subject_id, subject_name, subject_code}
+  const [schoolYear, setSchoolYear] = useState(null); // active school year
 
   // ── data ──
   const [items, setItems] = useState([]);       // GradeItems for selected quarter + grade
@@ -52,14 +53,24 @@ const Grade = () => {
   const [editItem, setEditItem] = useState(null); // grade item being edited
   const [editForm, setEditForm] = useState({});
 
-  // ─── fetch teacher info on mount ───
+  // ─── fetch teacher info + active school year on mount ───
   useEffect(() => {
     (async () => {
       try {
-        const res = await apiFetch(`${API}/api/grades/teacher-info/`);
-        if (res.ok) {
-          const data = await res.json();
+        // Fetch teacher info and active school year in parallel
+        const [teacherRes, syRes] = await Promise.all([
+          apiFetch(`${API}/api/grades/teacher-info/`),
+          apiFetch(`${API}/api/classmanagement/school-years/active/`),
+        ]);
+        
+        if (teacherRes.ok) {
+          const data = await teacherRes.json();
           setTeacherSubject(data);
+        }
+        
+        if (syRes.ok) {
+          const syData = await syRes.json();
+          setSchoolYear(syData);
         }
       } catch (e) { console.error(e); }
     })();
@@ -284,6 +295,15 @@ const Grade = () => {
           <span className="ge__classTag">{GRADE_LEVELS.find((g) => g.value === gradeLevel)?.label}</span>
           {" · "}
           <span className="ge__quarterTag">Quarter {quarter}</span>
+          {schoolYear && (
+            <>
+              {" · "}
+              <span className="ge__syTag">
+                <Calendar size={12} style={{ marginRight: 4, verticalAlign: "middle" }} />
+                S.Y. {schoolYear.name || `${schoolYear.start_year}-${schoolYear.end_year}`}
+              </span>
+            </>
+          )}
         </p>
       </header>
 
