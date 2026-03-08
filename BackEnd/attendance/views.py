@@ -84,10 +84,12 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
     def bulk_upsert(self, request):
         """
         Create or update attendance records in bulk.
+        Now supports per-subject attendance with optional schedule field.
         Expected payload:
         {
             "section": 1,
             "date": "2025-01-15",
+            "schedule": 5,  // optional - for per-subject attendance
             "records": [
                 {"student_id": 10, "status": "PRESENT", "notes": ""},
                 {"student_id": 11, "status": "ABSENT", "notes": "Sick"},
@@ -99,6 +101,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
 
         section_id = serializer.validated_data["section"]
         record_date = serializer.validated_data["date"]
+        schedule_id = serializer.validated_data.get("schedule", None)
         records = serializer.validated_data["records"]
 
         created_count = 0
@@ -109,15 +112,22 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
             status_value = record_data["status"]
             notes = record_data.get("notes", "")
 
+            # Use schedule in update_or_create if provided
+            lookup = {
+                "student_id": student_id,
+                "date": record_date,
+                "schedule_id": schedule_id,
+            }
+            defaults = {
+                "section_id": section_id,
+                "status": status_value,
+                "notes": notes,
+                "marked_by": request.user,
+            }
+
             obj, created = AttendanceRecord.objects.update_or_create(
-                student_id=student_id,
-                date=record_date,
-                defaults={
-                    "section_id": section_id,
-                    "status": status_value,
-                    "notes": notes,
-                    "marked_by": request.user,
-                },
+                **lookup,
+                defaults=defaults,
             )
             if created:
                 created_count += 1
@@ -276,3 +286,118 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
             })
 
         return Response(results)
+
+
+class StudentAttendanceView(APIView):
+    """
+    Endpoints for students to view their own attendance.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Get the current student's attendance records.
+        Query params:
+        - month: filter by month (1-12)
+        - year: filter by year
+        - date: get records for specific date (for daily detail view)
+        """
+        user = request.user
+        if user.role != "PARENT_STUDENT":
+            return Response(
+                {"error": "Only students can access this endpoint"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Check if requesting daily detail
+        date_param = request.query_params.get("date")
+        if date_param:
+            # Return detailed per-subject attendance for that day
+            summary = AttendanceRecord.get_daily_summary(user.id, date_param)
+            return Response(summary)
+
+        # Otherwise return monthly attendance overview
+        records = AttendanceRecord.objects.filter(
+            student=user
+        ).select_related("schedule", "schedule__subject").order_by("-date")
+
+        # Filter by month/year if provided
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
+        if month:
+            records = records.filter(date__month=int(month))
+        if year:
+            records = records.filter(date__year=int(year))
+
+        # Group by date for calendar view
+        from collections import defaultdict
+        daily_data = defaultdict(lambda: {"present": 0, "absent": 0, "late": 0, "excused": 0, "total": 0})
+        
+        for record in records:
+            day = record.date.isoformat()
+            daily_data[day]["total"] += 1
+            if record.status == "PRESENT":
+                daily_data[day]["present"] += 1
+            elif record.status == "ABSENT":
+                daily_data[day]["absent"] += 1
+            elif record.status == "LATE":
+                daily_data[day]["late"] += 1
+            elif record.status == "EXCUSED":
+                daily_data[day]["excused"] += 1
+
+        # Determine overall status for each day (for calendar coloring)
+        calendar_data = []
+        for day, counts in daily_data.items():
+            total = counts["total"]
+            if total == 0:
+                overall = "none"
+            elif counts["absent"] > 0:
+                # If any absent, mark as partial
+                overall = "partial" if counts["present"] + counts["late"] > 0 else "absent"
+            elif counts["late"] > 0:
+                overall = "late"
+            else:
+                overall = "present"
+            
+            calendar_data.append({
+                "date": day,
+                "present": counts["present"],
+                "absent": counts["absent"],
+                "late": counts["late"],
+                "excused": counts["excused"],
+                "total": total,
+                "overall_status": overall,
+            })
+
+        return Response(sorted(calendar_data, key=lambda x: x["date"], reverse=True))
+
+
+class StudentAttendanceStatsView(APIView):
+    """
+    Get attendance statistics for the current student.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.role != "PARENT_STUDENT":
+            return Response(
+                {"error": "Only students can access this endpoint"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Get current school year date range
+        from datetime import date as date_class
+        today = date_class.today()
+        sy_start_year = today.year if today.month >= 6 else today.year - 1
+        sy_start = date_class(sy_start_year, 6, 1)
+        sy_end = date_class(sy_start_year + 1, 5, 31)
+
+        stats = AttendanceRecord.get_student_attendance_stats(
+            user.id, sy_start, sy_end
+        )
+
+        return Response({
+            "school_year": f"{sy_start_year}-{sy_start_year + 1}",
+            **stats,
+        })
