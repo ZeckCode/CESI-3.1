@@ -37,3 +37,11 @@
     overflow-y: visible;
   }
 }
+
+/* ── Student-portal cream-yellow background ── */
+.student-portal .admin-main {
+  background: #FFFFDF;
+}
+.student-portal .header {
+  background-color: #FFFFDF;
+}

@@ -2,12 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  UserCircle,
-  BookOpenText,
-  GraduationCap,
-  CalendarDays,
+  PenLine,
   ClipboardCheck,
   MessageSquare,
+  CalendarDays,
+  Users,
+  TrendingUp,
   LogOut,
   Menu,
   X,
@@ -24,15 +24,14 @@ function getInitials(name = "User") {
 }
 
 function roleLabel(role) {
-  if (!role) return "User";
+  if (!role) return "Faculty Member";
   const r = String(role).toLowerCase();
   if (r.includes("admin")) return "Administrator";
-  if (r.includes("teacher")) return "Teacher";
-  if (r.includes("parent")) return "Parent / Guardian";
+  if (r.includes("teacher")) return "Faculty Member";
   return role;
 }
 
-export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggleCollapse }) {
+export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, onToggleCollapse }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
@@ -49,24 +48,24 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
         ],
       },
       {
-        label: "STUDENT",
+        label: "TEACHING",
         items: [
-          { id: "profile", label: "Student Info", icon: UserCircle },
-          { id: "grades", label: "Grades", icon: GraduationCap },
+          { id: "grade", label: "Grade Encode", icon: PenLine },
           { id: "attendance", label: "Attendance", icon: ClipboardCheck },
-          { id: "schedule", label: "Schedule", icon: CalendarDays },
+          { id: "schedule", label: "Class Schedule", icon: CalendarDays },
         ],
       },
       {
-        label: "FINANCE",
+        label: "STUDENTS",
         items: [
-          { id: "ledgers", label: "Ledger", icon: BookOpenText },
+          { id: "students", label: "Students", icon: Users },
+          { id: "performance", label: "Performance", icon: TrendingUp },
         ],
       },
       {
         label: "COMMUNICATION",
         items: [
-          { id: "messages", label: "Messages", icon: MessageSquare },
+          { id: "message", label: "Messages", icon: MessageSquare },
         ],
       },
     ],
@@ -132,7 +131,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
           >
             {drawerOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <div className="as-topbar-title">STUDENT PORTAL</div>
+          <div className="as-topbar-title">TEACHER PORTAL</div>
           <div className="as-topbar-spacer" />
         </header>
       )}
@@ -154,7 +153,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
               <div className="as-avatar">{getInitials(user?.full_name || user?.username || user?.email)}</div>
               <div className="as-usermeta">
                 <div className="as-userrow">
-                  <div className="as-username">Student Portal</div>
+                  <div className="as-username">Teacher Portal</div>
                 </div>
                 <div className="as-usersub">
                   <div className="as-role">{roleLabel(user?.role)}</div>

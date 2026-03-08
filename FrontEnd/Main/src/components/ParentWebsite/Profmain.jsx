@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useState } from "react";
 import Sidebar from "./Sidebar";
+import Header from "../AdminWebsite/Header";
 
 import Dashboard from "./Dashboard";
 import Profile from "./Profile";
@@ -8,23 +9,17 @@ import Grades from "./Grades";
 import Schedule from "./Schedule";
 import Attendance from "./Attendance";
 import Messages from "./Messages";
+import "../AdminWebsiteCSS/AdminDashboard.css";
 
 export default function Profmain() {
-  const [page, setPage] = useState(() => localStorage.getItem("parent_page") || "dashboard");
-  useEffect(() => localStorage.setItem("parent_page", page), [page]);
+  const [activeMenu, setActiveMenu] = useState("dashboard");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const handleMenuClick = (menuId) => setActiveMenu(menuId);
+  const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
 
-  // ✅ mobile detection so main margin-left is correct when sidebar is hidden
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  const CurrentPage = useMemo(() => {
-    switch (page) {
+  const renderContent = () => {
+    switch (activeMenu) {
       case "dashboard": return <Dashboard />;
       case "profile": return <Profile />;
       case "ledgers": return <Ledgers />;
@@ -34,21 +29,52 @@ export default function Profmain() {
       case "messages": return <Messages />;
       default: return <Dashboard />;
     }
-  }, [page]);
+  };
 
-  const sidebarWidth = isMobile ? 0 : (isCollapsed ? 80 : 240);
+  const getPageTitle = () => {
+    const titles = {
+      dashboard: "Dashboard",
+      profile: "Student Info",
+      ledgers: "Ledger",
+      grades: "Grades",
+      schedule: "Schedule",
+      attendance: "Attendance",
+      messages: "Messages",
+    };
+    return titles[activeMenu] || "Dashboard";
+  };
+
+  const getPageSubtitle = () => {
+    const subtitles = {
+      dashboard: "Welcome back! Here's your overview.",
+      profile: "View student profile and information.",
+      ledgers: "View tuition and payment ledger.",
+      grades: "View student grades and records.",
+      schedule: "View class schedule.",
+      attendance: "View attendance records.",
+      messages: "View and send messages.",
+    };
+    return subtitles[activeMenu] || "Welcome back!";
+  };
 
   return (
-    <div>
+    <div className="admin-app-container student-portal">
       <Sidebar
-        page={page}
-        setPage={setPage}
-        isCollapsed={isCollapsed}
-        setIsCollapsed={setIsCollapsed}
+        activeMenu={activeMenu}
+        onMenuClick={handleMenuClick}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
       />
 
-      <main className={`p-3 parent-main ${isCollapsed ? "collapsed" : ""}`}>
-        {CurrentPage}
+      <main className={`admin-main ${sidebarCollapsed ? "collapsed" : ""}`}>
+        <Header
+          title={getPageTitle()}
+          subtitle={getPageSubtitle()}
+          onToggleCollapse={handleToggleSidebar}
+          sidebarCollapsed={sidebarCollapsed}
+        />
+
+        {renderContent()}
       </main>
     </div>
   );
