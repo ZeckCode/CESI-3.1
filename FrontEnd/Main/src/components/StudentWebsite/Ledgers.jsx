@@ -4,7 +4,7 @@ import { apiFetch } from "../api/apiFetch";
 import Pagination from "./Pagination";
 
 const API_BASE = "";
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 5;
 
 const TYPE_LABELS = {
   TUITION: "Tuition Fee",

@@ -3,9 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import '../StudentWebsiteCSS/Pagination.css';
 
 const Pagination = ({ currentPage, totalPages, onPageChange, totalItems, itemsPerPage }) => {
-  if (totalPages <= 1) return null;
-
-  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const startItem = totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
   const getPageNumbers = () => {
@@ -33,39 +31,41 @@ const Pagination = ({ currentPage, totalPages, onPageChange, totalItems, itemsPe
   return (
     <div className="pagination-wrapper">
       <span className="pagination-info">
-        Showing {startItem}–{endItem} of {totalItems}
+        {totalItems > 0 ? `Showing ${startItem}–${endItem} of ${totalItems}` : 'No items'}
       </span>
-      <div className="pagination-controls">
-        <button
-          className="pagination-btn pagination-arrow"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          title="Previous"
-        >
-          <ChevronLeft size={16} />
-        </button>
-        {getPageNumbers().map((page, idx) =>
-          page === '...' ? (
-            <span key={`dots-${idx}`} className="pagination-dots">…</span>
-          ) : (
-            <button
-              key={page}
-              className={`pagination-btn pagination-num ${currentPage === page ? 'active' : ''}`}
-              onClick={() => onPageChange(page)}
-            >
-              {page}
-            </button>
-          )
-        )}
-        <button
-          className="pagination-btn pagination-arrow"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          title="Next"
-        >
-          <ChevronRight size={16} />
-        </button>
-      </div>
+      {totalPages > 1 && (
+        <div className="pagination-controls">
+          <button
+            className="pagination-btn pagination-arrow"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            title="Previous"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          {getPageNumbers().map((page, idx) =>
+            page === '...' ? (
+              <span key={`dots-${idx}`} className="pagination-dots">…</span>
+            ) : (
+              <button
+                key={page}
+                className={`pagination-btn pagination-num ${currentPage === page ? 'active' : ''}`}
+                onClick={() => onPageChange(page)}
+              >
+                {page}
+              </button>
+            )
+          )}
+          <button
+            className="pagination-btn pagination-arrow"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            title="Next"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
