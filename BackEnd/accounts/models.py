@@ -137,6 +137,9 @@ class UserProfile(models.Model):
 
     contact_number = models.CharField(max_length=20)
     address = models.TextField()
+    
+    # Profile Picture
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
 
     def __str__(self):
         return f"{self.student_first_name} {self.student_last_name} / Parent: {self.parent_last_name}"
@@ -171,6 +174,9 @@ class TeacherProfile(models.Model):
     )
 
     employee_id = models.CharField(max_length=50, blank=True, default="")
+    
+    # Profile Picture
+    avatar = models.ImageField(upload_to="avatars/teachers/", blank=True, null=True)
 
     def __str__(self):
         return f"TeacherProfile({self.user.username})"

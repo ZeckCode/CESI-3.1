@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import "../ParentWebsiteCSS/Messages.css";
+import "../StudentWebsiteCSS/Messages.css";
 
 const Messages = () => {
   const [currentTab, setCurrentTab] = useState("group"); // 'group' or 'private'

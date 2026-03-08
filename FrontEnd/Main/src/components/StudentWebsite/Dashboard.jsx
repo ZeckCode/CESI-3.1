@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import "../ParentWebsiteCSS/Dashboard.css";
+import "../StudentWebsiteCSS/Dashboard.css";
 import { apiFetch } from "../api/apiFetch";
 
 const API_BASE = "http://127.0.0.1:8000"; // only used if media path is /media/...
