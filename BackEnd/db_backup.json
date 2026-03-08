@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-03-08T23:41:30.964859",
+  "exported_at": "2026-03-09T00:04:35.430036",
   "tables": {
     "accounts_adminprofile": [],
     "accounts_section": [
@@ -7,12 +7,6 @@
         "id": 1,
         "name": "Sampaguita",
         "grade_level": 0,
-        "adviser_id": null
-      },
-      {
-        "id": 2,
-        "name": "Rose",
-        "grade_level": 1,
         "adviser_id": null
       },
       {
@@ -24,12 +18,6 @@
       {
         "id": 4,
         "name": "Sunflower",
-        "grade_level": 2,
-        "adviser_id": null
-      },
-      {
-        "id": 5,
-        "name": "Orchid",
         "grade_level": 2,
         "adviser_id": null
       },
@@ -54,12 +42,6 @@
       {
         "id": 9,
         "name": "Carnation",
-        "grade_level": 6,
-        "adviser_id": null
-      },
-      {
-        "id": 10,
-        "name": "FAKER",
         "grade_level": 6,
         "adviser_id": null
       },
@@ -147,7 +129,7 @@
       {
         "id": 1,
         "password": "pbkdf2_sha256$1200000$1nkjNX0UNSfLsPg4V0bEss$2lRlC2ItXhLOKk4jGrOzVfjJUZ8N88AEjeKZEJhv0RI=",
-        "last_login": "2026-03-08 15:34:35.523234",
+        "last_login": "2026-03-08 15:56:33.499037",
         "is_superuser": 1,
         "username": "ace",
         "email": "acy995kim@gmail.com",
@@ -203,7 +185,7 @@
       {
         "id": 6,
         "password": "pbkdf2_sha256$1200000$Vhlhvgs7kcL1b3hthQ0HHH$cQNFFVK6ema/N0D7hi3Zf6XjMbhuiq486fXmV5VaWjU=",
-        "last_login": "2026-03-08 15:24:48.672167",
+        "last_login": "2026-03-08 15:57:57.693149",
         "is_superuser": 0,
         "username": "parent_jane",
         "email": "jane.parent@example.com",
@@ -315,7 +297,7 @@
       {
         "id": 17,
         "password": "pbkdf2_sha256$1200000$2rbCTU2VDaMFG9zOLCoKdF$byYQGQlb5pT08qzRrQuuCQ/O+NPD3zRTWjr2/F2pzPY=",
-        "last_login": "2026-03-08 15:24:22.228640",
+        "last_login": "2026-03-08 15:57:22.149745",
         "is_superuser": 0,
         "username": "hotdog",
         "email": "hotdog@gmail.com",
@@ -366,11 +348,11 @@
         "address": "123 Main St",
         "section_id": 9,
         "user_id": 6,
-        "lrn": null,
-        "payment_mode": null,
-        "student_number": null,
+        "lrn": "",
+        "payment_mode": "",
+        "student_number": "",
         "grade_level": "6",
-        "avatar": null
+        "avatar": "avatars/Screenshot_3196.png"
       },
       {
         "id": 3,
@@ -1160,9 +1142,9 @@
         "user_id": 15
       },
       {
-        "key": "5b37e7015f456b766495384518c90fe480ed2e54",
-        "created": "2026-03-08 15:34:35.526723",
-        "user_id": 1
+        "key": "5ee80882e56af89898695bdd9ba9107d8e045af8",
+        "created": "2026-03-08 15:57:57.697276",
+        "user_id": 6
       }
     ],
     "classmanagement_room": [
@@ -1224,501 +1206,6 @@
       }
     ],
     "classmanagement_schedule": [
-      {
-        "id": 1,
-        "day_of_week": "MON",
-        "start_time": "07:30:00",
-        "end_time": "08:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 2,
-        "day_of_week": "MON",
-        "start_time": "08:30:00",
-        "end_time": "09:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 3,
-        "day_of_week": "MON",
-        "start_time": "09:50:00",
-        "end_time": "10:50:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 4,
-        "day_of_week": "MON",
-        "start_time": "10:50:00",
-        "end_time": "12:00:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 5,
-        "day_of_week": "MON",
-        "start_time": "12:30:00",
-        "end_time": "13:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 6,
-        "day_of_week": "MON",
-        "start_time": "13:30:00",
-        "end_time": "14:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 7,
-        "day_of_week": "MON",
-        "start_time": "14:30:00",
-        "end_time": "15:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 8,
-        "day_of_week": "MON",
-        "start_time": "15:30:00",
-        "end_time": "16:10:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 9,
-        "day_of_week": "MON",
-        "start_time": "16:10:00",
-        "end_time": "16:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 10,
-        "day_of_week": "TUE",
-        "start_time": "07:30:00",
-        "end_time": "08:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 11,
-        "day_of_week": "TUE",
-        "start_time": "08:30:00",
-        "end_time": "09:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 12,
-        "day_of_week": "TUE",
-        "start_time": "09:50:00",
-        "end_time": "10:50:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 13,
-        "day_of_week": "TUE",
-        "start_time": "10:50:00",
-        "end_time": "12:00:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 14,
-        "day_of_week": "TUE",
-        "start_time": "12:30:00",
-        "end_time": "13:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 15,
-        "day_of_week": "TUE",
-        "start_time": "13:30:00",
-        "end_time": "14:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 16,
-        "day_of_week": "TUE",
-        "start_time": "14:30:00",
-        "end_time": "15:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 17,
-        "day_of_week": "TUE",
-        "start_time": "15:30:00",
-        "end_time": "16:10:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 18,
-        "day_of_week": "TUE",
-        "start_time": "16:10:00",
-        "end_time": "16:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 19,
-        "day_of_week": "WED",
-        "start_time": "07:30:00",
-        "end_time": "08:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 20,
-        "day_of_week": "WED",
-        "start_time": "08:30:00",
-        "end_time": "09:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 21,
-        "day_of_week": "WED",
-        "start_time": "09:50:00",
-        "end_time": "10:50:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 22,
-        "day_of_week": "WED",
-        "start_time": "10:50:00",
-        "end_time": "12:00:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 23,
-        "day_of_week": "WED",
-        "start_time": "12:30:00",
-        "end_time": "13:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 24,
-        "day_of_week": "WED",
-        "start_time": "13:30:00",
-        "end_time": "14:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 25,
-        "day_of_week": "WED",
-        "start_time": "14:30:00",
-        "end_time": "15:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 26,
-        "day_of_week": "WED",
-        "start_time": "15:30:00",
-        "end_time": "16:10:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 27,
-        "day_of_week": "WED",
-        "start_time": "16:10:00",
-        "end_time": "16:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 28,
-        "day_of_week": "THU",
-        "start_time": "07:30:00",
-        "end_time": "08:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 29,
-        "day_of_week": "THU",
-        "start_time": "08:30:00",
-        "end_time": "09:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 30,
-        "day_of_week": "THU",
-        "start_time": "09:50:00",
-        "end_time": "10:50:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 31,
-        "day_of_week": "THU",
-        "start_time": "10:50:00",
-        "end_time": "12:00:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 32,
-        "day_of_week": "THU",
-        "start_time": "12:30:00",
-        "end_time": "13:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 33,
-        "day_of_week": "THU",
-        "start_time": "13:30:00",
-        "end_time": "14:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 34,
-        "day_of_week": "THU",
-        "start_time": "14:30:00",
-        "end_time": "15:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 35,
-        "day_of_week": "THU",
-        "start_time": "15:30:00",
-        "end_time": "16:10:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 36,
-        "day_of_week": "THU",
-        "start_time": "16:10:00",
-        "end_time": "16:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 37,
-        "day_of_week": "FRI",
-        "start_time": "07:30:00",
-        "end_time": "08:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 38,
-        "day_of_week": "FRI",
-        "start_time": "08:30:00",
-        "end_time": "09:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 39,
-        "day_of_week": "FRI",
-        "start_time": "09:50:00",
-        "end_time": "10:50:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 40,
-        "day_of_week": "FRI",
-        "start_time": "10:50:00",
-        "end_time": "12:00:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 41,
-        "day_of_week": "FRI",
-        "start_time": "12:30:00",
-        "end_time": "13:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 42,
-        "day_of_week": "FRI",
-        "start_time": "13:30:00",
-        "end_time": "14:30:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 43,
-        "day_of_week": "FRI",
-        "start_time": "14:30:00",
-        "end_time": "15:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 44,
-        "day_of_week": "FRI",
-        "start_time": "15:30:00",
-        "end_time": "16:10:00",
-        "section_id": 7,
-        "subject_id": 7,
-        "teacher_id": 15,
-        "room_id": null,
-        "school_year_id": null
-      },
-      {
-        "id": 45,
-        "day_of_week": "FRI",
-        "start_time": "16:10:00",
-        "end_time": "16:30:00",
-        "section_id": 7,
-        "subject_id": 1,
-        "teacher_id": 7,
-        "room_id": null,
-        "school_year_id": null
-      },
       {
         "id": 53,
         "day_of_week": "MON",
@@ -2212,6 +1699,501 @@
         "subject_id": 7,
         "teacher_id": 15,
         "room_id": null,
+        "school_year_id": null
+      },
+      {
+        "id": 98,
+        "day_of_week": "MON",
+        "start_time": "07:30:00",
+        "end_time": "08:30:00",
+        "section_id": 7,
+        "subject_id": 1,
+        "teacher_id": 7,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 99,
+        "day_of_week": "MON",
+        "start_time": "08:30:00",
+        "end_time": "09:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 100,
+        "day_of_week": "MON",
+        "start_time": "09:50:00",
+        "end_time": "10:50:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 101,
+        "day_of_week": "MON",
+        "start_time": "10:50:00",
+        "end_time": "12:00:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 102,
+        "day_of_week": "MON",
+        "start_time": "12:30:00",
+        "end_time": "13:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 103,
+        "day_of_week": "MON",
+        "start_time": "13:30:00",
+        "end_time": "14:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 104,
+        "day_of_week": "MON",
+        "start_time": "14:30:00",
+        "end_time": "15:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 105,
+        "day_of_week": "MON",
+        "start_time": "15:30:00",
+        "end_time": "16:10:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 106,
+        "day_of_week": "MON",
+        "start_time": "16:10:00",
+        "end_time": "16:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 107,
+        "day_of_week": "TUE",
+        "start_time": "07:30:00",
+        "end_time": "08:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 108,
+        "day_of_week": "TUE",
+        "start_time": "08:30:00",
+        "end_time": "09:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 109,
+        "day_of_week": "TUE",
+        "start_time": "09:50:00",
+        "end_time": "10:50:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 110,
+        "day_of_week": "TUE",
+        "start_time": "10:50:00",
+        "end_time": "12:00:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 111,
+        "day_of_week": "TUE",
+        "start_time": "12:30:00",
+        "end_time": "13:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 112,
+        "day_of_week": "TUE",
+        "start_time": "13:30:00",
+        "end_time": "14:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 113,
+        "day_of_week": "TUE",
+        "start_time": "14:30:00",
+        "end_time": "15:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 114,
+        "day_of_week": "TUE",
+        "start_time": "15:30:00",
+        "end_time": "16:10:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 115,
+        "day_of_week": "TUE",
+        "start_time": "16:10:00",
+        "end_time": "16:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 116,
+        "day_of_week": "WED",
+        "start_time": "07:30:00",
+        "end_time": "08:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 117,
+        "day_of_week": "WED",
+        "start_time": "08:30:00",
+        "end_time": "09:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 118,
+        "day_of_week": "WED",
+        "start_time": "09:50:00",
+        "end_time": "10:50:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 119,
+        "day_of_week": "WED",
+        "start_time": "10:50:00",
+        "end_time": "12:00:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 120,
+        "day_of_week": "WED",
+        "start_time": "12:30:00",
+        "end_time": "13:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 121,
+        "day_of_week": "WED",
+        "start_time": "13:30:00",
+        "end_time": "14:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 122,
+        "day_of_week": "WED",
+        "start_time": "14:30:00",
+        "end_time": "15:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 123,
+        "day_of_week": "WED",
+        "start_time": "15:30:00",
+        "end_time": "16:10:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 124,
+        "day_of_week": "WED",
+        "start_time": "16:10:00",
+        "end_time": "16:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 125,
+        "day_of_week": "THU",
+        "start_time": "07:30:00",
+        "end_time": "08:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 126,
+        "day_of_week": "THU",
+        "start_time": "08:30:00",
+        "end_time": "09:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 127,
+        "day_of_week": "THU",
+        "start_time": "09:50:00",
+        "end_time": "10:50:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 128,
+        "day_of_week": "THU",
+        "start_time": "10:50:00",
+        "end_time": "12:00:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 129,
+        "day_of_week": "THU",
+        "start_time": "12:30:00",
+        "end_time": "13:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 130,
+        "day_of_week": "THU",
+        "start_time": "13:30:00",
+        "end_time": "14:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 131,
+        "day_of_week": "THU",
+        "start_time": "14:30:00",
+        "end_time": "15:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 132,
+        "day_of_week": "THU",
+        "start_time": "15:30:00",
+        "end_time": "16:10:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 133,
+        "day_of_week": "THU",
+        "start_time": "16:10:00",
+        "end_time": "16:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 134,
+        "day_of_week": "FRI",
+        "start_time": "07:30:00",
+        "end_time": "08:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 135,
+        "day_of_week": "FRI",
+        "start_time": "08:30:00",
+        "end_time": "09:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 136,
+        "day_of_week": "FRI",
+        "start_time": "09:50:00",
+        "end_time": "10:50:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 137,
+        "day_of_week": "FRI",
+        "start_time": "10:50:00",
+        "end_time": "12:00:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 138,
+        "day_of_week": "FRI",
+        "start_time": "12:30:00",
+        "end_time": "13:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 139,
+        "day_of_week": "FRI",
+        "start_time": "13:30:00",
+        "end_time": "14:30:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 140,
+        "day_of_week": "FRI",
+        "start_time": "14:30:00",
+        "end_time": "15:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 141,
+        "day_of_week": "FRI",
+        "start_time": "15:30:00",
+        "end_time": "16:10:00",
+        "section_id": 7,
+        "subject_id": 7,
+        "teacher_id": 15,
+        "room_id": 5,
+        "school_year_id": null
+      },
+      {
+        "id": 142,
+        "day_of_week": "FRI",
+        "start_time": "16:10:00",
+        "end_time": "16:30:00",
+        "section_id": 7,
+        "subject_id": 9,
+        "teacher_id": 17,
+        "room_id": 5,
         "school_year_id": null
       }
     ],
@@ -4680,9 +4662,14 @@
         "expire_date": "2026-03-22 15:25:30.907493"
       },
       {
-        "session_key": "8x3qd2i2bnml9baueoqri8jxevxzkgqb",
-        "session_data": ".eJxVjMsOwiAQAP9lz4bwbNkevfsNhF2oVA0kpT0Z_9006UGvM5N5Q4j7VsLe8xqWBBMouPwyivzM9RDpEeu9CW51WxcSRyJO28Wtpfy6nu3foMReYAKD0RCiiejRkpu9kuwd0UB2tNJiclkbySMOLLUlbVglMxOxco6ys_D5Asn_N3A:1vzG9L:BdpxcIibuXnRwaIXyT0rEmFWI1p6gctFLRzdHpdTjtU",
-        "expire_date": "2026-03-22 15:34:35.531576"
+        "session_key": "v9bwf6jc3dzh9z31yd5tsb64o2xlx3hg",
+        "session_data": ".eJxVjEEOwiAQAP-yZ0OApYA9eu8bCCxbqRpISnsy_t006UGvM5N5Q4j7VsLeeQ1LhhGUg8svTJGeXA-TH7Hem6BWt3VJ4kjEabuYWubX7Wz_BiX2AiPomVEr8oZcZBqY0WukqLzkzCy9NzxI77JzGpNUhlAaebU4a6PJkoXPFw_aN58:1vzGVN:Aneln7zr1tq696HgIGKinF8Hw8u5c8rs_qyU-E3QwtE",
+        "expire_date": "2026-03-22 15:57:21.928800"
+      },
+      {
+        "session_key": "nethp1n0vo3qhhhdyb9un3i5igh1x3fc",
+        "session_data": ".eJxVjMsOwiAQAP9lz4bwLNCjd7-BLOxWqoYmpT0Z_9006UGvM5N5Q8J9q2nvvKaZYIQBLr8sY3lyOwQ9sN0XUZa2rXMWRyJO28VtIX5dz_ZvULFXGCEO2Winikflc7CTlcFpZ5CD1ZHJOPRGZlLB0qTIFkWOi_QUMErliOHzBcq3N6A:1vzGVx:vai7zs4z7ncDyD0sJH5mzasPwTqWfjiNU8t82Om4hQY",
+        "expire_date": "2026-03-22 15:57:57.700322"
       }
     ],
     "enrollment_enrollment": [
@@ -5354,6 +5341,14 @@
         "exam_weight": 20,
         "class_standing_weight": 20,
         "subject_id": 7
+      },
+      {
+        "id": 3,
+        "activity_weight": 40,
+        "quiz_weight": 20,
+        "exam_weight": 20,
+        "class_standing_weight": 20,
+        "subject_id": 9
       }
     ],
     "grades_studentscore": [
