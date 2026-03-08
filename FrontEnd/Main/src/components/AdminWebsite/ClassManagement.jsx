@@ -262,7 +262,12 @@ function ClassesTab({ sections, teachers, schedules, onRefresh }) {
         throw new Error(err.detail || `Delete failed (${r.status})`);
       }
       await onRefresh();
-    } catch (e) { alert('Delete failed: ' + e.message); }
+    } catch (e) {
+      const msg = e.message?.includes('Failed to fetch') 
+        ? 'Cannot connect to server. Is the backend running?' 
+        : e.message;
+      alert('Delete failed: ' + msg);
+    }
   };
 
   return (
@@ -384,7 +389,12 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
       alert(`Successfully deleted ${data.deleted_count} entries.`);
       setSelected(new Set());
       await onRefresh();
-    } catch (e) { alert('Delete failed: ' + e.message); }
+    } catch (e) {
+      const msg = e.message?.includes('Failed to fetch') 
+        ? 'Cannot connect to server. Is the backend running?' 
+        : e.message;
+      alert('Delete failed: ' + msg);
+    }
     finally { setBulkDeleting(false); }
   };
 
@@ -458,7 +468,12 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
         throw new Error(err.detail || `Delete failed (${r.status})`);
       }
       await onRefresh();
-    } catch (e) { alert('Delete failed: ' + e.message); }
+    } catch (e) {
+      const msg = e.message?.includes('Failed to fetch') 
+        ? 'Cannot connect to server. Is the backend running?' 
+        : e.message;
+      alert('Delete failed: ' + msg);
+    }
   };
 
   const handleAutoGenerate = async () => {
@@ -826,7 +841,12 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
         throw new Error(err.detail || `Delete failed (${r.status})`);
       }
       await onRefresh();
-    } catch (e) { alert('Delete failed: ' + e.message); }
+    } catch (e) {
+      const msg = e.message?.includes('Failed to fetch') 
+        ? 'Cannot connect to server. Is the backend running?' 
+        : e.message;
+      alert('Delete failed: ' + msg);
+    }
   };
 
   const getAvailableTeachers = (curSubjId = null) => {
@@ -964,7 +984,12 @@ function RoomsTab({ rooms, schedules, onRefresh }) {
         throw new Error(err.detail || `Delete failed (${r.status})`);
       }
       await onRefresh();
-    } catch (e) { alert('Delete failed: ' + e.message); }
+    } catch (e) {
+      const msg = e.message?.includes('Failed to fetch') 
+        ? 'Cannot connect to server. Is the backend running?' 
+        : e.message;
+      alert('Delete failed: ' + msg);
+    }
   };
 
   const getRoomUsage = (roomId) => {
@@ -1123,7 +1148,12 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
         throw new Error(err.detail || `Delete failed (${r.status})`);
       }
       await onRefresh();
-    } catch (e) { alert('Delete failed: ' + e.message); }
+    } catch (e) {
+      const msg = e.message?.includes('Failed to fetch') 
+        ? 'Cannot connect to server. Is the backend running?' 
+        : e.message;
+      alert('Delete failed: ' + msg);
+    }
   };
 
   const formatDate = (dateStr) => {
