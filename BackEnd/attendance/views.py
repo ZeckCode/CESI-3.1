@@ -18,7 +18,8 @@ from accounts.models import Section, User
 class TeacherSectionsView(APIView):
     """
     Get sections that the current teacher teaches.
-    Based on class schedules assigned to them.
+    Based on class schedules assigned to them, adviser status, and profile assignment.
+    Falls back to all sections if no specific assignment exists.
     """
     permission_classes = [IsAuthenticated]
 
@@ -30,13 +31,34 @@ class TeacherSectionsView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Get sections from teacher's schedules
+        section_ids = set()
+
+        # 1. Get sections from teacher's schedules
         from classmanagement.models import Schedule
         schedule_section_ids = Schedule.objects.filter(
             teacher=user
         ).values_list("section_id", flat=True).distinct()
+        section_ids.update(schedule_section_ids)
 
-        sections = Section.objects.filter(id__in=schedule_section_ids)
+        # 2. Get sections where teacher is adviser or assigned
+        try:
+            teacher_profile = user.teacher_profile
+            # Section where this teacher is adviser
+            adviser_section = Section.objects.filter(adviser=teacher_profile).values_list("id", flat=True)
+            section_ids.update(adviser_section)
+            
+            # Section directly assigned to teacher profile
+            if teacher_profile.section_id:
+                section_ids.add(teacher_profile.section_id)
+        except Exception:
+            pass  # Teacher profile might not exist
+
+        # 3. If no sections found through assignments, show all sections (fallback)
+        if section_ids:
+            sections = Section.objects.filter(id__in=section_ids)
+        else:
+            sections = Section.objects.all()
+
         serializer = SectionSimpleSerializer(sections, many=True)
         return Response(serializer.data)
 
