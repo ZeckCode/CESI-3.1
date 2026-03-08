@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Camera, Edit3, X, Check, User } from "lucide-react";
 import "../StudentWebsiteCSS/Profile.css";
 import { apiFetch } from "../api/apiFetch";
+import { getToken } from "../Auth/auth";
 
 const API_BASE = "";
 
@@ -144,7 +145,7 @@ const Profile = () => {
         formData.append('avatar', avatarFile);
       }
       
-      const token = localStorage.getItem("token");
+      const token = getToken();
       const res = await fetch(`${API_BASE}/api/accounts/me/update/`, {
         method: 'PATCH',
         headers: {
