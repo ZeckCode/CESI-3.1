@@ -10,8 +10,9 @@ import Schedule from "./Schedule";
 import Attendance from "./Attendance";
 import Messages from "./Messages";
 import "../AdminWebsiteCSS/AdminDashboard.css";
+import "../StudentWebsiteCSS/StudentPortal.css";
 
-export default function Profmain() {
+export default function StudentMain() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 

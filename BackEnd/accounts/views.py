@@ -119,7 +119,80 @@ def me_detail(request):
     - nested profile (UserProfile) for PARENT_STUDENT
     - nested teacher_profile for TEACHER
     """
-    return Response(UserDetailSerializer(request.user).data)
+    return Response(UserDetailSerializer(request.user, context={'request': request}).data)
+
+
+class UpdateProfileView(APIView):
+    """
+    Update the current user's profile including avatar upload.
+    Supports multipart/form-data for file upload.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def patch(self, request):
+        user = request.user
+        
+        # Handle profile updates based on role
+        if user.role == "PARENT_STUDENT":
+            from .models import UserProfile
+            profile, _ = UserProfile.objects.get_or_create(
+                user=user,
+                defaults={
+                    "student_first_name": user.username,
+                    "student_last_name": "",
+                    "parent_first_name": "",
+                    "parent_last_name": "",
+                    "contact_number": "",
+                    "address": "",
+                    "grade_level": "grade1",
+                }
+            )
+            
+            # Update fields if provided
+            updatable_fields = [
+                "student_first_name", "student_middle_name", "student_last_name",
+                "parent_first_name", "parent_middle_name", "parent_last_name",
+                "contact_number", "address", "lrn", "student_number", "payment_mode",
+            ]
+            
+            for field in updatable_fields:
+                if field in request.data:
+                    setattr(profile, field, request.data[field])
+            
+            # Handle avatar upload
+            if 'avatar' in request.FILES:
+                profile.avatar = request.FILES['avatar']
+            
+            # Handle avatar removal
+            if request.data.get('remove_avatar') == 'true':
+                if profile.avatar:
+                    profile.avatar.delete(save=False)
+                profile.avatar = None
+            
+            profile.save()
+            
+        elif user.role == "TEACHER":
+            from .models import TeacherProfile
+            profile, _ = TeacherProfile.objects.get_or_create(user=user)
+            
+            if 'employee_id' in request.data:
+                profile.employee_id = request.data['employee_id']
+            
+            # Handle avatar upload
+            if 'avatar' in request.FILES:
+                profile.avatar = request.FILES['avatar']
+            
+            # Handle avatar removal
+            if request.data.get('remove_avatar') == 'true':
+                if profile.avatar:
+                    profile.avatar.delete(save=False)
+                profile.avatar = None
+            
+            profile.save()
+        
+        # Return updated user detail
+        user.refresh_from_db()
+        return Response(UserDetailSerializer(user, context={'request': request}).data)
 
 # ✅ LOGOUT (CSRF exempt — cross-origin call)
 @api_view(["POST"])

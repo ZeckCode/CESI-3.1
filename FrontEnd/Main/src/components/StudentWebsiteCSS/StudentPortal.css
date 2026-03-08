@@ -1,0 +1,21 @@
+/* Student Portal - Main Styles */
+/* Extends AdminDashboard.css with student-specific overrides */
+
+/* Override root background to white */
+.student-portal {
+  background-color: #ffffff;
+}
+
+.student-portal .admin-main {
+  background-color: #f8fafc;
+}
+
+/* Student-specific card styling */
+.student-portal .page-content {
+  padding: 1.5rem;
+}
+
+/* Ensure unified styling with admin */
+.student-portal .admin-header {
+  background: linear-gradient(135deg, #24148a 0%, #3b2aa6 100%);
+}

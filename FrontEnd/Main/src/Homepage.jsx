@@ -10,7 +10,7 @@ import ProtectedRoute from "./components/Auth/ProtectedRoute";
 
 import AdminDashboard from "./components/AdminWebsite/AdminDashboard";
 import TeacherDashboard from "./components/TeacherWebsite/TeacherIndex";
- import Profmain from "./components/ParentWebsite/Profmain";
+import StudentMain from "./components/StudentWebsite/StudentMain";
 
 import { useAuth } from "./components/Auth/useAuth";
 
@@ -71,10 +71,10 @@ export default function Homepage() {
       
 
        <Route
-        path="/parent"
+        path="/student"
         element={
           <ProtectedRoute role="PARENT_STUDENT">
-            <Profmain />
+            <StudentMain />
           </ProtectedRoute>
         }
       />  

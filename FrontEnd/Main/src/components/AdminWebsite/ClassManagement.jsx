@@ -262,7 +262,12 @@ function ClassesTab({ sections, teachers, schedules, onRefresh }) {
         throw new Error(err.detail || `Delete failed (${r.status})`);
       }
       await onRefresh();
-    } catch (e) { alert('Delete failed: ' + e.message); }
+    } catch (e) {
+      const msg = e.message?.includes('Failed to fetch') 
+        ? 'Cannot connect to server. Is the backend running?' 
+        : e.message;
+      alert('Delete failed: ' + msg);
+    }
   };
 
   return (
@@ -369,7 +374,10 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
 
   const handleBulkDelete = async () => {
     const ids = [...selected].filter((id) => filtered.some((s) => s.id === id));
-    if (ids.length === 0) return;
+    if (ids.length === 0) {
+      alert('No entries selected. Please select entries first.');
+      return;
+    }
     if (!window.confirm(`Delete ${ids.length} selected schedule entries?`)) return;
     setBulkDeleting(true);
     try {
@@ -377,10 +385,16 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.detail || 'Failed');
+      if (!r.ok) throw new Error(data.detail || JSON.stringify(data) || 'Failed');
+      alert(`Successfully deleted ${data.deleted_count} entries.`);
       setSelected(new Set());
       await onRefresh();
-    } catch (e) { alert(e.message); }
+    } catch (e) {
+      const msg = e.message?.includes('Failed to fetch') 
+        ? 'Cannot connect to server. Is the backend running?' 
+        : e.message;
+      alert('Delete failed: ' + msg);
+    }
     finally { setBulkDeleting(false); }
   };
 
@@ -454,7 +468,12 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
         throw new Error(err.detail || `Delete failed (${r.status})`);
       }
       await onRefresh();
-    } catch (e) { alert('Delete failed: ' + e.message); }
+    } catch (e) {
+      const msg = e.message?.includes('Failed to fetch') 
+        ? 'Cannot connect to server. Is the backend running?' 
+        : e.message;
+      alert('Delete failed: ' + msg);
+    }
   };
 
   const handleAutoGenerate = async () => {
@@ -749,7 +768,11 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
                                 title={`${entry.subject_name} — ${entry.teacher_name}\n${formatTime(entry.start_time)}–${formatTime(entry.end_time)}${entry.room_code ? ' • Room ' + entry.room_code : ''}\nClick to select · Double-click to edit`}
                                 onClick={() => toggleSelect(entry.id)}
                                 onDoubleClick={() => openEdit(entry)}>
-                                <input type="checkbox" checked={selected.has(entry.id)} readOnly
+                                <input 
+                                  type="checkbox" 
+                                  checked={selected.has(entry.id)} 
+                                  onChange={() => toggleSelect(entry.id)}
+                                  onClick={(e) => e.stopPropagation()}
                                   className="timeline-checkbox" />
                                 <div className="timeline-block-title">{entry.subject_name}</div>
                                 <div className="timeline-block-meta">{entry.teacher_name}</div>
@@ -818,7 +841,12 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
         throw new Error(err.detail || `Delete failed (${r.status})`);
       }
       await onRefresh();
-    } catch (e) { alert('Delete failed: ' + e.message); }
+    } catch (e) {
+      const msg = e.message?.includes('Failed to fetch') 
+        ? 'Cannot connect to server. Is the backend running?' 
+        : e.message;
+      alert('Delete failed: ' + msg);
+    }
   };
 
   const getAvailableTeachers = (curSubjId = null) => {
@@ -956,7 +984,12 @@ function RoomsTab({ rooms, schedules, onRefresh }) {
         throw new Error(err.detail || `Delete failed (${r.status})`);
       }
       await onRefresh();
-    } catch (e) { alert('Delete failed: ' + e.message); }
+    } catch (e) {
+      const msg = e.message?.includes('Failed to fetch') 
+        ? 'Cannot connect to server. Is the backend running?' 
+        : e.message;
+      alert('Delete failed: ' + msg);
+    }
   };
 
   const getRoomUsage = (roomId) => {
@@ -1115,7 +1148,12 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
         throw new Error(err.detail || `Delete failed (${r.status})`);
       }
       await onRefresh();
-    } catch (e) { alert('Delete failed: ' + e.message); }
+    } catch (e) {
+      const msg = e.message?.includes('Failed to fetch') 
+        ? 'Cannot connect to server. Is the backend running?' 
+        : e.message;
+      alert('Delete failed: ' + msg);
+    }
   };
 
   const formatDate = (dateStr) => {

@@ -392,6 +392,25 @@ def auto_generate_schedules(request):
     for tp in TeacherProfile.objects.select_related("user", "subject").filter(subject__isnull=False):
         teacher_map.setdefault(tp.subject_id, []).append(tp.user)
 
+    # Map grade level to default room code
+    # Kinder=0 → 1F-A, Grade1=1 → 1F-B, Grade2=2 → 2F-A, Grade3=3 → 2F-B,
+    # Grade4=4 → 3F-A, Grade5=5 → 3F-B, Grade6=6 → 3F-C
+    GRADE_TO_ROOM = {
+        0: "1F-A",  # Kinder
+        1: "1F-B",  # Grade 1
+        2: "2F-A",  # Grade 2
+        3: "2F-B",  # Grade 3
+        4: "3F-A",  # Grade 4
+        5: "3F-B",  # Grade 5
+        6: "3F-C",  # Grade 6
+    }
+    
+    # Get the room for this section's grade level
+    room_code = GRADE_TO_ROOM.get(section.grade_level)
+    room = None
+    if room_code:
+        room = Room.objects.filter(code=room_code).first()
+
     # Get schedule template for this grade level
     template = _get_schedule_template(section.grade_level)
     class_slots = [(start, end) for start, end, slot_type in template if slot_type == 'class']
@@ -426,7 +445,7 @@ def auto_generate_schedules(request):
                     ).exists():
                         continue
 
-                    # Create the schedule entry
+                    # Create the schedule entry with room assignment
                     sched = Schedule.objects.create(
                         teacher=teacher,
                         subject=subj,
@@ -434,6 +453,7 @@ def auto_generate_schedules(request):
                         day_of_week=day,
                         start_time=slot_start,
                         end_time=slot_end,
+                        room=room,
                     )
                     created.append(sched.id)
                     placed = True
