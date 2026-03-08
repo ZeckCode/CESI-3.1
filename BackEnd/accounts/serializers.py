@@ -38,14 +38,24 @@ class TeacherProfileReadSerializer(serializers.ModelSerializer):
     """Nested read-only representation returned inside UserDetailSerializer."""
     subject = SubjectSerializer(read_only=True)
     section = SectionSerializer(read_only=True)
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = TeacherProfile
-        fields = ["id", "employee_id", "subject", "section"]
+        fields = ["id", "employee_id", "subject", "section", "avatar", "avatar_url"]
+
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
 
 
 class UserProfileReadSerializer(serializers.ModelSerializer):
     section = SectionSerializer(read_only=True)
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
@@ -60,7 +70,16 @@ class UserProfileReadSerializer(serializers.ModelSerializer):
             "payment_mode",
             "parent_first_name", "parent_middle_name", "parent_last_name",
             "contact_number", "address",
+            "avatar", "avatar_url",
         ]
+
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
 
 
 class UserDetailSerializer(serializers.ModelSerializer):

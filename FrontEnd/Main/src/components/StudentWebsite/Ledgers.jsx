@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
-import "../ParentWebsiteCSS/Ledgers.css";
+import "../StudentWebsiteCSS/Ledgers.css";
 import { apiFetch } from "../api/apiFetch";
+import Pagination from "./Pagination";
 
 const API_BASE = "";
+const ITEMS_PER_PAGE = 10;
 
 const TYPE_LABELS = {
   TUITION: "Tuition Fee",
@@ -26,6 +28,7 @@ const Ledgers = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const fetchMyTransactions = async () => {
@@ -51,6 +54,18 @@ const Ledgers = () => {
   const totalDebit = transactions.reduce((s, t) => s + Number(t.amount || 0), 0);
   const totalPaid = paidTransactions.reduce((s, t) => s + Number(t.amount || 0), 0);
   const balance = totalDebit - totalPaid;
+
+  // ── pagination ──
+  const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
+  const paginatedTransactions = transactions.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Reset to page 1 when data changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [transactions.length]);
 
   return (
     <div className="ledger-content">
@@ -117,14 +132,14 @@ const Ledgers = () => {
                 </thead>
 
                 <tbody>
-                  {transactions.length === 0 ? (
+                  {paginatedTransactions.length === 0 ? (
                     <tr>
                       <td colSpan="6" style={{ textAlign: "center", color: "#94a3b8" }}>
                         No transactions found.
                       </td>
                     </tr>
                   ) : (
-                    transactions.map((row) => (
+                    paginatedTransactions.map((row) => (
                       <tr key={row.id}>
                         <td data-label="Type">
                           <span className="item-badge">
@@ -159,6 +174,13 @@ const Ledgers = () => {
                   )}
                 </tbody>
               </table>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={transactions.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+              />
             </div>
           </section>
 
