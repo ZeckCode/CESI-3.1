@@ -1,20 +1,20 @@
-import React, { useEffect, useState } from "react";
-import "../ParentWebsiteCSS/sidebar.css";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  LayoutDashboard,
+  UserCircle,
+  BookOpenText,
+  GraduationCap,
+  CalendarDays,
+  ClipboardCheck,
+  MessageSquare,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
+import "../AdminWebsiteCSS/Sidebar.css";
 import { useAuth } from "../Auth/useAuth";
 import { apiFetch } from "../api/apiFetch";
-
-const navLinks = [
-  { key: "dashboard", icon: "bi-speedometer2", label: "Dashboard" },
-  { key: "profile", icon: "bi-person", label: "Student Info" },
-  { key: "ledgers", icon: "bi-journal-text", label: "Ledger" },
-  { key: "grades", icon: "bi-wallet2", label: "Grades" },
-  { key: "schedule", icon: "bi-calendar-event", label: "Schedule" },
-  { key: "attendance", icon: "bi-calendar-check", label: "Attendance" },
-  { key: "messages", icon: "bi-chat-dots", label: "Messages" },
-];
-
-const API_BASE = ""; // Vite proxy handles /api → Django
 
 function getInitials(name = "User") {
   const parts = String(name).trim().split(/\s+/);
@@ -28,196 +28,183 @@ function roleLabel(role) {
   const r = String(role).toLowerCase();
   if (r.includes("admin")) return "Administrator";
   if (r.includes("teacher")) return "Teacher";
-  if (r.includes("parent")) return "Parent";
+  if (r.includes("parent")) return "Parent / Guardian";
   return role;
 }
 
-export default function Sidebar({ page, setPage, isCollapsed, setIsCollapsed }) {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
+export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggleCollapse }) {
   const navigate = useNavigate();
-  const { user, logout } = useAuth(); // ✅ single auth source
+  const { user, logout } = useAuth();
 
-  const displayName =
-    user?.full_name || user?.name || user?.username || user?.email || "User";
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const sidebarRef = useRef(null);
 
-  const handleNavigate = (key) => {
-    setPage(key);
-    if (isMobile) setDrawerOpen(false);
-  };
+  const menuSections = useMemo(
+    () => [
+      {
+        label: "OVERVIEW",
+        items: [
+          { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+        ],
+      },
+      {
+        label: "STUDENT",
+        items: [
+          { id: "profile", label: "Student Info", icon: UserCircle },
+          { id: "grades", label: "Grades", icon: GraduationCap },
+          { id: "attendance", label: "Attendance", icon: ClipboardCheck },
+          { id: "schedule", label: "Schedule", icon: CalendarDays },
+        ],
+      },
+      {
+        label: "FINANCE",
+        items: [
+          { id: "ledgers", label: "Ledger", icon: BookOpenText },
+        ],
+      },
+      {
+        label: "COMMUNICATION",
+        items: [
+          { id: "messages", label: "Messages", icon: MessageSquare },
+        ],
+      },
+    ],
+    []
+  );
 
   useEffect(() => {
     const onResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-
       if (!mobile) setDrawerOpen(false);
-      if (mobile) setIsCollapsed(false); // always expanded on mobile drawer
     };
-
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [setIsCollapsed]);
+  }, []);
 
-  // ✅ LOGOUT (same pattern as your admin sidebar)
-  const handleLogout = async () => {
-  try {
-    await apiFetch(`/api/accounts/logout/`, { method: "POST" });
-  } catch (e) {
-    console.warn(e);
-  } finally {
-    logout();
-    navigate("/", { replace: true });
-    window.location.reload();
-  }
+  useEffect(() => {
+    if (!drawerOpen) return;
+
+    const onKey = (e) => e.key === "Escape" && setDrawerOpen(false);
+    const onClickOutside = (e) => {
+      if (!sidebarRef.current) return;
+      if (!sidebarRef.current.contains(e.target)) setDrawerOpen(false);
+    };
+
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClickOutside);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClickOutside);
+    };
+  }, [drawerOpen]);
+
+  const handleMenuClick = (menuId) => {
+    if (isCollapsed && !isMobile) {
+      onToggleCollapse?.();
+    }
+    onMenuClick?.(menuId);
+    if (isMobile) setDrawerOpen(false);
   };
 
-  const UserCard = ({ compact = false }) => (
-    <div className={compact ? "ps-usercard ps-usercard-compact" : "ps-usercard"}>
-      <div className="ps-avatar" aria-hidden="true" title={displayName}>
-        {getInitials(displayName)}
-      </div>
+  const handleLogout = async () => {
+    try {
+      await apiFetch("/api/accounts/logout/", { method: "POST" });
+    } catch {;}
 
-      {!compact && (
-        <div className="ps-usermeta">
-          <div className="ps-username">{displayName}</div>
-          <div className="ps-role">{roleLabel(user?.role)}</div>
-          <div className="ps-usersub">
-            {user?.username && <span className="ps-handle">@{user.username}</span>}
-            {user?.email && <span className="ps-email">{user.email}</span>}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    logout();
+    window.location.href = "/";
+  };
+
+  const visible = !isMobile || drawerOpen;
+  const showLabels = !isCollapsed || isMobile;
 
   return (
     <>
-      {/* Mobile Top Bar */}
-      <header className="ps-topbar d-md-none">
-        <button
-          className="ps-iconbtn"
-          onClick={() => setDrawerOpen(true)}
-          aria-label="Open menu"
-        >
-          <i className="bi bi-list"></i>
-        </button>
-
-        <div className="ps-topbar-title">STUDENT PORTAL</div>
-
-        {/* small user initials on the right */}
-        <div className="ps-topbar-spacer">
-          {user ? <UserCard compact /> : <div className="ps-topbar-spacer" />}
-        </div>
-      </header>
-
-      {/* Mobile Drawer */}
-      {isMobile && drawerOpen && (
-        <>
-          <div className="ps-backdrop" onClick={() => setDrawerOpen(false)} />
-          <aside className="ps-drawer">
-            <div className="ps-drawer-head">
-              <span className="ps-drawer-title">Menu</span>
-              <button
-                className="ps-iconbtn"
-                onClick={() => setDrawerOpen(false)}
-                aria-label="Close menu"
-              >
-                <i className="bi bi-x-lg"></i>
-              </button>
-            </div>
-
-            {/* ✅ Who's logged in */}
-            {user && (
-              <div className="ps-drawer-userwrap">
-                <UserCard />
-              </div>
-            )}
-
-            <nav className="ps-nav">
-              {navLinks.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={`ps-navitem ${page === item.key ? "active" : ""}`}
-                  onClick={() => handleNavigate(item.key)}
-                >
-                  <i className={`bi ${item.icon}`} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </nav>
-
-            <div className="ps-footer">
-              <button type="button" className="ps-logout" onClick={handleLogout}>
-                <i className="bi bi-box-arrow-right" />
-                <span>Log out</span>
-              </button>
-            </div>
-          </aside>
-        </>
-      )}
-
-      {/* Desktop Sidebar */}
-      <aside className={`ps-sidebar d-none d-md-flex ${isCollapsed ? "collapsed" : ""}`}>
-        <div className="ps-sidebar-head">
-          {/* ✅ Who's logged in (desktop) */}
-          {user ? (
-            <>
-              <div className="ps-avatar" title={displayName}>
-                {getInitials(displayName)}
-              </div>
-
-              {!isCollapsed && (
-                <div className="ps-namewrap">
-                  <div className="ps-name">{displayName}</div>
-                  <div className="ps-role">{roleLabel(user?.role)}</div>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="ps-avatar">U</div>
-              {!isCollapsed && <div className="ps-name">User</div>}
-            </>
-          )}
-
+      {isMobile && (
+        <header className="as-topbar">
           <button
             type="button"
-            className="ps-collapse"
-            onClick={() => setIsCollapsed((v) => !v)}
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={isCollapsed ? "Expand" : "Collapse"}
+            className="as-iconbtn"
+            onClick={() => setDrawerOpen((v) => !v)}
+            aria-label={drawerOpen ? "Close menu" : "Open menu"}
           >
-            <i className={`bi ${isCollapsed ? "bi-chevron-right" : "bi-chevron-left"}`} />
+            {drawerOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
+          <div className="as-topbar-title">STUDENT PORTAL</div>
+          <div className="as-topbar-spacer" />
+        </header>
+      )}
+
+      {isMobile && drawerOpen && <div className="as-backdrop" onClick={() => setDrawerOpen(false)} />}
+
+      <aside
+        ref={sidebarRef}
+        className={[
+          "as-sidebar",
+          visible ? "as-visible" : "as-hidden",
+          !isMobile && isCollapsed ? "as-collapsed" : "",
+          isMobile ? "as-mobile" : "as-desktop",
+        ].join(" ")}
+      >
+        <div className="as-top-section">
+          {user && showLabels && (
+            <div className="as-usercard">
+              <div className="as-avatar">{getInitials(user?.full_name || user?.username || user?.email)}</div>
+              <div className="as-usermeta">
+                <div className="as-userrow">
+                  <div className="as-username">Student Portal</div>
+                </div>
+                <div className="as-usersub">
+                  <div className="as-role">{roleLabel(user?.role)}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {user && isCollapsed && !isMobile && (
+            <div className="as-usercard-collapsed">
+              <div className="as-avatar">{getInitials(user?.full_name || user?.username || user?.email)}</div>
+            </div>
+          )}
         </div>
 
-        <nav className="ps-nav">
-          {navLinks.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`ps-navitem ${page === item.key ? "active" : ""}`}
-              onClick={() => handleNavigate(item.key)}
-              title={isCollapsed ? item.label : undefined}
-            >
-              <i className={`bi ${item.icon}`} />
-              {!isCollapsed && <span>{item.label}</span>}
-            </button>
+        <nav className="as-nav">
+          {menuSections.map((section, sIdx) => (
+            <div key={section.label} className="as-section">
+              {showLabels && (
+                <div className="as-section-label">{section.label}</div>
+              )}
+              {!showLabels && sIdx > 0 && <div className="as-section-dot" />}
+
+              {section.items.map((item) => {
+                const active = item.id === activeMenu;
+
+                return (
+                  <div key={item.id} className="as-navblock">
+                    <button
+                      type="button"
+                      className={`as-item ${active ? "active" : ""}`}
+                      onClick={() => handleMenuClick(item.id)}
+                      title={isCollapsed && !isMobile ? item.label : undefined}
+                    >
+                      <item.icon size={20} className="as-ico" />
+                      {showLabels && (
+                        <span className="as-label">{item.label}</span>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           ))}
         </nav>
 
-        <div className="ps-footer">
-          <button
-            type="button"
-            className="ps-logout"
-            onClick={handleLogout}
-            title={isCollapsed ? "Log out" : undefined}
-          >
-            <i className="bi bi-box-arrow-right" />
-            {!isCollapsed && <span>Log out</span>}
+        <div className="as-bottom">
+          <button type="button" className="as-item as-logout" onClick={handleLogout}>
+            <LogOut size={20} className="as-ico" />
+            {showLabels && <span className="as-label">Logout</span>}
           </button>
         </div>
       </aside>
