@@ -1607,7 +1607,7 @@ export default function EnrollmentManagement() {
 
             <div className="form-group">
               <label>Parent Facebook</label>
-              <input name="parent_facebook" value={formData.parent_facebook} onChange={handleInputChange} disabled={isReadOnly} />
+              <input name="parent_facebook" value={formData.parent_facebook} onChange={handleInputChange} disabled={isReadOnly}  required={!isReadOnly} placeholder="Facebook profile link"/>
             </div>
 
             <h3>📍 Address</h3>
