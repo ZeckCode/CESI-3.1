@@ -14,11 +14,8 @@ from .views import (
     SectionDetail,
     user_list,
     update_teacher_assignment,
-<<<<<<< HEAD
     update_student_profile,
-=======
     UpdateProfileView,
->>>>>>> main
 )
 from .views import SetPasswordView # Import the new view for password reset
 
