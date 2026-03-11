@@ -250,6 +250,19 @@ const EnrollmentForm = ({ onClose }) => {
     if (!birthDate)  { alert("Please enter the student's Birth Date."); return; }
     if (ageValidation && !ageValidation.ok) { alert(ageValidation.msg); return; }
 
+    // LRN required for Kinder to Grade 6 (12 digits)
+    const lrnRequiredGrades = ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"];
+    if (lrnRequiredGrades.includes(gradeLevel)) {
+      if (!lrn || lrn.trim() === "") {
+        alert("LRN is required for this grade level (12 digits).");
+        return;
+      }
+      if (lrn.length !== 12) {
+        alert("LRN must be exactly 12 digits.");
+        return;
+      }
+    }
+
     const normalizedMobile = normalizePHMobile(mobile);
     if (!normalizedMobile) {
       alert("Invalid PH mobile number.\nUse 09XXXXXXXXX or +639XXXXXXXXX format.");
@@ -339,8 +352,17 @@ const EnrollmentForm = ({ onClose }) => {
         <h3>🎓 Academic Information</h3>
         <div className="form-grid">
           <div className="form-group">
-            <label>LRN</label>
-            <input value={lrn} onChange={(e) => setLrn(e.target.value)} placeholder="Pre-Kinder students may leave this field blank."/>
+            <label>LRN {["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(gradeLevel) && <span className="required">*</span>}</label>
+            <input 
+              value={lrn} 
+              onChange={(e) => setLrn(e.target.value.replace(/\D/g, ""))} 
+              placeholder={["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(gradeLevel) ? "12 digits (required)" : "Pre-Kinder students may leave blank"}
+              maxLength="12"
+              inputMode="numeric"
+            />
+            {lrn && lrn.length !== 12 && ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(gradeLevel) && (
+              <div style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>LRN must be exactly 12 digits ({lrn.length}/12)</div>
+            )}
           </div>
           <div className="form-group">
             <label>Student Type</label>

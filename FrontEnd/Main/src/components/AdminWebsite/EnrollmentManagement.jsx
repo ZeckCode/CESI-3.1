@@ -35,6 +35,24 @@ const statusLabel = (s) => ({
 }[s] || s || "");
 
 /* ─────────────────────────────────────────────
+   FILTER OPTIONS
+───────────────────────────────────────────── */
+const FILTER_OPTIONS = [
+  { value: "All", label: "All Status" },
+  { value: "Active", label: "Enrolled" },
+  { value: "Pending", label: "Pending" },
+  { value: "Dropped", label: "Dropped" },
+  { value: "Completed", label: "Completed" },
+  { value: "Expired", label: "Expired" },
+];
+
+const matchesStatusFilter = (filterStatus, statusText, isExpired) => {
+  if (filterStatus === "Expired") return isExpired;
+  if (filterStatus === "All") return !isExpired;
+  return !isExpired && statusText === filterStatus;
+};
+
+/* ─────────────────────────────────────────────
    AGE VALIDATION
 ───────────────────────────────────────────── */
 const GRADE_AGE_RULES = {
@@ -406,6 +424,13 @@ export default function EnrollmentManagement() {
     academic_year: "",
   });
 
+  /* ── Image Approval Modal ── */
+  const [approveImageOpen, setApproveImageOpen] = useState(false);
+  const [approveImageFile, setApproveImageFile] = useState(null);
+  const [approveImagePreview, setApproveImagePreview] = useState(null);
+  const [approvePendingId, setApprovePendingId] = useState(null);
+  const [approvingImage, setApprovingImage] = useState(false);
+
   /* ── Toasts ── */
   const [toasts, setToasts] = useState([]);
 
@@ -551,7 +576,70 @@ export default function EnrollmentManagement() {
     return data;
   };
 
-  const handleApprove = (id) => callAction(id, "mark_active");
+  const openApproveImageModal = (id) => {
+    setApprovePendingId(id);
+    setApproveImageFile(null);
+    setApproveImagePreview(null);
+    setApproveImageOpen(true);
+  };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      addToast("Invalid File", "Please select an image file.", "error");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      addToast("File Too Large", "Image must be under 5MB.", "error");
+      return;
+    }
+
+    setApproveImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (evt) => setApproveImagePreview(evt.target?.result);
+    reader.readAsDataURL(file);
+  };
+
+  const closeApproveImageModal = () => {
+    setApproveImageOpen(false);
+    setApprovePendingId(null);
+    setApproveImageFile(null);
+    setApproveImagePreview(null);
+  };
+
+  const handleApproveWithImage = async () => {
+    if (!approvePendingId) return;
+    if (!approveImageFile) {
+      addToast("Missing Image", "Please upload an ID image before approving.", "warning");
+      return;
+    }
+
+    setApprovingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("id_image", approveImageFile);
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/api/enrollments/${approvePendingId}/mark_active/`, {
+        method: "POST",
+        headers: token ? { Authorization: `Token ${token}` } : {},
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Approval failed");
+      await fetchEnrollments();
+      addToast("Approved", "Enrollment approved successfully.", "success");
+      closeApproveImageModal();
+    } catch (err) {
+      addToast("Approval Failed", "Could not approve enrollment. Check permissions.", "error");
+    } finally {
+      setApprovingImage(false);
+    }
+  };
+
+  const handleApprove = (id) => openApproveImageModal(id);
   const handleDecline = (id) => callAction(id, "mark_dropped");
 
   const handleDeleteEnrollment = async (id) => {
@@ -607,14 +695,9 @@ export default function EnrollmentManagement() {
         !s ||
         row.studentName.toLowerCase().includes(s) ||
         row.parentName.toLowerCase().includes(s) ||
-        String(row.phone).includes(searchTerm);
+        String(row.phone).toLowerCase().includes(s);
 
-      const matchesStatus =
-        filterStatus === "All"
-          ? true
-          : filterStatus === "Expired"
-            ? row.expired
-            : row.statusText === filterStatus;
+      const matchesStatus = matchesStatusFilter(filterStatus, row.statusText, row.expired);
 
       return matchesSearch && matchesStatus;
     });
@@ -869,6 +952,16 @@ export default function EnrollmentManagement() {
     if (!formData.parent_facebook?.trim()) missing.push("Parent Facebook");
     if (!formData.payment_mode) missing.push("Payment Mode");
 
+    // LRN required for Kinder to Grade 6 (12 digits)
+    const lrnRequiredGrades = ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"];
+    if (lrnRequiredGrades.includes(formData.grade_level)) {
+      if (!formData.lrn?.trim()) {
+        missing.push("LRN (required for this grade level)");
+      } else if (formData.lrn.length !== 12) {
+        missing.push("LRN must be exactly 12 digits");
+      }
+    }
+
     if (missing.length) {
       alert("Please fill required:\n- " + missing.join("\n- "));
       return false;
@@ -878,14 +971,8 @@ export default function EnrollmentManagement() {
 
   const handleApproveModal = async () => {
     if (!editingId) return;
-    try {
-      const u = await handleApprove(editingId);
-      setModalStatus("ACTIVE");
-      setFormData((p) => ({ ...p, status: "ACTIVE", remarks: u?.remarks ?? p.remarks }));
-      setModalMode("view");
-    } catch {
-      alert("Approve failed.");
-    }
+    setModalOpen(false);
+    openApproveImageModal(editingId);
   };
 
   const handleDeclineModal = async () => {
@@ -1059,12 +1146,12 @@ export default function EnrollmentManagement() {
             </button>
           </div>
         </div>
-
+      {/* OVERVIEW */}
         <StatsGrid>
           <StatCard label="Total" value={stats.total} icon={<Users size={20} />} color="blue" subtitle="All enrollees" />
-          <StatCard label="Active" value={stats.active} icon={<UserCheck size={20} />} color="green" subtitle={stats.total ? `${Math.round((stats.active / stats.total) * 100)}% of total` : '—'} subtitleType="positive" />
+          <StatCard label="Enrolled" value={stats.active} icon={<UserCheck size={20} />} color="green" subtitle={stats.total ? `${Math.round((stats.active / stats.total) * 100)}% of total` : '—'} subtitleType="positive" />
           <StatCard label="Pending" value={stats.pending} icon={<Clock size={20} />} color="yellow" subtitle={stats.total ? `${Math.round((stats.pending / stats.total) * 100)}% of total` : '—'} />
-          <StatCard label="Dropped" value={stats.dropped} icon={<UserMinus size={20} />} color="red" subtitle={stats.total ? `${Math.round((stats.dropped / stats.total) * 100)}% of total` : '—'} subtitleType="negative" />
+          <StatCard label="Declined" value={stats.dropped} icon={<UserMinus size={20} />} color="red" subtitle={stats.total ? `${Math.round((stats.dropped / stats.total) * 100)}% of total` : '—'} subtitleType="negative" />
           <StatCard label="Expired" value={stats.expired} icon={<UserX size={20} />} color="purple" subtitle={stats.total ? `${Math.round((stats.expired / stats.total) * 100)}% of total` : '—'} subtitleType="negative" />
           <StatCard
             label="Enrollment"
@@ -1204,12 +1291,11 @@ export default function EnrollmentManagement() {
         <div className="filter-box">
           <Filter size={16} />
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="All">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Pending">Pending</option>
-            <option value="Dropped">Dropped</option>
-            <option value="Completed">Completed</option>
-            <option value="Expired">Expired</option>
+            {FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -1422,7 +1508,7 @@ export default function EnrollmentManagement() {
                       }
                     }}
                   >
-                    <ArrowUpCircle size={13} /> Promote to {gradeLabel(getNextGrade(formData.grade_level).next)}
+                    <ArrowUpCircle size={13} />
                   </button>
                 )}
               </div>
@@ -1442,8 +1528,22 @@ export default function EnrollmentManagement() {
             <h3>🎓 Academic Information</h3>
             <div className="form-row">
               <div className="form-group">
-                <label>LRN</label>
-                <input name="lrn" value={formData.lrn} onChange={handleInputChange} disabled={isReadOnly} />
+                <label>LRN {["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(formData.grade_level) && <span style={{ color: "#dc2626" }}>*</span>}</label>
+                <input 
+                  name="lrn" 
+                  value={formData.lrn} 
+                  onChange={(e) => {
+                    const numericValue = e.target.value.replace(/\D/g, "");
+                    setFormData((p) => ({ ...p, lrn: numericValue.slice(0, 12) }));
+                  }}
+                  disabled={isReadOnly}
+                  maxLength="12"
+                  inputMode="numeric"
+                  placeholder="12 digits for Kinder-Grade 6"
+                />
+                {formData.lrn && formData.lrn.length !== 12 && ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(formData.grade_level) && (
+                  <div style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>LRN must be exactly 12 digits ({formData.lrn.length}/12)</div>
+                )}
               </div>
               <div className="form-group">
                 <label>Student Type *</label>
@@ -1498,7 +1598,7 @@ export default function EnrollmentManagement() {
                 <label>Status</label>
                 <select name="status" value={formData.status} onChange={handleInputChange} disabled={isReadOnly}>
                   <option value="PENDING">Pending</option>
-                  <option value="ACTIVE">Active</option>
+                  <option value="ACTIVE">Enrolled</option>
                   <option value="DROPPED">Dropped</option>
                   <option value="COMPLETED">Completed</option>
                 </select>
@@ -1751,6 +1851,145 @@ export default function EnrollmentManagement() {
                   {editingId ? "Save Changes" : "Create Enrollee"}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Approval Modal */}
+      {approveImageOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10001,
+          }}
+          onClick={(e) => e.target === e.currentTarget && closeApproveImageModal()}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: 12,
+              padding: 30,
+              width: "90%",
+              maxWidth: 450,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>
+              📸 Student ID Image
+            </div>
+            <div style={{ fontSize: 13, color: "#666", marginBottom: 20, lineHeight: 1.5 }}>
+              Upload the image for School ID.
+            </div>
+
+            {approveImagePreview ? (
+              <div style={{ marginBottom: 20, textAlign: "center" }}>
+                <img
+                  src={approveImagePreview}
+                  alt="ID Preview"
+                  style={{ maxWidth: "100%", maxHeight: 300, borderRadius: 8 }}
+                />
+                <button
+                  onClick={() => {
+                    setApproveImageFile(null);
+                    setApproveImagePreview(null);
+                  }}
+                  style={{
+                    marginTop: 10,
+                    padding: "6px 12px",
+                    background: "#f3f4f6",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <label
+                style={{
+                  display: "block",
+                  border: "2px dashed #d1d5db",
+                  borderRadius: 8,
+                  padding: 30,
+                  textAlign: "center",
+                  cursor: "pointer",
+                  background: "#f9fafb",
+                  marginBottom: 20,
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#3b82f6";
+                  e.currentTarget.style.background = "#eff6ff";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#d1d5db";
+                  e.currentTarget.style.background = "#f9fafb";
+                }}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  style={{ display: "none" }}
+                />
+                <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "#374151" }}>
+                  Click to upload or drag & drop
+                </div>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
+                  PNG, JPG(max 5MB)
+                </div>
+              </label>
+            )}
+
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={closeApproveImageModal}
+                disabled={approvingImage}
+                style={{
+                  flex: 1,
+                  padding: "9px 14px",
+                  background: "#f3f4f6",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 6,
+                  cursor: approvingImage ? "not-allowed" : "pointer",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  opacity: approvingImage ? 0.6 : 1,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApproveWithImage}
+                disabled={!approveImageFile || approvingImage}
+                style={{
+                  flex: 1,
+                  padding: "9px 14px",
+                  background: approveImageFile && !approvingImage ? "#10b981" : "#d1d5db",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: approveImageFile && !approvingImage ? "pointer" : "not-allowed",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  opacity: !approveImageFile || approvingImage ? 0.6 : 1,
+                }}
+              >
+                {approvingImage ? "Uploading..." : "Approve with Image"}
+              </button>
             </div>
           </div>
         </div>
