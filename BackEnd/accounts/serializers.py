@@ -94,6 +94,27 @@ class TeacherAssignmentSerializer(serializers.Serializer):
         return value
 
 
+class StudentProfileUpdateSerializer(serializers.Serializer):
+    """Update a student's profile fields."""
+    student_first_name = serializers.CharField(max_length=50, required=False)
+    student_middle_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    student_last_name = serializers.CharField(max_length=50, required=False)
+    grade_level = serializers.CharField(max_length=20, required=False)
+    lrn = serializers.CharField(max_length=20, required=False, allow_blank=True, allow_null=True)
+    section = serializers.IntegerField(required=False, allow_null=True)
+    parent_first_name = serializers.CharField(max_length=50, required=False)
+    parent_middle_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    parent_last_name = serializers.CharField(max_length=50, required=False)
+    contact_number = serializers.CharField(max_length=20, required=False)
+    email = serializers.EmailField(required=False)
+
+    def validate_section(self, value):
+        if value is not None:
+            if not Section.objects.filter(id=value).exists():
+                raise serializers.ValidationError("Section not found")
+        return value
+
+
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField()

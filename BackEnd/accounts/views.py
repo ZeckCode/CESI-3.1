@@ -25,8 +25,9 @@ from .serializers import (
     SectionSerializer,
     UserDetailSerializer,
     TeacherAssignmentSerializer,
+    StudentProfileUpdateSerializer,
 )
-from .models import User, Subject, Section, TeacherProfile
+from .models import User, Subject, Section, TeacherProfile, UserProfile
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -335,6 +336,47 @@ def update_teacher_assignment(request, user_id):
     # Return the updated user detail
     teacher_user.refresh_from_db()
     return Response(UserDetailSerializer(teacher_user).data)
+
+# ══════════════════════════════════════════════════════
+# STUDENT PROFILE UPDATE  (admin only)
+# ══════════════════════════════════════════════════════
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def update_student_profile(request, user_id):
+    """Update a student's profile fields."""
+    if request.user.role != "ADMIN":
+        return Response({"detail": "Forbidden"}, status=403)
+    try:
+        student_user = User.objects.get(id=user_id, role="PARENT_STUDENT")
+    except User.DoesNotExist:
+        return Response({"detail": "Student not found"}, status=404)
+
+    profile = getattr(student_user, "profile", None)
+    if not profile:
+        return Response({"detail": "Student profile not found"}, status=404)
+
+    ser = StudentProfileUpdateSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+    d = ser.validated_data
+
+    for field in ["student_first_name", "student_middle_name", "student_last_name",
+                  "grade_level", "lrn", "parent_first_name", "parent_middle_name",
+                  "parent_last_name", "contact_number"]:
+        if field in d:
+            setattr(profile, field, d[field])
+
+    if "section" in d:
+        profile.section = Section.objects.get(id=d["section"]) if d["section"] else None
+
+    profile.save()
+
+    if "email" in d:
+        student_user.email = d["email"]
+        student_user.save(update_fields=["email"])
+
+    student_user.refresh_from_db()
+    return Response(UserDetailSerializer(student_user).data)
+
 
 # 
 # SET USER PASSWORD

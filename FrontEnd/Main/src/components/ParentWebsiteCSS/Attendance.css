@@ -18,7 +18,7 @@
 
 .attendance-content {
   flex: 1;
-  background-color: #FFFFDF; /* Your Soft Yellow */
+  background-color: #ffffff;
   padding: 2.5rem;
   border-left: none !important; /* Kill the line */
   margin: 0;

@@ -33,10 +33,16 @@ const UserManagement = () => {
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // inline assignment editing
+  // inline assignment editing (teachers)
   const [editingId, setEditingId] = useState(null);
   const [assignForm, setAssignForm] = useState({ subject: '', section: '', employee_id: '' });
   const [assignError, setAssignError] = useState('');
+
+  // student edit modal
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [studentForm, setStudentForm] = useState({});
+  const [studentEditError, setStudentEditError] = useState('');
+  const [savingStudent, setSavingStudent] = useState(false);
 
   // ── fetchers ──
   const fetchStudents = useCallback(async () => {
@@ -185,6 +191,59 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
       setCreateError(e.message);
     } finally {
       setCreating(false);
+    }
+  };
+
+  // ── student edit ──
+  const openStudentEdit = (u) => {
+    const p = u.profile || {};
+    setEditingStudent(u);
+    setStudentForm({
+      student_first_name: p.student_first_name || '',
+      student_middle_name: p.student_middle_name || '',
+      student_last_name: p.student_last_name || '',
+      grade_level: p.grade_level || '',
+      lrn: p.lrn || '',
+      section: p.section?.id || '',
+      parent_first_name: p.parent_first_name || '',
+      parent_middle_name: p.parent_middle_name || '',
+      parent_last_name: p.parent_last_name || '',
+      contact_number: p.contact_number || '',
+      email: u.email || '',
+    });
+    setStudentEditError('');
+  };
+
+  const closeStudentEdit = () => {
+    setEditingStudent(null);
+    setStudentEditError('');
+  };
+
+  const handleSaveStudent = async () => {
+    setStudentEditError('');
+    if (!studentForm.student_first_name || !studentForm.student_last_name) {
+      setStudentEditError('Student first and last name are required.');
+      return;
+    }
+    setSavingStudent(true);
+    try {
+      const body = { ...studentForm };
+      body.section = body.section ? parseInt(body.section) : null;
+      const res = await apiFetch(`/api/accounts/users/${editingStudent.id}/update-student/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || JSON.stringify(err));
+      }
+      closeStudentEdit();
+      fetchStudents();
+    } catch (e) {
+      setStudentEditError(e.message);
+    } finally {
+      setSavingStudent(false);
     }
   };
 
@@ -346,6 +405,105 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         </div>
       )}
 
+      {/* ── Edit Student Modal ── */}
+      {editingStudent && (
+        <div className="modal-overlay" onClick={closeStudentEdit}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Edit Student</h2>
+            {studentEditError && <div className="form-error">{studentEditError}</div>}
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>First Name *</label>
+                <input type="text" value={studentForm.student_first_name}
+                  onChange={(e) => setStudentForm({ ...studentForm, student_first_name: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Middle Name</label>
+                <input type="text" value={studentForm.student_middle_name}
+                  onChange={(e) => setStudentForm({ ...studentForm, student_middle_name: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Last Name *</label>
+                <input type="text" value={studentForm.student_last_name}
+                  onChange={(e) => setStudentForm({ ...studentForm, student_last_name: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>LRN</label>
+                <input type="text" value={studentForm.lrn}
+                  onChange={(e) => setStudentForm({ ...studentForm, lrn: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Grade Level</label>
+                <select value={studentForm.grade_level}
+                  onChange={(e) => setStudentForm({ ...studentForm, grade_level: e.target.value })}>
+                  <option value="">— Select —</option>
+                  <option value="prek">Pre-Kinder</option>
+                  <option value="kinder">Kinder</option>
+                  <option value="grade1">Grade 1</option>
+                  <option value="grade2">Grade 2</option>
+                  <option value="grade3">Grade 3</option>
+                  <option value="grade4">Grade 4</option>
+                  <option value="grade5">Grade 5</option>
+                  <option value="grade6">Grade 6</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Section</label>
+                <select value={studentForm.section}
+                  onChange={(e) => setStudentForm({ ...studentForm, section: e.target.value })}>
+                  <option value="">— None —</option>
+                  {sections.map((s) => (
+                    <option key={s.id} value={s.id}>G{s.grade_level} – {s.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Parent First Name</label>
+                <input type="text" value={studentForm.parent_first_name}
+                  onChange={(e) => setStudentForm({ ...studentForm, parent_first_name: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Parent Middle Name</label>
+                <input type="text" value={studentForm.parent_middle_name}
+                  onChange={(e) => setStudentForm({ ...studentForm, parent_middle_name: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Parent Last Name</label>
+                <input type="text" value={studentForm.parent_last_name}
+                  onChange={(e) => setStudentForm({ ...studentForm, parent_last_name: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Email</label>
+                <input type="email" value={studentForm.email}
+                  onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Contact Number</label>
+                <input type="text" value={studentForm.contact_number}
+                  onChange={(e) => setStudentForm({ ...studentForm, contact_number: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button className="btn-secondary" onClick={closeStudentEdit}>Cancel</button>
+              <button className="btn-primary" onClick={handleSaveStudent} disabled={savingStudent}>
+                {savingStudent ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search & Filter */}
       <div className="user-controls">
         <div className="search-box">
@@ -385,7 +543,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                   <th>Parent / Guardian</th>
                   <th>Email</th>
                   <th>Contact</th>
-                  
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -398,6 +556,13 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                     <td>{parentName(u)}</td>
                     <td><a href={`mailto:${u.email}`}>{u.email}</a></td>
                     <td>{u.profile?.contact_number || '—'}</td>
+                    <td>
+                      <div className="action-buttons">
+                        <button className="btn-edit" onClick={() => openStudentEdit(u)} title="Edit Student">
+                          <Edit2 size={16} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
