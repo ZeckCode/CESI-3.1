@@ -28,7 +28,7 @@ function roleLabel(role) {
   const r = String(role).toLowerCase();
   if (r.includes("admin")) return "Administrator";
   if (r.includes("teacher")) return "Teacher";
-  if (r.includes("parent")) return "Parent / Guardian";
+  if (r.includes("parent")) return "Student";
   return role;
 }
 

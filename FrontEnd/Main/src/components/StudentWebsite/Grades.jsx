@@ -8,13 +8,21 @@ import { apiFetch } from "../api/apiFetch";
 const Grades = () => {
   const [grades, setGrades] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [schoolYear, setSchoolYear] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await apiFetch("/api/grades/my-grades/");
-        if (res.ok) {
-          setGrades(await res.json());
+        const [gradesRes, syRes] = await Promise.all([
+          apiFetch("/api/grades/my-grades/"),
+          apiFetch("/api/classmanagement/school-years/active/"),
+        ]);
+        if (gradesRes.ok) {
+          setGrades(await gradesRes.json());
+        }
+        if (syRes.ok) {
+          const syData = await syRes.json();
+          setSchoolYear(syData.name || "");
         }
       } catch (e) {
         console.error(e);
@@ -100,7 +108,7 @@ const Grades = () => {
         <div className="sg-section-header">
           <div>
             <h2 className="sg-section-title">Academic Report Card</h2>
-            <p className="sg-section-subtitle">Current School Year Grades</p>
+            <p className="sg-section-subtitle">S.Y. {schoolYear || "—"}</p>
           </div>
           <div className="sg-header-actions">
             <button className="sg-btn-primary" onClick={handleExport}>
