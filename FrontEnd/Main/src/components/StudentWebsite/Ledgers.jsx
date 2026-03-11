@@ -48,12 +48,7 @@ const Ledgers = () => {
   }, []);
 
   // ── derived data ──
-  const paidTransactions = transactions.filter((t) => t.status === "PAID");
-  const pendingTransactions = transactions.filter((t) => t.status !== "PAID");
-
-  const totalDebit = transactions.reduce((s, t) => s + Number(t.amount || 0), 0);
-  const totalPaid = paidTransactions.reduce((s, t) => s + Number(t.amount || 0), 0);
-  const balance = totalDebit - totalPaid;
+  // (Payment summary removed — only transaction history is shown)
 
   // ── pagination ──
   const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
@@ -71,7 +66,9 @@ const Ledgers = () => {
     <div className="ledger-content">
       <header className="ledger-header-flex">
         <div className="header-title-area">
-          <h2 className="title-text">Student's Ledger</h2>
+          <h2 className="title-text">
+            <i className="bi bi-clock-history me-2"></i>Transaction History
+          </h2>
           <span className="sy-badge">S.Y. 2025-2026</span>
         </div>
 
@@ -82,9 +79,6 @@ const Ledgers = () => {
             onClick={() => window.print()}
           >
             <i className="bi bi-printer-fill me-2"></i>Print
-          </button>
-          <button type="button" className="btn-action btn-download">
-            <i className="bi bi-file-earmark-pdf-fill me-2"></i>PDF
           </button>
         </div>
       </header>
@@ -111,8 +105,6 @@ const Ledgers = () => {
       )}
 
       {!loading && !error && (
-        <>
-          {/* TRANSACTION HISTORY */}
           <section className="ledger-section">
             <div className="section-header blue-header">
               <i className="bi bi-clock-history me-2"></i> Transaction History
@@ -183,87 +175,6 @@ const Ledgers = () => {
               />
             </div>
           </section>
-
-          {/* PAYMENT SUMMARY */}
-          <section className="ledger-section">
-            <div className="section-header dark-header">
-              <i className="bi bi-calculator me-2"></i> Payment Summary
-            </div>
-
-            <div className="table-responsive">
-              <table className="ledger-table">
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th>Amount</th>
-                    <th>Reference</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {paidTransactions.length === 0 && pendingTransactions.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" style={{ textAlign: "center", color: "#94a3b8" }}>
-                        No payment data yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    <>
-                      {paidTransactions.map((row) => (
-                        <tr key={row.id}>
-                          <td data-label="Description" className="fw-semibold text-start-md">
-                            {TYPE_LABELS[row.transaction_type] || row.transaction_type}
-                            {row.description ? ` — ${row.description}` : ""}
-                          </td>
-                          <td data-label="Amount" className="text-credit">
-                            ₱{Number(row.amount).toLocaleString()}
-                          </td>
-                          <td data-label="Reference">{row.reference_number || "—"}</td>
-                          <td data-label="Status">
-                            <span className="status-pill paid">Paid</span>
-                          </td>
-                        </tr>
-                      ))}
-                      {pendingTransactions.map((row) => (
-                        <tr key={row.id}>
-                          <td data-label="Description" className="fw-semibold text-start-md">
-                            {TYPE_LABELS[row.transaction_type] || row.transaction_type}
-                            {row.description ? ` — ${row.description}` : ""}
-                          </td>
-                          <td data-label="Amount" className="text-debit">
-                            ₱{Number(row.amount).toLocaleString()}
-                          </td>
-                          <td data-label="Reference">{row.reference_number || "—"}</td>
-                          <td data-label="Status">
-                            <span className={`status-pill ${row.status === "OVERDUE" ? "overdue" : "pending"}`}>
-                              {row.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </>
-                  )}
-                  {/* Balance row */}
-                  {transactions.length > 0 && (
-                    <tr style={{ fontWeight: 800, borderTop: "2px solid #0056b3" }}>
-                      <td>Outstanding Balance</td>
-                      <td className={balance <= 0 ? "text-credit" : "text-debit"}>
-                        ₱{balance.toLocaleString()}
-                      </td>
-                      <td></td>
-                      <td>
-                        <span className={`status-pill ${balance <= 0 ? "paid" : "pending"}`}>
-                          {balance <= 0 ? "Fully Paid" : "Balance Due"}
-                        </span>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </>
       )}
     </div>
   );
