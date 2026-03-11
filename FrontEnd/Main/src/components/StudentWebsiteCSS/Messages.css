@@ -13,7 +13,7 @@
 /* Main Layout for the chat area */
 .chat-main-layout {
   display: flex;
-  background-color: #FFFFDF;
+  background-color: #ffffff;
   margin: 0;
 
   /* ✅ Make it fill the available space naturally */
