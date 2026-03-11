@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-03-11T00:48:41.320991",
+  "exported_at": "2026-03-12T03:40:41.391124",
   "tables": {
     "accounts_adminprofile": [],
     "accounts_section": [
@@ -129,7 +129,7 @@
       {
         "id": 1,
         "password": "pbkdf2_sha256$1200000$1nkjNX0UNSfLsPg4V0bEss$2lRlC2ItXhLOKk4jGrOzVfjJUZ8N88AEjeKZEJhv0RI=",
-        "last_login": "2026-03-10 16:46:02.652154",
+        "last_login": "2026-03-11 19:37:48.688813",
         "is_superuser": 1,
         "username": "ace",
         "email": "acy995kim@gmail.com",
@@ -255,7 +255,7 @@
       {
         "id": 14,
         "password": "pbkdf2_sha256$1200000$q53qIzrj63vOJxIhPAR0hO$bckZXkUvXJLq52IcECxoxPIp/IVZ73fQmaHtSwtsA6w=",
-        "last_login": "2026-03-08 17:25:19.662641",
+        "last_login": "2026-03-11 19:30:30.449079",
         "is_superuser": 0,
         "username": "paoogma",
         "email": "ral531712@gmail.com",
@@ -2262,9 +2262,9 @@
         "user_id": 6
       },
       {
-        "key": "e050e09f436a1b85b3a680dab4a43f20241cdd7b",
-        "created": "2026-03-08 17:25:19.665785",
-        "user_id": 14
+        "key": "694f5aaf7a19b7400133092c339d589e3cfa8652",
+        "created": "2026-03-11 17:42:11.131070",
+        "user_id": 1
       }
     ],
     "classmanagement_room": [
@@ -5805,6 +5805,16 @@
         "session_key": "ry7axlzpmb81qlaqprydyftxvbau608t",
         "session_data": ".eJxVjMsOwiAQAP9lz4bwbNkevfsNhF2oVA0kpT0Z_9006UGvM5N5Q4j7VsLe8xqWBBMouPwyivzM9RDpEeu9CW51WxcSRyJO28Wtpfy6nu3foMReYAKD0RCiiejRkpu9kuwd0UB2tNJiclkbySMOLLUlbVglMxOxco6ys_D5Asn_N3A:1vzcvK:C-B-ktwE9iEmSR_c6WjijiMuoEQThdJDzxRmxiFY08A",
         "expire_date": "2026-03-23 15:53:38.710066"
+      },
+      {
+        "session_key": "1n7dyigaqjjahmhif7osgt0lz07uo2ky",
+        "session_data": ".eJxVjMsOwiAQAP9lz4bwbNkevfsNhF2oVA0kpT0Z_9006UGvM5N5Q4j7VsLe8xqWBBMouPwyivzM9RDpEeu9CW51WxcSRyJO28Wtpfy6nu3foMReYAKD0RCiiejRkpu9kuwd0UB2tNJiclkbySMOLLUlbVglMxOxco6ys_D5Asn_N3A:1w0NZT:GfxmpKxfNZX82-cRItVsV9R-be_TbJ-H8j2n7qZDvXE",
+        "expire_date": "2026-03-25 17:42:11.261871"
+      },
+      {
+        "session_key": "0dlcqu2yfmzhzuv7a3biv6t1ew31ldia",
+        "session_data": ".eJxVjMsOwiAQAP9lz4bwbNkevfsNhF2oVA0kpT0Z_9006UGvM5N5Q4j7VsLe8xqWBBMouPwyivzM9RDpEeu9CW51WxcSRyJO28Wtpfy6nu3foMReYAKD0RCiiejRkpu9kuwd0UB2tNJiclkbySMOLLUlbVglMxOxco6ys_D5Asn_N3A:1w0PNM:gLN_BAW0gWyYjlRVSm9WwEJz8h0DykbvUcNiQcdtQwo",
+        "expire_date": "2026-03-25 19:37:48.692122"
       }
     ],
     "enrollment_enrollment": [
@@ -6081,13 +6091,13 @@
       {
         "id": 12,
         "grade_level": "grade1",
-        "status": "PENDING",
+        "status": "ACTIVE",
         "enrolled_at": "2026-03-09 15:07:20.127712",
         "completed_at": null,
         "academic_year": "2025-2026",
         "remarks": "APPROVED BY ADMIN",
         "created_at": "2026-03-09 15:07:20.129094",
-        "updated_at": "2026-03-09 15:07:20.129186",
+        "updated_at": "2026-03-11 17:12:29.819623",
         "section_id": null,
         "student_id": 8,
         "address": "Block 10 Lot 32 Phase 3 Area 1",
@@ -6106,7 +6116,7 @@
         "student_type": "old",
         "telephone_number": "2878727",
         "parent_user_id": null,
-        "student_number": null
+        "student_number": "2026000004"
       },
       {
         "id": 13,
@@ -8451,13 +8461,13 @@
       {
         "id": 91,
         "grade_level": "grade6",
-        "status": "PENDING",
+        "status": "DROPPED",
         "enrolled_at": "2026-03-09 17:42:00.175589",
-        "completed_at": null,
-        "academic_year": "2024-2025",
-        "remarks": "",
+        "completed_at": "2026-03-11 16:09:49.435345",
+        "academic_year": "2025-2026",
+        "remarks": "DECLINED BY ADMIN",
         "created_at": "2026-03-09 17:42:00.175843",
-        "updated_at": "2026-03-09 17:42:00.175861",
+        "updated_at": "2026-03-11 16:09:49.435407",
         "section_id": null,
         "student_id": 96,
         "address": "135 Pine Lane, Rizal",
@@ -8469,7 +8479,7 @@
         "last_name": "Reyes",
         "lrn": "101008009",
         "middle_name": "Jasso",
-        "mobile_number": "09901234878",
+        "mobile_number": "+639901234878",
         "parent_facebook": "javier.reyes.009",
         "payment_mode": "cash",
         "religion": "Catholic",
@@ -8484,10 +8494,10 @@
         "status": "ACTIVE",
         "enrolled_at": "2026-03-09 17:42:00.182482",
         "completed_at": null,
-        "academic_year": "2024-2025",
+        "academic_year": "2025-2026",
         "remarks": "",
         "created_at": "2026-03-09 17:42:00.182812",
-        "updated_at": "2026-03-09 17:42:00.182827",
+        "updated_at": "2026-03-11 16:09:25.001764",
         "section_id": null,
         "student_id": 97,
         "address": "441 Maple Ridge, Batangas",
@@ -8495,11 +8505,11 @@
         "education_level": "elementary",
         "email": "josefina.lopez10g6@school.local",
         "first_name": "Josefina",
-        "gender": "Female",
+        "gender": "male",
         "last_name": "Lopez",
         "lrn": "101008010",
         "middle_name": "Josaphat",
-        "mobile_number": "09012345879",
+        "mobile_number": "+639012345879",
         "parent_facebook": "josefina.lopez.010",
         "payment_mode": "installment",
         "religion": "Catholic",
@@ -8507,6 +8517,36 @@
         "telephone_number": "0012345",
         "parent_user_id": null,
         "student_number": "G6010"
+      },
+      {
+        "id": 93,
+        "grade_level": "kinder",
+        "status": "PENDING",
+        "enrolled_at": "2026-03-11 17:46:09.541234",
+        "completed_at": null,
+        "academic_year": "2026-2027",
+        "remarks": "Enrolled",
+        "created_at": "2026-03-11 17:46:09.541453",
+        "updated_at": "2026-03-11 17:46:09.541459",
+        "section_id": null,
+        "student_id": 8,
+        "address": "146 T, T, T, T, T, 1223",
+        "birth_date": "2022-02-11",
+        "education_level": "preschool",
+        "email": "ral531715@gmail.com",
+        "first_name": "PaO",
+        "gender": "male",
+        "last_name": "Lozana",
+        "lrn": "123456789012",
+        "middle_name": "Ce",
+        "mobile_number": "+639111222332",
+        "parent_facebook": "https://www.facebook.com/behide.mask/",
+        "payment_mode": "cash",
+        "religion": "Christian",
+        "student_type": "old",
+        "telephone_number": "",
+        "parent_user_id": null,
+        "student_number": null
       }
     ],
     "enrollment_enrollmentsettings": [
@@ -9688,6 +9728,19 @@
         "guardian_contact": "",
         "guardian_relationship": "",
         "enrollment_id": 92
+      },
+      {
+        "id": 93,
+        "father_name": "",
+        "father_contact": "",
+        "father_occupation": "",
+        "mother_name": "T T T",
+        "mother_contact": "09012345850",
+        "mother_occupation": "T",
+        "guardian_name": "",
+        "guardian_contact": "",
+        "guardian_relationship": "",
+        "enrollment_id": 93
       }
     ],
     "finance_transaction": [
