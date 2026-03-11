@@ -27,7 +27,7 @@ from .serializers import (
     TeacherAssignmentSerializer,
     StudentProfileUpdateSerializer,
 )
-from .models import User, Subject, Section, TeacherProfile, UserProfile
+from .models import User, Subject, Section, TeacherProfile
 
 
 @method_decorator(csrf_exempt, name="dispatch")
