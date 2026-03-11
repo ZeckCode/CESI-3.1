@@ -7,6 +7,9 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     section_name = serializers.CharField(source="section.name", read_only=True)
     marked_by_name = serializers.CharField(source="marked_by.username", read_only=True)
+    subject_name = serializers.SerializerMethodField()
+    subject_code = serializers.SerializerMethodField()
+    schedule_time = serializers.SerializerMethodField()
 
     class Meta:
         model = AttendanceRecord
@@ -16,6 +19,10 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             "student_name",
             "section",
             "section_name",
+            "schedule",
+            "subject_name",
+            "subject_code",
+            "schedule_time",
             "date",
             "status",
             "marked_by",
@@ -33,13 +40,30 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
                 return f"{p.student_first_name} {p.student_last_name}"
         return obj.student.username
 
+    def get_subject_name(self, obj):
+        if obj.schedule and obj.schedule.subject:
+            return obj.schedule.subject.name
+        return "Homeroom"
+
+    def get_subject_code(self, obj):
+        if obj.schedule and obj.schedule.subject:
+            return obj.schedule.subject.code
+        return "HR"
+
+    def get_schedule_time(self, obj):
+        if obj.schedule:
+            return f"{obj.schedule.start_time.strftime('%H:%M')} - {obj.schedule.end_time.strftime('%H:%M')}"
+        return None
+
 
 class BulkAttendanceSerializer(serializers.Serializer):
     """
     For bulk creating/updating attendance records.
+    Now supports per-subject attendance with optional schedule field.
     """
     section = serializers.IntegerField()
     date = serializers.DateField()
+    schedule = serializers.IntegerField(required=False, allow_null=True)
     records = serializers.ListField(
         child=serializers.DictField(
             child=serializers.CharField(allow_blank=True),

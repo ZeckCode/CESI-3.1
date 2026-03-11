@@ -3,6 +3,7 @@ import '../IndexWebsiteCSS/Home.css';
 import { useNavigate } from "react-router-dom";
 import Notebook from './Notebook';
 import logo from "../../assets/CESI-logo.jpg";
+import backgroundImage from "../../assets/CESI-cover.png";
 import EnrollmentForm from './EnrollmentForm';
 
 
@@ -12,7 +13,12 @@ function App() {
   const [enrollmentOpen, setEnrollmentOpen] = useState(false);
 
   return (
-    <div className="app">
+    <div className="app" style={{  
+      backgroundImage: `linear-gradient(rgba(220, 235, 255, 0.393), rgba(244, 226, 139, 0.502)), url(${backgroundImage})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundAttachment: 'fixed'
+    }}>
       {/* Header - Full width */}
       <header className="index-header">
         <div className="index-header-container">

@@ -1,0 +1,384 @@
+/* Student Profile - Unified Admin Style */
+:root {
+  --primary-blue: #24148a;
+  --blue-light: #e8f4fc;
+  --blue-soft: #B1D9EC;
+  --white: #ffffff;
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-600: #475569;
+  --gray-800: #1e293b;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+}
+
+/* Base Layout */
+.profile-content {
+  padding: 1.5rem;
+  background-color: var(--gray-50);
+  min-height: calc(100vh - 80px);
+}
+
+.loading-spinner,
+.error-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: var(--gray-600);
+  font-size: 1rem;
+}
+
+/* Header */
+.profile-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.title-text {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.edit-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.edit-profile-btn:hover {
+  background: #1a0f66;
+  transform: translateY(-1px);
+}
+
+.btn-save {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--success);
+  color: white;
+  border: none;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-save:hover:not(:disabled) {
+  background: #16a34a;
+}
+
+.btn-save:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-cancel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--gray-200);
+  color: var(--gray-800);
+  border: none;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background: var(--gray-100);
+}
+
+/* Hero Card */
+.profile-hero-card {
+  background: white;
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--gray-200);
+}
+
+.hero-main-info {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+/* Avatar */
+.hero-avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 120px;
+  height: 120px;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: var(--gray-100);
+}
+
+.hero-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero-avatar.editable {
+  cursor: pointer;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-200);
+  color: var(--gray-600);
+}
+
+.avatar-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.2s;
+  gap: 0.25rem;
+}
+
+.avatar-overlay span {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.hero-avatar.editable:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.status-badge {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.25rem 0.75rem;
+  border-radius: 50px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: var(--success);
+  color: white;
+}
+
+.status-badge.inactive {
+  background: var(--gray-600);
+}
+
+.status-badge.suspended {
+  background: var(--danger);
+}
+
+/* Hero Text */
+.hero-text {
+  flex: 1;
+}
+
+.student-name {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--gray-800);
+  margin: 0 0 0.25rem 0;
+}
+
+.student-lrn {
+  color: var(--gray-600);
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+}
+
+.student-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.875rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.tag-pill.grade {
+  background: var(--blue-light);
+  color: var(--primary-blue);
+}
+
+.tag-pill.year {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Details Grid */
+.profile-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.details-card {
+  background: white;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--gray-200);
+}
+
+.details-header {
+  background: var(--primary-blue);
+  padding: 1rem 1.5rem;
+  font-weight: 700;
+  color: white;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+}
+
+.details-header.guardian-header {
+  background: #059669;
+}
+
+.details-body {
+  padding: 0.5rem 1.5rem;
+}
+
+.info-entry {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0;
+}
+
+.info-entry.edit-mode {
+  padding: 0.75rem 0;
+}
+
+.entry-border {
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.entry-label {
+  font-size: 0.7rem;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 0.375rem;
+  letter-spacing: 0.5px;
+}
+
+.entry-value {
+  font-weight: 600;
+  color: var(--gray-800);
+  font-size: 0.95rem;
+}
+
+.entry-input {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--gray-800);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+}
+
+.entry-input:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(36, 20, 138, 0.1);
+}
+
+textarea.entry-input {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .profile-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .profile-content {
+    padding: 1rem;
+  }
+
+  .profile-header-flex {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hero-main-info {
+    flex-direction: column;
+    text-align: center;
+    gap: 1.5rem;
+  }
+
+  .hero-avatar {
+    margin: 0 auto;
+  }
+
+  .student-tags {
+    justify-content: center;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .header-actions button {
+    flex: 1;
+    justify-content: center;
+  }
+}

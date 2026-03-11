@@ -14,7 +14,11 @@ from .views import (
     SectionDetail,
     user_list,
     update_teacher_assignment,
+<<<<<<< HEAD
     update_student_profile,
+=======
+    UpdateProfileView,
+>>>>>>> main
 )
 from .views import SetPasswordView # Import the new view for password reset
 
@@ -25,7 +29,8 @@ urlpatterns = [
     path("parent-data/", parent_data, name="parent-data"),
     path("admin/create-user/", admin_create_user, name="admin-create-user"),
     path("me/", me, name="me"),
-    path("me/detail/", views.me_detail), 
+    path("me/detail/", views.me_detail),
+    path("me/update/", UpdateProfileView.as_view(), name="update-profile"),
     
     path("logout/", logout_view, name="logout"),
 

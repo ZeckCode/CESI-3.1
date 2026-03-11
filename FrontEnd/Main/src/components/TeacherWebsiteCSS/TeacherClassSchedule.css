@@ -5,6 +5,7 @@
 
   --text: #1f2937;
   --muted: #6b7280;
+  --gray-text: #6b7280;
 
   --card-bg: #ffffff;
   --border: #e5e7eb;
@@ -13,6 +14,7 @@
   --dark: #111827;
   --primary: #2563eb;
   --primary-soft: #dbeafe;
+  --primary-light: #dbeafe;
 
   --success: #198754;
   --success-soft: #d1e7dd;
@@ -25,31 +27,63 @@
 
 .tcs {
   min-height: 100vh;
-  padding: 16px;
-  background: var(--yellow-soft);
+  padding: 24px 28px;
+  background: #ffffff;
   color: var(--text);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.tcs__loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.tcs__empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 40px;
+  font-size: 14px;
 }
 
 /* header */
 .tcs__header{
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
+}
+
+.tcs__headerLeft {
+  flex: 1 1 auto;
 }
 
 .tcs__title{
   margin: 0;
-  font-weight: 950;
+  font-weight: 700;
+  font-size: 26px;
+  color: var(--primary);
 }
 
 .tcs__subtitle{
   margin: 6px 0 0 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.tcs__syTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 /* toggle buttons */
@@ -63,17 +97,26 @@
 }
 
 .tcs__toggleBtn{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 0;
   background: transparent;
-  padding: 10px 14px;
-  font-weight: 950;
+  padding: 12px 18px;
+  font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
   color: var(--dark);
+  transition: background .15s;
 }
 
 .tcs__toggleBtn--active{
   background: var(--dark);
   color: #fff;
+}
+
+.tcs__toggleBtn:hover:not(.tcs__toggleBtn--active) {
+  background: var(--primary-soft);
 }
 
 .tcs__toggleBtn:active{ transform: translateY(1px); }
@@ -82,8 +125,8 @@
 .tcs__stats{
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 @media (max-width: 900px){
@@ -95,15 +138,15 @@
   border: 1px solid var(--border);
   border-radius: 18px;
   box-shadow: var(--shadow);
-  padding: 14px;
+  padding: 18px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .tcsStat__icon{
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
   display: grid;
   place-items: center;
@@ -117,16 +160,18 @@
 .tcsStat__icon--warn{ background: var(--warn-soft); color: #b45309; }
 
 .tcsStat__label{
-  font-size: 12px;
-  font-weight: 950;
-  letter-spacing: .06em;
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .04em;
   color: var(--muted);
 }
 
 .tcsStat__value{
   margin-top: 4px;
-  font-size: 22px;
-  font-weight: 950;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--dark);
 }
 
 /* block + tables */
@@ -251,12 +296,43 @@
 }
 
 .calBlock__title{
-  font-weight: 950;
+  font-weight: 700;
   font-size: 12px;
+  color: var(--dark);
 }
 
 .calBlock__meta{
   margin-top: 2px;
   font-size: 11px;
+  color: var(--muted);
+}
+
+.calBlock__time{
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* Table view extras */
+.tcsDay {
+  display: inline-block;
+  font-weight: 600;
+  color: var(--dark);
+}
+
+.tcsRoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.tcsTd__code {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--muted);
 }

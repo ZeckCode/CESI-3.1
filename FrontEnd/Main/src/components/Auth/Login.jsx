@@ -39,7 +39,7 @@ export default function Login() {
       const normalizedRole = data?.user?.role?.toLowerCase();
       if (normalizedRole === "admin") navigate("/admin", { replace: true });
       else if (normalizedRole === "teacher") navigate("/teacher", { replace: true });
-      else if (normalizedRole === "parent_student") navigate("/parent", { replace: true });
+      else if (normalizedRole === "parent_student") navigate("/student", { replace: true });
       else navigate("/", { replace: true });
 
     } catch (err) {
