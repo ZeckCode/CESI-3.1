@@ -35,6 +35,24 @@ const statusLabel = (s) => ({
 }[s] || s || "");
 
 /* ─────────────────────────────────────────────
+   FILTER OPTIONS
+───────────────────────────────────────────── */
+const FILTER_OPTIONS = [
+  { value: "All", label: "All Status" },
+  { value: "Active", label: "Enrolled" },
+  { value: "Pending", label: "Pending" },
+  { value: "Dropped", label: "Dropped" },
+  { value: "Completed", label: "Completed" },
+  { value: "Expired", label: "Expired" },
+];
+
+const matchesStatusFilter = (filterStatus, statusText, isExpired) => {
+  if (filterStatus === "Expired") return isExpired;
+  if (filterStatus === "All") return !isExpired;
+  return !isExpired && statusText === filterStatus;
+};
+
+/* ─────────────────────────────────────────────
    AGE VALIDATION
 ───────────────────────────────────────────── */
 const GRADE_AGE_RULES = {
@@ -607,14 +625,9 @@ export default function EnrollmentManagement() {
         !s ||
         row.studentName.toLowerCase().includes(s) ||
         row.parentName.toLowerCase().includes(s) ||
-        String(row.phone).includes(searchTerm);
+        String(row.phone).toLowerCase().includes(s);
 
-      const matchesStatus =
-        filterStatus === "All"
-          ? true
-          : filterStatus === "Expired"
-            ? row.expired
-            : row.statusText === filterStatus;
+      const matchesStatus = matchesStatusFilter(filterStatus, row.statusText, row.expired);
 
       return matchesSearch && matchesStatus;
     });
@@ -1059,12 +1072,12 @@ export default function EnrollmentManagement() {
             </button>
           </div>
         </div>
-
+      {/* OVERVIEW */}
         <StatsGrid>
           <StatCard label="Total" value={stats.total} icon={<Users size={20} />} color="blue" subtitle="All enrollees" />
-          <StatCard label="Active" value={stats.active} icon={<UserCheck size={20} />} color="green" subtitle={stats.total ? `${Math.round((stats.active / stats.total) * 100)}% of total` : '—'} subtitleType="positive" />
+          <StatCard label="Enrolled" value={stats.active} icon={<UserCheck size={20} />} color="green" subtitle={stats.total ? `${Math.round((stats.active / stats.total) * 100)}% of total` : '—'} subtitleType="positive" />
           <StatCard label="Pending" value={stats.pending} icon={<Clock size={20} />} color="yellow" subtitle={stats.total ? `${Math.round((stats.pending / stats.total) * 100)}% of total` : '—'} />
-          <StatCard label="Dropped" value={stats.dropped} icon={<UserMinus size={20} />} color="red" subtitle={stats.total ? `${Math.round((stats.dropped / stats.total) * 100)}% of total` : '—'} subtitleType="negative" />
+          <StatCard label="Declined" value={stats.dropped} icon={<UserMinus size={20} />} color="red" subtitle={stats.total ? `${Math.round((stats.dropped / stats.total) * 100)}% of total` : '—'} subtitleType="negative" />
           <StatCard label="Expired" value={stats.expired} icon={<UserX size={20} />} color="purple" subtitle={stats.total ? `${Math.round((stats.expired / stats.total) * 100)}% of total` : '—'} subtitleType="negative" />
           <StatCard
             label="Enrollment"
@@ -1204,12 +1217,11 @@ export default function EnrollmentManagement() {
         <div className="filter-box">
           <Filter size={16} />
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="All">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Pending">Pending</option>
-            <option value="Dropped">Dropped</option>
-            <option value="Completed">Completed</option>
-            <option value="Expired">Expired</option>
+            {FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -1498,7 +1510,7 @@ export default function EnrollmentManagement() {
                 <label>Status</label>
                 <select name="status" value={formData.status} onChange={handleInputChange} disabled={isReadOnly}>
                   <option value="PENDING">Pending</option>
-                  <option value="ACTIVE">Active</option>
+                  <option value="ACTIVE">Enrolled</option>
                   <option value="DROPPED">Dropped</option>
                   <option value="COMPLETED">Completed</option>
                 </select>
