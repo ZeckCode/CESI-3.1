@@ -179,7 +179,7 @@ const Profile = () => {
       }
 
       const token = getToken();
-      const res = await fetch(`${API_BASE}/api/accounts/update-profile/`, {
+      const res = await fetch(`${API_BASE}/api/accounts/me/update/`, {
         method: "PATCH",
         headers: {
           Authorization: `Token ${token}`,
