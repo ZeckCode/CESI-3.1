@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from .models import User, UserProfile, TeacherProfile, AdminProfile, Section, Subject
+
+#  Enrollment
 from enrollment.models import Enrollment
-from enrollment.serializers import EnrollmentDetailedSerializer
+# from enrollment.serializers import EnrollmentDetailedSerializer
 
 # ── Read-only serializers ──────────────────────────────
 
@@ -119,7 +121,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
         if not enrollment:
             return None
-
+        
+        from enrollment.serializers import EnrollmentDetailedSerializer
         return EnrollmentDetailedSerializer(enrollment, context=self.context).data
 
 # ── Write serializers ──────────────────────────────────
@@ -183,7 +186,7 @@ class CreateUserSerializer(serializers.Serializer):
     student_first_name = serializers.CharField(max_length=50, required=False)
     student_middle_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
     student_last_name = serializers.CharField(max_length=50, required=False)
-    grade_level = serializers.IntegerField(required=False)
+    grade_level = serializers.CharField(max_length=20, required=False)
     section = serializers.IntegerField(required=False)
 
     parent_first_name = serializers.CharField(max_length=50, required=False)

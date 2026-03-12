@@ -174,11 +174,12 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         # Keep parent user email in sync with enrollment email
         if parent_email and parent_user.email != parent_email:
-            parent_user.email = parent_email
-            parent_user.save(update_fields=["email"])
-
-        grade_code = (enrollment.grade_level or "").strip()
-        parent_first_name, parent_last_name = self._get_parent_names_from_enrollment(enrollment)
+            email_taken = User.objects.filter(email__iexact=parent_email).exclude(pk=parent_user.pk).exists()
+            if not email_taken:
+                parent_user.email = parent_email
+                parent_user.save(update_fields=["email"])
+                grade_code = (enrollment.grade_level or "").strip()
+                parent_first_name, parent_last_name = self._get_parent_names_from_enrollment(enrollment)
 
         profile, created = UserProfile.objects.get_or_create(
             user=parent_user,
@@ -419,108 +420,6 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             "by_grade": by_grade,
         })
         
-    # 
-    def _get_parent_names_from_enrollment(self, enrollment):
-        parent_info = getattr(enrollment, "parent_info", None)
 
-        full_name = ""
-        if parent_info:
-            full_name = (
-                parent_info.guardian_name
-                or parent_info.mother_name
-                or parent_info.father_name
-                or ""
-            ).strip()
-
-        parts = full_name.split()
-        parent_first_name = parts[0] if parts else ""
-        parent_last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
-
-        return parent_first_name, parent_last_name
-
-
-    def _sync_parent_user_and_profile(self, enrollment, create_if_missing=False):
-            parent_email = (enrollment.email or "").strip().lower()
-            parent_user = enrollment.parent_user
-
-            # Create/find linked account only when allowed
-            if not parent_user and create_if_missing and parent_email:
-                parent_user = User.objects.filter(email__iexact=parent_email).first()
-
-                if not parent_user:
-                    base_username = f"{(enrollment.first_name or '')}{(enrollment.last_name or '')}".lower().replace(" ", "")
-                    base_username = base_username or "parent"
-
-                    username = base_username
-                    counter = 1
-                    while User.objects.filter(username=username).exists():
-                        counter += 1
-                        username = f"{base_username}{counter}"
-
-                    parent_user = User.objects.create(
-                        username=username,
-                        email=parent_email,
-                        role="PARENT_STUDENT",
-                        status="ACTIVE",
-                        is_active=True,
-                    )
-                    parent_user.set_unusable_password()
-                    parent_user.save()
-
-                enrollment.parent_user = parent_user
-                enrollment.save(update_fields=["parent_user"])
-
-            if not parent_user:
-                return
-
-            # Keep email synced
-            if parent_email and parent_user.email != parent_email:
-                # Only update if email is not used by another user
-                email_taken = User.objects.filter(email__iexact=parent_email).exclude(pk=parent_user.pk).exists()
-                if not email_taken:
-                    parent_user.email = parent_email
-                    parent_user.save(update_fields=["email"])
-
-            parent_first_name, parent_last_name = self._get_parent_names_from_enrollment(enrollment)
-
-            profile, created = UserProfile.objects.get_or_create(
-                user=parent_user,
-                defaults={
-                    "student_first_name": enrollment.first_name or "",
-                    "student_middle_name": enrollment.middle_name or "",
-                    "student_last_name": enrollment.last_name or "",
-                    "grade_level": enrollment.grade_level or "grade1",
-                    "lrn": enrollment.lrn or "",
-                    "student_number": enrollment.student_number or "",
-                    "payment_mode": enrollment.payment_mode or "",
-                    "section": enrollment.section,
-                    "parent_first_name": parent_first_name or "",
-                    "parent_middle_name": "",
-                    "parent_last_name": parent_last_name or "",
-                    "contact_number": enrollment.mobile_number or enrollment.telephone_number or "",
-                    "address": enrollment.address or "",
-                },
-            )
-
-            if not created:
-                profile.student_first_name = enrollment.first_name or profile.student_first_name
-                profile.student_middle_name = enrollment.middle_name or profile.student_middle_name
-                profile.student_last_name = enrollment.last_name or profile.student_last_name
-                profile.grade_level = enrollment.grade_level or profile.grade_level
-                profile.lrn = enrollment.lrn or profile.lrn
-                profile.student_number = enrollment.student_number or profile.student_number
-                profile.payment_mode = enrollment.payment_mode or profile.payment_mode
-                profile.section = enrollment.section
-                profile.parent_first_name = parent_first_name or profile.parent_first_name
-                profile.parent_last_name = parent_last_name or profile.parent_last_name
-                profile.contact_number = (
-                    enrollment.mobile_number
-                    or enrollment.telephone_number
-                    or profile.contact_number
-                )
-                profile.address = enrollment.address or profile.address
-                profile.save()
-                
-    def perform_update(self, serializer):
         enrollment = serializer.save()
         self._sync_parent_user_and_profile(enrollment, create_if_missing=False)
