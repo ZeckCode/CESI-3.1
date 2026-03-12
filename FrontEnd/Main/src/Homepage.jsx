@@ -51,7 +51,7 @@ export default function Homepage() {
 
       <Route path="/set-password/:uidb64/:token" element={<SetPassword />} />
       
-      <Route
+     <Route
         path="/admin"
         element={
           <ProtectedRoute role="ADMIN">
@@ -78,7 +78,6 @@ export default function Homepage() {
           </ProtectedRoute>
         }
       />  
-
       <Route path="/unauthorized" element={<div>Unauthorized</div>} />
       <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
     </Routes>
