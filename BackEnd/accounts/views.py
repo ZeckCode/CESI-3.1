@@ -1,8 +1,10 @@
 from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_decode
-from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
+
+
 from .models import User
 
 
@@ -120,12 +122,20 @@ def me_detail(request):
     - nested profile (UserProfile) for PARENT_STUDENT
     - nested teacher_profile for TEACHER
     """
-    return Response(UserDetailSerializer(request.user, context={'request': request}).data)
+    user = (
+        User.objects
+        .select_related("profile", "teacher_profile")
+        .get(pk=request.user.pk)
+    )
+    return Response(UserDetailSerializer(user, context={"request": request}).data)
+    
+    
+    # return Response(UserDetailSerializer(request.user, context={'request': request}).data)
 
 
 class UpdateProfileView(APIView):
     """
-    Update the current user's profile including avatar upload.
+    Update the current user's profile including avatar upload. {No}
     Supports multipart/form-data for file upload.
     """
     permission_classes = [IsAuthenticated]
@@ -151,10 +161,12 @@ class UpdateProfileView(APIView):
             
             # Update fields if provided
             updatable_fields = [
-                "student_first_name", "student_middle_name", "student_last_name",
-                "parent_first_name", "parent_middle_name", "parent_last_name",
-                "contact_number", "address", "lrn", "student_number", "payment_mode",
-            ]
+                    "parent_first_name",
+                    "parent_middle_name",
+                    "parent_last_name",
+                    "contact_number",
+                    "address",
+                ]
             
             for field in updatable_fields:
                 if field in request.data:

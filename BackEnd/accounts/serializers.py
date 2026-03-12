@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import User, UserProfile, TeacherProfile, AdminProfile, Section, Subject
-
+from enrollment.models import Enrollment
+from enrollment.serializers import EnrollmentDetailedSerializer
 
 # ── Read-only serializers ──────────────────────────────
 
@@ -83,14 +84,43 @@ class UserProfileReadSerializer(serializers.ModelSerializer):
 
 
 class UserDetailSerializer(serializers.ModelSerializer):
-    """Full user + nested profile (teacher or parent)."""
+    """
+    Full user + nested profile + current enrollment for parent/student.
+    """
     teacher_profile = TeacherProfileReadSerializer(read_only=True)
     profile = UserProfileReadSerializer(read_only=True)
+    enrollment = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "role", "status", "created_at", "teacher_profile", "profile"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "role",
+            "status",
+            "created_at",
+            "teacher_profile",
+            "profile",
+            "enrollment",
+        ]
 
+    def get_enrollment(self, obj):
+        if obj.role != "PARENT_STUDENT":
+            return None
+
+        enrollment = (
+            Enrollment.objects
+            .select_related("student", "section", "parent_info", "parent_user")
+            .filter(parent_user=obj)
+            .order_by("-updated_at", "-created_at")
+            .first()
+        )
+
+        if not enrollment:
+            return None
+
+        return EnrollmentDetailedSerializer(enrollment, context=self.context).data
 
 # ── Write serializers ──────────────────────────────────
 
