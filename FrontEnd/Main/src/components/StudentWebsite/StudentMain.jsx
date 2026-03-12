@@ -9,8 +9,8 @@ import Grades from "./Grades";
 import Schedule from "./Schedule";
 import Attendance from "./Attendance";
 import Messages from "./Messages";
-import "../AdminWebsiteCSS/AdminDashboard.css";
-import "../StudentWebsiteCSS/StudentPortal.css";
+// import "../AdminWebsiteCSS/AdminDashboard.css";
+// import "../StudentWebsiteCSS/StudentPortal.css";
 
 export default function StudentMain() {
   const [activeMenu, setActiveMenu] = useState("dashboard");

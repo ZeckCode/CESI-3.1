@@ -1,6 +1,6 @@
 /* Student Profile - Unified Admin Style */
 :root {
-  --primary-blue: #24148a;
+  --primary1-blue: #24148a;
   --blue-light: #e8f4fc;
   --blue-soft: #B1D9EC;
   --white: #ffffff;
@@ -57,7 +57,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--primary-blue);
+  background: var(--primary1-blue);
   color: white;
   border: none;
   padding: 0.625rem 1.25rem;
@@ -247,7 +247,7 @@
 
 .tag-pill.grade {
   background: var(--blue-light);
-  color: var(--primary-blue);
+  color: var(--primary1-blue);
 }
 
 .tag-pill.year {
@@ -271,7 +271,7 @@
 }
 
 .details-header {
-  background: var(--primary-blue);
+  background: var(--primary1-blue);
   padding: 1rem 1.5rem;
   font-weight: 700;
   color: white;
@@ -332,7 +332,7 @@
 
 .entry-input:focus {
   outline: none;
-  border-color: var(--primary-blue);
+  border-color: var(--primary1-blue);
   box-shadow: 0 0 0 3px rgba(36, 20, 138, 0.1);
 }
 
