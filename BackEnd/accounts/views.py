@@ -35,7 +35,7 @@ from .serializers import (
 # USER PASSWORD SET 
 # 
 @method_decorator(csrf_exempt, name="dispatch")
-class SetPasswordView(APIView):
+class SetPas1swordView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []  # skip CSRF/session auth
 
@@ -74,7 +74,7 @@ class SetPasswordView(APIView):
         return Response({"success": True, "token": token_obj.key})
     
     
-class SetForgotPassword(APIView):
+class SetPasswordView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []  # no auth needed
 

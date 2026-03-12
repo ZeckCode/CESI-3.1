@@ -383,25 +383,25 @@ const Profile = () => {
               </div>
             )}
 
-            {isEditing && (
-              <div className="avatar-overlay">
+            {/* {isEditing && (
+              <div hdi className="avatar-overlay">
                 <Camera size={24} />
                 <span>Change Photo</span>
               </div>
-            )}
+            )} */}
 
             <span className={`status-badge ${String(studentData.status).toLowerCase()}`}>
               {studentData.status}
             </span>
           </div>
 
-          <input
+          {/* <input
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
             accept="image/*"
             style={{ display: "none" }}
-          />
+          /> */}
 
           <div className="hero-text">
             <h1 className="student-name">{studentData.name}</h1>

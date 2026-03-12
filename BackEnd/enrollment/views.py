@@ -135,89 +135,91 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         return parent_first_name, parent_last_name
 
     def _sync_parent_user_and_profile(self, enrollment, create_if_missing=False):
-        """
-        Sync enrollment data -> linked parent user + user profile.
-        Used after PATCH/PUT and after admin approval.
-        """
-        parent_email = (enrollment.email or "").strip().lower()
-        parent_user = enrollment.parent_user
+            """
+            Sync enrollment data -> linked parent user + user profile.
+            Used after PATCH/PUT and after admin approval.
+            """
+            parent_email = (enrollment.email or "").strip().lower()
+            parent_user = enrollment.parent_user
 
-        # If there is no linked parent_user yet, optionally create/find one
-        if not parent_user and create_if_missing and parent_email:
-            parent_user = User.objects.filter(email__iexact=parent_email).first()
+            # If there is no linked parent_user yet, optionally create/find one
+            if not parent_user and create_if_missing and parent_email:
+                parent_user = User.objects.filter(email__iexact=parent_email).first()
+
+                if not parent_user:
+                    base_username = f"{(enrollment.first_name or '')}{(enrollment.last_name or '')}".lower()
+                    base_username = base_username.replace(" ", "") or "parent"
+
+                    username = base_username
+                    i = 1
+                    while User.objects.filter(username=username).exists():
+                        i += 1
+                        username = f"{base_username}{i}"
+
+                    parent_user = User.objects.create(
+                        username=username,
+                        email=parent_email,
+                        role="PARENT_STUDENT",
+                        status="ACTIVE",
+                        is_active=True,
+                    )
+                    parent_user.set_unusable_password()
+                    parent_user.save()
+
+                enrollment.parent_user = parent_user
+                enrollment.save(update_fields=["parent_user"])
 
             if not parent_user:
-                base_username = f"{(enrollment.first_name or '')}{(enrollment.last_name or '')}".lower()
-                base_username = base_username.replace(" ", "") or "parent"
+                    return
 
-                username = base_username
-                i = 1
-                while User.objects.filter(username=username).exists():
-                    i += 1
-                    username = f"{base_username}{i}"
+            # Always prepare these before using them
+            grade_code = (enrollment.grade_level or "").strip()
+            parent_first_name, parent_last_name = self._get_parent_names_from_enrollment(enrollment)
 
-                parent_user = User.objects.create(
-                    username=username,
-                    email=parent_email,
-                    role="PARENT_STUDENT",
-                    status="ACTIVE",
-                    is_active=True,
-                )
-                parent_user.set_unusable_password()
-                parent_user.save()
+            # Keep parent user email in sync with enrollment email
+            if parent_email and parent_user.email != parent_email:
+                email_taken = User.objects.filter(email__iexact=parent_email).exclude(pk=parent_user.pk).exists()
+                if not email_taken:
+                        parent_user.email = parent_email
+                        parent_user.save(update_fields=["email"])
 
-            enrollment.parent_user = parent_user
-            enrollment.save(update_fields=["parent_user"])
-
-        if not parent_user:
-            return
-
-        # Keep parent user email in sync with enrollment email
-        if parent_email and parent_user.email != parent_email:
-            email_taken = User.objects.filter(email__iexact=parent_email).exclude(pk=parent_user.pk).exists()
-            if not email_taken:
-                parent_user.email = parent_email
-                parent_user.save(update_fields=["email"])
-                grade_code = (enrollment.grade_level or "").strip()
-                parent_first_name, parent_last_name = self._get_parent_names_from_enrollment(enrollment)
-
-        profile, created = UserProfile.objects.get_or_create(
-            user=parent_user,
-            defaults={
-                "student_first_name": enrollment.first_name or "",
-                "student_middle_name": enrollment.middle_name or "",
-                "student_last_name": enrollment.last_name or "",
-                "grade_level": grade_code,
-                "lrn": enrollment.lrn or "",
-                "student_number": enrollment.student_number or "",
-                "payment_mode": enrollment.payment_mode or "",
-                "section": enrollment.section,
-                "parent_first_name": parent_first_name,
-                "parent_middle_name": "",
-                "parent_last_name": parent_last_name,
-                "contact_number": enrollment.mobile_number or enrollment.telephone_number or "",
-                "address": enrollment.address or "",
-            },
-        )
-
-        if not created:
-            profile.student_first_name = enrollment.first_name or profile.student_first_name
-            profile.student_middle_name = enrollment.middle_name or profile.student_middle_name
-            profile.student_last_name = enrollment.last_name or profile.student_last_name
-            profile.grade_level = grade_code or profile.grade_level
-            profile.lrn = enrollment.lrn or profile.lrn
-            profile.student_number = enrollment.student_number or profile.student_number
-            profile.payment_mode = enrollment.payment_mode or profile.payment_mode
-            profile.section = enrollment.section or profile.section
-            profile.parent_first_name = parent_first_name or profile.parent_first_name
-            profile.parent_last_name = parent_last_name or profile.parent_last_name
-            profile.contact_number = (
-                enrollment.mobile_number
-                or enrollment.telephone_number
-                or profile.contact_number
+            profile, created = UserProfile.objects.get_or_create(
+                user=parent_user,
+                defaults={
+                    "student_first_name": enrollment.first_name or "",
+                    "student_middle_name": enrollment.middle_name or "",
+                    "student_last_name": enrollment.last_name or "",
+                    "grade_level": grade_code,
+                    "lrn": enrollment.lrn or "",
+                    "student_number": enrollment.student_number or "",
+                    "payment_mode": enrollment.payment_mode or "",
+                    "section": enrollment.section,
+                    "parent_first_name": parent_first_name,
+                    "parent_middle_name": "",
+                    "parent_last_name": parent_last_name,
+                    "contact_number": enrollment.mobile_number or enrollment.telephone_number or "",
+                    "address": enrollment.address or "",
+                },
             )
-            profile.address = enrollment.address or profile.address
-            profile.save()
+
+            if not created:
+                profile.student_first_name = enrollment.first_name or profile.student_first_name
+                profile.student_middle_name = enrollment.middle_name or profile.student_middle_name
+                profile.student_last_name = enrollment.last_name or profile.student_last_name
+                profile.grade_level = grade_code or profile.grade_level
+                profile.lrn = enrollment.lrn or profile.lrn
+                profile.student_number = enrollment.student_number or profile.student_number
+                profile.payment_mode = enrollment.payment_mode or profile.payment_mode
+                profile.section = enrollment.section or profile.section
+                profile.parent_first_name = parent_first_name or profile.parent_first_name
+                profile.parent_last_name = parent_last_name or profile.parent_last_name
+                profile.contact_number = (
+                    enrollment.mobile_number
+                    or enrollment.telephone_number
+                    or profile.contact_number
+                )
+                profile.address = enrollment.address or profile.address
+                profile.save()
 
     def perform_update(self, serializer):
         """
