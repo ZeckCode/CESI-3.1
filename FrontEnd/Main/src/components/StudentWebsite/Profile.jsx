@@ -1,10 +1,19 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Camera, Edit3, X, Check, User } from "lucide-react";
 import "../StudentWebsiteCSS/Profile.css";
-import { apiFetch } from "../api/apiFetch";
 import { getToken } from "../Auth/auth";
 
 const API_BASE = "";
+
+const PROFILE_ENDPOINTS = [
+  "/api/accounts/me-detail/",
+  "/api/accounts/me/detail/",
+];
+
+const UPDATE_ENDPOINTS = [
+  "/api/accounts/update-profile/",
+  "/api/accounts/me/update/",
+];
 
 const gradeLabelFromProfile = (raw) => {
   if (raw == null) return "—";
@@ -44,11 +53,90 @@ const formatFullName = (...parts) =>
     .filter(Boolean)
     .join(" ");
 
+async function fetchWithToken(url, options = {}) {
+  const token = getToken();
+  const headers = {
+    ...(options.headers || {}),
+    ...(token ? { Authorization: `Token ${token}` } : {}),
+  };
+
+  const res = await fetch(`${API_BASE}${url}`, {
+    ...options,
+    headers,
+  });
+
+  return res;
+}
+
+async function tryProfileEndpoints() {
+  let lastError = null;
+
+  for (const endpoint of PROFILE_ENDPOINTS) {
+    try {
+      const res = await fetchWithToken(endpoint, { method: "GET" });
+      const text = await res.text();
+
+      let json = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        json = { detail: text };
+      }
+
+      if (res.ok) {
+        return { data: json, endpoint };
+      }
+
+      lastError = new Error(
+        json?.detail || `Request failed (${res.status}) at ${endpoint}`
+      );
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error("Unable to load profile.");
+}
+
+async function tryUpdateEndpoints(formData) {
+  let lastError = null;
+
+  for (const endpoint of UPDATE_ENDPOINTS) {
+    try {
+      const res = await fetchWithToken(endpoint, {
+        method: "PATCH",
+        body: formData,
+      });
+
+      const text = await res.text();
+      let json = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        json = { detail: text };
+      }
+
+      if (res.ok) {
+        return { data: json, endpoint };
+      }
+
+      lastError = new Error(
+        json?.detail || `Save failed (${res.status}) at ${endpoint}`
+      );
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error("Unable to save profile.");
+}
+
 const Profile = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [editForm, setEditForm] = useState({});
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
@@ -57,14 +145,16 @@ const Profile = () => {
   const loadProfile = async () => {
     try {
       setLoading(true);
+      setError("");
 
-      const res = await apiFetch(`${API_BASE}/api/accounts/me-detail/`);
-      const json = res?.ok !== undefined ? await res.json() : res;
+      const result = await tryProfileEndpoints();
+      const json = result.data;
+
+      console.log("Profile loaded from:", result.endpoint, json);
 
       setData(json);
 
       const p = json?.profile || {};
-
       setEditForm({
         parent_first_name: p.parent_first_name || "",
         parent_middle_name: p.parent_middle_name || "",
@@ -74,6 +164,7 @@ const Profile = () => {
       });
     } catch (e) {
       console.error("Failed to load profile:", e);
+      setError(e.message || "Failed to load profile.");
       setData(null);
     } finally {
       setLoading(false);
@@ -108,8 +199,10 @@ const Profile = () => {
       "—";
 
     const grade = gradeLabelFromProfile(p.grade_level || e.grade_level);
-    const sectionName = p.section?.name || e.section_details?.name || e.section_name || "—";
-    const sectionDisplay = sectionName && sectionName !== "No Section" ? sectionName : "—";
+    const sectionName =
+      p.section?.name || e.section_details?.name || e.section_name || "—";
+    const sectionDisplay =
+      sectionName && sectionName !== "No Section" ? sectionName : "—";
 
     return {
       name: studentName ? studentName.toUpperCase() : (u.username || "—").toUpperCase(),
@@ -167,6 +260,8 @@ const Profile = () => {
 
   const handleSave = async () => {
     setSaving(true);
+    setError("");
+
     try {
       const formData = new FormData();
 
@@ -178,20 +273,8 @@ const Profile = () => {
         formData.append("avatar", avatarFile);
       }
 
-      const token = getToken();
-      const res = await fetch(`${API_BASE}/api/accounts/me/update/`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Token ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error("Failed to save profile:", errText);
-        return;
-      }
+      const result = await tryUpdateEndpoints(formData);
+      console.log("Profile saved via:", result.endpoint);
 
       await loadProfile();
       setIsEditing(false);
@@ -199,6 +282,7 @@ const Profile = () => {
       setAvatarPreview(null);
     } catch (e) {
       console.error("Error saving profile:", e);
+      setError(e.message || "Failed to save profile.");
     } finally {
       setSaving(false);
     }
@@ -230,7 +314,7 @@ const Profile = () => {
   if (!data) {
     return (
       <div className="profile-content">
-        <div className="error-message">Profile not found.</div>
+        <div className="error-message">{error || "Profile not found."}</div>
       </div>
     );
   }
@@ -247,6 +331,8 @@ const Profile = () => {
 
   return (
     <div className="profile-content">
+      {error ? <div className="error-message">{error}</div> : null}
+
       <header className="profile-header-flex">
         <h2 className="title-text">Student Profile</h2>
 
