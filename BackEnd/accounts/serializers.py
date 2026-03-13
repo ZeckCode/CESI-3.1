@@ -23,9 +23,17 @@ class SubjectSerializer(serializers.ModelSerializer):
 
 
 class SectionSerializer(serializers.ModelSerializer):
+    adviser_name = serializers.SerializerMethodField(read_only=True)
+    student_count = serializers.IntegerField(source="students.count", read_only=True)
+
     class Meta:
         model = Section
-        fields = ["id", "name", "grade_level"]
+        fields = ["id", "name", "grade_level", "adviser", "adviser_name", "student_count"]
+
+    def get_adviser_name(self, obj):
+        if obj.adviser and obj.adviser.user:
+            return obj.adviser.user.username
+        return None
 
 
 class UserSerializer(serializers.ModelSerializer):

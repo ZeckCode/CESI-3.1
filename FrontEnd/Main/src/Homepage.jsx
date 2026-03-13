@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Home from "./components/IndexWebsite/Home";
@@ -16,10 +16,12 @@ import { useAuth } from "./components/Auth/useAuth";
 
 export default function Homepage() {
   const { user, loading, login } = useAuth();
+  const didSessionSync = useRef(false);
 
   // 🔹 SESSION SYNC ON REFRESH
   useEffect(() => {
-    if (user) return; // already have local user
+    if (user || didSessionSync.current) return; // already have local user or already synced once
+    didSessionSync.current = true;
 
     const syncSession = async () => {
       try {

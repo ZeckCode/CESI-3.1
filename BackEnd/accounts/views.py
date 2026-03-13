@@ -15,7 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import generics, status as http_status
 from rest_framework.authtoken.models import Token
@@ -108,11 +108,13 @@ class LoginView(APIView):
 # ✅ CURRENT USER
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+@throttle_classes([])
 def me(request):
     u = request.user
     return Response({"id": u.id, "username": u.username, "role": u.role})
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+@throttle_classes([])
 def me_detail(request):
     """
     Returns full details of the currently logged-in user:
@@ -198,6 +200,7 @@ class UpdateProfileView(APIView):
 # ✅ LOGOUT (CSRF exempt — cross-origin call)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])  # ✅ MUST be authenticated
+@throttle_classes([])
 def logout_view(request):
     # ✅ delete token (TokenAuthentication)
     Token.objects.filter(user=request.user).delete()

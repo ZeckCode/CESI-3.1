@@ -179,7 +179,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         from enrollment.models import Enrollment
         enrollments = Enrollment.objects.filter(
             section_id=section_id,
-            status__in=["ACTIVE", "PENDING"],
+            status="ACTIVE",
         ).select_related("student", "student__profile")
 
         students = []
@@ -288,7 +288,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         from enrollment.models import Enrollment
         enrollments = Enrollment.objects.filter(
             section__grade_level=int(grade_level),
-            status__in=["ACTIVE", "PENDING"],
+            status="ACTIVE",
         ).select_related("student")
 
         results = []

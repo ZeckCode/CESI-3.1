@@ -61,6 +61,18 @@ const TIME_SLOTS = [
 ];
 
 const gradeLabel = (lvl) => GRADE_LEVELS.find((g) => g.value === lvl)?.label ?? `Grade ${lvl}`;
+const gradeCodeForLevel = (lvl) => {
+  const map = {
+    0: 'kinder',
+    1: 'grade1',
+    2: 'grade2',
+    3: 'grade3',
+    4: 'grade4',
+    5: 'grade5',
+    6: 'grade6',
+  };
+  return map[lvl] || '';
+};
 const dayLabel = (code) => DAYS.find((d) => d.value === code)?.label ?? code;
 const dayShort = (code) => DAYS.find((d) => d.value === code)?.short ?? code;
 
@@ -111,6 +123,7 @@ const ClassManagement = () => {
   const [sections, setSections] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [teachers, setTeachers] = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [schoolYears, setSchoolYears] = useState([]);
@@ -125,6 +138,12 @@ const ClassManagement = () => {
   const fetchTeachers = useCallback(async () => {
     try { const r = await apiFetch('/api/accounts/users/?role=TEACHER'); if (r.ok) setTeachers(await r.json()); } catch (e) { console.error(e); }
   }, []);
+  const fetchEnrollments = useCallback(async () => {
+    try {
+      const r = await apiFetch('/api/enrollments/?status=ACTIVE');
+      if (r.ok) setEnrollments(await r.json());
+    } catch (e) { console.error(e); }
+  }, []);
   const fetchSchedules = useCallback(async () => {
     try { const r = await apiFetch('/api/classmanagement/schedules/'); if (r.ok) setSchedules(await r.json()); } catch (e) { console.error(e); }
   }, []);
@@ -138,18 +157,18 @@ const ClassManagement = () => {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([fetchSections(), fetchSubjects(), fetchTeachers(), fetchSchedules(), fetchRooms(), fetchSchoolYears()]);
+      await Promise.all([fetchSections(), fetchSubjects(), fetchTeachers(), fetchEnrollments(), fetchSchedules(), fetchRooms(), fetchSchoolYears()]);
       setLoading(false);
     })();
-  }, [fetchSections, fetchSubjects, fetchTeachers, fetchSchedules, fetchRooms, fetchSchoolYears]);
+  }, [fetchSections, fetchSubjects, fetchTeachers, fetchEnrollments, fetchSchedules, fetchRooms, fetchSchoolYears]);
 
   /* stats */
   const totalStudents = sections.reduce((s, sec) => s + (sec.student_count || 0), 0);
 
   /* single refresh-all helper so deletes in one tab update counts everywhere */
   const refreshAll = useCallback(() =>
-    Promise.all([fetchSections(), fetchSubjects(), fetchTeachers(), fetchSchedules(), fetchRooms(), fetchSchoolYears()]),
-    [fetchSections, fetchSubjects, fetchTeachers, fetchSchedules, fetchRooms, fetchSchoolYears]);
+    Promise.all([fetchSections(), fetchSubjects(), fetchTeachers(), fetchEnrollments(), fetchSchedules(), fetchRooms(), fetchSchoolYears()]),
+    [fetchSections, fetchSubjects, fetchTeachers, fetchEnrollments, fetchSchedules, fetchRooms, fetchSchoolYears]);
 
   if (loading) return (
     <div className="admin-class-management">
@@ -201,7 +220,7 @@ const ClassManagement = () => {
       </div>
 
       {activeTab === 'classes' && (
-        <ClassesTab sections={sections} teachers={teachers} schedules={schedules}
+        <ClassesTab sections={sections} teachers={teachers} enrollments={enrollments} schedules={schedules}
           onRefresh={refreshAll} />
       )}
       {activeTab === 'schedule' && (
@@ -223,12 +242,15 @@ const ClassManagement = () => {
 /* ═════════════════════════════════════════════════════════
    CLASSES TAB — sections list + homeroom teacher
    ═════════════════════════════════════════════════════════ */
-function ClassesTab({ sections, teachers, schedules, onRefresh }) {
+function ClassesTab({ sections, teachers, enrollments, schedules, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: '', grade_level: '', adviser: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showStudentsModal, setShowStudentsModal] = useState(false);
+  const [selectedSection, setSelectedSection] = useState(null);
+  const [assigningEnrollmentId, setAssigningEnrollmentId] = useState(null);
 
   const teacherProfiles = teachers.filter((t) => t.teacher_profile).map((t) => ({
     userId: t.id, profileId: t.teacher_profile.id, username: t.username,
@@ -269,6 +291,61 @@ function ClassesTab({ sections, teachers, schedules, onRefresh }) {
       alert('Delete failed: ' + msg);
     }
   };
+
+  const openStudentsModal = (sec) => {
+    setSelectedSection(sec);
+    setShowStudentsModal(true);
+  };
+
+  const closeStudentsModal = () => {
+    setShowStudentsModal(false);
+    setSelectedSection(null);
+    setAssigningEnrollmentId(null);
+  };
+
+  const assignStudentToSection = async (enrollmentId, sectionId) => {
+    setAssigningEnrollmentId(enrollmentId);
+    try {
+      const r = await apiFetch(`/api/enrollments/${enrollmentId}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: sectionId }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || JSON.stringify(data) || 'Failed');
+      await onRefresh();
+    } catch (e) {
+      alert('Assign failed: ' + e.message);
+    } finally {
+      setAssigningEnrollmentId(null);
+    }
+  };
+
+  const removeStudentFromSection = async (enrollmentId) => {
+    if (!window.confirm('Remove this student from the section?')) return;
+    setAssigningEnrollmentId(enrollmentId);
+    try {
+      const r = await apiFetch(`/api/enrollments/${enrollmentId}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: null }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || JSON.stringify(data) || 'Failed');
+      await onRefresh();
+    } catch (e) {
+      alert('Remove failed: ' + e.message);
+    } finally {
+      setAssigningEnrollmentId(null);
+    }
+  };
+
+  const activeGradeEnrollments = selectedSection
+    ? enrollments.filter((e) => e.grade_level === gradeCodeForLevel(selectedSection.grade_level) && e.status === 'ACTIVE')
+    : [];
+
+  const inSection = activeGradeEnrollments.filter((e) => e.section === selectedSection?.id);
+  const availableForSection = activeGradeEnrollments.filter((e) => e.section !== selectedSection?.id);
 
   return (
     <>
@@ -323,6 +400,9 @@ function ClassesTab({ sections, teachers, schedules, onRefresh }) {
                   <p className="admin-class-grade">{gradeLabel(sec.grade_level)}</p>
                 </div>
                 <div className="admin-card-actions">
+                  <button className="admin-btn-primary" onClick={() => openStudentsModal(sec)} title="Manage Students" style={{ padding: '8px 10px' }}>
+                    <Users size={16} />
+                  </button>
                   <button className="admin-btn-edit" onClick={() => openEdit(sec)} title="Edit"><Edit2 size={16} /></button>
                   <button className="admin-btn-delete" onClick={() => handleDelete(sec.id)} title="Delete"><Trash2 size={16} /></button>
                 </div>
@@ -336,6 +416,81 @@ function ClassesTab({ sections, teachers, schedules, onRefresh }) {
           );
         })}
       </div>
+
+      {showStudentsModal && selectedSection && (
+        <div className="admin-modal-overlay" onClick={closeStudentsModal}>
+          <div className="admin-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 760 }}>
+            <h2>
+              Manage Students: {gradeLabel(selectedSection.grade_level)} - {selectedSection.name}
+            </h2>
+            <p style={{ color: '#64748b', marginTop: -6, marginBottom: 14 }}>
+              Approved enrollments for this grade can be assigned to this class. This automatically syncs with attendance lists.
+            </p>
+
+            <h3 style={{ margin: '8px 0' }}>Students In This Section ({inSection.length})</h3>
+            {inSection.length === 0 ? (
+              <div className="admin-no-results" style={{ padding: 16 }}><p>No students assigned yet.</p></div>
+            ) : (
+              <div style={{ maxHeight: 180, overflow: 'auto', marginBottom: 14 }}>
+                <table className="admin-schedule-table enhanced-table">
+                  <thead><tr><th>Student</th><th>Student No.</th><th>Action</th></tr></thead>
+                  <tbody>
+                    {inSection.map((e) => (
+                      <tr key={e.id}>
+                        <td>{`${e.first_name || ''} ${e.last_name || ''}`.trim() || e.student_username}</td>
+                        <td>{e.student_number || '—'}</td>
+                        <td>
+                          <button
+                            className="admin-btn-delete-small"
+                            disabled={assigningEnrollmentId === e.id}
+                            onClick={() => removeStudentFromSection(e.id)}>
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <h3 style={{ margin: '8px 0' }}>Available Approved Students ({availableForSection.length})</h3>
+            {availableForSection.length === 0 ? (
+              <div className="admin-no-results" style={{ padding: 16 }}><p>No other approved students for this grade.</p></div>
+            ) : (
+              <div style={{ maxHeight: 220, overflow: 'auto' }}>
+                <table className="admin-schedule-table enhanced-table">
+                  <thead><tr><th>Student</th><th>Current Class</th><th>Action</th></tr></thead>
+                  <tbody>
+                    {availableForSection.map((e) => {
+                      const currentSection = sections.find((s) => s.id === e.section);
+                      return (
+                        <tr key={e.id}>
+                          <td>{`${e.first_name || ''} ${e.last_name || ''}`.trim() || e.student_username}</td>
+                          <td>{currentSection ? `${gradeLabel(currentSection.grade_level)} - ${currentSection.name}` : 'Unassigned'}</td>
+                          <td>
+                            <button
+                              className="admin-btn-primary"
+                              disabled={assigningEnrollmentId === e.id}
+                              onClick={() => assignStudentToSection(e.id, selectedSection.id)}
+                              style={{ padding: '8px 12px' }}>
+                              {assigningEnrollmentId === e.id ? 'Assigning...' : 'Assign'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="admin-form-actions" style={{ marginTop: 14 }}>
+              <button className="admin-btn-secondary" onClick={closeStudentsModal}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
