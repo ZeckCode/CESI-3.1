@@ -281,7 +281,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         enrollment = serializer.save()
         uploaded_id_image = self.request.FILES.get("id_image")
 
-        if uploaded_id_image and hasattr(enrollment, "id_image"):
+        if uploaded_id_image:
             enrollment.id_image = uploaded_id_image
             enrollment.save(update_fields=["id_image", "updated_at"])
 
@@ -380,6 +380,44 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        required_missing = []
+
+        if not enrollment.first_name:
+            required_missing.append("first_name")
+        if not enrollment.last_name:
+            required_missing.append("last_name")
+        if not enrollment.birth_date:
+            required_missing.append("birth_date")
+        if not enrollment.education_level:
+            required_missing.append("education_level")
+        if not enrollment.grade_level:
+            required_missing.append("grade_level")
+        if not enrollment.student_type:
+            required_missing.append("student_type")
+        if not enrollment.academic_year:
+            required_missing.append("academic_year")
+        if not enrollment.payment_mode:
+            required_missing.append("payment_mode")
+        if not enrollment.parent_facebook:
+            required_missing.append("parent_facebook")
+
+        if not (enrollment.email or enrollment.mobile_number or enrollment.telephone_number):
+            required_missing.append("contact")
+
+        if grade_code in {"kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"}:
+            if not enrollment.lrn:
+                required_missing.append("lrn")
+            elif len(str(enrollment.lrn).strip()) != 12:
+                return Response(
+                    {"detail": "LRN must be exactly 12 digits before approval."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if required_missing:
+            return Response(
+                {"detail": f"Cannot approve. Missing required fields: {', '.join(required_missing)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         is_promotion = (enrollment.student_type or "").strip().lower() == "old"
         parent_email = (enrollment.email or "").strip().lower()
         uploaded_id_image = request.FILES.get("id_image")
@@ -404,17 +442,20 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
             enrollment.status = "ACTIVE"
 
-            if uploaded_id_image and hasattr(enrollment, "id_image"):
+            # if uploaded_id_image and hasattr(enrollment, "id_image"):
+            #     enrollment.id_image = uploaded_id_image
+            
+            if uploaded_id_image:
                 enrollment.id_image = uploaded_id_image
-
+            
             note = "APPROVED BY ADMIN"
             enrollment.remarks = (enrollment.remarks or "").strip()
             if note not in enrollment.remarks:
                 enrollment.remarks = f"{enrollment.remarks} | {note}".strip(" |")
 
             update_fields = ["status", "remarks", "updated_at", "student_number"]
-            if uploaded_id_image and hasattr(enrollment, "id_image"):
-                update_fields.append("id_image")
+            if uploaded_id_image:
+                    update_fields.append("id_image")
             if section_id:
                 update_fields.append("section")
 
