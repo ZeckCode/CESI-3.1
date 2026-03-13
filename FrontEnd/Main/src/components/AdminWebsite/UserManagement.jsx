@@ -123,6 +123,12 @@ const UserManagement = () => {
     return `${p.parent_first_name} ${p.parent_last_name}`;
   };
 
+  const sectionLabel = (section) => {
+    if (!section) return '—';
+    const prefix = Number(section.grade_level) === 0 ? 'K' : `G${section.grade_level}`;
+    return `${prefix} – ${section.name}`;
+  };
+
   // ── filter ──
   const filteredStudents = students.filter((u) => {
     const name = studentName(u).toLowerCase();
@@ -380,11 +386,11 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                 </select>
               </div>
               <div className="form-group">
-                <label>Section</label>
+                <label>Assigned Section</label>
                 <select value={createForm.section_teacher}
                   onChange={(e) => setCreateForm({ ...createForm, section_teacher: e.target.value })}>
                   <option value="">— None —</option>
-                  {sections.map((s) => <option key={s.id} value={s.id}>G{s.grade_level} – {s.name}</option>)}
+                  {sections.map((s) => <option key={s.id} value={s.id}>{sectionLabel(s)}</option>)}
                 </select>
               </div>
             </div>
@@ -457,7 +463,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                   onChange={(e) => setStudentForm({ ...studentForm, section: e.target.value })}>
                   <option value="">— None —</option>
                   {sections.map((s) => (
-                    <option key={s.id} value={s.id}>G{s.grade_level} – {s.name}</option>
+                    <option key={s.id} value={s.id}>{sectionLabel(s)}</option>
                   ))}
                 </select>
               </div>
@@ -588,7 +594,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                   <th>Email</th>
                   <th>Employee ID</th>
                   <th>Subject</th>
-                  <th>Section</th>
+                  <th>Assigned Section</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -625,11 +631,9 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                           <select className="inline-select" value={assignForm.section}
                             onChange={(e) => setAssignForm({ ...assignForm, section: e.target.value })}>
                             <option value="">— None —</option>
-                            {sections.map((s) => (
-                              <option key={s.id} value={s.id}>G{s.grade_level} – {s.name}</option>
-                            ))}
+                            {sections.map((s) => <option key={s.id} value={s.id}>{sectionLabel(s)}</option>)}
                           </select>
-                        ) : tp?.section ? `G${tp.section.grade_level} – ${tp.section.name}` : '—'}
+                        ) : tp?.section ? sectionLabel(tp.section) : '—'}
                       </td>
                       <td><span className={`status-badge ${u.status.toLowerCase()}`}>{u.status}</span></td>
                       <td>

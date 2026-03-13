@@ -18,6 +18,7 @@ export default function AuthProvider({ children }) {
    */
   const login = useCallback(({ user: u, token }) => {
     setUser(u);
+    sessionStorage.removeItem("cesi.justLoggedOut");
 
     // Store token + user if token exists, otherwise store user only
     if (token) setAuth({ token, user: u });
@@ -26,6 +27,7 @@ export default function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     setUser(null);
+    sessionStorage.setItem("cesi.justLoggedOut", "1");
     clearAuth(); // removes token + user
   }, []);
 

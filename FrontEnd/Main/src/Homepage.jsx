@@ -21,6 +21,13 @@ export default function Homepage() {
   // 🔹 SESSION SYNC ON REFRESH
   useEffect(() => {
     if (user || didSessionSync.current) return; // already have local user or already synced once
+
+    if (sessionStorage.getItem("cesi.justLoggedOut") === "1") {
+      sessionStorage.removeItem("cesi.justLoggedOut");
+      didSessionSync.current = true;
+      return;
+    }
+
     didSessionSync.current = true;
 
     const syncSession = async () => {

@@ -220,7 +220,7 @@ const ClassManagement = () => {
       </div>
 
       {activeTab === 'classes' && (
-        <ClassesTab sections={sections} teachers={teachers} enrollments={enrollments} schedules={schedules}
+        <ClassesTab sections={sections} teachers={teachers} rooms={rooms} enrollments={enrollments} schedules={schedules}
           onRefresh={refreshAll} />
       )}
       {activeTab === 'schedule' && (
@@ -242,10 +242,10 @@ const ClassManagement = () => {
 /* ═════════════════════════════════════════════════════════
    CLASSES TAB — sections list + homeroom teacher
    ═════════════════════════════════════════════════════════ */
-function ClassesTab({ sections, teachers, enrollments, schedules, onRefresh }) {
+function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ name: '', grade_level: '', adviser: '' });
+  const [form, setForm] = useState({ name: '', grade_level: '', adviser: '', room: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showStudentsModal, setShowStudentsModal] = useState(false);
@@ -256,10 +256,10 @@ function ClassesTab({ sections, teachers, enrollments, schedules, onRefresh }) {
     userId: t.id, profileId: t.teacher_profile.id, username: t.username,
   }));
 
-  const openNew = () => { setEditId(null); setForm({ name: '', grade_level: '', adviser: '' }); setError(''); setShowForm(true); };
+  const openNew = () => { setEditId(null); setForm({ name: '', grade_level: '', adviser: '', room: '' }); setError(''); setShowForm(true); };
   const openEdit = (sec) => {
     setEditId(sec.id);
-    setForm({ name: sec.name, grade_level: String(sec.grade_level), adviser: sec.adviser ? String(sec.adviser) : '' });
+    setForm({ name: sec.name, grade_level: String(sec.grade_level), adviser: sec.adviser ? String(sec.adviser) : '', room: sec.room ? String(sec.room) : '' });
     setError(''); setShowForm(true);
   };
 
@@ -267,7 +267,7 @@ function ClassesTab({ sections, teachers, enrollments, schedules, onRefresh }) {
     if (!form.name || form.grade_level === '') { setError('Name and grade level are required.'); return; }
     setSaving(true); setError('');
     try {
-      const payload = { name: form.name, grade_level: Number(form.grade_level), adviser: form.adviser ? Number(form.adviser) : null };
+      const payload = { name: form.name, grade_level: Number(form.grade_level), adviser: form.adviser ? Number(form.adviser) : null, room: form.room ? Number(form.room) : null };
       const url = editId ? `/api/accounts/sections/${editId}/` : '/api/accounts/sections/';
       const r = await apiFetch(url, { method: editId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || JSON.stringify(e)); }
@@ -377,6 +377,13 @@ function ClassesTab({ sections, teachers, enrollments, schedules, onRefresh }) {
                 {teacherProfiles.map((t) => <option key={t.profileId} value={t.profileId}>{t.username}</option>)}
               </select>
             </div>
+            <div className="admin-form-group">
+              <label>Assigned Room</label>
+              <select value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })}>
+                <option value="">— None —</option>
+                {rooms.filter((room) => room.is_active).map((room) => <option key={room.id} value={room.id}>{room.code}</option>)}
+              </select>
+            </div>
             <div className="admin-form-actions">
               <button className="admin-btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
               <button className="admin-btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : editId ? 'Update' : 'Create'}</button>
@@ -392,6 +399,11 @@ function ClassesTab({ sections, teachers, enrollments, schedules, onRefresh }) {
         {sections.map((sec) => {
           const sectionSchedules = schedules.filter((s) => s.section === sec.id);
           const subjectIds = [...new Set(sectionSchedules.map((s) => s.subject))];
+          const gradeCode = gradeCodeForLevel(sec.grade_level);
+          const activeForGrade = enrollments.filter((e) => e.grade_level === gradeCode && e.status === 'ACTIVE');
+          const pendingForGrade = enrollments.filter((e) => e.grade_level === gradeCode && e.status === 'PENDING');
+          const assignedToSection = activeForGrade.filter((e) => e.section === sec.id);
+          const unassignedForGrade = activeForGrade.filter((e) => !e.section);
           return (
             <div key={sec.id} className="admin-class-card">
               <div className="admin-class-card-header">
@@ -409,7 +421,10 @@ function ClassesTab({ sections, teachers, enrollments, schedules, onRefresh }) {
               </div>
               <div className="admin-class-card-body">
                 <div className="admin-info-row"><span className="label">Homeroom:</span><span className="value">{sec.adviser_name || <em style={{ color: '#94a3b8' }}>Unassigned</em>}</span></div>
-                <div className="admin-info-row"><span className="label">Students:</span><span className="value"><Users size={14} /> {sec.student_count ?? 0}</span></div>
+                <div className="admin-info-row"><span className="label">Room:</span><span className="value">{sec.room_code || <em style={{ color: '#94a3b8' }}>Unassigned</em>}</span></div>
+                <div className="admin-info-row"><span className="label">Active Assigned:</span><span className="value"><Users size={14} /> {assignedToSection.length}</span></div>
+                <div className="admin-info-row"><span className="label">Unassigned (Same Grade):</span><span className="value">{unassignedForGrade.length}</span></div>
+                <div className="admin-info-row"><span className="label">Pending Approvals:</span><span className="value">{pendingForGrade.length}</span></div>
                 <div className="admin-info-row"><span className="label">Subjects:</span><span className="value">{subjectIds.length} scheduled</span></div>
               </div>
             </div>

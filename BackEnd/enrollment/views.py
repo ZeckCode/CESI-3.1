@@ -3,7 +3,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
 from django.conf import settings
-from accounts.models import User, UserProfile
+from accounts.models import User, UserProfile, Section
 from django.urls import reverse
 from django.utils.text import slugify
 # ============================
@@ -404,7 +404,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                         profile.lrn                 = enrollment.lrn            or profile.lrn
                         profile.student_number      = enrollment.student_number or profile.student_number
                         profile.payment_mode        = enrollment.payment_mode   or profile.payment_mode
-                            profile.section             = enrollment.section        or profile.section
+                        profile.section             = enrollment.section        or profile.section
                         profile.contact_number      = enrollment.mobile_number or enrollment.telephone_number or profile.contact_number
                         profile.address             = enrollment.address or profile.address
                         profile.save()

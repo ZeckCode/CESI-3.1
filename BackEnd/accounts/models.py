@@ -91,6 +91,13 @@ class Subject(models.Model):
 class Section(models.Model):
     name = models.CharField(max_length=50)
     grade_level = models.IntegerField()
+    room = models.ForeignKey(
+        "classmanagement.Room",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sections",
+    )
 
     # Adviser is a teacher profile (optional) — give related_name to avoid clashes
     adviser = models.OneToOneField(
