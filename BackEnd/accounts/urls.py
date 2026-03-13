@@ -50,7 +50,7 @@ urlpatterns = [
     
     # Set new Password
     path("set-password/", SetPasswordView.as_view(), name="set-password"),
-    # path("set-password/<str:uidb64>/<str:token>/", SetPasswordView.as_view(), name="set-password"),
+    path("set-password/<str:uidb64>/<str:token>/", SetPasswordView.as_view(), name="set-password"),
     path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
     path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
 
