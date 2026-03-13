@@ -1,8 +1,7 @@
-# enrollment/models.py
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
-from accounts.models import Section  # keep if your Section is in accounts
+from accounts.models import Section
 
 
 class Enrollment(models.Model):
@@ -10,7 +9,7 @@ class Enrollment(models.Model):
     Enrollment model tracks which students are enrolled.
     Includes all student info from the enrollment form.
     """
-    
+
     GRADE_LEVEL_CHOICES = [
         ("prek", "Pre-Kinder"),
         ("kinder", "Kinder"),
@@ -44,7 +43,6 @@ class Enrollment(models.Model):
         ("elementary", "Elementary"),
     ]
 
-    # ✅ Parent portal account (ALLOW multiple enrollments / kids per parent)
     parent_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -53,14 +51,12 @@ class Enrollment(models.Model):
         related_name="parent_enrollments",
     )
 
-    # ✅ Student user (you set this to public_user during public create)
     student = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="enrollments",
     )
 
-    # ✅ Safer: do not delete enrollment if section is deleted
     section = models.ForeignKey(
         Section,
         null=True,
@@ -75,15 +71,21 @@ class Enrollment(models.Model):
     academic_year = models.CharField(max_length=10, default="2024-2025")
 
     student_type = models.CharField(
-        max_length=10, choices=STUDENT_TYPE_CHOICES, blank=True, null=True
+        max_length=10,
+        choices=STUDENT_TYPE_CHOICES,
+        blank=True,
+        null=True,
     )
     education_level = models.CharField(
-        max_length=20, choices=EDUCATION_LEVEL_CHOICES, blank=True, null=True
+        max_length=20,
+        choices=EDUCATION_LEVEL_CHOICES,
+        blank=True,
+        null=True,
     )
 
     # Student Info
     lrn = models.CharField(max_length=20, blank=True, null=True)
-    student_number = models.CharField(max_length=20,blank=True,null=True,unique=True)
+    student_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
     last_name = models.CharField(max_length=50, blank=True, null=True)
     first_name = models.CharField(max_length=50, blank=True, null=True)
     middle_name = models.CharField(max_length=50, blank=True, null=True)
@@ -98,9 +100,15 @@ class Enrollment(models.Model):
     mobile_number = models.CharField(max_length=20, blank=True, null=True)
     parent_facebook = models.CharField(max_length=100, blank=True, null=True)
 
+    # Image
+    id_image = models.ImageField(upload_to="enrollment_ids/", blank=True, null=True)
+
     # Payment / Tracking
     payment_mode = models.CharField(
-        max_length=20, choices=PAYMENT_MODE_CHOICES, blank=True, null=True
+        max_length=20,
+        choices=PAYMENT_MODE_CHOICES,
+        blank=True,
+        null=True,
     )
     enrolled_at = models.DateTimeField(default=timezone.now)
     completed_at = models.DateTimeField(blank=True, null=True)
@@ -141,61 +149,39 @@ class ParentInfo(models.Model):
         return f"Parent Info - {self.enrollment}"
 
 
-
-
 class EnrollmentSettings(models.Model):
     """
     Singleton model — only ONE row ever exists (pk=1).
     Controls the enrollment window and current school year.
     """
-    # Manual override for the enrollment open date.
-    # If null → auto-calculated as June 1 of the current school year start.
     open_date = models.DateField(
-        null=True, blank=True,
+        null=True,
+        blank=True,
         help_text="Enrollment window start date. Leave blank to use auto default (June 1)."
     )
 
-    # How many days the window stays open after open_date. Default: 7.
     window_days = models.PositiveIntegerField(
         default=7,
         help_text="Number of days the enrollment form is open."
     )
 
-    # Current academic year shown on the form and new enrollments.
-    # If null → auto-calculated from open_date (e.g. 2025-2026).
     academic_year = models.CharField(
-        max_length=9, null=True, blank=True,
+        max_length=9,
+        null=True,
+        blank=True,
         help_text="Current academic year, e.g. 2025-2026. Leave blank to auto-calculate."
     )
 
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name         = "Enrollment Settings"
-        verbose_name_plural  = "Enrollment Settings"
+        verbose_name = "Enrollment Settings"
+        verbose_name_plural = "Enrollment Settings"
 
     def __str__(self):
         return f"Enrollment Settings (AY {self.academic_year or 'auto'}, opens {self.open_date or 'auto'})"
 
     @classmethod
     def get_solo(cls):
-        """Always returns the single settings row, creating it if needed."""
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
-   
-    
-    
-# from django.db.models import Count
-# from enrollment.models import Enrollment
-
-# dups = (Enrollment.objects.exclude(student_number__isnull=True).exclude(student_number__exact="").values("student_number").annotate(c=Count("id")).filter(c__gt=1))
-
-# for row in dups:
-#     sn = row["student_number"]
-#     qs = Enrollment.objects.filter(student_number=sn).order_by("id")
-#     first = qs.first()               # keep this one
-#     for e in qs.exclude(id=first.id):  # clear others
-#         e.student_number = None
-#         e.save(update_fields=["student_number"])
-
-# print("done fixing duplicates:", dups.count())

@@ -1,24 +1,22 @@
 from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_decode
-from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
-from .models import User
-
 
 from django.contrib.auth import authenticate, login, logout, logout as django_logout
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
-
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework import generics, status as http_status
+from rest_framework import generics
 from rest_framework.authtoken.models import Token
+
+from .models import User, Subject, Section, TeacherProfile
 from .serializers import (
     CreateUserSerializer,
     SubjectSerializer,
@@ -27,13 +25,118 @@ from .serializers import (
     TeacherAssignmentSerializer,
     StudentProfileUpdateSerializer,
 )
-from .models import User, Subject, Section, TeacherProfile
+
+from enrollment.models import Enrollment
 
 
-@method_decorator(csrf_exempt, name="dispatch")
+#
+# USER PASSWORD SET
+#
 class SetPasswordView(APIView):
     permission_classes = [AllowAny]
-    authentication_classes = []  # skip CSRF/session auth
+    authentication_classes = []
+
+    def post(self, request, uidb64, token):
+        password = (request.data.get("password") or "").strip()
+        password2 = (request.data.get("password2") or "").strip()
+
+        if not password or not password2:
+            return Response(
+                {"detail": "Password and confirmation are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if password != password2:
+            return Response(
+                {"detail": "Passwords do not match."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(password) < 8:
+            return Response(
+                {"detail": "Password must be at least 8 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except Exception:
+            return Response(
+                {"detail": "Invalid link."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not default_token_generator.check_token(user, token):
+            return Response(
+                {"detail": "Invalid or expired token."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(password)
+        user.is_active = True
+
+        if hasattr(user, "status"):
+            user.status = "ACTIVE"
+
+        user.save()
+
+        drf_token, _ = Token.objects.get_or_create(user=user)
+
+        return Response(
+            {
+                "success": True,
+                "message": "Password set successfully.",
+                "token": drf_token.key,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        email = (request.data.get("email") or "").strip().lower()
+
+        if not email:
+            return Response(
+                {"detail": "Email is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = User.objects.filter(email__iexact=email).first()
+
+        if user:
+            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+
+            frontend_base = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
+            reset_url = f"{frontend_base}/reset-password/{uidb64}/{token}"
+
+            send_mail(
+                subject="Reset Your Password",
+                message=(
+                    f"Hello {user.username},\n\n"
+                    f"You requested to reset your password.\n\n"
+                    f"Click or open this link:\n{reset_url}\n\n"
+                    f"If you did not request this, you can ignore this email."
+                ),
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost"),
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+        return Response(
+            {"success": True, "message": "If that email exists, a reset link has been sent."},
+            status=status.HTTP_200_OK
+        )
+
+
+class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         uidb64 = request.data.get("uidb64", "")
@@ -42,56 +145,69 @@ class SetPasswordView(APIView):
         confirm_password = request.data.get("confirm_password", "")
 
         if not uidb64 or not token:
-            return Response({"detail": "Missing token."}, status=400)
+            return Response(
+                {"detail": "Missing token."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         if not new_password or len(new_password) < 8:
-            return Response({"detail": "Password must be at least 8 characters."}, status=400)
+            return Response(
+                {"detail": "Password must be at least 8 characters."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         if new_password != confirm_password:
-            return Response({"detail": "Passwords do not match."}, status=400)
+            return Response(
+                {"detail": "Passwords do not match."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(pk=uid)
         except Exception:
-            return Response({"detail": "Invalid link."}, status=400)
+            return Response(
+                {"detail": "Invalid link."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         if not default_token_generator.check_token(user, token):
-            return Response({"detail": "Invalid or expired link."}, status=400)
+            return Response(
+                {"detail": "Invalid or expired link."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         user.set_password(new_password)
-        user.status = "ACTIVE"   # if you use status field
         user.is_active = True
+        user.status = "ACTIVE"
         user.save()
 
-        # optional: auto-create token for SPA
-        token_obj, _ = Token.objects.get_or_create(user=user)
+        return Response(
+            {"success": True, "message": "Password reset successfully."},
+            status=status.HTTP_200_OK
+        )
 
-        return Response({"success": True, "token": token_obj.key})
 
-# ✅ LOGIN (creates session cookie — CSRF exempt because the frontend is cross-origin)
 @method_decorator(csrf_exempt, name="dispatch")
 class LoginView(APIView):
     permission_classes = [AllowAny]
-    authentication_classes = []  # skip SessionAuthentication CSRF check
+    authentication_classes = []
 
     def post(self, request):
         username = request.data.get("username", "").strip()
         password = request.data.get("password", "").strip()
 
-        # Case-insensitive username lookup
         try:
             actual_user = User.objects.get(username__iexact=username)
-            username = actual_user.username  # use the DB-stored casing
+            username = actual_user.username
         except User.DoesNotExist:
-            pass  # let authenticate() handle the failure
+            pass
 
         user = authenticate(request, username=username, password=password)
         if not user:
             return Response({"success": False, "message": "Invalid credentials"}, status=400)
 
-        login(request, user)  # ✅ important
-         # ✅ Token for SPA
+        login(request, user)
         token, _ = Token.objects.get_or_create(user=user)
 
         return Response({
@@ -105,37 +221,43 @@ class LoginView(APIView):
         })
 
 
-# ✅ CURRENT USER
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def me(request):
     u = request.user
     return Response({"id": u.id, "username": u.username, "role": u.role})
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def me_detail(request):
-    """
-    Returns full details of the currently logged-in user:
-    - user fields
-    - nested profile (UserProfile) for PARENT_STUDENT
-    - nested teacher_profile for TEACHER
-    """
-    return Response(UserDetailSerializer(request.user, context={'request': request}).data)
+    user = (
+        User.objects
+        .select_related(
+            "profile",
+            "profile__section",
+            "profile__section__adviser",
+            "profile__section__adviser__user",
+            "teacher_profile",
+            "teacher_profile__section",
+            "teacher_profile__section__adviser",
+            "teacher_profile__section__adviser__user",
+            "teacher_profile__subject",
+        )
+        .get(pk=request.user.pk)
+    )
+    return Response(UserDetailSerializer(user, context={"request": request}).data)
 
 
 class UpdateProfileView(APIView):
-    """
-    Update the current user's profile including avatar upload.
-    Supports multipart/form-data for file upload.
-    """
     permission_classes = [IsAuthenticated]
-    
+
     def patch(self, request):
         user = request.user
-        
-        # Handle profile updates based on role
+
         if user.role == "PARENT_STUDENT":
             from .models import UserProfile
+
             profile, _ = UserProfile.objects.get_or_create(
                 user=user,
                 defaults={
@@ -148,71 +270,78 @@ class UpdateProfileView(APIView):
                     "grade_level": "grade1",
                 }
             )
-            
-            # Update fields if provided
+
             updatable_fields = [
-                "student_first_name", "student_middle_name", "student_last_name",
-                "parent_first_name", "parent_middle_name", "parent_last_name",
-                "contact_number", "address", "lrn", "student_number", "payment_mode",
+                "parent_first_name",
+                "parent_middle_name",
+                "parent_last_name",
+                "contact_number",
+                "address",
             ]
-            
+
             for field in updatable_fields:
                 if field in request.data:
                     setattr(profile, field, request.data[field])
-            
-            # Handle avatar upload
-            if 'avatar' in request.FILES:
-                profile.avatar = request.FILES['avatar']
-            
-            # Handle avatar removal
-            if request.data.get('remove_avatar') == 'true':
+
+            if "avatar" in request.FILES:
+                profile.avatar = request.FILES["avatar"]
+
+            if request.data.get("remove_avatar") == "true":
                 if profile.avatar:
                     profile.avatar.delete(save=False)
                 profile.avatar = None
-            
+
             profile.save()
-            
+
         elif user.role == "TEACHER":
             from .models import TeacherProfile
+
             profile, _ = TeacherProfile.objects.get_or_create(user=user)
-            
-            if 'employee_id' in request.data:
-                profile.employee_id = request.data['employee_id']
-            
-            # Handle avatar upload
-            if 'avatar' in request.FILES:
-                profile.avatar = request.FILES['avatar']
-            
-            # Handle avatar removal
-            if request.data.get('remove_avatar') == 'true':
+
+            if "employee_id" in request.data:
+                profile.employee_id = request.data["employee_id"]
+
+            if "avatar" in request.FILES:
+                profile.avatar = request.FILES["avatar"]
+
+            if request.data.get("remove_avatar") == "true":
                 if profile.avatar:
                     profile.avatar.delete(save=False)
                 profile.avatar = None
-            
+
             profile.save()
-        
-        # Return updated user detail
+
         user.refresh_from_db()
-        return Response(UserDetailSerializer(user, context={'request': request}).data)
+        user = (
+            User.objects
+            .select_related(
+                "profile",
+                "profile__section",
+                "profile__section__adviser",
+                "profile__section__adviser__user",
+                "teacher_profile",
+                "teacher_profile__section",
+                "teacher_profile__section__adviser",
+                "teacher_profile__section__adviser__user",
+                "teacher_profile__subject",
+            )
+            .get(pk=user.pk)
+        )
+        return Response(UserDetailSerializer(user, context={"request": request}).data)
 
-# ✅ LOGOUT (CSRF exempt — cross-origin call)
+
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])  # ✅ MUST be authenticated
+@permission_classes([IsAuthenticated])
 def logout_view(request):
-    # ✅ delete token (TokenAuthentication)
     Token.objects.filter(user=request.user).delete()
-
-    # ✅ logout session (SessionAuthentication)
     django_logout(request)
 
-    # ✅ ensure session cookie is invalidated
     if hasattr(request, "session"):
         request.session.flush()
 
     return Response({"detail": "Logged out."}, status=status.HTTP_200_OK)
 
 
-# ✅ ROLE-PROTECTED TEST ENDPOINTS (keep these because urls.py expects them)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_data(request):
@@ -237,7 +366,6 @@ def parent_data(request):
     return Response({"ok": True, "role": "PARENT_STUDENT"})
 
 
-# ✅ ADMIN CREATE USER
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def admin_create_user(request):
@@ -258,7 +386,7 @@ def admin_create_user(request):
                 "status": user.status
             }
         }, status=201)
-    
+
     return Response({
         "success": False,
         "errors": serializer.errors
@@ -266,7 +394,7 @@ def admin_create_user(request):
 
 
 # ══════════════════════════════════════════════════════
-# SUBJECT CRUD  (admin only)
+# SUBJECT CRUD
 # ══════════════════════════════════════════════════════
 class SubjectListCreate(generics.ListCreateAPIView):
     queryset = Subject.objects.prefetch_related("teachers__user").all().order_by("name")
@@ -276,13 +404,15 @@ class SubjectListCreate(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         if request.user.role != "ADMIN":
             return Response({"detail": "Forbidden"}, status=403)
-        assigned_teacher = request.data.pop("assigned_teacher", None) if isinstance(request.data, dict) else None
+
+        assigned_teacher = request.data.get("assigned_teacher")
         response = super().create(request, *args, **kwargs)
+
         if response.status_code == 201 and assigned_teacher:
             self._assign_teacher(response.data["id"], assigned_teacher)
-            # re-serialize to include the teacher
             subj = Subject.objects.prefetch_related("teachers__user").get(id=response.data["id"])
             response.data = SubjectSerializer(subj).data
+
         return response
 
     @staticmethod
@@ -304,17 +434,19 @@ class SubjectDetail(generics.RetrieveUpdateDestroyAPIView):
     def update(self, request, *args, **kwargs):
         if request.user.role != "ADMIN":
             return Response({"detail": "Forbidden"}, status=403)
-        assigned_teacher = request.data.pop("assigned_teacher", None) if isinstance(request.data, dict) else None
+
+        assigned_teacher = request.data.get("assigned_teacher")
         response = super().update(request, *args, **kwargs)
+
         if response.status_code == 200 and assigned_teacher is not None:
-            # Unassign any prior teacher from this subject, then assign the new one
             subj = self.get_object()
             TeacherProfile.objects.filter(subject=subj).update(subject=None)
-            if assigned_teacher:  # non-null / non-zero
+            if assigned_teacher:
                 SubjectListCreate._assign_teacher(subj.id, assigned_teacher)
             subj.refresh_from_db()
             subj = Subject.objects.prefetch_related("teachers__user").get(id=subj.id)
             response.data = SubjectSerializer(subj).data
+
         return response
 
     def destroy(self, request, *args, **kwargs):
@@ -324,10 +456,16 @@ class SubjectDetail(generics.RetrieveUpdateDestroyAPIView):
 
 
 # ══════════════════════════════════════════════════════
-# SECTION CRUD  (admin only)
+# SECTION CRUD
 # ══════════════════════════════════════════════════════
 class SectionListCreate(generics.ListCreateAPIView):
-    queryset = Section.objects.all().order_by("grade_level", "name")
+    queryset = (
+        Section.objects
+        .select_related("adviser", "adviser__user")
+        .prefetch_related("students")
+        .all()
+        .order_by("grade_level", "name")
+    )
     serializer_class = SectionSerializer
     permission_classes = [IsAuthenticated]
 
@@ -338,7 +476,12 @@ class SectionListCreate(generics.ListCreateAPIView):
 
 
 class SectionDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Section.objects.all()
+    queryset = (
+        Section.objects
+        .select_related("adviser", "adviser__user")
+        .prefetch_related("students")
+        .all()
+    )
     serializer_class = SectionSerializer
     permission_classes = [IsAuthenticated]
 
@@ -354,40 +497,58 @@ class SectionDetail(generics.RetrieveUpdateDestroyAPIView):
 
 
 # ══════════════════════════════════════════════════════
-# USER LIST  (admin only — supports ?role=TEACHER filter)
+# USER LIST
 # ══════════════════════════════════════════════════════
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def user_list(request):
     if request.user.role != "ADMIN":
         return Response({"detail": "Forbidden"}, status=403)
-    qs = User.objects.select_related("teacher_profile", "profile").all().order_by("-created_at")
+
+    qs = (
+        User.objects
+        .select_related(
+            "teacher_profile",
+            "teacher_profile__subject",
+            "teacher_profile__section",
+            "teacher_profile__section__adviser",
+            "teacher_profile__section__adviser__user",
+            "profile",
+            "profile__section",
+            "profile__section__adviser",
+            "profile__section__adviser__user",
+        )
+        .all()
+        .order_by("-created_at")
+    )
+
     role = request.query_params.get("role")
     if role:
         qs = qs.filter(role=role.upper())
+
     search = request.query_params.get("search", "").strip()
     if search:
         from django.db.models import Q
         qs = qs.filter(Q(username__icontains=search) | Q(email__icontains=search))
-    serializer = UserDetailSerializer(qs, many=True)
+
+    serializer = UserDetailSerializer(qs, many=True, context={"request": request})
     return Response(serializer.data)
 
 
 # ══════════════════════════════════════════════════════
-# TEACHER ASSIGNMENT  (admin only — assign subject/section)
+# TEACHER ASSIGNMENT
 # ══════════════════════════════════════════════════════
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def update_teacher_assignment(request, user_id):
-    """Assign or change a teacher's subject, section, or employee_id."""
     if request.user.role != "ADMIN":
         return Response({"detail": "Forbidden"}, status=403)
+
     try:
         teacher_user = User.objects.get(id=user_id, role="TEACHER")
     except User.DoesNotExist:
         return Response({"detail": "Teacher not found"}, status=404)
 
-    # Ensure profile exists
     tp, _ = TeacherProfile.objects.get_or_create(user=teacher_user)
 
     ser = TeacherAssignmentSerializer(data=request.data)
@@ -406,19 +567,30 @@ def update_teacher_assignment(request, user_id):
 
     tp.save()
 
-    # Return the updated user detail
     teacher_user.refresh_from_db()
-    return Response(UserDetailSerializer(teacher_user).data)
+    teacher_user = (
+        User.objects
+        .select_related(
+            "teacher_profile",
+            "teacher_profile__subject",
+            "teacher_profile__section",
+            "teacher_profile__section__adviser",
+            "teacher_profile__section__adviser__user",
+        )
+        .get(pk=teacher_user.pk)
+    )
+    return Response(UserDetailSerializer(teacher_user, context={"request": request}).data)
+
 
 # ══════════════════════════════════════════════════════
-# STUDENT PROFILE UPDATE  (admin only)
+# STUDENT PROFILE UPDATE
 # ══════════════════════════════════════════════════════
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def update_student_profile(request, user_id):
-    """Update a student's profile fields."""
     if request.user.role != "ADMIN":
         return Response({"detail": "Forbidden"}, status=403)
+
     try:
         student_user = User.objects.get(id=user_id, role="PARENT_STUDENT")
     except User.DoesNotExist:
@@ -432,9 +604,17 @@ def update_student_profile(request, user_id):
     ser.is_valid(raise_exception=True)
     d = ser.validated_data
 
-    for field in ["student_first_name", "student_middle_name", "student_last_name",
-                  "grade_level", "lrn", "parent_first_name", "parent_middle_name",
-                  "parent_last_name", "contact_number"]:
+    for field in [
+        "student_first_name",
+        "student_middle_name",
+        "student_last_name",
+        "grade_level",
+        "lrn",
+        "parent_first_name",
+        "parent_middle_name",
+        "parent_last_name",
+        "contact_number",
+    ]:
         if field in d:
             setattr(profile, field, d[field])
 
@@ -444,73 +624,22 @@ def update_student_profile(request, user_id):
     profile.save()
 
     if "email" in d:
+        email_taken = User.objects.filter(email__iexact=d["email"]).exclude(pk=student_user.pk).exists()
+        if email_taken:
+            return Response({"email": "This email is already in use."}, status=400)
+
         student_user.email = d["email"]
         student_user.save(update_fields=["email"])
 
     student_user.refresh_from_db()
-    return Response(UserDetailSerializer(student_user).data)
-
-
-# 
-# SET USER PASSWORD
-# 
-
-class SetPasswordView(APIView):
-    permission_classes = [AllowAny]
-    authentication_classes = []  # no auth needed
-
-    def post(self, request, uidb64, token):
-        password = (request.data.get("password") or "").strip()
-        password2 = (request.data.get("password2") or "").strip()
-
-        if not password or not password2:
-            return Response({"detail": "Password and confirmation are required."}, status=status.HTTP_400_BAD_REQUEST)
-
-        if password != password2:
-            return Response({"detail": "Passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # basic length rule (adjust as you want)
-        if len(password) < 8:
-            return Response({"detail": "Password must be at least 8 characters."}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            uid = force_str(urlsafe_base64_decode(uidb64))
-            user = User.objects.get(pk=uid)
-        except Exception:
-            return Response({"detail": "Invalid link."}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not default_token_generator.check_token(user, token):
-            return Response({"detail": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
-
-        user.set_password(password)
-        user.is_active = True
-        user.save()
-
-        # optional: auto-create DRF token so they can login right away if you want
-        drf_token, _ = Token.objects.get_or_create(user=user)
-
-        return Response(
-            {"success": True, "message": "Password set successfully.", "token": drf_token.key},
-            status=status.HTTP_200_OK
+    student_user = (
+        User.objects
+        .select_related(
+            "profile",
+            "profile__section",
+            "profile__section__adviser",
+            "profile__section__adviser__user",
         )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#         "id": 5,
-#         "username": "Vincy Gam",
-#         "email": "VincyGam@gmail.com",
-#         "role": "PARENT_STUDENT",
-#         "status": "ACTIVE"
-#     }http://127.0.0.1:8000/api/accounts/admin/create-user/
-
+        .get(pk=student_user.pk)
+    )
+    return Response(UserDetailSerializer(student_user, context={"request": request}).data)

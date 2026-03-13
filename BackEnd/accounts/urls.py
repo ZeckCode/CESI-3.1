@@ -7,6 +7,8 @@ from .views import (
     parent_data,
     admin_create_user,
     me,
+    me_detail,
+    # detail,
     logout_view,
     SubjectListCreate,
     SubjectDetail,
@@ -17,7 +19,7 @@ from .views import (
     update_student_profile,
     UpdateProfileView,
 )
-from .views import SetPasswordView # Import the new view for password reset
+from .views import SetPasswordView, ForgotPasswordView, ResetPasswordView # Import the new view for password reset
 
 urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
@@ -28,6 +30,7 @@ urlpatterns = [
     path("me/", me, name="me"),
     path("me/detail/", views.me_detail),
     path("me/update/", UpdateProfileView.as_view(), name="update-profile"),
+    path("me/update/", UpdateProfileView.as_view(), name="me-update"),
     
     path("logout/", logout_view, name="logout"),
 
@@ -43,10 +46,12 @@ urlpatterns = [
     path("users/", user_list, name="user-list"),
     path("users/<int:user_id>/assign/", update_teacher_assignment, name="update-teacher-assignment"),
     path("users/<int:user_id>/update-student/", update_student_profile, name="update-student-profile"),
-
+   
     
     # Set new Password
     path("set-password/", SetPasswordView.as_view(), name="set-password"),
     path("set-password/<str:uidb64>/<str:token>/", SetPasswordView.as_view(), name="set-password"),
+    path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
+    path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
 
 ]

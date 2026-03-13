@@ -89,10 +89,21 @@ class Subject(models.Model):
 
 
 class Section(models.Model):
-    name = models.CharField(max_length=50)
-    grade_level = models.IntegerField()
+    GRADE_LEVEL_CHOICES = [
+        ("prek", "Pre-Kinder"),
+        ("kinder", "Kinder"),
+        ("grade1", "Grade 1"),
+        ("grade2", "Grade 2"),
+        ("grade3", "Grade 3"),
+        ("grade4", "Grade 4"),
+        ("grade5", "Grade 5"),
+        ("grade6", "Grade 6"),
+    ]
 
-    # Adviser is a teacher profile (optional) — give related_name to avoid clashes
+    name = models.CharField(max_length=50)
+    grade_level = models.CharField(max_length=20, choices=GRADE_LEVEL_CHOICES)
+    capacity = models.PositiveIntegerField(default=40)
+
     adviser = models.OneToOneField(
         "TeacherProfile",
         on_delete=models.SET_NULL,
@@ -102,7 +113,15 @@ class Section(models.Model):
     )
 
     def __str__(self):
-        return f"G{self.grade_level}-{self.name}"
+        return f"{self.get_grade_level_display()}-{self.name}"
+
+    @property
+    def student_count(self):
+        return self.students.count()
+
+    @property
+    def is_full(self):
+        return self.student_count >= self.capacity
 
 
 # =========================
