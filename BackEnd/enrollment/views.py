@@ -230,7 +230,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             profile.avatar = uploaded_id_image
 
         profile.save()
-
+    # New Student Enrolled
     def _send_parent_portal_email(self, enrollment, parent_email):
         if not enrollment.parent_user:
             return
@@ -242,11 +242,12 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         reset_url = f"{frontend_base}/set-password/{uidb64}/{token}"
 
         send_mail(
-            subject="Your Parent Portal Account",
+            subject="Your Student Portal Account",
             message=(
                 f"Student: {enrollment.first_name} {enrollment.last_name}\n\n"
                 f"Username: {enrollment.parent_user.username}\n"
                 f"Email:    {enrollment.parent_user.email}\n\n"
+                f"Student Number: {enrollment.student_number}\n\n"
                 f"Set your password here:\n{reset_url}\n\n"
                 "If you did not request this, ignore this email."
             ),
@@ -265,7 +266,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 f"New Grade Level : {grade_code}\n"
                 f"Academic Year   : {enrollment.academic_year}\n"
                 f"Student No.     : {enrollment.student_number}\n\n"
-                f"You may log in to the Parent Portal to view the updated enrollment.\n\n"
+                f"You may log in to the Student Portal to view the updated enrollment.\n\n"
                 "If you have any questions, please contact the school."
             ),
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost"),
@@ -280,7 +281,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         enrollment = serializer.save()
         uploaded_id_image = self.request.FILES.get("id_image")
 
-        if uploaded_id_image and hasattr(enrollment, "id_image"):
+        if uploaded_id_image:
             enrollment.id_image = uploaded_id_image
             enrollment.save(update_fields=["id_image", "updated_at"])
 
@@ -379,6 +380,44 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        required_missing = []
+
+        if not enrollment.first_name:
+            required_missing.append("first_name")
+        if not enrollment.last_name:
+            required_missing.append("last_name")
+        if not enrollment.birth_date:
+            required_missing.append("birth_date")
+        if not enrollment.education_level:
+            required_missing.append("education_level")
+        if not enrollment.grade_level:
+            required_missing.append("grade_level")
+        if not enrollment.student_type:
+            required_missing.append("student_type")
+        if not enrollment.academic_year:
+            required_missing.append("academic_year")
+        if not enrollment.payment_mode:
+            required_missing.append("payment_mode")
+        if not enrollment.parent_facebook:
+            required_missing.append("parent_facebook")
+
+        if not (enrollment.email or enrollment.mobile_number or enrollment.telephone_number):
+            required_missing.append("contact")
+
+        if grade_code in {"kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"}:
+            if not enrollment.lrn:
+                required_missing.append("lrn")
+            elif len(str(enrollment.lrn).strip()) != 12:
+                return Response(
+                    {"detail": "LRN must be exactly 12 digits before approval."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if required_missing:
+            return Response(
+                {"detail": f"Cannot approve. Missing required fields: {', '.join(required_missing)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         is_promotion = (enrollment.student_type or "").strip().lower() == "old"
         parent_email = (enrollment.email or "").strip().lower()
         uploaded_id_image = request.FILES.get("id_image")
@@ -403,17 +442,20 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
             enrollment.status = "ACTIVE"
 
-            if uploaded_id_image and hasattr(enrollment, "id_image"):
+            # if uploaded_id_image and hasattr(enrollment, "id_image"):
+            #     enrollment.id_image = uploaded_id_image
+            
+            if uploaded_id_image:
                 enrollment.id_image = uploaded_id_image
-
+            
             note = "APPROVED BY ADMIN"
             enrollment.remarks = (enrollment.remarks or "").strip()
             if note not in enrollment.remarks:
                 enrollment.remarks = f"{enrollment.remarks} | {note}".strip(" |")
 
             update_fields = ["status", "remarks", "updated_at", "student_number"]
-            if uploaded_id_image and hasattr(enrollment, "id_image"):
-                update_fields.append("id_image")
+            if uploaded_id_image:
+                    update_fields.append("id_image")
             if section_id:
                 update_fields.append("section")
 

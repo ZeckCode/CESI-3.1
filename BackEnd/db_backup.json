@@ -1,55 +1,63 @@
 {
-  "exported_at": "2026-03-12T03:40:41.391124",
+  "exported_at": "2026-03-13T20:18:32.909386",
   "tables": {
     "accounts_adminprofile": [],
     "accounts_section": [
       {
         "id": 1,
         "name": "Sampaguita",
-        "grade_level": 0,
-        "adviser_id": null
+        "grade_level": "kinder",
+        "adviser_id": null,
+        "capacity": 40
       },
       {
         "id": 3,
         "name": "Daisy",
-        "grade_level": 1,
-        "adviser_id": null
+        "grade_level": "grade1",
+        "adviser_id": null,
+        "capacity": 40
       },
       {
         "id": 4,
         "name": "Sunflower",
-        "grade_level": 2,
-        "adviser_id": null
+        "grade_level": "grade2",
+        "adviser_id": null,
+        "capacity": 40
       },
       {
         "id": 6,
         "name": "Lily",
-        "grade_level": 3,
-        "adviser_id": null
+        "grade_level": "grade3",
+        "adviser_id": null,
+        "capacity": 40
       },
       {
         "id": 7,
         "name": "Jasmine",
-        "grade_level": 4,
-        "adviser_id": null
+        "grade_level": "grade4",
+        "adviser_id": null,
+        "capacity": 40
       },
       {
         "id": 8,
         "name": "Tulip",
-        "grade_level": 5,
-        "adviser_id": null
+        "grade_level": "grade5",
+        "adviser_id": null,
+        "capacity": 40
       },
       {
         "id": 9,
         "name": "Carnation",
-        "grade_level": 6,
-        "adviser_id": null
+        "grade_level": "grade6",
+        "adviser_id": null,
+        "capacity": 40
       },
       {
         "id": 11,
         "name": "asdasd",
-        "grade_level": 1,
-        "adviser_id": null
+        "grade_level": "prek",
+        "adviser_id": null,
+        "capacity": 40
       }
     ],
     "accounts_subject": [
@@ -128,8 +136,8 @@
     "accounts_user": [
       {
         "id": 1,
-        "password": "pbkdf2_sha256$1200000$1nkjNX0UNSfLsPg4V0bEss$2lRlC2ItXhLOKk4jGrOzVfjJUZ8N88AEjeKZEJhv0RI=",
-        "last_login": "2026-03-11 19:37:48.688813",
+        "password": "pbkdf2_sha256$1200000$fhB4XPkHMZlATctSe3QmjE$C316N0YM1svW4zNs5gb3BN9Mf6/7zH0qx6JaVuo51I8=",
+        "last_login": "2026-03-13 12:11:39.222953",
         "is_superuser": 1,
         "username": "ace",
         "email": "acy995kim@gmail.com",
@@ -184,8 +192,8 @@
       },
       {
         "id": 6,
-        "password": "pbkdf2_sha256$1200000$Vhlhvgs7kcL1b3hthQ0HHH$cQNFFVK6ema/N0D7hi3Zf6XjMbhuiq486fXmV5VaWjU=",
-        "last_login": "2026-03-08 15:57:57.693149",
+        "password": "pbkdf2_sha256$1200000$Uywiyvs0Zvn4jn8I9ODyHD$W4Cu6ZAA5D/ZzlAXqCSZ4MJFXXDij6A/GG9M9MnuXu0=",
+        "last_login": "2026-03-13 05:10:49.795475",
         "is_superuser": 0,
         "username": "parent_jane",
         "email": "jane.parent@example.com",
@@ -198,8 +206,8 @@
       },
       {
         "id": 7,
-        "password": "pbkdf2_sha256$1200000$iH4siUj0JXPtxfU4au7vbx$KoIntAPbyMemcplggA+zua8yG4aIPnQL8m+1yU1+62c=",
-        "last_login": "2026-03-08 15:33:59.942856",
+        "password": "pbkdf2_sha256$1000000$GK9GNo2Rm9nTXlUVikCWbG$C2Gsllr7znGhR0Fj22cwynOHPyol1C3ZjxBSxptACPU=",
+        "last_login": "2026-03-11 20:17:39.140062",
         "is_superuser": 0,
         "username": "teacher_smith",
         "email": "smith@example.com",
@@ -222,7 +230,7 @@
         "created_at": "2026-02-15 12:34:29.818433",
         "status": "ACTIVE",
         "updated_at": "2026-02-15 12:34:29.818652",
-        "role": "PUBLIC"
+        "role": "PARENT_STUDENT"
       },
       {
         "id": 12,
@@ -255,7 +263,7 @@
       {
         "id": 14,
         "password": "pbkdf2_sha256$1200000$q53qIzrj63vOJxIhPAR0hO$bckZXkUvXJLq52IcECxoxPIp/IVZ73fQmaHtSwtsA6w=",
-        "last_login": "2026-03-11 19:30:30.449079",
+        "last_login": "2026-03-13 09:27:29.844384",
         "is_superuser": 0,
         "username": "paoogma",
         "email": "ral531712@gmail.com",
@@ -269,7 +277,7 @@
       {
         "id": 15,
         "password": "pbkdf2_sha256$1200000$Ou3CfbjZU3OaS0M9gKdGdb$I23c3ynGxHE41XwkcqvcSLqqV4wk5VRubGwvWVXqLh8=",
-        "last_login": "2026-03-08 17:24:30.935399",
+        "last_login": "2026-03-12 04:28:45.799764",
         "is_superuser": 0,
         "username": "Jane_Smith",
         "email": "JaneSmith@gmail.com",
@@ -1318,8 +1326,8 @@
       },
       {
         "id": 90,
-        "password": "",
-        "last_login": null,
+        "password": "pbkdf2_sha256$1200000$Je2nGX6KhZmHruQE6tKKvx$lpZ0hkB3WiwZykagVqdm7WjBVOPzdfaEU6GXGf4q2U0=",
+        "last_login": "2026-03-13 12:07:52.297014",
         "is_superuser": 0,
         "username": "student_jimenez_73",
         "email": "rafael.jimenez3g6@school.local",
@@ -1327,7 +1335,7 @@
         "is_active": 1,
         "created_at": "2026-03-09 17:42:00.142158",
         "status": "ACTIVE",
-        "updated_at": "2026-03-09 17:42:00.142289",
+        "updated_at": "2026-03-13 12:07:40.626628",
         "role": "PARENT_STUDENT"
       },
       {
@@ -1360,8 +1368,8 @@
       },
       {
         "id": 93,
-        "password": "",
-        "last_login": null,
+        "password": "pbkdf2_sha256$1200000$jA1WAJF9ukCAnW8VcNOdjT$YGQQm4eA9DoH2j456XyXqwfvNXPlJbUoEZjRAwPaXAM=",
+        "last_login": "2026-03-13 10:48:59.774151",
         "is_superuser": 0,
         "username": "student_gomez_76",
         "email": "felicitas.gomez6g6@school.local",
@@ -1369,7 +1377,7 @@
         "is_active": 1,
         "created_at": "2026-03-09 17:42:00.164462",
         "status": "ACTIVE",
-        "updated_at": "2026-03-09 17:42:00.164884",
+        "updated_at": "2026-03-13 10:45:41.957198",
         "role": "PARENT_STUDENT"
       },
       {
@@ -1426,6 +1434,34 @@
         "created_at": "2026-03-09 17:42:00.181688",
         "status": "ACTIVE",
         "updated_at": "2026-03-09 17:42:00.181990",
+        "role": "PARENT_STUDENT"
+      },
+      {
+        "id": 98,
+        "password": "!7fj1h90RKo745sR7nNtebv6dNZj7m7SL6HHQoXmF",
+        "last_login": null,
+        "is_superuser": 0,
+        "username": "zalo",
+        "email": "ra12@gmail.com",
+        "is_staff": 0,
+        "is_active": 1,
+        "created_at": "2026-03-12 23:27:09.636318",
+        "status": "ACTIVE",
+        "updated_at": "2026-03-12 23:27:09.636858",
+        "role": "PARENT_STUDENT"
+      },
+      {
+        "id": 99,
+        "password": "pbkdf2_sha256$1200000$CiQkiwqIXI05kCw6zsoz8V$mO9pmnuYiMsiMkqZtt3kV5Wr9MWTTMDm1KJHJfwpRnk=",
+        "last_login": "2026-03-13 02:21:35.999702",
+        "is_superuser": 0,
+        "username": "rolo",
+        "email": "acy995im@gmail.com",
+        "is_staff": 0,
+        "is_active": 1,
+        "created_at": "2026-03-13 02:17:50.907009",
+        "status": "ACTIVE",
+        "updated_at": "2026-03-13 02:21:04.678619",
         "role": "PARENT_STUDENT"
       }
     ],
@@ -1526,7 +1562,7 @@
         "payment_mode": "cash",
         "student_number": "2026000003",
         "grade_level": "grade5",
-        "avatar": null
+        "avatar": ""
       },
       {
         "id": 6,
@@ -1545,6 +1581,96 @@
         "student_number": "2026000002",
         "grade_level": "prek",
         "avatar": null
+      },
+      {
+        "id": 7,
+        "student_first_name": "PaO",
+        "student_middle_name": "Ce",
+        "student_last_name": "Lozana",
+        "parent_first_name": "T",
+        "parent_middle_name": "",
+        "parent_last_name": "T T",
+        "contact_number": "+639111222332",
+        "address": "146 T, T, T, T, T, 1223",
+        "section_id": null,
+        "user_id": 3,
+        "lrn": "123456789012",
+        "payment_mode": "cash",
+        "student_number": "2026000005",
+        "grade_level": "kinder",
+        "avatar": ""
+      },
+      {
+        "id": 8,
+        "student_first_name": "za",
+        "student_middle_name": "na",
+        "student_last_name": "lo",
+        "parent_first_name": "wa",
+        "parent_middle_name": "",
+        "parent_last_name": "we we",
+        "contact_number": "+639222111333",
+        "address": "18 Honradez, tugatog, Caloocan, Manila, NCR, 1213",
+        "section_id": null,
+        "user_id": 98,
+        "lrn": "32224556656",
+        "payment_mode": "cash",
+        "student_number": "2026000007",
+        "grade_level": "grade2",
+        "avatar": ""
+      },
+      {
+        "id": 9,
+        "student_first_name": "Ro",
+        "student_middle_name": "Do",
+        "student_last_name": "Lo",
+        "parent_first_name": "R",
+        "parent_middle_name": "",
+        "parent_last_name": "E L",
+        "contact_number": "+639166244333",
+        "address": "22 Honradez St., Tugatog, Malabon, Metro Manila, NCR, 1470",
+        "section_id": 1,
+        "user_id": 99,
+        "lrn": "123456789102",
+        "payment_mode": "cash",
+        "student_number": "2026000008",
+        "grade_level": "kinder",
+        "avatar": ""
+      },
+      {
+        "id": 10,
+        "student_first_name": "Felicitas",
+        "student_middle_name": "Gutierrez",
+        "student_last_name": "Gomez",
+        "parent_first_name": "Eustaquia",
+        "parent_middle_name": "",
+        "parent_last_name": "Gomez",
+        "contact_number": "+639678901875",
+        "address": "246 Elm Street, Pampanga",
+        "section_id": 9,
+        "user_id": 93,
+        "lrn": "101008006",
+        "payment_mode": "installment",
+        "student_number": "G6006",
+        "grade_level": "grade6",
+        "avatar": "avatars/194536083_70876832253163_1759866734653.png"
+      },
+      {
+        "id": 11,
+        "student_first_name": "Rafael",
+        "student_middle_name": "Alonzo",
+        "student_last_name": "Jimenez",
+        "parent_first_name": "Francisca",
+        "parent_middle_name": "",
+        "parent_last_name": "Jimenez",
+        "contact_number": "+639345678872",
+        "address": "654 Maple Heights, Bulacan",
+        "section_id": 9,
+        "user_id": 90,
+        "lrn": "101008003122",
+        "payment_mode": "cash",
+        "student_number": "G6003",
+        "grade_level": "grade6",
+        "avatar": "avatars/194536083_70876832253163_1759866734653_57teZ0m.png"
       }
     ],
     "announcements_announcement": [
@@ -2257,13 +2383,23 @@
     ],
     "authtoken_token": [
       {
-        "key": "5ee80882e56af89898695bdd9ba9107d8e045af8",
-        "created": "2026-03-08 15:57:57.697276",
-        "user_id": 6
+        "key": "fad5cebbb1fb11080e8ca04feb49772411a9e600",
+        "created": "2026-03-13 02:21:04.828336",
+        "user_id": 99
       },
       {
-        "key": "694f5aaf7a19b7400133092c339d589e3cfa8652",
-        "created": "2026-03-11 17:42:11.131070",
+        "key": "a78ec82dc0c090e6b6e17df64ab10590f7d14534",
+        "created": "2026-03-13 10:45:42.064574",
+        "user_id": 93
+      },
+      {
+        "key": "6cec93564127c44c9aa0b1fba4c90e3d8a858248",
+        "created": "2026-03-13 12:07:40.732108",
+        "user_id": 90
+      },
+      {
+        "key": "2f3ec57ed1264a4d1b266094664c9c3a8c6fffba",
+        "created": "2026-03-13 12:11:39.259065",
         "user_id": 1
       }
     ],
@@ -3657,6 +3793,116 @@
         "content_type_id": 11,
         "user_id": 1,
         "action_time": "2026-02-28 18:33:26.771155"
+      },
+      {
+        "id": 34,
+        "object_id": "94",
+        "object_repr": "Ro Lo - kinder",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Status\"]}}]",
+        "content_type_id": 13,
+        "user_id": 1,
+        "action_time": "2026-03-13 02:17:15.312078"
+      },
+      {
+        "id": 35,
+        "object_id": "11",
+        "object_repr": "Grade 1-asdasd",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Grade level\"]}}]",
+        "content_type_id": 8,
+        "user_id": 1,
+        "action_time": "2026-03-13 09:30:26.733964"
+      },
+      {
+        "id": 36,
+        "object_id": "9",
+        "object_repr": "Grade 6-Carnation",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Grade level\"]}}]",
+        "content_type_id": 8,
+        "user_id": 1,
+        "action_time": "2026-03-13 09:30:35.609213"
+      },
+      {
+        "id": 37,
+        "object_id": "8",
+        "object_repr": "Grade 5-Tulip",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Grade level\"]}}]",
+        "content_type_id": 8,
+        "user_id": 1,
+        "action_time": "2026-03-13 09:30:41.516693"
+      },
+      {
+        "id": 38,
+        "object_id": "7",
+        "object_repr": "Grade 3-Jasmine",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Grade level\"]}}]",
+        "content_type_id": 8,
+        "user_id": 1,
+        "action_time": "2026-03-13 09:30:47.030401"
+      },
+      {
+        "id": 39,
+        "object_id": "7",
+        "object_repr": "Grade 4-Jasmine",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Grade level\"]}}]",
+        "content_type_id": 8,
+        "user_id": 1,
+        "action_time": "2026-03-13 09:30:53.223140"
+      },
+      {
+        "id": 40,
+        "object_id": "6",
+        "object_repr": "Grade 3-Lily",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Grade level\"]}}]",
+        "content_type_id": 8,
+        "user_id": 1,
+        "action_time": "2026-03-13 09:30:59.287514"
+      },
+      {
+        "id": 41,
+        "object_id": "4",
+        "object_repr": "Grade 2-Sunflower",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Grade level\"]}}]",
+        "content_type_id": 8,
+        "user_id": 1,
+        "action_time": "2026-03-13 09:31:04.835695"
+      },
+      {
+        "id": 42,
+        "object_id": "3",
+        "object_repr": "Grade 1-Daisy",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Grade level\"]}}]",
+        "content_type_id": 8,
+        "user_id": 1,
+        "action_time": "2026-03-13 09:31:09.294374"
+      },
+      {
+        "id": 43,
+        "object_id": "1",
+        "object_repr": "Kinder-Sampaguita",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Grade level\"]}}]",
+        "content_type_id": 8,
+        "user_id": 1,
+        "action_time": "2026-03-13 09:31:15.224632"
+      },
+      {
+        "id": 44,
+        "object_id": "11",
+        "object_repr": "Pre-Kinder-asdasd",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Grade level\"]}}]",
+        "content_type_id": 8,
+        "user_id": 1,
+        "action_time": "2026-03-13 09:31:20.893345"
       }
     ],
     "django_content_type": [
@@ -4108,6 +4354,18 @@
         "app": "accounts",
         "name": "0007_teacherprofile_avatar_userprofile_avatar",
         "applied": "2026-03-08 13:22:40.574157"
+      },
+      {
+        "id": 53,
+        "app": "accounts",
+        "name": "0008_section_capacity",
+        "applied": "2026-03-13 08:24:42.116314"
+      },
+      {
+        "id": 54,
+        "app": "enrollment",
+        "name": "0013_enrollment_id_image",
+        "applied": "2026-03-13 08:24:42.196091"
       }
     ],
     "django_session": [
@@ -5815,6 +6073,91 @@
         "session_key": "0dlcqu2yfmzhzuv7a3biv6t1ew31ldia",
         "session_data": ".eJxVjMsOwiAQAP9lz4bwbNkevfsNhF2oVA0kpT0Z_9006UGvM5N5Q4j7VsLe8xqWBBMouPwyivzM9RDpEeu9CW51WxcSRyJO28Wtpfy6nu3foMReYAKD0RCiiejRkpu9kuwd0UB2tNJiclkbySMOLLUlbVglMxOxco6ys_D5Asn_N3A:1w0PNM:gLN_BAW0gWyYjlRVSm9WwEJz8h0DykbvUcNiQcdtQwo",
         "expire_date": "2026-03-25 19:37:48.692122"
+      },
+      {
+        "session_key": "ky1nsex5ygb4qw1j66wbd5ny8glqbjwd",
+        "session_data": ".eJxVjEEOwiAQRe_C2pDCwFRcuvcMBJhBqgaS0q6Md7dNutDte-__t_BhXYpfO89-InERSpx-WQzpyXUX9Aj13mRqdZmnKPdEHrbLWyN-XY_276CEXrY1ZIraIqJih5ZTAjQRTIKgjTZWoRsBaCMxUR71cFaaCUIGxwikBvH5AtHaN2c:1w0Pyf:eqhXU-70oOee7qnkj3PcSrtsvYfzziXBblu77luSfUU",
+        "expire_date": "2026-03-25 20:16:21.840026"
+      },
+      {
+        "session_key": "56yhr1lfo00ru38oysna7v0q27g9hyl0",
+        "session_data": ".eJxVjDsOwjAQBe_iGln-fyjpcwZr197gAHKkOKkQd0eWUkD7Zua9WYJjr-notKWlsCuT7PK7IeQntQHKA9p95Xlt-7YgHwo_aefTWuh1O92_gwq9jtrkYA1JUtFktIAgyGoIcXZFWC-DtDqjFgYwUnAqk9Kz99rY4oyWkn2-5x43aw:1w0Pyh:ErsKiODxTvQTmL2gjZD9aWDlvr98_rYuBVVggKnvLDU",
+        "expire_date": "2026-03-25 20:16:23.846899"
+      },
+      {
+        "session_key": "lxl1rdxu8of501ogh6yc63e1aky7rlfb",
+        "session_data": ".eJxVjEEOwiAQRe_C2hAY6Agu3fcMZIBRqgaS0q6Md7dNutDte-__twi0LiWsnecwZXERWpx-WaT05LqL_KB6bzK1usxTlHsiD9vl2DK_rkf7d1Col23tvFZ8846SdwCE5DJqtAbSRtESKjMQmDREp8-ojTKEkIC9B8usvPh8AcctNuk:1w0Pyi:4JYQVjlWPzpa2L-PPWWk7DrpymWcPd6OJ3fWOP8U1vA",
+        "expire_date": "2026-03-25 20:16:24.370135"
+      },
+      {
+        "session_key": "k4dhyccuiz88s2ma21fei4fk3rbpg9wt",
+        "session_data": ".eJxVjDsOwjAQBe_iGlmJ179Q0nMGa71r4wCypTipEHeHSCmgfTPzXiLgtpaw9bSEmcVZOHH63SLSI9Ud8B3rrUlqdV3mKHdFHrTLa-P0vBzu30HBXr61wtFEIGssJJ1tNEwa1cCEk2ccwRlgjVYDqEF7DyoDOMrkJgYTPYv3B-AON6A:1w0Pzs:Kkwscfm2AnJPXI38t8M7j32DUtB_gemJ-LHTXbOW0lw",
+        "expire_date": "2026-03-25 20:17:36.591740"
+      },
+      {
+        "session_key": "my1gd3y533gvt74fs8ldinx91dr20fz1",
+        "session_data": ".eJxVjDEOwyAQBP9CHSE4ARYp0-cN6DiO4CQCydiVlb8HSy6SYpvZ2d1FwG0tYeu8hDmJq3Di8ssi0ovrUaQn1keT1Oq6zFEeijzbLu8t8ft2un8HBXsZa8WAKvnIhqyB6Fl7DyaPQAaIFJVjZQhZZQ3eTkSZHOPEyqYBtfh8AfBSOH4:1w0Q0n:JNfEl_s0mqvcer40wyqgQ7TRhChskHKyhHEXmSCwdPQ",
+        "expire_date": "2026-03-25 20:18:33.809123"
+      },
+      {
+        "session_key": "iiggzpypgl4jutwarmb806lhqih69ymp",
+        "session_data": ".eJxVjDsOwyAQBe9CHSEW83PK9D4DWmAJTiKQjF1FuXtsyUXSvpl5b-ZxW4vfOi1-TuzKQLPL7xgwPqkeJD2w3huPra7LHPih8JN2PrVEr9vp_h0U7GWvCchmB9EqEdDkaONIcgxD0tEGZwhs1hKkwp2knACNGQRZ4VQAMaBhny8juThh:1w0Xf9:qdSSdOTATt-NM3CFD2lb08PSlb_yQDHO0eKL-let2yA",
+        "expire_date": "2026-03-26 04:28:43.673340"
+      },
+      {
+        "session_key": "y99o9qtmzqmv68tanhgd8efgygy22xg9",
+        "session_data": ".eJxVjEsOwjAMBe-SNYqahsYxS_Y9Q2XHhhRQIvWzQtydVuoCtjPz3tsMtC55WGedhlHMxbizOf1CpvTUsht5ULlXm2pZppHtntjDzravoq_r0f4dZJrzto7sUAS4Bb41qIzIQBJU2ANo60JQ9MAxcExBpEOhjfrGA2GK2JnPFyeBOIs:1w0Xkq:d_vXmTpSdvcGPG7Ftq6FQ-DFftXIlUIJHSMwk3bBUnw",
+        "expire_date": "2026-03-26 04:34:36.215034"
+      },
+      {
+        "session_key": "19ugfbifokhw9kzmc5c784ahgsdadi22",
+        "session_data": ".eJxVjDsOwjAQBe-yNbK8-BMnJX3OYO36gwPIkeKkQtwdWUoBxWtmRu8Nno69-KOlzS8RJkC4_DKm8Ey1i_igel9FWOu-LSx6Ik7bxLzG9Lqd7d9BoVZggpStiVaZQTvNlGlExKQYHQ-ayenQF5SSaNBKltq4ax4dK2tktknB5wvZuzc6:1w0pJt:hdB25GEsxCoSOq88IWx79_kmyA4GUmexIc4amKkW6OM",
+        "expire_date": "2026-03-26 23:19:57.496349"
+      },
+      {
+        "session_key": "iscfm1cdcqr7y8zebx404pw8mlqexnmy",
+        "session_data": ".eJxVjL0OwjAQg98lM4pyXJKmjOw8Q3SXH1JAqdS0E-LdaaQOMHiwP9tv4Wlbi99aWvwUxUWAOP1mTOGZagfxQfU-yzDXdZlY9oo8aJO3OabX9ej-HRRqZV-nbE20aAbtNFOmEQASMjgedu906AqICgxYxUobd86jY7RGZZtQfL7Zuzc6:1w0qtc:IpOpj1vGKQD2PSPgx7QOgAKXId1naoQJCIDFDbtGyLM",
+        "expire_date": "2026-03-27 01:00:56.604188"
+      },
+      {
+        "session_key": "szf7txm3sn840lgbr5eb3i67i88we81r",
+        "session_data": ".eJxVjL0OwjAQg98lM4pyXJKmjOw8Q3SXH1JAqdS0E-LdaaQOMHiwP9tv4Wlbi99aWvwUxUWAOP1mTOGZagfxQfU-yzDXdZlY9oo8aJO3OabX9ej-HRRqZV-nbE20aAbtNFOmEQASMjgedu906AqICgxYxUobd86jY7RGZZtQfL7Zuzc6:1w0qz8:-cD08EPol7TxkxFGQ_00xr8_BbmB5qeT8LA5mNBshMI",
+        "expire_date": "2026-03-27 01:06:38.441933"
+      },
+      {
+        "session_key": "ez21xxp0f120ym9jw7z9w4nl6qoix5dj",
+        "session_data": ".eJxVjEsOwjAMBe-SNYqahsYxS_Y9Q2XHhhRQIvWzQtydVuoCtjPz3tsMtC55WGedhlHMxbizOf1CpvTUsht5ULlXm2pZppHtntjDzravoq_r0f4dZJrzto7sUAS4Bb41qIzIQBJU2ANo60JQ9MAxcExBpEOhjfrGA2GK2JnPFyeBOIs:1w0s3G:CxvUTpN3WUCiMah0fTyM6gwdVOT9LPiEXGHiPmhLawc",
+        "expire_date": "2026-03-27 02:14:58.369392"
+      },
+      {
+        "session_key": "tsifmqtgjtx9596lfa0sbx1ne6b0tqfd",
+        "session_data": ".eJxVjEEOwiAQRe_C2hCgDHRcuvcMZMoMtmpoUtqV8e7apAvd_vfef6lE2zqmrcmSJlZnhahOv-NA-SF1J3ynept1nuu6TIPeFX3Qpq8zy_NyuH8HI7XxW0dDJVvPkKGP0XkZEB2DC4Wgt30h7x13GblDb0KwyAAkViCaGMBa9f4AAIM3Mg:1w0s9d:_SMpYGgTOkPFAOdcgaC85EX91qXqxzXel7Y6YsFXjeI",
+        "expire_date": "2026-03-27 02:21:33.979433"
+      },
+      {
+        "session_key": "izjam755ytuvaabpzjnirun7ohw0bc8f",
+        "session_data": ".eJxVjL0OwjAQg98lM4pyXJKmjOw8Q3SXH1JAqdS0E-LdaaQOMHiwP9tv4Wlbi99aWvwUxUWAOP1mTOGZagfxQfU-yzDXdZlY9oo8aJO3OabX9ej-HRRqZV-nbE20aAbtNFOmEQASMjgedu906AqICgxYxUobd86jY7RGZZtQfL7Zuzc6:1w0vLj:rkqsRUwFZiCB1Q4QoPc1QHrLwGg72psio8UHAAAJ6GU",
+        "expire_date": "2026-03-27 05:46:15.762225"
+      },
+      {
+        "session_key": "dd1nxxlvawdzfsph6pcaeksqe6zqoywp",
+        "session_data": ".eJxVjL0OwjAQg98lM4pyXJKmjOw8Q3SXH1JAqdS0E-LdaaQOMHiwP9tv4Wlbi99aWvwUxUWAOP1mTOGZagfxQfU-yzDXdZlY9oo8aJO3OabX9ej-HRRqZV-nbE20aAbtNFOmEQASMjgedu906AqICgxYxUobd86jY7RGZZtQfL7Zuzc6:1w0vLk:K_vAPENZWjPmmOGXwxwytd_eWIhaom63sSuQ03TDkns",
+        "expire_date": "2026-03-27 05:46:16.633486"
+      },
+      {
+        "session_key": "6k5h5zmqp84iblpff7k2lw51t4xj3o2m",
+        "session_data": ".eJxVjEsOwjAMBe-SNYqahsYxS_Y9Q2XHhhRQIvWzQtydVuoCtjPz3tsMtC55WGedhlHMxbizOf1CpvTUsht5ULlXm2pZppHtntjDzravoq_r0f4dZJrzto7sUAS4Bb41qIzIQBJU2ANo60JQ9MAxcExBpEOhjfrGA2GK2JnPFyeBOIs:1w0ynn:3u9Hp4nE3njH0vUiojJO3FuardR2nUHdRcHK0Qbb0LM",
+        "expire_date": "2026-03-27 09:27:27.530155"
+      },
+      {
+        "session_key": "y8sekpn550k1ry8je75pp59pqp7ipao2",
+        "session_data": ".eJxVjL0OwjAQg98lM4pyXJKmjOw8Q3SXH1JAqdS0E-LdaaQOMHiwP9tv4Wlbi99aWvwUxUWAOP1mTOGZagfxQfU-yzDXdZlY9oo8aJO3OabX9ej-HRRqZV-nbE20aAbtNFOmEQASMjgedu906AqICgxYxUobd86jY7RGZZtQfL7Zuzc6:1w0ysG:TNG9tKuCV1rNV1RQSrRr1XspLx216xdyKA0tmQdp9oU",
+        "expire_date": "2026-03-27 09:32:04.595601"
+      },
+      {
+        "session_key": "ebqxem386kkcargk9jolxubem40fxof0",
+        "session_data": ".eJxVjL0OwjAQg98lM4pyXJKmjOw8Q3SXH1JAqdS0E-LdaaQOMHiwP9tv4Wlbi99aWvwUxUWAOP1mTOGZagfxQfU-yzDXdZlY9oo8aJO3OabX9ej-HRRqZV-nbE20aAbtNFOmEQASMjgedu906AqICgxYxUobd86jY7RGZZtQfL7Zuzc6:1w11Mh:yQFuHiyNXX-Yvvp8rcFXEaeqa3HMFrHOkd5mUbs2f8o",
+        "expire_date": "2026-03-27 12:11:39.294308"
       }
     ],
     "enrollment_enrollment": [
@@ -5846,7 +6189,8 @@
         "student_type": "old",
         "telephone_number": "",
         "parent_user_id": 13,
-        "student_number": "12"
+        "student_number": "12",
+        "id_image": null
       },
       {
         "id": 3,
@@ -5876,7 +6220,8 @@
         "student_type": "old",
         "telephone_number": "12121212",
         "parent_user_id": null,
-        "student_number": null
+        "student_number": null,
+        "id_image": null
       },
       {
         "id": 4,
@@ -5906,7 +6251,8 @@
         "student_type": "old",
         "telephone_number": "1211414",
         "parent_user_id": null,
-        "student_number": "1243"
+        "student_number": "1243",
+        "id_image": null
       },
       {
         "id": 6,
@@ -5936,7 +6282,8 @@
         "student_type": "new",
         "telephone_number": "",
         "parent_user_id": 12,
-        "student_number": "123"
+        "student_number": "123",
+        "id_image": null
       },
       {
         "id": 7,
@@ -5966,7 +6313,8 @@
         "student_type": "old",
         "telephone_number": "",
         "parent_user_id": 14,
-        "student_number": "2026000001"
+        "student_number": "2026000001",
+        "id_image": null
       },
       {
         "id": 8,
@@ -5996,7 +6344,8 @@
         "student_type": "old",
         "telephone_number": "1211414",
         "parent_user_id": 16,
-        "student_number": "2026000002"
+        "student_number": "2026000002",
+        "id_image": null
       },
       {
         "id": 9,
@@ -6026,18 +6375,19 @@
         "student_type": "old",
         "telephone_number": "",
         "parent_user_id": 14,
-        "student_number": "2026000003"
+        "student_number": "2026000003",
+        "id_image": null
       },
       {
         "id": 10,
         "grade_level": "grade2",
-        "status": "PENDING",
+        "status": "ACTIVE",
         "enrolled_at": "2026-03-05 17:36:25.625571",
         "completed_at": null,
         "academic_year": "2026-2027",
-        "remarks": "",
+        "remarks": "APPROVED BY ADMIN",
         "created_at": "2026-03-05 17:36:25.625800",
-        "updated_at": "2026-03-05 17:36:25.625808",
+        "updated_at": "2026-03-12 23:27:09.634682",
         "section_id": null,
         "student_id": 8,
         "address": "18 Honradez, tugatog, Caloocan, Manila, NCR, 1213",
@@ -6055,19 +6405,20 @@
         "religion": "Christian",
         "student_type": "new",
         "telephone_number": "",
-        "parent_user_id": null,
-        "student_number": null
+        "parent_user_id": 98,
+        "student_number": "2026000007",
+        "id_image": null
       },
       {
         "id": 11,
         "grade_level": "grade4",
-        "status": "PENDING",
+        "status": "ACTIVE",
         "enrolled_at": "2026-03-09 14:37:52.760049",
         "completed_at": null,
         "academic_year": "2025-2026",
         "remarks": "APPROVED BY ADMIN",
         "created_at": "2026-03-09 14:37:52.761375",
-        "updated_at": "2026-03-09 14:37:52.761387",
+        "updated_at": "2026-03-12 23:26:52.497083",
         "section_id": null,
         "student_id": 8,
         "address": "Block 1 Lot 26 Phase 2 Area 3",
@@ -6086,7 +6437,8 @@
         "student_type": "old",
         "telephone_number": "82878796",
         "parent_user_id": null,
-        "student_number": null
+        "student_number": "2026000006",
+        "id_image": null
       },
       {
         "id": 12,
@@ -6116,7 +6468,8 @@
         "student_type": "old",
         "telephone_number": "2878727",
         "parent_user_id": null,
-        "student_number": "2026000004"
+        "student_number": "2026000004",
+        "id_image": null
       },
       {
         "id": 13,
@@ -6146,7 +6499,8 @@
         "student_type": "new",
         "telephone_number": "8123456",
         "parent_user_id": null,
-        "student_number": "PRE001"
+        "student_number": "PRE001",
+        "id_image": null
       },
       {
         "id": 14,
@@ -6176,7 +6530,8 @@
         "student_type": "new",
         "telephone_number": "8234567",
         "parent_user_id": null,
-        "student_number": "PRE002"
+        "student_number": "PRE002",
+        "id_image": null
       },
       {
         "id": 15,
@@ -6206,7 +6561,8 @@
         "student_type": "new",
         "telephone_number": "8345678",
         "parent_user_id": null,
-        "student_number": "PRE003"
+        "student_number": "PRE003",
+        "id_image": null
       },
       {
         "id": 16,
@@ -6236,7 +6592,8 @@
         "student_type": "new",
         "telephone_number": "8456789",
         "parent_user_id": null,
-        "student_number": "PRE004"
+        "student_number": "PRE004",
+        "id_image": null
       },
       {
         "id": 17,
@@ -6266,7 +6623,8 @@
         "student_type": "new",
         "telephone_number": "8567890",
         "parent_user_id": null,
-        "student_number": "PRE005"
+        "student_number": "PRE005",
+        "id_image": null
       },
       {
         "id": 18,
@@ -6296,7 +6654,8 @@
         "student_type": "new",
         "telephone_number": "8678901",
         "parent_user_id": null,
-        "student_number": "PRE006"
+        "student_number": "PRE006",
+        "id_image": null
       },
       {
         "id": 19,
@@ -6326,7 +6685,8 @@
         "student_type": "new",
         "telephone_number": "8789012",
         "parent_user_id": null,
-        "student_number": "PRE007"
+        "student_number": "PRE007",
+        "id_image": null
       },
       {
         "id": 20,
@@ -6356,7 +6716,8 @@
         "student_type": "new",
         "telephone_number": "8890123",
         "parent_user_id": null,
-        "student_number": "PRE008"
+        "student_number": "PRE008",
+        "id_image": null
       },
       {
         "id": 21,
@@ -6386,7 +6747,8 @@
         "student_type": "new",
         "telephone_number": "8901234",
         "parent_user_id": null,
-        "student_number": "PRE009"
+        "student_number": "PRE009",
+        "id_image": null
       },
       {
         "id": 22,
@@ -6416,7 +6778,8 @@
         "student_type": "new",
         "telephone_number": "9012345",
         "parent_user_id": null,
-        "student_number": "PRE010"
+        "student_number": "PRE010",
+        "id_image": null
       },
       {
         "id": 23,
@@ -6446,7 +6809,8 @@
         "student_type": "new",
         "telephone_number": "9123456",
         "parent_user_id": null,
-        "student_number": "PRE011"
+        "student_number": "PRE011",
+        "id_image": null
       },
       {
         "id": 24,
@@ -6476,7 +6840,8 @@
         "student_type": "new",
         "telephone_number": "9234567",
         "parent_user_id": null,
-        "student_number": "PRE012"
+        "student_number": "PRE012",
+        "id_image": null
       },
       {
         "id": 25,
@@ -6506,7 +6871,8 @@
         "student_type": "new",
         "telephone_number": "9345678",
         "parent_user_id": null,
-        "student_number": "PRE013"
+        "student_number": "PRE013",
+        "id_image": null
       },
       {
         "id": 26,
@@ -6536,7 +6902,8 @@
         "student_type": "new",
         "telephone_number": "9456789",
         "parent_user_id": null,
-        "student_number": "PRE014"
+        "student_number": "PRE014",
+        "id_image": null
       },
       {
         "id": 27,
@@ -6566,7 +6933,8 @@
         "student_type": "new",
         "telephone_number": "9567890",
         "parent_user_id": null,
-        "student_number": "PRE015"
+        "student_number": "PRE015",
+        "id_image": null
       },
       {
         "id": 28,
@@ -6596,7 +6964,8 @@
         "student_type": "new",
         "telephone_number": "9678901",
         "parent_user_id": null,
-        "student_number": "PRE016"
+        "student_number": "PRE016",
+        "id_image": null
       },
       {
         "id": 29,
@@ -6626,7 +6995,8 @@
         "student_type": "new",
         "telephone_number": "9789012",
         "parent_user_id": null,
-        "student_number": "PRE017"
+        "student_number": "PRE017",
+        "id_image": null
       },
       {
         "id": 30,
@@ -6656,7 +7026,8 @@
         "student_type": "new",
         "telephone_number": "9890123",
         "parent_user_id": null,
-        "student_number": "PRE018"
+        "student_number": "PRE018",
+        "id_image": null
       },
       {
         "id": 31,
@@ -6686,7 +7057,8 @@
         "student_type": "new",
         "telephone_number": "9901234",
         "parent_user_id": null,
-        "student_number": "PRE019"
+        "student_number": "PRE019",
+        "id_image": null
       },
       {
         "id": 32,
@@ -6716,7 +7088,8 @@
         "student_type": "new",
         "telephone_number": "0012345",
         "parent_user_id": null,
-        "student_number": "PRE020"
+        "student_number": "PRE020",
+        "id_image": null
       },
       {
         "id": 33,
@@ -6746,7 +7119,8 @@
         "student_type": "new",
         "telephone_number": "8123456",
         "parent_user_id": null,
-        "student_number": "KD001"
+        "student_number": "KD001",
+        "id_image": null
       },
       {
         "id": 34,
@@ -6776,7 +7150,8 @@
         "student_type": "new",
         "telephone_number": "8234567",
         "parent_user_id": null,
-        "student_number": "KD002"
+        "student_number": "KD002",
+        "id_image": null
       },
       {
         "id": 35,
@@ -6806,7 +7181,8 @@
         "student_type": "new",
         "telephone_number": "8345678",
         "parent_user_id": null,
-        "student_number": "KD003"
+        "student_number": "KD003",
+        "id_image": null
       },
       {
         "id": 36,
@@ -6836,7 +7212,8 @@
         "student_type": "new",
         "telephone_number": "8456789",
         "parent_user_id": null,
-        "student_number": "KD004"
+        "student_number": "KD004",
+        "id_image": null
       },
       {
         "id": 37,
@@ -6866,7 +7243,8 @@
         "student_type": "new",
         "telephone_number": "8567890",
         "parent_user_id": null,
-        "student_number": "KD005"
+        "student_number": "KD005",
+        "id_image": null
       },
       {
         "id": 38,
@@ -6896,7 +7274,8 @@
         "student_type": "new",
         "telephone_number": "8678901",
         "parent_user_id": null,
-        "student_number": "KD006"
+        "student_number": "KD006",
+        "id_image": null
       },
       {
         "id": 39,
@@ -6926,7 +7305,8 @@
         "student_type": "new",
         "telephone_number": "8789012",
         "parent_user_id": null,
-        "student_number": "G1007"
+        "student_number": "G1007",
+        "id_image": null
       },
       {
         "id": 40,
@@ -6956,7 +7336,8 @@
         "student_type": "new",
         "telephone_number": "8890123",
         "parent_user_id": null,
-        "student_number": "G1008"
+        "student_number": "G1008",
+        "id_image": null
       },
       {
         "id": 41,
@@ -6986,7 +7367,8 @@
         "student_type": "new",
         "telephone_number": "8901234",
         "parent_user_id": null,
-        "student_number": "G1009"
+        "student_number": "G1009",
+        "id_image": null
       },
       {
         "id": 42,
@@ -7016,7 +7398,8 @@
         "student_type": "new",
         "telephone_number": "9012345",
         "parent_user_id": null,
-        "student_number": "G1010"
+        "student_number": "G1010",
+        "id_image": null
       },
       {
         "id": 43,
@@ -7046,7 +7429,8 @@
         "student_type": "new",
         "telephone_number": "8123456",
         "parent_user_id": null,
-        "student_number": "G2001"
+        "student_number": "G2001",
+        "id_image": null
       },
       {
         "id": 44,
@@ -7076,7 +7460,8 @@
         "student_type": "new",
         "telephone_number": "8234567",
         "parent_user_id": null,
-        "student_number": "G2002"
+        "student_number": "G2002",
+        "id_image": null
       },
       {
         "id": 45,
@@ -7106,7 +7491,8 @@
         "student_type": "new",
         "telephone_number": "8345678",
         "parent_user_id": null,
-        "student_number": "G2003"
+        "student_number": "G2003",
+        "id_image": null
       },
       {
         "id": 46,
@@ -7136,7 +7522,8 @@
         "student_type": "new",
         "telephone_number": "8456789",
         "parent_user_id": null,
-        "student_number": "G2004"
+        "student_number": "G2004",
+        "id_image": null
       },
       {
         "id": 47,
@@ -7166,7 +7553,8 @@
         "student_type": "new",
         "telephone_number": "8567890",
         "parent_user_id": null,
-        "student_number": "G2005"
+        "student_number": "G2005",
+        "id_image": null
       },
       {
         "id": 48,
@@ -7196,7 +7584,8 @@
         "student_type": "new",
         "telephone_number": "8678901",
         "parent_user_id": null,
-        "student_number": "G2006"
+        "student_number": "G2006",
+        "id_image": null
       },
       {
         "id": 49,
@@ -7226,7 +7615,8 @@
         "student_type": "new",
         "telephone_number": "8789012",
         "parent_user_id": null,
-        "student_number": "G2007"
+        "student_number": "G2007",
+        "id_image": null
       },
       {
         "id": 50,
@@ -7256,7 +7646,8 @@
         "student_type": "new",
         "telephone_number": "8890123",
         "parent_user_id": null,
-        "student_number": "G2008"
+        "student_number": "G2008",
+        "id_image": null
       },
       {
         "id": 51,
@@ -7286,7 +7677,8 @@
         "student_type": "new",
         "telephone_number": "8901234",
         "parent_user_id": null,
-        "student_number": "G2009"
+        "student_number": "G2009",
+        "id_image": null
       },
       {
         "id": 52,
@@ -7316,7 +7708,8 @@
         "student_type": "new",
         "telephone_number": "9012345",
         "parent_user_id": null,
-        "student_number": "G2010"
+        "student_number": "G2010",
+        "id_image": null
       },
       {
         "id": 53,
@@ -7346,7 +7739,8 @@
         "student_type": "new",
         "telephone_number": "9123456",
         "parent_user_id": null,
-        "student_number": "G3001"
+        "student_number": "G3001",
+        "id_image": null
       },
       {
         "id": 54,
@@ -7376,7 +7770,8 @@
         "student_type": "new",
         "telephone_number": "9234567",
         "parent_user_id": null,
-        "student_number": "G3002"
+        "student_number": "G3002",
+        "id_image": null
       },
       {
         "id": 55,
@@ -7406,7 +7801,8 @@
         "student_type": "new",
         "telephone_number": "9345678",
         "parent_user_id": null,
-        "student_number": "G3003"
+        "student_number": "G3003",
+        "id_image": null
       },
       {
         "id": 56,
@@ -7436,7 +7832,8 @@
         "student_type": "new",
         "telephone_number": "9456789",
         "parent_user_id": null,
-        "student_number": "G3004"
+        "student_number": "G3004",
+        "id_image": null
       },
       {
         "id": 57,
@@ -7466,7 +7863,8 @@
         "student_type": "new",
         "telephone_number": "9567890",
         "parent_user_id": null,
-        "student_number": "G3005"
+        "student_number": "G3005",
+        "id_image": null
       },
       {
         "id": 58,
@@ -7496,7 +7894,8 @@
         "student_type": "new",
         "telephone_number": "9678901",
         "parent_user_id": null,
-        "student_number": "G3006"
+        "student_number": "G3006",
+        "id_image": null
       },
       {
         "id": 59,
@@ -7526,7 +7925,8 @@
         "student_type": "new",
         "telephone_number": "9789012",
         "parent_user_id": null,
-        "student_number": "G3007"
+        "student_number": "G3007",
+        "id_image": null
       },
       {
         "id": 60,
@@ -7556,7 +7956,8 @@
         "student_type": "new",
         "telephone_number": "9890123",
         "parent_user_id": null,
-        "student_number": "G3008"
+        "student_number": "G3008",
+        "id_image": null
       },
       {
         "id": 61,
@@ -7586,7 +7987,8 @@
         "student_type": "new",
         "telephone_number": "9901234",
         "parent_user_id": null,
-        "student_number": "G3009"
+        "student_number": "G3009",
+        "id_image": null
       },
       {
         "id": 62,
@@ -7616,7 +8018,8 @@
         "student_type": "new",
         "telephone_number": "0012345",
         "parent_user_id": null,
-        "student_number": "G3010"
+        "student_number": "G3010",
+        "id_image": null
       },
       {
         "id": 63,
@@ -7646,7 +8049,8 @@
         "student_type": "new",
         "telephone_number": "8123456",
         "parent_user_id": null,
-        "student_number": "G4001"
+        "student_number": "G4001",
+        "id_image": null
       },
       {
         "id": 64,
@@ -7676,7 +8080,8 @@
         "student_type": "new",
         "telephone_number": "8234567",
         "parent_user_id": null,
-        "student_number": "G4002"
+        "student_number": "G4002",
+        "id_image": null
       },
       {
         "id": 65,
@@ -7706,7 +8111,8 @@
         "student_type": "new",
         "telephone_number": "8345678",
         "parent_user_id": null,
-        "student_number": "G4003"
+        "student_number": "G4003",
+        "id_image": null
       },
       {
         "id": 66,
@@ -7736,7 +8142,8 @@
         "student_type": "new",
         "telephone_number": "8456789",
         "parent_user_id": null,
-        "student_number": "G4004"
+        "student_number": "G4004",
+        "id_image": null
       },
       {
         "id": 67,
@@ -7766,7 +8173,8 @@
         "student_type": "new",
         "telephone_number": "8567890",
         "parent_user_id": null,
-        "student_number": "G4005"
+        "student_number": "G4005",
+        "id_image": null
       },
       {
         "id": 68,
@@ -7796,7 +8204,8 @@
         "student_type": "new",
         "telephone_number": "8678901",
         "parent_user_id": null,
-        "student_number": "G4006"
+        "student_number": "G4006",
+        "id_image": null
       },
       {
         "id": 69,
@@ -7826,7 +8235,8 @@
         "student_type": "new",
         "telephone_number": "8789012",
         "parent_user_id": null,
-        "student_number": "G4007"
+        "student_number": "G4007",
+        "id_image": null
       },
       {
         "id": 70,
@@ -7856,7 +8266,8 @@
         "student_type": "new",
         "telephone_number": "8890123",
         "parent_user_id": null,
-        "student_number": "G4008"
+        "student_number": "G4008",
+        "id_image": null
       },
       {
         "id": 71,
@@ -7886,7 +8297,8 @@
         "student_type": "new",
         "telephone_number": "8901234",
         "parent_user_id": null,
-        "student_number": "G4009"
+        "student_number": "G4009",
+        "id_image": null
       },
       {
         "id": 72,
@@ -7916,7 +8328,8 @@
         "student_type": "new",
         "telephone_number": "9012345",
         "parent_user_id": null,
-        "student_number": "G4010"
+        "student_number": "G4010",
+        "id_image": null
       },
       {
         "id": 73,
@@ -7946,7 +8359,8 @@
         "student_type": "new",
         "telephone_number": "8123456",
         "parent_user_id": null,
-        "student_number": "G5001"
+        "student_number": "G5001",
+        "id_image": null
       },
       {
         "id": 74,
@@ -7976,7 +8390,8 @@
         "student_type": "new",
         "telephone_number": "8234567",
         "parent_user_id": null,
-        "student_number": "G5002"
+        "student_number": "G5002",
+        "id_image": null
       },
       {
         "id": 75,
@@ -8006,7 +8421,8 @@
         "student_type": "new",
         "telephone_number": "8345678",
         "parent_user_id": null,
-        "student_number": "G5003"
+        "student_number": "G5003",
+        "id_image": null
       },
       {
         "id": 76,
@@ -8036,7 +8452,8 @@
         "student_type": "new",
         "telephone_number": "8456789",
         "parent_user_id": null,
-        "student_number": "G5004"
+        "student_number": "G5004",
+        "id_image": null
       },
       {
         "id": 77,
@@ -8066,7 +8483,8 @@
         "student_type": "new",
         "telephone_number": "8567890",
         "parent_user_id": null,
-        "student_number": "G5005"
+        "student_number": "G5005",
+        "id_image": null
       },
       {
         "id": 78,
@@ -8096,7 +8514,8 @@
         "student_type": "new",
         "telephone_number": "8678901",
         "parent_user_id": null,
-        "student_number": "G5006"
+        "student_number": "G5006",
+        "id_image": null
       },
       {
         "id": 79,
@@ -8126,7 +8545,8 @@
         "student_type": "new",
         "telephone_number": "8789012",
         "parent_user_id": null,
-        "student_number": "G5007"
+        "student_number": "G5007",
+        "id_image": null
       },
       {
         "id": 80,
@@ -8156,7 +8576,8 @@
         "student_type": "new",
         "telephone_number": "8890123",
         "parent_user_id": null,
-        "student_number": "G5008"
+        "student_number": "G5008",
+        "id_image": null
       },
       {
         "id": 81,
@@ -8186,7 +8607,8 @@
         "student_type": "new",
         "telephone_number": "8901234",
         "parent_user_id": null,
-        "student_number": "G5009"
+        "student_number": "G5009",
+        "id_image": null
       },
       {
         "id": 82,
@@ -8216,7 +8638,8 @@
         "student_type": "new",
         "telephone_number": "9012345",
         "parent_user_id": null,
-        "student_number": "G5010"
+        "student_number": "G5010",
+        "id_image": null
       },
       {
         "id": 83,
@@ -8246,7 +8669,8 @@
         "student_type": "new",
         "telephone_number": "9123456",
         "parent_user_id": null,
-        "student_number": "G6001"
+        "student_number": "G6001",
+        "id_image": null
       },
       {
         "id": 84,
@@ -8276,19 +8700,20 @@
         "student_type": "new",
         "telephone_number": "9234567",
         "parent_user_id": null,
-        "student_number": "G6002"
+        "student_number": "G6002",
+        "id_image": null
       },
       {
         "id": 85,
         "grade_level": "grade6",
-        "status": "PENDING",
+        "status": "ACTIVE",
         "enrolled_at": "2026-03-09 17:42:00.142570",
         "completed_at": null,
-        "academic_year": "2024-2025",
-        "remarks": "",
+        "academic_year": "2025-2026",
+        "remarks": "APPROVED BY ADMIN",
         "created_at": "2026-03-09 17:42:00.142745",
-        "updated_at": "2026-03-09 17:42:00.142753",
-        "section_id": null,
+        "updated_at": "2026-03-13 12:07:17.864872",
+        "section_id": 9,
         "student_id": 90,
         "address": "654 Maple Heights, Bulacan",
         "birth_date": "2013-08-05",
@@ -8297,16 +8722,17 @@
         "first_name": "Rafael",
         "gender": "Male",
         "last_name": "Jimenez",
-        "lrn": "101008003",
+        "lrn": "101008003122",
         "middle_name": "Alonzo",
-        "mobile_number": "09345678872",
+        "mobile_number": "+639345678872",
         "parent_facebook": "rafael.jimenez.003",
         "payment_mode": "cash",
         "religion": "Catholic",
         "student_type": "new",
         "telephone_number": "9345678",
-        "parent_user_id": null,
-        "student_number": "G6003"
+        "parent_user_id": 90,
+        "student_number": "G6003",
+        "id_image": "enrollment_ids/194536083_70876832253163_1759866734653_W8Ksjqq.png"
       },
       {
         "id": 86,
@@ -8314,10 +8740,10 @@
         "status": "ACTIVE",
         "enrolled_at": "2026-03-09 17:42:00.149913",
         "completed_at": null,
-        "academic_year": "2024-2025",
+        "academic_year": "2025-2026",
         "remarks": "",
         "created_at": "2026-03-09 17:42:00.150374",
-        "updated_at": "2026-03-09 17:42:00.150390",
+        "updated_at": "2026-03-13 12:04:44.212948",
         "section_id": null,
         "student_id": 91,
         "address": "321 Cedar Springs, Nueva Ecija",
@@ -8329,14 +8755,15 @@
         "last_name": "Medina",
         "lrn": "101008004",
         "middle_name": "Castro",
-        "mobile_number": "09456789873",
+        "mobile_number": "+639456789873",
         "parent_facebook": "catalina.medina.004",
         "payment_mode": "installment",
         "religion": "Catholic",
         "student_type": "new",
         "telephone_number": "9456789",
         "parent_user_id": null,
-        "student_number": "G6004"
+        "student_number": "G6004",
+        "id_image": ""
       },
       {
         "id": 87,
@@ -8344,11 +8771,11 @@
         "status": "ACTIVE",
         "enrolled_at": "2026-03-09 17:42:00.154862",
         "completed_at": null,
-        "academic_year": "2024-2025",
+        "academic_year": "2025-2026",
         "remarks": "",
         "created_at": "2026-03-09 17:42:00.155147",
-        "updated_at": "2026-03-09 17:42:00.155159",
-        "section_id": null,
+        "updated_at": "2026-03-13 12:04:25.816966",
+        "section_id": 9,
         "student_id": 92,
         "address": "987 Birch Lane, Tarlac",
         "birth_date": "2013-12-20",
@@ -8357,28 +8784,29 @@
         "first_name": "Emilio",
         "gender": "Male",
         "last_name": "Salazar",
-        "lrn": "101008005",
+        "lrn": "101008005222",
         "middle_name": "Ramirez",
-        "mobile_number": "09567890874",
+        "mobile_number": "+639567890874",
         "parent_facebook": "emilio.salazar.005",
         "payment_mode": "cash",
         "religion": "Catholic",
         "student_type": "new",
         "telephone_number": "9567890",
         "parent_user_id": null,
-        "student_number": "G6005"
+        "student_number": "G6005",
+        "id_image": ""
       },
       {
         "id": 88,
         "grade_level": "grade6",
-        "status": "PENDING",
+        "status": "ACTIVE",
         "enrolled_at": "2026-03-09 17:42:00.165875",
         "completed_at": null,
-        "academic_year": "2024-2025",
-        "remarks": "",
+        "academic_year": "2025-2026",
+        "remarks": "APPROVED BY ADMIN",
         "created_at": "2026-03-09 17:42:00.166263",
-        "updated_at": "2026-03-09 17:42:00.166278",
-        "section_id": null,
+        "updated_at": "2026-03-13 10:45:10.931949",
+        "section_id": 9,
         "student_id": 93,
         "address": "246 Elm Street, Pampanga",
         "birth_date": "2013-02-05",
@@ -8389,14 +8817,15 @@
         "last_name": "Gomez",
         "lrn": "101008006",
         "middle_name": "Gutierrez",
-        "mobile_number": "09678901875",
+        "mobile_number": "+639678901875",
         "parent_facebook": "felicitas.gomez.006",
         "payment_mode": "installment",
         "religion": "Catholic",
         "student_type": "new",
         "telephone_number": "9678901",
-        "parent_user_id": null,
-        "student_number": "G6006"
+        "parent_user_id": 93,
+        "student_number": "G6006",
+        "id_image": "enrollment_ids/194536083_70876832253163_1759866734653.png"
       },
       {
         "id": 89,
@@ -8404,11 +8833,11 @@
         "status": "ACTIVE",
         "enrolled_at": "2026-03-09 17:42:00.170921",
         "completed_at": null,
-        "academic_year": "2024-2025",
+        "academic_year": "2025-2026",
         "remarks": "",
         "created_at": "2026-03-09 17:42:00.171118",
-        "updated_at": "2026-03-09 17:42:00.171126",
-        "section_id": null,
+        "updated_at": "2026-03-13 10:43:10.840789",
+        "section_id": 9,
         "student_id": 94,
         "address": "573 Spruce Avenue, Batangas",
         "birth_date": "2013-04-18",
@@ -8417,16 +8846,17 @@
         "first_name": "Hernando",
         "gender": "Male",
         "last_name": "Iglesias",
-        "lrn": "101008007",
+        "lrn": "101008007110",
         "middle_name": "Herrera",
-        "mobile_number": "09789012876",
+        "mobile_number": "+639789012876",
         "parent_facebook": "hernando.iglesias.007",
         "payment_mode": "cash",
         "religion": "Catholic",
         "student_type": "new",
         "telephone_number": "9789012",
         "parent_user_id": null,
-        "student_number": "G6007"
+        "student_number": "G6007",
+        "id_image": ""
       },
       {
         "id": 90,
@@ -8434,11 +8864,11 @@
         "status": "ACTIVE",
         "enrolled_at": "2026-03-09 17:42:00.173789",
         "completed_at": null,
-        "academic_year": "2024-2025",
+        "academic_year": "2025-2026",
         "remarks": "",
         "created_at": "2026-03-09 17:42:00.173968",
-        "updated_at": "2026-03-09 17:42:00.173975",
-        "section_id": null,
+        "updated_at": "2026-03-13 08:59:41.258095",
+        "section_id": 1,
         "student_id": 95,
         "address": "802 Oak Court, Laguna",
         "birth_date": "2013-06-25",
@@ -8447,16 +8877,17 @@
         "first_name": "Iris",
         "gender": "Female",
         "last_name": "Jimenez",
-        "lrn": "101008008",
+        "lrn": "101008008112",
         "middle_name": "Jimenez",
-        "mobile_number": "09890123877",
+        "mobile_number": "+639890123877",
         "parent_facebook": "iris.jimenez.008",
         "payment_mode": "installment",
         "religion": "Catholic",
         "student_type": "new",
         "telephone_number": "9890123",
         "parent_user_id": null,
-        "student_number": "G6008"
+        "student_number": "G6008",
+        "id_image": ""
       },
       {
         "id": 91,
@@ -8486,7 +8917,8 @@
         "student_type": "new",
         "telephone_number": "9901234",
         "parent_user_id": null,
-        "student_number": "G6009"
+        "student_number": "G6009",
+        "id_image": null
       },
       {
         "id": 92,
@@ -8497,8 +8929,8 @@
         "academic_year": "2025-2026",
         "remarks": "",
         "created_at": "2026-03-09 17:42:00.182812",
-        "updated_at": "2026-03-11 16:09:25.001764",
-        "section_id": null,
+        "updated_at": "2026-03-13 09:00:20.954136",
+        "section_id": 1,
         "student_id": 97,
         "address": "441 Maple Ridge, Batangas",
         "birth_date": "2013-10-28",
@@ -8507,7 +8939,7 @@
         "first_name": "Josefina",
         "gender": "male",
         "last_name": "Lopez",
-        "lrn": "101008010",
+        "lrn": "101008010122",
         "middle_name": "Josaphat",
         "mobile_number": "+639012345879",
         "parent_facebook": "josefina.lopez.010",
@@ -8516,18 +8948,19 @@
         "student_type": "new",
         "telephone_number": "0012345",
         "parent_user_id": null,
-        "student_number": "G6010"
+        "student_number": "G6010",
+        "id_image": ""
       },
       {
         "id": 93,
         "grade_level": "kinder",
-        "status": "PENDING",
+        "status": "ACTIVE",
         "enrolled_at": "2026-03-11 17:46:09.541234",
         "completed_at": null,
         "academic_year": "2026-2027",
-        "remarks": "Enrolled",
+        "remarks": "Enrolled | APPROVED BY ADMIN",
         "created_at": "2026-03-11 17:46:09.541453",
-        "updated_at": "2026-03-11 17:46:09.541459",
+        "updated_at": "2026-03-12 23:26:14.440161",
         "section_id": null,
         "student_id": 8,
         "address": "146 T, T, T, T, T, 1223",
@@ -8545,8 +8978,40 @@
         "religion": "Christian",
         "student_type": "old",
         "telephone_number": "",
-        "parent_user_id": null,
-        "student_number": null
+        "parent_user_id": 3,
+        "student_number": "2026000005",
+        "id_image": null
+      },
+      {
+        "id": 94,
+        "grade_level": "kinder",
+        "status": "ACTIVE",
+        "enrolled_at": "2026-03-13 01:03:55.070926",
+        "completed_at": null,
+        "academic_year": "2026-2027",
+        "remarks": "Enrolled | APPROVED BY ADMIN",
+        "created_at": "2026-03-13 01:03:55.071630",
+        "updated_at": "2026-03-13 06:03:52.485116",
+        "section_id": 1,
+        "student_id": 8,
+        "address": "22 Honradez St., Tugatog, Malabon, Metro Manila, NCR, 1470",
+        "birth_date": "2022-02-07",
+        "education_level": "preschool",
+        "email": "acy995im@gmail.com",
+        "first_name": "Ro",
+        "gender": "male",
+        "last_name": "Lo",
+        "lrn": "123456789102",
+        "middle_name": "Do",
+        "mobile_number": "+639166244333",
+        "parent_facebook": "d",
+        "payment_mode": "cash",
+        "religion": "Catholic",
+        "student_type": "old",
+        "telephone_number": "",
+        "parent_user_id": 99,
+        "student_number": "2026000008",
+        "id_image": null
       }
     ],
     "enrollment_enrollmentsettings": [
@@ -9741,6 +10206,19 @@
         "guardian_contact": "",
         "guardian_relationship": "",
         "enrollment_id": 93
+      },
+      {
+        "id": 94,
+        "father_name": "",
+        "father_contact": "",
+        "father_occupation": "",
+        "mother_name": "R E L",
+        "mother_contact": "091666222333",
+        "mother_occupation": "Office Clerk",
+        "guardian_name": "",
+        "guardian_contact": "",
+        "guardian_relationship": "",
+        "enrollment_id": 94
       }
     ],
     "finance_transaction": [
