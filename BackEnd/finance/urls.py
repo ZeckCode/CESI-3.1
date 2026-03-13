@@ -6,6 +6,7 @@ from .views import (
     parent_list,
     parent_students,
     my_transactions,
+    my_ledger_summary,
 )
 
 urlpatterns = [
@@ -18,4 +19,5 @@ urlpatterns = [
 
     # Parent endpoint — own ledger
     path('my-transactions/', my_transactions, name='my-transactions'),
+    path('my-ledger-summary/', my_ledger_summary, name='my-ledger-summary'),
 ]

@@ -129,3 +129,58 @@ class ClassStanding(models.Model):
 
     def __str__(self):
         return f"CS: {self.student.username} Q{self.quarter} {self.subject}: {self.score}"
+
+
+# ═══════════════════════════════════════════════
+# Academic Record  (historical, for old students)
+# ═══════════════════════════════════════════════
+class AcademicRecord(models.Model):
+    """
+    Persisted historical grade record for a student for a completed school year.
+    Used for "old" (returning) students who have prior academic history.
+    New/transferee students start with an empty slate and will have no records here.
+    """
+    REMARKS_CHOICES = [
+        ("PASSED", "Passed"),
+        ("FAILED", "Failed"),
+        ("PROMOTED", "Promoted"),
+        ("RETAINED", "Retained"),
+        ("INCOMPLETE", "Incomplete"),
+    ]
+
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="academic_records",
+        limit_choices_to={"role": "PARENT_STUDENT"},
+    )
+    school_year = models.CharField(max_length=12, help_text="e.g. 2023-2024")
+    grade_level = models.IntegerField(
+        help_text="0=Kinder, 1=Grade 1 … 6=Grade 6",
+    )
+    section_name = models.CharField(max_length=100, blank=True)
+    subject_name = models.CharField(max_length=150)
+    subject_code = models.CharField(max_length=30, blank=True)
+    q1 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    q2 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    q3 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    q4 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    final_grade = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    remarks = models.CharField(max_length=20, choices=REMARKS_CHOICES, blank=True)
+    teacher_name = models.CharField(max_length=150, blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="recorded_histories",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("student", "school_year", "subject_name")
+        ordering = ["-school_year", "subject_name"]
+
+    def __str__(self):
+        return f"[{self.school_year}] {self.student.username} — {self.subject_name} ({self.final_grade})"

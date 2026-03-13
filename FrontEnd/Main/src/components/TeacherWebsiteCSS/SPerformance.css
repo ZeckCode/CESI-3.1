@@ -73,6 +73,75 @@
   border-color: rgba(152, 188, 190, .85);
 }
 
+.sp__headerControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Quarter tabs */
+.sp__quarterTabs {
+  display: flex;
+  gap: 4px;
+}
+
+.sp__qTab {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text, #374151);
+  transition: background 0.15s, color 0.15s;
+}
+
+.sp__qTab:hover {
+  background: #f1f5f9;
+}
+
+.sp__qTab--active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+/* Loading bar */
+.sp__loadingBar {
+  height: 3px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.sp__loadingBar__fill {
+  height: 100%;
+  width: 40%;
+  background: #2563eb;
+  border-radius: 2px;
+  animation: sp-loading 1s ease-in-out infinite alternate;
+}
+
+@keyframes sp-loading {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(300%); }
+}
+
+/* Empty state */
+.sp__empty {
+  color: #9ca3af;
+  font-size: 14px;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.sp__empty--padded {
+  padding: 24px 16px;
+}
+
 /* Top cards */
 .sp__cards {
   display: grid;

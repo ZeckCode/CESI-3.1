@@ -489,7 +489,7 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
                               disabled={assigningEnrollmentId === e.id}
                               onClick={() => assignStudentToSection(e.id, selectedSection.id)}
                               style={{ padding: '8px 12px' }}>
-                              {assigningEnrollmentId === e.id ? 'Assigning...' : 'Assign'}
+                              {assigningEnrollmentId === e.id ? 'Adding...' : 'Add'}
                             </button>
                           </td>
                         </tr>

@@ -86,6 +86,11 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         if date_param:
             queryset = queryset.filter(date=date_param)
 
+        # Filter by schedule (subject period) if provided
+        schedule_id = self.request.query_params.get("schedule")
+        if schedule_id:
+            queryset = queryset.filter(schedule_id=schedule_id)
+
         # Filter by date range
         start_date = self.request.query_params.get("start_date")
         end_date = self.request.query_params.get("end_date")
@@ -177,29 +182,65 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
 
         # Get students enrolled in this section
         from enrollment.models import Enrollment
-        enrollments = Enrollment.objects.filter(
-            section_id=section_id,
-            status="ACTIVE",
-        ).select_related("student", "student__profile")
+        enrollments = (
+            Enrollment.objects.filter(section_id=section_id, status="ACTIVE")
+            .select_related("student", "student__profile")
+            .prefetch_related("parent_info")
+            .order_by("last_name", "first_name")
+        )
 
         students = []
         for enrollment in enrollments:
             student = enrollment.student
-            # Try to get name from enrollment, then profile, then username
+
+            # Resolve display name
             if enrollment.first_name and enrollment.last_name:
                 name = f"{enrollment.first_name} {enrollment.last_name}"
+                first_name = enrollment.first_name
+                last_name = enrollment.last_name
             elif hasattr(student, "profile") and student.profile:
                 p = student.profile
-                if p.student_first_name and p.student_last_name:
-                    name = f"{p.student_first_name} {p.student_last_name}"
-                else:
-                    name = student.username
+                first_name = p.student_first_name or ""
+                last_name = p.student_last_name or ""
+                name = f"{first_name} {last_name}".strip() or student.username
             else:
+                first_name = ""
+                last_name = ""
                 name = student.username
+
+            # Resolve guardian info from ParentInfo record
+            guardian_name = ""
+            guardian_contact = ""
+            try:
+                pi = enrollment.parent_info
+                guardian_name = (
+                    pi.guardian_name
+                    or pi.father_name
+                    or pi.mother_name
+                    or ""
+                )
+                guardian_contact = (
+                    pi.guardian_contact
+                    or pi.father_contact
+                    or pi.mother_contact
+                    or ""
+                )
+            except Exception:
+                pass
+
             students.append({
                 "id": student.id,
                 "username": student.username,
                 "name": name,
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": enrollment.email or getattr(student, "email", "") or "",
+                "lrn": enrollment.lrn or "",
+                "gender": enrollment.gender or "",
+                "grade_level": enrollment.grade_level or "",
+                "payment_mode": enrollment.payment_mode or "",
+                "guardian_name": guardian_name,
+                "guardian_contact": guardian_contact,
             })
 
         return Response(students)
@@ -220,6 +261,11 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         records = AttendanceRecord.objects.filter(
             section_id=section_id
         ).order_by("-date")
+
+        # Optional schedule filter for per-subject history views
+        schedule_id = request.query_params.get("schedule")
+        if schedule_id:
+            records = records.filter(schedule_id=schedule_id)
 
         # Filter by date range if provided (for quarter filtering)
         start_date = request.query_params.get("start_date")

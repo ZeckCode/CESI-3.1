@@ -13,6 +13,7 @@ import TeacherDashboard from "./components/TeacherWebsite/TeacherIndex";
 import StudentMain from "./components/StudentWebsite/StudentMain";
 
 import { useAuth } from "./components/Auth/useAuth";
+import { getToken } from "./components/Auth/auth";
 
 export default function Homepage() {
   const { user, loading, login } = useAuth();
@@ -21,6 +22,12 @@ export default function Homepage() {
   // 🔹 SESSION SYNC ON REFRESH
   useEffect(() => {
     if (user || didSessionSync.current) return; // already have local user or already synced once
+
+    const token = getToken();
+    if (!token) {
+      didSessionSync.current = true;
+      return;
+    }
 
     if (sessionStorage.getItem("cesi.justLoggedOut") === "1") {
       sessionStorage.removeItem("cesi.justLoggedOut");

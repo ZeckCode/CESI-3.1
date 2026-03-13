@@ -6,6 +6,7 @@ import Dashboard from "./Dashboard";
 import Profile from "./Profile";
 import Ledgers from "./Ledgers";
 import Grades from "./Grades";
+import AcademicHistory from "./AcademicHistory";
 import Schedule from "./Schedule";
 import Attendance from "./Attendance";
 import Messages from "./Messages";
@@ -25,6 +26,7 @@ export default function StudentMain() {
       case "profile": return <Profile />;
       case "ledgers": return <Ledgers />;
       case "grades": return <Grades />;
+      case "academic-history": return <AcademicHistory />;
       case "schedule": return <Schedule />;
       case "attendance": return <Attendance />;
       case "messages": return <Messages />;

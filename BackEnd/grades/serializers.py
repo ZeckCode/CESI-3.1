@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import GradeWeight, GradeItem, StudentScore, ClassStanding
+from .models import GradeWeight, GradeItem, StudentScore, ClassStanding, AcademicRecord
 from accounts.models import Subject
 
 
@@ -76,3 +76,29 @@ class StudentListSerializer(serializers.Serializer):
     username = serializers.CharField()
     student_name = serializers.CharField()
     grade_level = serializers.IntegerField()
+
+
+# ─── Academic Record (historical) ───
+class AcademicRecordSerializer(serializers.ModelSerializer):
+    recorded_by_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = AcademicRecord
+        fields = [
+            "id", "student", "school_year", "grade_level", "section_name",
+            "subject_name", "subject_code",
+            "q1", "q2", "q3", "q4", "final_grade",
+            "remarks", "teacher_name",
+            "recorded_by", "recorded_by_name",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["recorded_by", "created_at", "updated_at"]
+
+    def get_recorded_by_name(self, obj):
+        if not obj.recorded_by:
+            return None
+        try:
+            p = obj.recorded_by.profile
+            return f"{p.student_first_name} {p.student_last_name}".strip() or obj.recorded_by.username
+        except Exception:
+            return obj.recorded_by.username

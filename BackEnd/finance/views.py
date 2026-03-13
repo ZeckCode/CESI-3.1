@@ -174,3 +174,30 @@ def my_transactions(request):
     qs = Transaction.objects.filter(parent=request.user).order_by('-date_created')
     serializer = TransactionSerializer(qs, many=True)
     return Response(serializer.data)
+
+
+# ──────────────────────────────────────────────
+# PARENT — ledger summary (totals + balance)
+# ──────────────────────────────────────────────
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_ledger_summary(request):
+    """Return a financial summary for the currently logged-in student/parent."""
+    if getattr(request.user, 'role', None) != 'PARENT_STUDENT':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    qs = Transaction.objects.filter(parent=request.user)
+
+    total_billed = qs.aggregate(s=Sum('amount'))['s'] or 0
+    total_paid = qs.filter(status='PAID').aggregate(s=Sum('amount'))['s'] or 0
+    total_pending = qs.filter(status='PENDING').aggregate(s=Sum('amount'))['s'] or 0
+    total_overdue = qs.filter(status='OVERDUE').aggregate(s=Sum('amount'))['s'] or 0
+    balance = total_billed - total_paid  # outstanding (unpaid)
+
+    return Response({
+        'total_billed': float(total_billed),
+        'total_paid': float(total_paid),
+        'total_pending': float(total_pending),
+        'total_overdue': float(total_overdue),
+        'balance': float(balance),
+    })

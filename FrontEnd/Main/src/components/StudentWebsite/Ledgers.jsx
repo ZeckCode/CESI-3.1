@@ -26,17 +26,22 @@ const METHOD_LABELS = {
 
 const Ledgers = () => {
   const [transactions, setTransactions] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    const fetchMyTransactions = async () => {
+    const fetchData = async () => {
       try {
-        const res = await apiFetch(`${API_BASE}/api/finance/my-transactions/`);
-        if (!res.ok) throw new Error("Failed to load transactions");
-        const data = await res.json();
-        setTransactions(Array.isArray(data) ? data : []);
+        const [txRes, sumRes] = await Promise.all([
+          apiFetch(`${API_BASE}/api/finance/my-transactions/`),
+          apiFetch(`${API_BASE}/api/finance/my-ledger-summary/`),
+        ]);
+        if (!txRes.ok) throw new Error("Failed to load transactions");
+        const txData = await txRes.json();
+        setTransactions(Array.isArray(txData) ? txData : []);
+        if (sumRes.ok) setSummary(await sumRes.json());
       } catch (err) {
         console.error("Ledger fetch error:", err);
         setError(err.message);
@@ -44,7 +49,7 @@ const Ledgers = () => {
         setLoading(false);
       }
     };
-    fetchMyTransactions();
+    fetchData();
   }, []);
 
   // ── derived data ──
@@ -82,6 +87,53 @@ const Ledgers = () => {
           </button>
         </div>
       </header>
+
+      {/* Balance / Summary Cards */}
+      <div className="ledger-summary-row">
+        <div className="ledger-sumCard ledger-sumCard--blue">
+          <div className="ledger-sumCard__label">TOTAL BILLED</div>
+          <div className="ledger-sumCard__value">
+            ₱{summary ? Number(summary.total_billed).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—"}
+          </div>
+        </div>
+
+        <div className="ledger-sumCard ledger-sumCard--success">
+          <div className="ledger-sumCard__label">TOTAL PAID</div>
+          <div className="ledger-sumCard__value">
+            ₱{summary ? Number(summary.total_paid).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—"}
+          </div>
+        </div>
+
+        <div className="ledger-sumCard ledger-sumCard--warn">
+          <div className="ledger-sumCard__label">PENDING</div>
+          <div className="ledger-sumCard__value">
+            ₱{summary ? Number(summary.total_pending).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—"}
+          </div>
+        </div>
+
+        <div className={`ledger-sumCard ${
+          summary && summary.total_overdue > 0 ? "ledger-sumCard--danger" : "ledger-sumCard--neutral"
+        }`}>
+          <div className="ledger-sumCard__label">OVERDUE</div>
+          <div className="ledger-sumCard__value">
+            ₱{summary ? Number(summary.total_overdue).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—"}
+          </div>
+        </div>
+
+        <div className={`ledger-sumCard ledger-sumCard--balance ${
+          summary && summary.balance > 0 ? "ledger-sumCard--balanceOwed" : "ledger-sumCard--balanceClear"
+        }`}>
+          <div className="ledger-sumCard__label">OUTSTANDING BALANCE</div>
+          <div className="ledger-sumCard__value ledger-sumCard__value--lg">
+            ₱{summary ? Number(summary.balance).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—"}
+          </div>
+          {summary && (
+            <div className="ledger-sumCard__sub">
+              {summary.balance <= 0 ? "✅ Fully Paid" : "🔔 Balance Due"}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Loading / Error */}
       {loading && (
