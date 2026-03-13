@@ -98,8 +98,17 @@ class Section(models.Model):
         blank=True,
         related_name="sections",
     )
+    name = models.CharField(max_length=50)
+    grade_level = models.IntegerField()
+    capacity = models.PositiveIntegerField(default=40)
+    room = models.ForeignKey(
+        "classmanagement.Room",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sections",
+    )
 
-    # Adviser is a teacher profile (optional) — give related_name to avoid clashes
     adviser = models.OneToOneField(
         "TeacherProfile",
         on_delete=models.SET_NULL,
@@ -109,7 +118,15 @@ class Section(models.Model):
     )
 
     def __str__(self):
-        return f"G{self.grade_level}-{self.name}"
+        return f"{self.get_grade_level_display()}-{self.name}"
+
+    @property
+    def student_count(self):
+        return self.students.count()
+
+    @property
+    def is_full(self):
+        return self.student_count >= self.capacity
 
 
 # =========================

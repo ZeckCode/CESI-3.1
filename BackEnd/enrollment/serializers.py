@@ -171,7 +171,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"mobile_number": "Invalid PH mobile. Use 09XXXXXXXXX or +639XXXXXXXXX."}
                 )
-            attrs["mobile_number"] = normalized  # normalize before save
+            attrs["mobile_number"] = normalized
 
         # 7) Telephone format validation (if provided)
         tel = attrs.get("telephone_number") if "telephone_number" in attrs else None
@@ -201,21 +201,34 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
 
     # -------------------- Create / Update --------------------
     def create(self, validated_data):
-        # ✅ final safety
         validated_data.pop("website", None)
-
         parent_data = validated_data.pop("parent_info", None)
 
-        # Automatically assign or create the public_user
-        public_user, _ = User.objects.get_or_create(
+        # Temporary placeholder student user for public enrollment submissions
+        public_user, created = User.objects.get_or_create(
             username="public_user",
-            defaults={"role": "PUBLIC", "email": "public@school.com"},
+            defaults={
+                "email": "public@school.com",
+                "role": "PARENT_STUDENT",
+                "status": "ACTIVE",
+                "is_active": True,
+            },
         )
+
+        # Safety: if public_user already exists but has no usable email/role, keep it valid
+        updated_fields = []
+        if not public_user.email:
+            public_user.email = "public@school.com"
+            updated_fields.append("email")
+        if public_user.role not in ["ADMIN", "TEACHER", "PARENT_STUDENT"]:
+            public_user.role = "PARENT_STUDENT"
+            updated_fields.append("role")
+        if updated_fields:
+            public_user.save(update_fields=updated_fields)
 
         validated_data["student"] = public_user
         validated_data["status"] = "PENDING"
 
-        # Duplicate detection
         possible_duplicate = Enrollment.objects.filter(
             first_name__iexact=validated_data.get("first_name"),
             last_name__iexact=validated_data.get("last_name"),
@@ -233,7 +246,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             ParentInfo.objects.create(enrollment=enrollment, **parent_data)
 
         return enrollment
-
+    
     def update(self, instance, validated_data):
         # ✅ final safety
         validated_data.pop("website", None)

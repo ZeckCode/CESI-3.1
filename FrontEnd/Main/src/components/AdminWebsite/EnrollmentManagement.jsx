@@ -223,6 +223,7 @@ const emptyForm = () => ({
   academic_year: "2024-2025",
   status: "PENDING",
   payment_mode: "",
+  section: "",
 
   email: "",
   religion: "",
@@ -404,6 +405,10 @@ export default function EnrollmentManagement() {
   const [enrollPage, setEnrollPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
+  /* ── Sections ── */
+  const [sections, setSections] = useState([]);
+  const [sectionsLoading, setSectionsLoading] = useState(false);
+
   /* ── Modal ── */
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("view");
@@ -505,6 +510,25 @@ export default function EnrollmentManagement() {
     }
   }, []);
 
+  /* ═══════════ API: SECTIONS ═══════════ */
+  const fetchSections = useCallback(async () => {
+    setSectionsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/accounts/sections/`, {
+        method: "GET",
+        headers: authHeaders(),
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => []);
+      if (!res.ok) throw new Error();
+      setSections(Array.isArray(data) ? data : []);
+    } catch {
+      setSections([]);
+    } finally {
+      setSectionsLoading(false);
+    }
+  }, []);
+
   const handleSaveSettings = async () => {
     setSettingsSaving(true);
     try {
@@ -561,7 +585,8 @@ export default function EnrollmentManagement() {
   useEffect(() => {
     fetchEnrollments();
     fetchSettings();
-  }, []); // eslint-disable-line
+    fetchSections();
+  }, [fetchSettings, fetchSections]);
 
   /* ═══════════ API: ENROLLMENT ACTIONS ═══════════ */
   const callAction = async (id, actionName) => {
@@ -610,29 +635,31 @@ export default function EnrollmentManagement() {
     setApproveImagePreview(null);
   };
 
-  const handleApproveWithImage = async () => {
-    if (!approvePendingId) return;
-    if (!approveImageFile) {
-      addToast("Missing Image", "Please upload an ID image before approving.", "warning");
-      return;
-    }
+ const handleApproveWithImage = async () => {
+  if (!approvePendingId) return;
+  if (!approveImageFile) {
+    addToast("Missing Image", "Please upload an ID image before approving.", "warning");
+    return;
+  }
 
-    setApprovingImage(true);
-    try {
-      const formData = new FormData();
-      formData.append("id_image", approveImageFile);
-      const token = getToken();
-      const res = await fetch(`${API_BASE}/api/enrollments/${approvePendingId}/mark_active/`, {
-        method: "POST",
-        headers: token ? { Authorization: `Token ${token}` } : {},
-        body: formData,
-        credentials: "include",
-      });
+  setApprovingImage(true);
+  try {
+    const payload = new FormData();
+    payload.append("id_image", approveImageFile);
+    if (formData.section) payload.append("section", formData.section);
+
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/api/enrollments/${approvePendingId}/mark_active/`, {
+      method: "POST",
+      headers: token ? { Authorization: `Token ${token}` } : {},
+      body: payload,
+      credentials: "include",
+    });
       if (!res.ok) throw new Error("Approval failed");
       await fetchEnrollments();
       addToast("Approved", "Enrollment approved successfully.", "success");
       closeApproveImageModal();
-    } catch (err) {
+    } catch {
       addToast("Approval Failed", "Could not approve enrollment. Check permissions.", "error");
     } finally {
       setApprovingImage(false);
@@ -667,6 +694,12 @@ export default function EnrollmentManagement() {
       raw: e,
       studentName: `${e.first_name || ""} ${e.last_name || ""}`.trim(),
       gradeLevel: gradeLabel(e.grade_level),
+      sectionName:
+        e?.section_name ||
+        e?.section_details?.name ||
+        e?.section?.name ||
+        sections.find((s) => String(s.id) === String(e.section))?.name ||
+        "—",
       enrollmentDate: e.enrolled_at || e.created_at || null,
       statusCode,
       statusText: statusLabel(statusCode),
@@ -686,7 +719,7 @@ export default function EnrollmentManagement() {
         e?.telephone_number ||
         "(not set)",
     };
-  }), [enrollments]);
+  }), [enrollments, sections]);
 
   const filteredEnrollments = useMemo(() => {
     const s = searchTerm.toLowerCase().trim();
@@ -695,7 +728,8 @@ export default function EnrollmentManagement() {
         !s ||
         row.studentName.toLowerCase().includes(s) ||
         row.parentName.toLowerCase().includes(s) ||
-        String(row.phone).toLowerCase().includes(s);
+        String(row.phone).toLowerCase().includes(s) ||
+        String(row.sectionName).toLowerCase().includes(s);
 
       const matchesStatus = matchesStatusFilter(filterStatus, row.statusText, row.expired);
 
@@ -736,6 +770,15 @@ export default function EnrollmentManagement() {
     }
     return [];
   }, [formData.education_level]);
+
+  const filteredSections = useMemo(() => {
+    if (!formData.grade_level) return sections;
+    return sections.filter((s) => {
+      const sectionGrade =
+        s.grade_level ?? s.grade ?? s.year_level ?? s.level ?? "";
+      return !sectionGrade || String(sectionGrade) === String(formData.grade_level);
+    });
+  }, [sections, formData.grade_level]);
 
   /* ═══════════ MODAL ═══════════ */
   const openModal = (row, mode = "view") => {
@@ -785,6 +828,7 @@ export default function EnrollmentManagement() {
       academic_year: e.academic_year || getCurrentAcademicYear(),
       status: e.status || "PENDING",
       payment_mode: e.payment_mode || "",
+      section: e.section ? String(e.section) : "",
 
       email: e.email || "",
       religion: e.religion || "",
@@ -884,6 +928,7 @@ export default function EnrollmentManagement() {
       student_type: "old",
       status: "PENDING",
       payment_mode: "",
+      section: "",
       remarks: "",
 
       parent_info: {
@@ -925,8 +970,10 @@ export default function EnrollmentManagement() {
     const { name, value } = e.target;
     setFormData((p) =>
       name === "education_level"
-        ? { ...p, education_level: value, grade_level: "" }
-        : { ...p, [name]: value }
+        ? { ...p, education_level: value, grade_level: "", section: "" }
+        : name === "grade_level"
+          ? { ...p, grade_level: value, section: "" }
+          : { ...p, [name]: value }
     );
   };
 
@@ -951,8 +998,8 @@ export default function EnrollmentManagement() {
     if (!formData.mobile_number?.trim()) missing.push("Mobile Number");
     if (!formData.parent_facebook?.trim()) missing.push("Parent Facebook");
     if (!formData.payment_mode) missing.push("Payment Mode");
+    if (!formData.section) missing.push("Section / Room");
 
-    // LRN required for Kinder to Grade 6 (12 digits)
     const lrnRequiredGrades = ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"];
     if (lrnRequiredGrades.includes(formData.grade_level)) {
       if (!formData.lrn?.trim()) {
@@ -1018,7 +1065,8 @@ export default function EnrollmentManagement() {
   };
 
   const handleSaveEnrollment = async () => {
-    if (!editingId && !validateCreate()) return;
+    // if (!editingId && !validateCreate()) return;
+    if (!validateCreate()) return;
 
     const bdCheck = validateBirthDate(formData.birth_date);
     if (bdCheck !== true) {
@@ -1059,6 +1107,7 @@ export default function EnrollmentManagement() {
       academic_year: formData.academic_year,
       status: formData.status,
       payment_mode: formData.payment_mode,
+      section: formData.section || null,
 
       email: formData.email,
       address: buildAddress(formData),
@@ -1146,7 +1195,7 @@ export default function EnrollmentManagement() {
             </button>
           </div>
         </div>
-      {/* OVERVIEW */}
+
         <StatsGrid>
           <StatCard label="Total" value={stats.total} icon={<Users size={20} />} color="blue" subtitle="All enrollees" />
           <StatCard label="Enrolled" value={stats.active} icon={<UserCheck size={20} />} color="green" subtitle={stats.total ? `${Math.round((stats.active / stats.total) * 100)}% of total` : '—'} subtitleType="positive" />
@@ -1283,7 +1332,7 @@ export default function EnrollmentManagement() {
           <Search size={16} />
           <input
             type="text"
-            placeholder="Search by student, parent name or phone…"
+            placeholder="Search by student, parent name, phone, or section…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -1311,6 +1360,7 @@ export default function EnrollmentManagement() {
               <tr>
                 <th>Student Name</th>
                 <th>Grade Level</th>
+                <th>Section</th>
                 <th>Enrollment Date</th>
                 <th>Status</th>
                 <th>Fee Status</th>
@@ -1332,6 +1382,7 @@ export default function EnrollmentManagement() {
                     )}
                   </td>
                   <td>{row.gradeLevel}</td>
+                  <td>{row.sectionName}</td>
                   <td>{row.enrollmentDate ? new Date(row.enrollmentDate).toLocaleDateString() : "—"}</td>
                   <td><StatusBadge code={row.statusCode} expired={row.expired} /></td>
                   <td><FeeBadge fee={row.fee} /></td>
@@ -1520,7 +1571,7 @@ export default function EnrollmentManagement() {
                 <div style={{ fontSize: 13, color: "#166534", lineHeight: 1.6 }}>
                   <strong>Promotion Enrollment</strong><br />
                   Creating a new enrollment for <strong>{formData.first_name} {formData.last_name}</strong> — promoted to <strong>{gradeLabel(formData.grade_level)}</strong> for AY <strong>{formData.academic_year}</strong>.
-                  Personal and parent info has been carried over. Please set the <strong>Payment Mode</strong> before saving.
+                  Personal and parent info has been carried over. Please set the <strong>Section</strong> and <strong>Payment Mode</strong> before saving.
                 </div>
               </div>
             )}
@@ -1529,9 +1580,9 @@ export default function EnrollmentManagement() {
             <div className="form-row">
               <div className="form-group">
                 <label>LRN {["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(formData.grade_level) && <span style={{ color: "#dc2626" }}>*</span>}</label>
-                <input 
-                  name="lrn" 
-                  value={formData.lrn} 
+                <input
+                  name="lrn"
+                  value={formData.lrn}
                   onChange={(e) => {
                     const numericValue = e.target.value.replace(/\D/g, "");
                     setFormData((p) => ({ ...p, lrn: numericValue.slice(0, 12) }));
@@ -1584,6 +1635,24 @@ export default function EnrollmentManagement() {
 
             <div className="form-row">
               <div className="form-group">
+                <label>Section / Room *</label>
+                <select
+                  name="section"
+                  value={formData.section}
+                  onChange={handleInputChange}
+                  disabled={isReadOnly || sectionsLoading}
+                >
+                  <option value="">
+                    {sectionsLoading ? "Loading sections..." : "Select Section"}
+                  </option>
+                  {filteredSections.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name || s.section_name || `Section ${s.id}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
                 <label>Academic Year *</label>
                 <input name="academic_year" value={formData.academic_year} onChange={handleInputChange} disabled={isReadOnly} />
                 {formData.academic_year && (
@@ -1594,6 +1663,9 @@ export default function EnrollmentManagement() {
                   </span>
                 )}
               </div>
+            </div>
+
+            <div className="form-row">
               <div className="form-group">
                 <label>Status</label>
                 <select name="status" value={formData.status} onChange={handleInputChange} disabled={isReadOnly}>
@@ -1603,6 +1675,7 @@ export default function EnrollmentManagement() {
                   <option value="COMPLETED">Completed</option>
                 </select>
               </div>
+              <div className="form-group" />
             </div>
 
             <h3>👤 Student Information</h3>
@@ -1707,7 +1780,14 @@ export default function EnrollmentManagement() {
 
             <div className="form-group">
               <label>Parent Facebook</label>
-              <input name="parent_facebook" value={formData.parent_facebook} onChange={handleInputChange} disabled={isReadOnly}  required={!isReadOnly} placeholder="Facebook profile link"/>
+              <input
+                name="parent_facebook"
+                value={formData.parent_facebook}
+                onChange={handleInputChange}
+                disabled={isReadOnly}
+                required={!isReadOnly}
+                placeholder="Facebook profile link"
+              />
             </div>
 
             <h3>📍 Address</h3>
@@ -1856,7 +1936,6 @@ export default function EnrollmentManagement() {
         </div>
       )}
 
-      {/* Image Approval Modal */}
       {approveImageOpen && (
         <div
           style={{
