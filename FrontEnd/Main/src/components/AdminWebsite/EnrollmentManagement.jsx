@@ -299,6 +299,21 @@ const normalizePHMobile = (number) => {
   return null;
 };
 
+const normalizeSectionGrade = (value) => {
+  const v = String(value ?? "").trim().toLowerCase();
+
+  if (v === "0" || v === "k" || v === "kinder" || v === "kindergarten") return "kinder";
+  if (v === "prek" || v === "pre-k" || v === "pre kinder" || v === "pre-kinder") return "prek";
+  if (v === "1" || v === "grade1" || v === "grade 1") return "grade1";
+  if (v === "2" || v === "grade2" || v === "grade 2") return "grade2";
+  if (v === "3" || v === "grade3" || v === "grade 3") return "grade3";
+  if (v === "4" || v === "grade4" || v === "grade 4") return "grade4";
+  if (v === "5" || v === "grade5" || v === "grade 5") return "grade5";
+  if (v === "6" || v === "grade6" || v === "grade 6") return "grade6";
+
+  return v;
+};
+
 /* ─────────────────────────────────────────────
    BADGE STYLES
 ───────────────────────────────────────────── */
@@ -397,7 +412,6 @@ const Toast = ({ toasts, onDismiss }) => (
    MAIN COMPONENT
 ═══════════════════════════════════════════════ */
 export default function EnrollmentManagement() {
-  /* ── Enrollment list ── */
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -405,11 +419,9 @@ export default function EnrollmentManagement() {
   const [enrollPage, setEnrollPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
-  /* ── Sections ── */
   const [sections, setSections] = useState([]);
   const [sectionsLoading, setSectionsLoading] = useState(false);
 
-  /* ── Modal ── */
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("view");
   const [editingId, setEditingId] = useState(null);
@@ -418,7 +430,6 @@ export default function EnrollmentManagement() {
   const [modalExpired, setModalExpired] = useState(false);
   const [editingAcademicYear, setEditingAcademicYear] = useState(false);
 
-  /* ── Settings panel ── */
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -429,14 +440,12 @@ export default function EnrollmentManagement() {
     academic_year: "",
   });
 
-  /* ── Image Approval Modal ── */
   const [approveImageOpen, setApproveImageOpen] = useState(false);
   const [approveImageFile, setApproveImageFile] = useState(null);
   const [approveImagePreview, setApproveImagePreview] = useState(null);
   const [approvePendingId, setApprovePendingId] = useState(null);
   const [approvingImage, setApprovingImage] = useState(false);
 
-  /* ── Toasts ── */
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((title, message, type = "warning") => {
@@ -451,7 +460,6 @@ export default function EnrollmentManagement() {
 
   const window_ = useMemo(() => computeEnrollmentWindow(settings), [settings]);
 
-  /* ═══════════ API: ENROLLMENTS ═══════════ */
   const fetchEnrollments = async () => {
     setLoading(true);
     try {
@@ -479,14 +487,13 @@ export default function EnrollmentManagement() {
         );
       }
     } catch {
-      alert("Failed to load enrollments. Check admin login/token + backend permissions.");
+      addToast("Load Failed", "Failed to load enrollments.", "error");
       setEnrollments([]);
     } finally {
       setLoading(false);
     }
   };
 
-  /* ═══════════ API: SETTINGS ═══════════ */
   const fetchSettings = useCallback(async () => {
     setSettingsLoading(true);
     try {
@@ -510,7 +517,6 @@ export default function EnrollmentManagement() {
     }
   }, []);
 
-  /* ═══════════ API: SECTIONS ═══════════ */
   const fetchSections = useCallback(async () => {
     setSectionsLoading(true);
     try {
@@ -545,13 +551,13 @@ export default function EnrollmentManagement() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert("Save error: " + JSON.stringify(data));
+        addToast("Save Failed", JSON.stringify(data), "error");
         return;
       }
       setSettings(data);
       addToast("Settings Saved", "Enrollment window has been updated successfully.", "success");
     } catch {
-      alert("Failed to save settings.");
+      addToast("Save Failed", "Failed to save settings.", "error");
     } finally {
       setSettingsSaving(false);
     }
@@ -570,13 +576,13 @@ export default function EnrollmentManagement() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert("Reset error: " + JSON.stringify(data));
+        addToast("Reset Failed", JSON.stringify(data), "error");
         return;
       }
       setSettings(data);
       addToast("Settings Reset", "Enrollment window is now auto-calculated.", "success");
     } catch {
-      alert("Failed to reset settings.");
+      addToast("Reset Failed", "Failed to reset settings.", "error");
     } finally {
       setSettingsSaving(false);
     }
@@ -588,7 +594,6 @@ export default function EnrollmentManagement() {
     fetchSections();
   }, [fetchSettings, fetchSections]);
 
-  /* ═══════════ API: ENROLLMENT ACTIONS ═══════════ */
   const callAction = async (id, actionName) => {
     const res = await fetch(`${API_BASE}/api/enrollments/${id}/${actionName}/`, {
       method: "POST",
@@ -596,7 +601,7 @@ export default function EnrollmentManagement() {
       credentials: "include",
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error("Action failed.");
+    if (!res.ok) throw new Error(data.detail || "Action failed.");
     await fetchEnrollments();
     return data;
   };
@@ -608,84 +613,6 @@ export default function EnrollmentManagement() {
     setApproveImageOpen(true);
   };
 
-  const handleImageSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      addToast("Invalid File", "Please select an image file.", "error");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      addToast("File Too Large", "Image must be under 5MB.", "error");
-      return;
-    }
-
-    setApproveImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (evt) => setApproveImagePreview(evt.target?.result);
-    reader.readAsDataURL(file);
-  };
-
-  const closeApproveImageModal = () => {
-    setApproveImageOpen(false);
-    setApprovePendingId(null);
-    setApproveImageFile(null);
-    setApproveImagePreview(null);
-  };
-
- const handleApproveWithImage = async () => {
-  if (!approvePendingId) return;
-  if (!approveImageFile) {
-    addToast("Missing Image", "Please upload an ID image before approving.", "warning");
-    return;
-  }
-
-  setApprovingImage(true);
-  try {
-    const payload = new FormData();
-    payload.append("id_image", approveImageFile);
-    if (formData.section) payload.append("section", formData.section);
-
-    const token = getToken();
-    const res = await fetch(`${API_BASE}/api/enrollments/${approvePendingId}/mark_active/`, {
-      method: "POST",
-      headers: token ? { Authorization: `Token ${token}` } : {},
-      body: payload,
-      credentials: "include",
-    });
-      if (!res.ok) throw new Error("Approval failed");
-      await fetchEnrollments();
-      addToast("Approved", "Enrollment approved successfully.", "success");
-      closeApproveImageModal();
-    } catch {
-      addToast("Approval Failed", "Could not approve enrollment. Check permissions.", "error");
-    } finally {
-      setApprovingImage(false);
-    }
-  };
-
-  const handleApprove = (id) => openApproveImageModal(id);
-  const handleDecline = (id) => callAction(id, "mark_dropped");
-
-  const handleDeleteEnrollment = async (id) => {
-    if (!window.confirm("Delete this enrollment?")) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/enrollments/${id}/`, {
-        method: "DELETE",
-        headers: authHeaders(false),
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error();
-      await fetchEnrollments();
-      if (editingId === id) closeModal();
-    } catch {
-      alert("Delete failed. Check permissions/token.");
-    }
-  };
-
-  /* ═══════════ NORMALIZED DATA ═══════════ */
   const normalized = useMemo(() => enrollments.map((e) => {
     const statusCode = String(e.status || "PENDING").toUpperCase();
     const expired = isEnrollmentExpired(e.academic_year) && statusCode !== "DROPPED" && statusCode !== "COMPLETED";
@@ -720,6 +647,165 @@ export default function EnrollmentManagement() {
         "(not set)",
     };
   }), [enrollments, sections]);
+
+  const getMissingFieldsForApproval = useCallback((row) => {
+    const e = row?.raw || {};
+    const missing = [];
+
+    if (!e.first_name?.trim()) missing.push("First Name");
+    if (!e.last_name?.trim()) missing.push("Last Name");
+    if (!e.birth_date) missing.push("Birth Date");
+    if (!e.education_level) missing.push("Education Level");
+    if (!e.grade_level) missing.push("Grade Level");
+    if (!e.student_type) missing.push("Student Type");
+    if (!e.academic_year) missing.push("Academic Year");
+    if (!e.payment_mode) missing.push("Payment Mode");
+    if (!e.section) missing.push("Section / Room");
+    if (!e.parent_facebook?.trim()) missing.push("Parent Facebook");
+
+    const hasStudentContact =
+      e.email?.trim() ||
+      e.mobile_number?.trim() ||
+      e.telephone_number?.trim();
+
+    if (!hasStudentContact) {
+      missing.push("At least one contact (Email, Mobile, or Telephone)");
+    }
+
+    const lrnRequiredGrades = ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"];
+    if (lrnRequiredGrades.includes(e.grade_level)) {
+      if (!e.lrn?.trim()) {
+        missing.push("LRN");
+      } else if (String(e.lrn).trim().length !== 12) {
+        missing.push("LRN must be exactly 12 digits");
+      }
+    }
+
+    const ageCheck = validateAgeForGrade(e.birth_date, e.grade_level);
+    if (e.birth_date && ageCheck !== true) {
+      missing.push(ageCheck);
+    }
+
+    return missing;
+  }, []);
+
+  const validateBeforeApprove = useCallback((row) => {
+    const missing = getMissingFieldsForApproval(row);
+
+    if (missing.length > 0) {
+      addToast(
+        "Cannot Approve Yet",
+        `Please complete/fix: ${missing.join(", ")}`,
+        "error"
+      );
+      return false;
+    }
+
+    return true;
+  }, [getMissingFieldsForApproval, addToast]);
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      addToast("Invalid File", "Please select an image file.", "error");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      addToast("File Too Large", "Image must be under 5MB.", "error");
+      return;
+    }
+
+    setApproveImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (evt) => setApproveImagePreview(evt.target?.result);
+    reader.readAsDataURL(file);
+  };
+
+  const closeApproveImageModal = () => {
+    setApproveImageOpen(false);
+    setApprovePendingId(null);
+    setApproveImageFile(null);
+    setApproveImagePreview(null);
+  };
+
+  const handleApproveWithImage = async () => {
+    if (!approvePendingId) return;
+    if (!approveImageFile) {
+      addToast("Missing Image", "Please upload an ID image before approving.", "warning");
+      return;
+    }
+
+    setApprovingImage(true);
+    try {
+      const payload = new FormData();
+      payload.append("id_image", approveImageFile);
+      if (formData.section) payload.append("section", formData.section);
+
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/api/enrollments/${approvePendingId}/mark_active/`, {
+        method: "POST",
+        headers: token ? { Authorization: `Token ${token}` } : {},
+        body: payload,
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || JSON.stringify(data) || "Approval failed");
+      }
+
+      await fetchEnrollments();
+      addToast("Approved", "Enrollment approved successfully.", "success");
+      closeApproveImageModal();
+    } catch (err) {
+      addToast("Approval Failed", err.message || "Could not approve enrollment.", "error");
+    } finally {
+      setApprovingImage(false);
+    }
+  };
+
+  const handleApprove = (id) => {
+    const row = normalized.find((r) => r.id === id);
+    if (!row) return;
+
+    if (!validateBeforeApprove(row)) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      section: row.raw?.section ? String(row.raw.section) : "",
+    }));
+
+    openApproveImageModal(id);
+  };
+
+  const handleDecline = async (id) => {
+    try {
+      await callAction(id, "mark_dropped");
+      addToast("Enrollment Declined", "Enrollment was declined successfully.", "success");
+    } catch {
+      addToast("Decline Failed", "Could not decline enrollment.", "error");
+    }
+  };
+
+  const handleDeleteEnrollment = async (id) => {
+    if (!window.confirm("Delete this enrollment?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/enrollments/${id}/`, {
+        method: "DELETE",
+        headers: authHeaders(false),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error();
+      await fetchEnrollments();
+      if (editingId === id) closeModal();
+      addToast("Enrollment Deleted", "Enrollment was deleted successfully.", "success");
+    } catch {
+      addToast("Delete Failed", "Could not delete enrollment.", "error");
+    }
+  };
 
   const filteredEnrollments = useMemo(() => {
     const s = searchTerm.toLowerCase().trim();
@@ -773,14 +859,16 @@ export default function EnrollmentManagement() {
 
   const filteredSections = useMemo(() => {
     if (!formData.grade_level) return sections;
+
+    const selectedGrade = normalizeSectionGrade(formData.grade_level);
+
     return sections.filter((s) => {
-      const sectionGrade =
-        s.grade_level ?? s.grade ?? s.year_level ?? s.level ?? "";
-      return !sectionGrade || String(sectionGrade) === String(formData.grade_level);
+      const rawSectionGrade = s.grade_level ?? s.grade ?? s.year_level ?? s.level ?? "";
+      const sectionGrade = normalizeSectionGrade(rawSectionGrade);
+      return !sectionGrade || sectionGrade === selectedGrade;
     });
   }, [sections, formData.grade_level]);
 
-  /* ═══════════ MODAL ═══════════ */
   const openModal = (row, mode = "view") => {
     const e = row.raw;
     const expired = isEnrollmentExpired(e.academic_year) && e.status !== "DROPPED" && e.status !== "COMPLETED";
@@ -994,8 +1082,9 @@ export default function EnrollmentManagement() {
     if (!formData.education_level) missing.push("Education Level");
     if (!formData.student_type) missing.push("Student Type");
     if (!formData.academic_year) missing.push("Academic Year");
-    if (!formData.email?.trim()) missing.push("Email");
-    if (!formData.mobile_number?.trim()) missing.push("Mobile Number");
+    if (!formData.email?.trim() && !formData.mobile_number?.trim() && !formData.telephone_number?.trim()) {
+      missing.push("At least one contact (Email, Mobile, or Telephone)");
+    }
     if (!formData.parent_facebook?.trim()) missing.push("Parent Facebook");
     if (!formData.payment_mode) missing.push("Payment Mode");
     if (!formData.section) missing.push("Section / Room");
@@ -1010,7 +1099,7 @@ export default function EnrollmentManagement() {
     }
 
     if (missing.length) {
-      alert("Please fill required:\n- " + missing.join("\n- "));
+      addToast("Missing Required Fields", missing.join(", "), "error");
       return false;
     }
     return true;
@@ -1018,6 +1107,12 @@ export default function EnrollmentManagement() {
 
   const handleApproveModal = async () => {
     if (!editingId) return;
+
+    const row = normalized.find((r) => r.id === editingId);
+    if (!row) return;
+
+    if (!validateBeforeApprove(row)) return;
+
     setModalOpen(false);
     openApproveImageModal(editingId);
   };
@@ -1025,12 +1120,13 @@ export default function EnrollmentManagement() {
   const handleDeclineModal = async () => {
     if (!editingId) return;
     try {
-      const u = await handleDecline(editingId);
+      const u = await callAction(editingId, "mark_dropped");
       setModalStatus("DROPPED");
       setFormData((p) => ({ ...p, status: "DROPPED", remarks: u?.remarks ?? p.remarks }));
       setModalMode("view");
+      addToast("Enrollment Declined", "Enrollment was declined successfully.", "success");
     } catch {
-      alert("Decline failed.");
+      addToast("Decline Failed", "Could not decline enrollment.", "error");
     }
   };
 
@@ -1038,7 +1134,7 @@ export default function EnrollmentManagement() {
     if (!editingId) return;
     const newYear = formData.academic_year?.trim();
     if (!newYear || !/^\d{4}-\d{4}$/.test(newYear)) {
-      alert("Invalid format. Use YYYY-YYYY (e.g. 2025-2026).");
+      addToast("Invalid Academic Year", "Use YYYY-YYYY format.", "error");
       return;
     }
 
@@ -1051,7 +1147,7 @@ export default function EnrollmentManagement() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert("Save error: " + JSON.stringify(data));
+        addToast("Save Failed", JSON.stringify(data), "error");
         return;
       }
       await fetchEnrollments();
@@ -1060,23 +1156,22 @@ export default function EnrollmentManagement() {
       setEditingAcademicYear(false);
       if (!nowExpired) addToast("Academic Year Updated", `Enrollment is now active for ${newYear}.`, "success");
     } catch {
-      alert("Save failed.");
+      addToast("Save Failed", "Could not update academic year.", "error");
     }
   };
 
   const handleSaveEnrollment = async () => {
-    // if (!editingId && !validateCreate()) return;
     if (!validateCreate()) return;
 
     const bdCheck = validateBirthDate(formData.birth_date);
     if (bdCheck !== true) {
-      alert(bdCheck);
+      addToast("Invalid Birth Date", bdCheck, "error");
       return;
     }
 
     const ageCheck = validateAgeForGrade(formData.birth_date, formData.grade_level);
     if (ageCheck !== true) {
-      alert(ageCheck);
+      addToast("Invalid Age for Grade", ageCheck, "error");
       return;
     }
 
@@ -1088,7 +1183,7 @@ export default function EnrollmentManagement() {
     if (formData.mobile_number?.trim()) {
       normalizedMobile = normalizePHMobile(formData.mobile_number);
       if (!normalizedMobile) {
-        alert("Invalid PH mobile number.\nUse 09XXXXXXXXX or +639XXXXXXXXX format.");
+        addToast("Invalid Mobile Number", "Use 09XXXXXXXXX or +639XXXXXXXXX.", "error");
         return;
       }
     }
@@ -1155,25 +1250,36 @@ export default function EnrollmentManagement() {
         credentials: "include",
         body: JSON.stringify(payload),
       });
+
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert("Save error: " + JSON.stringify(data));
+        addToast("Save Failed", JSON.stringify(data), "error");
         return;
       }
+
       await fetchEnrollments();
-      if (!editingId) closeModal();
-      else {
+
+      if (!editingId) {
+        addToast(
+          "Enrollment Created",
+          `${payload.first_name} ${payload.last_name} was added successfully.`,
+          "success"
+        );
+        closeModal();
+      } else {
+        addToast(
+          "Changes Saved",
+          `${payload.first_name} ${payload.last_name}'s enrollment was updated successfully.`,
+          "success"
+        );
         setModalMode("view");
         setModalStatus(data?.status ?? formData.status);
       }
     } catch {
-      alert("Save failed.");
+      addToast("Save Failed", "Could not save enrollment.", "error");
     }
   };
 
-  /* ═══════════════════════════════════════════════
-     RENDER
-  ═══════════════════════════════════════════════ */
   return (
     <div className="enrollment-management">
       <Toast toasts={toasts} onDismiss={dismissToast} />

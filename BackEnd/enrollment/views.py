@@ -230,7 +230,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             profile.avatar = uploaded_id_image
 
         profile.save()
-
+    # New Student Enrolled
     def _send_parent_portal_email(self, enrollment, parent_email):
         if not enrollment.parent_user:
             return
@@ -242,11 +242,12 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         reset_url = f"{frontend_base}/set-password/{uidb64}/{token}"
 
         send_mail(
-            subject="Your Parent Portal Account",
+            subject="Your Student Portal Account",
             message=(
                 f"Student: {enrollment.first_name} {enrollment.last_name}\n\n"
                 f"Username: {enrollment.parent_user.username}\n"
                 f"Email:    {enrollment.parent_user.email}\n\n"
+                f"Student Number: {enrollment.student_number}\n\n"
                 f"Set your password here:\n{reset_url}\n\n"
                 "If you did not request this, ignore this email."
             ),
@@ -265,7 +266,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 f"New Grade Level : {grade_code}\n"
                 f"Academic Year   : {enrollment.academic_year}\n"
                 f"Student No.     : {enrollment.student_number}\n\n"
-                f"You may log in to the Parent Portal to view the updated enrollment.\n\n"
+                f"You may log in to the Student Portal to view the updated enrollment.\n\n"
                 "If you have any questions, please contact the school."
             ),
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost"),
