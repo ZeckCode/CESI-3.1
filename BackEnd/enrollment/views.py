@@ -15,7 +15,7 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from accounts.models import User, UserProfile
+from accounts.models import User, UserProfile, Section
 from .models import EnrollmentSettings, Enrollment
 from .serializers import (
     EnrollmentSettingsSerializer,
@@ -138,7 +138,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         return parent_first_name, parent_last_name
 
-    def _sync_parent_user_and_profile(self, enrollment, create_if_missing=False):
+    def _sync_parent_user_and_profile(self, enrollment, create_if_missing=False, uploaded_id_image=None):
         """
         Sync enrollment data -> linked parent user + user profile.
         Used after PATCH/PUT and after admin approval.
@@ -146,12 +146,10 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         parent_email = (enrollment.email or "").strip().lower()
         parent_user = enrollment.parent_user
 
-        # Create or find parent user if allowed
         if not parent_user and create_if_missing and parent_email:
             parent_user = User.objects.filter(email__iexact=parent_email).first()
 
             if not parent_user:
-                # Username based on STUDENT name
                 base_username = f"{(enrollment.first_name or '')}{(enrollment.last_name or '')}".lower()
                 base_username = slugify(base_username).replace("-", "") or "parent"
 
@@ -180,7 +178,6 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         grade_code = (enrollment.grade_level or "").strip()
         parent_first_name, parent_last_name = self._get_parent_names_from_enrollment(enrollment)
 
-        # Keep parent user email synced when safe
         if parent_email and parent_user.email != parent_email:
             email_taken = (
                 User.objects
@@ -219,7 +216,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             profile.lrn = enrollment.lrn or profile.lrn
             profile.student_number = enrollment.student_number or profile.student_number
             profile.payment_mode = enrollment.payment_mode or profile.payment_mode
-            profile.section = enrollment.section or profile.section
+            profile.section = enrollment.section
             profile.parent_first_name = parent_first_name or profile.parent_first_name
             profile.parent_last_name = parent_last_name or profile.parent_last_name
             profile.contact_number = (
@@ -228,7 +225,11 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 or profile.contact_number
             )
             profile.address = enrollment.address or profile.address
-            profile.save()
+
+        if uploaded_id_image:
+            profile.avatar = uploaded_id_image
+
+        profile.save()
 
     def _send_parent_portal_email(self, enrollment, parent_email):
         if not enrollment.parent_user:
@@ -277,7 +278,17 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         Runs on PATCH/PUT /api/enrollments/<id>/
         """
         enrollment = serializer.save()
-        self._sync_parent_user_and_profile(enrollment, create_if_missing=False)
+        uploaded_id_image = self.request.FILES.get("id_image")
+
+        if uploaded_id_image and hasattr(enrollment, "id_image"):
+            enrollment.id_image = uploaded_id_image
+            enrollment.save(update_fields=["id_image", "updated_at"])
+
+        self._sync_parent_user_and_profile(
+            enrollment,
+            create_if_missing=False,
+            uploaded_id_image=uploaded_id_image,
+        )
 
     # ------------------- Custom Actions -------------------
 
@@ -342,6 +353,13 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         enrollment.remarks = f"{enrollment.remarks} | {note}".strip(" |")
 
         enrollment.save()
+
+        if enrollment.parent_user_id:
+            profile = getattr(enrollment.parent_user, "profile", None)
+            if profile:
+                profile.section = None
+                profile.save(update_fields=["section"])
+
         serializer = self.get_serializer(enrollment)
         return Response(serializer.data)
 
@@ -363,6 +381,17 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         is_promotion = (enrollment.student_type or "").strip().lower() == "old"
         parent_email = (enrollment.email or "").strip().lower()
+        uploaded_id_image = request.FILES.get("id_image")
+
+        section_id = request.data.get("section")
+        if section_id:
+            try:
+                enrollment.section = Section.objects.get(pk=section_id)
+            except Section.DoesNotExist:
+                return Response(
+                    {"detail": "Selected section not found."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         with transaction.atomic():
             if not enrollment.student_number:
@@ -373,17 +402,24 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                         break
 
             enrollment.status = "ACTIVE"
+
+            if uploaded_id_image and hasattr(enrollment, "id_image"):
+                enrollment.id_image = uploaded_id_image
+
             note = "APPROVED BY ADMIN"
             enrollment.remarks = (enrollment.remarks or "").strip()
             if note not in enrollment.remarks:
                 enrollment.remarks = f"{enrollment.remarks} | {note}".strip(" |")
 
-            enrollment.save(update_fields=["status", "remarks", "updated_at", "student_number"])
-            print("DEBUG mark_active started")
-            print("DEBUG parent_email:", repr(parent_email))
-            print("DEBUG is_promotion:", is_promotion)
+            update_fields = ["status", "remarks", "updated_at", "student_number"]
+            if uploaded_id_image and hasattr(enrollment, "id_image"):
+                update_fields.append("id_image")
+            if section_id:
+                update_fields.append("section")
+
+            enrollment.save(update_fields=update_fields)
+
             if parent_email:
-                # Check whether user existed before sync
                 existing_user = User.objects.filter(email__iexact=parent_email).first()
                 had_existing_user = existing_user is not None
 
@@ -391,23 +427,21 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     enrollment.parent_user = existing_user
                     enrollment.save(update_fields=["parent_user"])
 
-                # Always sync, and create if missing
-                self._sync_parent_user_and_profile(enrollment, create_if_missing=True)
+                self._sync_parent_user_and_profile(
+                    enrollment,
+                    create_if_missing=True,
+                    uploaded_id_image=uploaded_id_image,
+                )
                 enrollment.refresh_from_db()
 
                 if enrollment.parent_user:
-                    # Existing old student account -> promotion email
                     if is_promotion and had_existing_user:
                         self._send_promotion_email(enrollment, parent_email, grade_code)
                     else:
-                        # New account or no prior linked account -> portal setup email
                         self._send_parent_portal_email(enrollment, parent_email)
-        
+
         serializer = self.get_serializer(enrollment)
         return Response(serializer.data)
-        print("DEBUG parent_email:", repr(parent_email))
-        print("DEBUG student_type:", repr(enrollment.student_type))
-        print("DEBUG existing linked parent_user:", enrollment.parent_user_id)
 
     @action(detail=False, methods=["get"])
     def active_enrollments(self, request):

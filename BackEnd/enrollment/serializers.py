@@ -143,24 +143,27 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         if edu == "elementary" and grade not in ELEMENTARY:
             raise serializers.ValidationError({"grade_level": "For Elementary, grade must be Grade 1–6."})
 
-        # 5) At least one student contact method
-        if not (attrs.get("mobile_number") or attrs.get("telephone_number") or attrs.get("email")):
+      # 5) At least one student contact method
+        mobile_number = attrs.get("mobile_number", getattr(self.instance, "mobile_number", None))
+        telephone_number = attrs.get("telephone_number", getattr(self.instance, "telephone_number", None))
+        email = attrs.get("email", getattr(self.instance, "email", None))
+
+        if not (mobile_number or telephone_number or email):
             raise serializers.ValidationError(
                 {"contact": "Provide at least one contact: mobile number, telephone number, or email."}
             )
 
         # 6) Mobile PH validation + normalize to +639...
-        if attrs.get("mobile_number"):
-            normalized = normalize_ph_mobile(attrs.get("mobile_number"))
+        if mobile_number:
+            normalized = normalize_ph_mobile(mobile_number)
             if not normalized:
                 raise serializers.ValidationError(
                     {"mobile_number": "Invalid PH mobile. Use 09XXXXXXXXX or +639XXXXXXXXX."}
                 )
-            attrs["mobile_number"] = normalized  # normalize before save
+            attrs["mobile_number"] = normalized
 
         # 7) Telephone format validation (if provided)
-        tel = attrs.get("telephone_number")
-        if tel and not PHONE_RE.match(tel):
+        if telephone_number and not PHONE_RE.match(telephone_number):
             raise serializers.ValidationError({"telephone_number": "Invalid phone format."})
 
         # 8) Parent/Guardian: if parent_info exists, require at least one contact
