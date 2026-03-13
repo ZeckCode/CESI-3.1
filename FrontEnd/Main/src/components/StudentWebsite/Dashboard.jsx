@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import "../StudentWebsiteCSS/Dashboard.css";
 import { apiFetch } from "../api/apiFetch";
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "";
 
 function toAbsUrl(path) {
   if (!path) return null;
@@ -464,7 +464,7 @@ function AnnouncementDetailModal({ a, onClose }) {
         <h2 className="ann-modal-title">{a.title || "Untitled"}</h2>
 
         <div className="ann-modal-meta">
-          {(a.target_role ).toUpperCase()} •{" "}
+          {(a.target_role || "").toUpperCase()} •{" "}
           {a.publish_date || a.created_at
             ? new Date(a.publish_date || a.created_at).toLocaleString()
             : ""}

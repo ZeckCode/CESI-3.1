@@ -97,8 +97,4 @@ class AcademicRecordSerializer(serializers.ModelSerializer):
     def get_recorded_by_name(self, obj):
         if not obj.recorded_by:
             return None
-        try:
-            p = obj.recorded_by.profile
-            return f"{p.student_first_name} {p.student_last_name}".strip() or obj.recorded_by.username
-        except Exception:
-            return obj.recorded_by.username
+        return getattr(obj.recorded_by, "username", None) or str(obj.recorded_by_id)

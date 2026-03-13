@@ -102,9 +102,10 @@ const SPerformance = () => {
       .sort((a, b) => b.quarter_grade - a.quarter_grade)
       .slice(0, 5);
 
-    // Grade distribution buckets
+    // Grade distribution buckets (only students at or above passing grade 75)
     const dist = { "75-80": 0, "81-85": 0, "86-90": 0, "91-95": 0, "96-100": 0 };
     graded.forEach(({ quarter_grade: g }) => {
+      if (g < 75) return; // below passing threshold — not counted in the distribution
       if (g <= 80) dist["75-80"]++;
       else if (g <= 85) dist["81-85"]++;
       else if (g <= 90) dist["86-90"]++;
