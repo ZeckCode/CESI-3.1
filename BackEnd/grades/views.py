@@ -2,6 +2,7 @@ from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from django.db.models import Q, Sum
 from decimal import Decimal
 
@@ -16,6 +17,46 @@ from .serializers import (
 from accounts.models import User, UserProfile, Subject
 from classmanagement.models import Schedule
 from enrollment.models import Enrollment
+
+
+def normalize_grade_level(value):
+    if value is None:
+        return None
+
+    normalized = str(value).strip().lower()
+
+    grade_map = {
+        "prek": -1,
+        "pre-kinder": -1,
+        "kinder": 0,
+        "grade1": 1,
+        "grade2": 2,
+        "grade3": 3,
+        "grade4": 4,
+        "grade5": 5,
+        "grade6": 6,
+        "grade 1": 1,
+        "grade 2": 2,
+        "grade 3": 3,
+        "grade 4": 4,
+        "grade 5": 5,
+        "grade 6": 6,
+        "0": 0,
+        "1": 1,
+        "2": 2,
+        "3": 3,
+        "4": 4,
+        "5": 5,
+        "6": 6,
+    }
+
+    if normalized in grade_map:
+        return grade_map[normalized]
+
+    try:
+        return int(normalized)
+    except (ValueError, TypeError):
+        return None
 
 
 # ══════════════════════════════════════════════════════
@@ -63,14 +104,22 @@ class GradeItemListCreate(generics.ListCreateAPIView):
         grade_level = self.request.query_params.get("grade_level")
         quarter = self.request.query_params.get("quarter")
         category = self.request.query_params.get("category")
+
         if subject:
             qs = qs.filter(subject_id=subject)
-        if grade_level is not None:
-            qs = qs.filter(grade_level=grade_level)
+
+        if grade_level is not None and grade_level != "":
+            mapped_grade = normalize_grade_level(grade_level)
+            if mapped_grade is None:
+                raise ValidationError({"grade_level": f"Invalid grade_level: {grade_level}"})
+            qs = qs.filter(grade_level=mapped_grade)
+
         if quarter:
             qs = qs.filter(quarter=quarter)
+
         if category:
             qs = qs.filter(category=category.upper())
+
         return qs
 
     def perform_create(self, serializer):
@@ -94,20 +143,28 @@ class StudentScoreListCreate(generics.ListCreateAPIView):
         qs = StudentScore.objects.select_related("student", "grade_item").all()
         grade_item = self.request.query_params.get("grade_item")
         student = self.request.query_params.get("student")
-        # Filter by subject + grade_level + quarter (for fetching all scores for a view)
         subject = self.request.query_params.get("subject")
         grade_level = self.request.query_params.get("grade_level")
         quarter = self.request.query_params.get("quarter")
+
         if grade_item:
             qs = qs.filter(grade_item_id=grade_item)
+
         if student:
             qs = qs.filter(student_id=student)
+
         if subject:
             qs = qs.filter(grade_item__subject_id=subject)
-        if grade_level is not None:
-            qs = qs.filter(grade_item__grade_level=grade_level)
+
+        if grade_level is not None and grade_level != "":
+            mapped_grade = normalize_grade_level(grade_level)
+            if mapped_grade is None:
+                raise ValidationError({"grade_level": f"Invalid grade_level: {grade_level}"})
+            qs = qs.filter(grade_item__grade_level=mapped_grade)
+
         if quarter:
             qs = qs.filter(grade_item__quarter=quarter)
+
         return qs
 
 
@@ -211,7 +268,6 @@ def _compute_quarter_grade(student_id, subject_id, quarter):
     Compute the weighted quarter grade for one student.
     Returns dict with category averages + weighted total.
     """
-    # Get weights
     try:
         w = GradeWeight.objects.get(subject_id=subject_id)
     except GradeWeight.DoesNotExist:
@@ -232,8 +288,6 @@ def _compute_quarter_grade(student_id, subject_id, quarter):
         )
         if not scores.exists():
             return None
-        # Weighted by each item's total_score:
-        # percentage = sum(score) / sum(total_score) * 100
         total_earned = sum(s.score for s in scores)
         total_possible = sum(s.grade_item.total_score for s in scores.select_related("grade_item"))
         if total_possible == 0:
@@ -244,7 +298,6 @@ def _compute_quarter_grade(student_id, subject_id, quarter):
     quiz_avg = _avg("QUIZ")
     exam_avg = _avg("EXAM")
 
-    # Class standing
     try:
         cs = ClassStanding.objects.get(
             student_id=student_id, subject_id=subject_id, quarter=quarter
@@ -253,7 +306,6 @@ def _compute_quarter_grade(student_id, subject_id, quarter):
     except ClassStanding.DoesNotExist:
         cs_score = None
 
-    # Weighted total (only include categories that have data)
     components = []
     if act_avg is not None:
         components.append((act_avg, aw))
@@ -396,7 +448,6 @@ def section_performance(request):
     except (ValueError, TypeError):
         return Response({"detail": "Invalid section or quarter"}, status=400)
 
-    # Resolve subject + enforce access
     if user.role == "TEACHER":
         try:
             subject_id = user.teacher_profile.subject_id
@@ -415,7 +466,6 @@ def section_performance(request):
         except (ValueError, TypeError):
             return Response({"detail": "Invalid subject id"}, status=400)
 
-    # Quarter date range
     from datetime import date as date_class
     from attendance.models import AttendanceRecord
 
@@ -429,8 +479,7 @@ def section_performance(request):
     }
     q_start, q_end = quarter_ranges[quarter]
 
-    # Collect students from active enrollments + profile fallback
-    students_map = {}  # {user_id: name}
+    students_map = {}
     enrollments = (
         Enrollment.objects.filter(section_id=section_id, status="ACTIVE")
         .select_related("student", "student__profile")
@@ -447,7 +496,6 @@ def section_performance(request):
             ).strip()
         students_map[stu.id] = name or stu.username
 
-    # Fallback: profile-linked students not in enrollment
     for p in UserProfile.objects.filter(
         section_id=section_id,
         user__role="PARENT_STUDENT",
@@ -458,7 +506,6 @@ def section_performance(request):
                 pt for pt in [p.student_first_name or "", p.student_last_name or ""] if pt
             ).strip() or p.user.username
 
-    # Compute grade + attendance per student
     results = []
     for student_id, student_name in students_map.items():
         grade_data = _compute_quarter_grade(student_id, subject_id, quarter)
@@ -532,7 +579,6 @@ def students_by_section(request, section_id):
     if user.role not in ("TEACHER", "ADMIN"):
         return Response({"detail": "Forbidden"}, status=403)
 
-    # Teachers can only access sections they actually handle in schedules.
     if user.role == "TEACHER":
         allowed = Schedule.objects.filter(teacher=user, section_id=section_id).exists()
         if not allowed:
@@ -565,7 +611,6 @@ def students_by_section(request, section_id):
             "student_name": full_name,
         }
 
-    # Legacy fallback: profile-linked students with matching section.
     legacy_profiles = UserProfile.objects.filter(
         section_id=section_id,
         user__role="PARENT_STUDENT",
@@ -592,7 +637,6 @@ def students_by_section(request, section_id):
 # ══════════════════════════════════════════════════════
 # ACADEMIC HISTORY  —  persisted historical records
 # ══════════════════════════════════════════════════════
-
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def my_academic_history(request):
@@ -607,7 +651,6 @@ def my_academic_history(request):
     records = AcademicRecord.objects.filter(student=user).order_by("-school_year", "subject_name")
     serialized = AcademicRecordSerializer(records, many=True).data
 
-    # Group by school year
     grouped = {}
     for rec in serialized:
         sy = rec["school_year"]
@@ -671,4 +714,3 @@ class AcademicRecordDetail(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         serializer.save(recorded_by=self.request.user)
-

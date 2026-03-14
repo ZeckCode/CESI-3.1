@@ -1,9 +1,97 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Search, Users, User, Mail, Phone, Calendar, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import {
+  Search,
+  Users,
+  User,
+  Mail,
+  Phone,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+} from "lucide-react";
 import "../TeacherWebsiteCSS/Students.css";
 import { apiFetch } from "../api/apiFetch";
 
 const API = "";
+
+const getGradeSource = (obj) =>
+  obj?.grade_level ??
+  obj?.grade ??
+  obj?.grade_code ??
+  obj?.gradeLevel ??
+  obj?.grade_level_display ??
+  "";
+
+const normalizeGradeCode = (value) => {
+  if (value === null || value === undefined) return "";
+
+  let v = String(value).trim().toLowerCase();
+  v = v.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+
+  if (v.startsWith("grade ")) {
+    const rest = v.slice(6).trim();
+
+    if (rest === "kinder") return "kinder";
+    if (rest === "pre-kinder" || rest === "prek" || rest === "pre kinder") return "prek";
+    if (/^\d$/.test(rest)) return `grade${rest}`;
+    if (/^grade\s*\d$/.test(rest)) return rest.replace(/\s+/g, "");
+    if (/^grade\d$/.test(rest)) return rest;
+  }
+
+  if (/^g\s*\d$/.test(v)) {
+    return `grade${v.replace(/[^\d]/g, "")}`;
+  }
+
+  if (/^grade\s*\d$/.test(v)) {
+    return v.replace(/\s+/g, "");
+  }
+
+  const map = {
+    "0": "kinder",
+    "1": "grade1",
+    "2": "grade2",
+    "3": "grade3",
+    "4": "grade4",
+    "5": "grade5",
+    "6": "grade6",
+    kinder: "kinder",
+    grade1: "grade1",
+    grade2: "grade2",
+    grade3: "grade3",
+    grade4: "grade4",
+    grade5: "grade5",
+    grade6: "grade6",
+    "grade 1": "grade1",
+    "grade 2": "grade2",
+    "grade 3": "grade3",
+    "grade 4": "grade4",
+    "grade 5": "grade5",
+    "grade 6": "grade6",
+    prek: "prek",
+    "pre-kinder": "prek",
+    "pre kinder": "prek",
+  };
+
+  return map[v] || "";
+};
+
+const GRADE_FULL_LABEL = (level) => {
+  const code = normalizeGradeCode(level);
+
+  const fullLabels = {
+    prek: "Pre-Kinder",
+    kinder: "Kinder",
+    grade1: "Grade 1",
+    grade2: "Grade 2",
+    grade3: "Grade 3",
+    grade4: "Grade 4",
+    grade5: "Grade 5",
+    grade6: "Grade 6",
+  };
+
+  return fullLabels[code] || "—";
+};
 
 const Students = () => {
   const [sections, setSections] = useState([]);
@@ -15,7 +103,6 @@ const Students = () => {
   const [expandedStudentId, setExpandedStudentId] = useState(null);
   const [schoolYear, setSchoolYear] = useState(null);
 
-  // Fetch sections on mount
   useEffect(() => {
     (async () => {
       try {
@@ -26,10 +113,14 @@ const Students = () => {
 
         if (secRes.ok) {
           const data = await secRes.json();
-          setSections(data);
-          if (data.length > 0) {
-            setSelectedSection(String(data[0].id));
+          const nextSections = Array.isArray(data) ? data : [];
+          setSections(nextSections);
+
+          if (nextSections.length > 0) {
+            setSelectedSection(String(nextSections[0].id));
           }
+        } else {
+          setSections([]);
         }
 
         if (syRes.ok) {
@@ -38,13 +129,13 @@ const Students = () => {
         }
       } catch (e) {
         console.error("Failed to load sections:", e);
+        setSections([]);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  // Fetch students when section changes
   useEffect(() => {
     if (!selectedSection) {
       setStudents([]);
@@ -59,7 +150,7 @@ const Students = () => {
         );
         if (res.ok) {
           const data = await res.json();
-          setStudents(data);
+          setStudents(Array.isArray(data) ? data : []);
         } else {
           setStudents([]);
         }
@@ -73,7 +164,6 @@ const Students = () => {
     })();
   }, [selectedSection]);
 
-  // Filter students by search term
   const filteredStudents = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return students;
@@ -90,18 +180,18 @@ const Students = () => {
     setExpandedStudentId((prev) => (prev === id ? null : id));
   };
 
-  // Get current section name
   const currentSectionName = useMemo(() => {
     const sec = sections.find((s) => String(s.id) === String(selectedSection));
-    return sec?.name || "—";
+    if (!sec) return "—";
+    return `${GRADE_FULL_LABEL(getGradeSource(sec))} - ${sec.name}`;
   }, [sections, selectedSection]);
 
-  // Stats
   const stats = useMemo(() => {
     const male = filteredStudents.filter((s) => s.gender?.toLowerCase() === "male").length;
     const female = filteredStudents.filter(
       (s) => s.gender?.toLowerCase() === "female" || s.gender?.toLowerCase() === "f"
     ).length;
+
     return {
       total: filteredStudents.length,
       male,
@@ -111,7 +201,6 @@ const Students = () => {
 
   return (
     <div className="sr">
-      {/* Header */}
       <header className="sr__header">
         <div className="sr__headerLeft">
           <h2 className="sr__title">Students Roster</h2>
@@ -144,27 +233,20 @@ const Students = () => {
             disabled={loading}
           >
             {loading ? (
-              <option>Loading...</option>
+              <option value="">Loading...</option>
             ) : sections.length === 0 ? (
-              <option>No sections assigned</option>
+              <option value="">No sections assigned</option>
             ) : (
-              sections.map((sec) => {
-                const gradeLabel =
-                  sec.grade_level === 0 || sec.grade_level === "0" || sec.grade_level === "kinder"
-                    ? "K"
-                    : `${sec.grade_level}`;
-                return (
-                  <option key={sec.id} value={sec.id}>
-                    {gradeLabel} - {sec.name}
-                  </option>
-                );
-              })
+              sections.map((sec) => (
+                <option key={sec.id} value={String(sec.id)}>
+                  {GRADE_FULL_LABEL(getGradeSource(sec))} - {sec.name}
+                </option>
+              ))
             )}
           </select>
         </div>
       </header>
 
-      {/* Stats */}
       <section className="sr__stats">
         <div className="srStat">
           <div className="srStat__icon srStat__icon--primary">
@@ -207,12 +289,8 @@ const Students = () => {
         </div>
       </section>
 
-      {/* Loading */}
-      {loadingStudents && (
-        <div className="sr__loading">Loading students...</div>
-      )}
+      {loadingStudents && <div className="sr__loading">Loading students...</div>}
 
-      {/* Table */}
       {!loadingStudents && (
         <section className="sr__card">
           <div className="sr__tableWrap">
@@ -238,7 +316,8 @@ const Students = () => {
                     const isOpen = expandedStudentId === student.id;
                     const firstName = student.first_name || "";
                     const lastName = student.last_name || "";
-                    const fullName = student.name || `${firstName} ${lastName}`.trim() || "Unknown Student";
+                    const fullName =
+                      student.name || `${firstName} ${lastName}`.trim() || "Unknown Student";
                     const initial = firstName.charAt(0) || lastName.charAt(0) || "S";
                     const email = student.email || "—";
                     const lrn = student.lrn || "—";
@@ -294,7 +373,9 @@ const Students = () => {
                                 <div className="srDetail__grid">
                                   <div className="srField">
                                     <div className="srLabel">Grade Level</div>
-                                    <div className="srValue">{student.grade_level || "—"}</div>
+                                    <div className="srValue">
+                                      {GRADE_FULL_LABEL(getGradeSource(student))}
+                                    </div>
                                   </div>
 
                                   <div className="srField">
@@ -309,8 +390,6 @@ const Students = () => {
                                       {student.guardian_contact || "—"}
                                     </div>
                                   </div>
-
-
                                 </div>
                               </div>
                             </td>
