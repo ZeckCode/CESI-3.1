@@ -75,7 +75,20 @@ class StudentListSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     username = serializers.CharField()
     student_name = serializers.CharField()
-    grade_level = serializers.IntegerField()
+    grade_level = serializers.SerializerMethodField()
+
+    def get_grade_level(self, obj):
+        value = obj.get("grade_level") if isinstance(obj, dict) else getattr(obj, "grade_level", None)
+        if value is None:
+            return ""
+
+        value = str(value).strip().lower()
+
+        if value.startswith("grade"):
+            num = value.replace("grade", "")
+            return f"Grade {num}" if num.isdigit() else value
+
+        return f"Grade {value}" if value.isdigit() else value
 
 
 # ─── Academic Record (historical) ───

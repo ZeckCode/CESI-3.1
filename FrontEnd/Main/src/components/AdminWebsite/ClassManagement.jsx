@@ -408,8 +408,8 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
             <div key={sec.id} className="admin-class-card">
               <div className="admin-class-card-header">
                 <div>
-                  <h3>{gradeLabel(sec.grade_level)} — {sec.name}</h3>
-                  <p className="admin-class-grade">{gradeLabel(sec.grade_level)}</p>
+                  <h3>{(sec.grade_level)} — {sec.name}</h3>
+                  <p className="admin-class-grade">{(sec.grade_level)}</p>
                 </div>
                 <div className="admin-card-actions">
                   <button className="admin-btn-primary" onClick={() => openStudentsModal(sec)} title="Manage Students" style={{ padding: '8px 10px' }}>

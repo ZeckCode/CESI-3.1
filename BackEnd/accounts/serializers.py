@@ -32,11 +32,10 @@ class SectionSerializer(serializers.ModelSerializer):
     student_ids = serializers.SerializerMethodField()
     student_names = serializers.SerializerMethodField()
     capacity = serializers.IntegerField(required=False)
+    grade_level = serializers.CharField(source="get_grade_level_display", read_only=True)                                                                            
     room_code = serializers.CharField(source="room.code", read_only=True, allow_null=True)
     room_name = serializers.CharField(source="room.name", read_only=True, allow_null=True)
-    
-    
-    
+
     class Meta:
         model = Section
         fields = [
