@@ -191,3 +191,193 @@
 
 .ann-list-title { font-weight: 800; }
 .ann-list-meta { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+
+/* ── Student Dashboard additions ─────────────────────── */
+
+/* Welcome subtitle */
+.sd__welcome {
+  margin: -0.75rem 0 1rem;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* Stats Row */
+.sd__statsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 700px) {
+  .sd__statsRow { grid-template-columns: 1fr; }
+}
+
+.sdStat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fff;
+  border: 2px solid #e5e7eb;
+  box-shadow: 0 4px 10px rgba(0,0,0,.06);
+}
+
+.sdStat--blue   { border-left: 5px solid #0056b3; }
+.sdStat--success{ border-left: 5px solid #15803d; }
+.sdStat--warn   { border-left: 5px solid #b45309; }
+
+.sdStat__icon {
+  font-size: 24px;
+  flex: 0 0 auto;
+}
+
+.sdStat__label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #6b7280;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.sdStat__value {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  color: #1f2937;
+}
+
+/* Today's schedule list items */
+.sd__listItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+}
+
+.sd__listItem:last-child { border-bottom: 0; }
+
+.sd__listLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sd__iconBox {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #dbeafe;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  flex: 0 0 auto;
+}
+
+.sd__listTitle {
+  font-weight: 800;
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+
+.sd__listMeta {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.sd__listTime {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0056b3;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+/* Announcements inside panel */
+.sd__annBody {
+  flex: 1;
+}
+
+.sd__annItem {
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+}
+
+.sd__annItem:last-child { border-bottom: 0; }
+
+.sd__annItem:hover { opacity: 0.8; }
+
+.sd__annTitle {
+  font-weight: 700;
+  font-size: 13px;
+  color: #dc3545;
+  margin-bottom: 2px;
+}
+
+.sd__annMeta {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.sd__muted { color: #9ca3af; font-size: 14px; }
+.sd__danger { color: #dc3545; font-size: 14px; }
+
+/* Grade Summary table */
+.sd__gradeScroll {
+  overflow-x: auto;
+}
+
+.sd__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.sd__th {
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #6b7280;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.sd__th--left { text-align: left; }
+
+.sd__tr:nth-child(even) { background: #f9fafb; }
+.sd__tr:hover { background: #f1f5f9; }
+
+.sd__td {
+  padding: 10px 12px;
+  text-align: center;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+}
+
+.sd__td--name {
+  text-align: left;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sd__td--bold { font-weight: 800; color: #1f2937; }
+
+.sd__pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sd__pill--pass { background: #dcfce7; color: #15803d; }
+.sd__pill--fail { background: #fee2e2; color: #b91c1c; }

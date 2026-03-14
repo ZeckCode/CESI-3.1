@@ -26,26 +26,24 @@ class SubjectSerializer(serializers.ModelSerializer):
 
 
 class SectionSerializer(serializers.ModelSerializer):
-    adviser_name = serializers.SerializerMethodField()
+    adviser_name = serializers.SerializerMethodField(read_only=True)
     student_count = serializers.SerializerMethodField()
     is_full = serializers.SerializerMethodField()
     student_ids = serializers.SerializerMethodField()
     student_names = serializers.SerializerMethodField()
     capacity = serializers.IntegerField(required=False)
+    room_code = serializers.CharField(source="room.code", read_only=True, allow_null=True)
+    room_name = serializers.CharField(source="room.name", read_only=True, allow_null=True)
 
     class Meta:
         model = Section
         fields = [
-            "id",
-            "name",
-            "grade_level",
+            "id", "name", "grade_level",
             "capacity",
-            "adviser",
-            "adviser_name",
-            "student_count",
-            "is_full",
-            "student_ids",
-            "student_names",
+            "room", "room_code", "room_name",
+            "adviser", "adviser_name",
+            "student_count", "is_full",
+            "student_ids", "student_names",
         ]
 
     def get_adviser_name(self, obj):
@@ -63,7 +61,6 @@ class SectionSerializer(serializers.ModelSerializer):
         return obj.students.count() >= capacity
 
     def get_student_ids(self, obj):
-        # UserProfile ids assigned to this section
         return list(obj.students.values_list("id", flat=True))
 
     def get_student_names(self, obj):

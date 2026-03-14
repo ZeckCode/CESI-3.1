@@ -95,6 +95,15 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
 
     # -------------------- Validations --------------------
     def validate(self, attrs):
+        is_create = self.instance is None
+
+        def merged_value(field):
+            if field in attrs:
+                return attrs.get(field)
+            if self.instance is not None:
+                return getattr(self.instance, field, None)
+            return None
+
         # 1) Honeypot bot check
         if attrs.get("website"):
             raise serializers.ValidationError("Invalid submission.")
@@ -102,8 +111,9 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         # ✅ remove honeypot so it never reaches model create/update
         attrs.pop("website", None)
 
-        # 2) Required core fields
-        required = [
+        # 2) Required core fields (create only)
+        if is_create:
+            required = [
                 "first_name",
                 "last_name",
                 "education_level",
@@ -111,14 +121,12 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
                 "student_type",
                 "payment_mode",
             ]
-
-        if not self.instance:  # only required during create
-                errors = {f: "This field is required." for f in required if not attrs.get(f)}
-                if errors:
-                    raise serializers.ValidationError(errors)
+            errors = {f: "This field is required." for f in required if not attrs.get(f)}
+            if errors:
+                raise serializers.ValidationError(errors)
 
         # 3) Birth date validation (past + age range)
-        bd = attrs.get("birth_date")
+        bd = merged_value("birth_date")
         if bd:
             today = timezone.localdate()
 
@@ -135,27 +143,30 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"birth_date": "Student age exceeds allowed school range."})
 
         # 4) Grade must match education level
-        edu = attrs.get("education_level")
-        grade = attrs.get("grade_level")
+        edu = merged_value("education_level")
+        grade = merged_value("grade_level")
 
-        if edu == "preschool" and grade not in PRESCHOOL:
+        if edu == "preschool" and grade and grade not in PRESCHOOL:
             raise serializers.ValidationError({"grade_level": "For Preschool, grade must be Pre-Kinder or Kinder."})
-        if edu == "elementary" and grade not in ELEMENTARY:
+        if edu == "elementary" and grade and grade not in ELEMENTARY:
             raise serializers.ValidationError({"grade_level": "For Elementary, grade must be Grade 1–6."})
 
-      # 5) At least one student contact method
-        mobile_number = attrs.get("mobile_number", getattr(self.instance, "mobile_number", None))
-        telephone_number = attrs.get("telephone_number", getattr(self.instance, "telephone_number", None))
-        email = attrs.get("email", getattr(self.instance, "email", None))
-
-        if not (mobile_number or telephone_number or email):
-            raise serializers.ValidationError(
-                {"contact": "Provide at least one contact: mobile number, telephone number, or email."}
-            )
+        # 5) At least one student contact method
+        # Enforced on create, and on update only when contact fields are edited.
+        contact_fields = {"mobile_number", "telephone_number", "email"}
+        contacts_touched = any(f in attrs for f in contact_fields)
+        if is_create or contacts_touched:
+            mobile = merged_value("mobile_number")
+            tel = merged_value("telephone_number")
+            email = merged_value("email")
+            if not (mobile or tel or email):
+                raise serializers.ValidationError(
+                    {"contact": "Provide at least one contact: mobile number, telephone number, or email."}
+                )
 
         # 6) Mobile PH validation + normalize to +639...
-        if mobile_number:
-            normalized = normalize_ph_mobile(mobile_number)
+        if "mobile_number" in attrs and attrs.get("mobile_number"):
+            normalized = normalize_ph_mobile(attrs.get("mobile_number"))
             if not normalized:
                 raise serializers.ValidationError(
                     {"mobile_number": "Invalid PH mobile. Use 09XXXXXXXXX or +639XXXXXXXXX."}
@@ -163,7 +174,8 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             attrs["mobile_number"] = normalized
 
         # 7) Telephone format validation (if provided)
-        if telephone_number and not PHONE_RE.match(telephone_number):
+        tel = attrs.get("telephone_number") if "telephone_number" in attrs else None
+        if tel and not PHONE_RE.match(tel):
             raise serializers.ValidationError({"telephone_number": "Invalid phone format."})
 
         # 8) Parent/Guardian: if parent_info exists, require at least one contact

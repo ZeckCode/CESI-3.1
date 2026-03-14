@@ -89,20 +89,25 @@ class Subject(models.Model):
 
 
 class Section(models.Model):
-    GRADE_LEVEL_CHOICES = [
-        ("prek", "Pre-Kinder"),
-        ("kinder", "Kinder"),
-        ("grade1", "Grade 1"),
-        ("grade2", "Grade 2"),
-        ("grade3", "Grade 3"),
-        ("grade4", "Grade 4"),
-        ("grade5", "Grade 5"),
-        ("grade6", "Grade 6"),
-    ]
-
     name = models.CharField(max_length=50)
-    grade_level = models.CharField(max_length=20, choices=GRADE_LEVEL_CHOICES)
+    grade_level = models.IntegerField()
+    room = models.ForeignKey(
+        "classmanagement.Room",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sections",
+    )
+    name = models.CharField(max_length=50)
+    grade_level = models.IntegerField()
     capacity = models.PositiveIntegerField(default=40)
+    room = models.ForeignKey(
+        "classmanagement.Room",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sections",
+    )
 
     adviser = models.OneToOneField(
         "TeacherProfile",

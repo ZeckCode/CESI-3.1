@@ -5,14 +5,17 @@ from rest_framework.response import Response
 from django.db.models import Q, Sum
 from decimal import Decimal
 
-from .models import GradeWeight, GradeItem, StudentScore, ClassStanding
+from .models import GradeWeight, GradeItem, StudentScore, ClassStanding, AcademicRecord
 from .serializers import (
     GradeWeightSerializer,
     GradeItemSerializer,
     StudentScoreSerializer,
     ClassStandingSerializer,
+    AcademicRecordSerializer,
 )
 from accounts.models import User, UserProfile, Subject
+from classmanagement.models import Schedule
+from enrollment.models import Enrollment
 
 
 # ══════════════════════════════════════════════════════
@@ -365,4 +368,301 @@ def teacher_info(request):
         return Response({"detail": "No subject assigned"}, status=404)
     except Exception:
         return Response({"detail": "Teacher profile not found"}, status=404)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def section_performance(request):
+    """
+    Bulk compute quarter grades + attendance for every active student in a section.
+    Query params: section=<id>, quarter=<1-4>
+    The teacher's subject is resolved from their profile.
+    """
+    user = request.user
+    if user.role not in ("TEACHER", "ADMIN"):
+        return Response({"detail": "Forbidden"}, status=403)
+
+    section_id = request.query_params.get("section")
+    quarter_param = request.query_params.get("quarter")
+
+    if not section_id or not quarter_param:
+        return Response({"detail": "section and quarter are required"}, status=400)
+
+    try:
+        section_id = int(section_id)
+        quarter = int(quarter_param)
+        if quarter not in (1, 2, 3, 4):
+            raise ValueError()
+    except (ValueError, TypeError):
+        return Response({"detail": "Invalid section or quarter"}, status=400)
+
+    # Resolve subject + enforce access
+    if user.role == "TEACHER":
+        try:
+            subject_id = user.teacher_profile.subject_id
+        except Exception:
+            return Response({"detail": "Teacher profile not found"}, status=404)
+        if not subject_id:
+            return Response({"detail": "No subject assigned to this teacher"}, status=404)
+        if not Schedule.objects.filter(teacher=user, section_id=section_id).exists():
+            return Response({"detail": "Forbidden"}, status=403)
+    else:
+        raw_subj = request.query_params.get("subject")
+        if not raw_subj:
+            return Response({"detail": "subject param required for admin"}, status=400)
+        subject_id = int(raw_subj)
+
+    # Quarter date range
+    from datetime import date as date_class
+    from attendance.models import AttendanceRecord
+
+    today = date_class.today()
+    sy_start = today.year if today.month >= 6 else today.year - 1
+    quarter_ranges = {
+        1: (date_class(sy_start, 6, 1), date_class(sy_start, 8, 31)),
+        2: (date_class(sy_start, 9, 1), date_class(sy_start, 11, 30)),
+        3: (date_class(sy_start, 12, 1), date_class(sy_start + 1, 2, 28)),
+        4: (date_class(sy_start + 1, 3, 1), date_class(sy_start + 1, 5, 31)),
+    }
+    q_start, q_end = quarter_ranges[quarter]
+
+    # Collect students from active enrollments + profile fallback
+    students_map = {}  # {user_id: name}
+    enrollments = (
+        Enrollment.objects.filter(section_id=section_id, status="ACTIVE")
+        .select_related("student", "student__profile")
+        .order_by("last_name", "first_name")
+    )
+    for enr in enrollments:
+        stu = enr.student
+        if not stu:
+            continue
+        name = " ".join(p for p in [enr.first_name or "", enr.last_name or ""] if p).strip()
+        if not name and hasattr(stu, "profile") and stu.profile:
+            name = " ".join(
+                p for p in [stu.profile.student_first_name or "", stu.profile.student_last_name or ""] if p
+            ).strip()
+        students_map[stu.id] = name or stu.username
+
+    # Fallback: profile-linked students not in enrollment
+    for p in UserProfile.objects.filter(section_id=section_id, user__role="PARENT_STUDENT"
+                                        ).select_related("user"):
+        if p.user_id not in students_map:
+            students_map[p.user_id] = " ".join(
+                pt for pt in [p.student_first_name or "", p.student_last_name or ""] if pt
+            ).strip() or p.user.username
+
+    # Compute grade + attendance per student
+    results = []
+    for student_id, student_name in students_map.items():
+        grade_data = _compute_quarter_grade(student_id, subject_id, quarter)
+        att = AttendanceRecord.get_student_attendance_stats(student_id, q_start, q_end)
+        results.append({
+            "student_id": student_id,
+            "student_name": student_name,
+            "quarter_grade": grade_data["quarter_grade"],
+            "activity_avg": grade_data["activity_avg"],
+            "quiz_avg": grade_data["quiz_avg"],
+            "exam_avg": grade_data["exam_avg"],
+            "class_standing": grade_data["class_standing"],
+            "attendance_pct": att["percentage"],
+            "attendance_days_present": att["present"],
+            "attendance_days_absent": att["absent"],
+            "attendance_days_total": att["total"],
+        })
+
+    results.sort(
+        key=lambda x: x["quarter_grade"] if x["quarter_grade"] is not None else -1,
+        reverse=True,
+    )
+    return Response(results)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def teacher_sections(request):
+    """
+    Return sections from Class Management schedules for the logged-in teacher.
+    Optional query param: ?subject=<subject_id>
+    """
+    user = request.user
+    if user.role != "TEACHER":
+        return Response({"detail": "Forbidden"}, status=403)
+
+    subject_id = request.query_params.get("subject")
+    qs = Schedule.objects.select_related("section", "subject").filter(teacher=user)
+    if subject_id:
+        qs = qs.filter(subject_id=subject_id)
+
+    sections_map = {}
+    for sched in qs:
+        sec = sched.section
+        if not sec:
+            continue
+        if sec.id not in sections_map:
+            sections_map[sec.id] = {
+                "id": sec.id,
+                "name": sec.name,
+                "grade_level": sec.grade_level,
+                "subject_id": sched.subject_id,
+                "subject_name": sched.subject.name if sched.subject else None,
+            }
+
+    result = sorted(
+        sections_map.values(),
+        key=lambda s: (s["grade_level"], s["name"]),
+    )
+    return Response(result)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def students_by_section(request, section_id):
+    """
+    Return students for one section using active enrollments as source of truth,
+    with profile-section fallback for legacy records.
+    """
+    user = request.user
+    if user.role not in ("TEACHER", "ADMIN"):
+        return Response({"detail": "Forbidden"}, status=403)
+
+    # Teachers can only access sections they actually handle in schedules.
+    if user.role == "TEACHER":
+        allowed = Schedule.objects.filter(teacher=user, section_id=section_id).exists()
+        if not allowed:
+            return Response({"detail": "Forbidden"}, status=403)
+
+    students_map = {}
+
+    enrollments = Enrollment.objects.filter(
+        section_id=section_id,
+        status="ACTIVE",
+    ).select_related("student", "student__profile")
+
+    for enr in enrollments:
+        stu = enr.student
+        if not stu:
+            continue
+        full_name = " ".join(
+            p for p in [enr.first_name or "", enr.last_name or ""] if p
+        ).strip()
+        if not full_name and hasattr(stu, "profile") and stu.profile:
+            full_name = " ".join(
+                p for p in [stu.profile.student_first_name or "", stu.profile.student_last_name or ""] if p
+            ).strip()
+        if not full_name:
+            full_name = stu.username
+
+        students_map[stu.id] = {
+            "id": stu.id,
+            "username": stu.username,
+            "student_name": full_name,
+        }
+
+    # Legacy fallback: profile-linked students with matching section.
+    legacy_profiles = UserProfile.objects.filter(
+        section_id=section_id,
+        user__role="PARENT_STUDENT",
+        user__status="ACTIVE",
+    ).select_related("user")
+
+    for p in legacy_profiles:
+        stu = p.user
+        if stu.id in students_map:
+            continue
+        full_name = " ".join(
+            part for part in [p.student_first_name or "", p.student_last_name or ""] if part
+        ).strip() or stu.username
+        students_map[stu.id] = {
+            "id": stu.id,
+            "username": stu.username,
+            "student_name": full_name,
+        }
+
+    result = sorted(students_map.values(), key=lambda s: (s["student_name"].lower(), s["id"]))
+    return Response(result)
+
+
+# ══════════════════════════════════════════════════════
+# ACADEMIC HISTORY  —  persisted historical records
+# ══════════════════════════════════════════════════════
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_academic_history(request):
+    """
+    Student reads their own historical academic records, grouped by school year.
+    Returns: { has_history: bool, records_by_year: [ { school_year, grade_level, records: [...] } ] }
+    """
+    user = request.user
+    if user.role != "PARENT_STUDENT":
+        return Response({"detail": "Forbidden"}, status=403)
+
+    records = AcademicRecord.objects.filter(student=user).order_by("-school_year", "subject_name")
+    serialized = AcademicRecordSerializer(records, many=True).data
+
+    # Group by school year
+    grouped = {}
+    for rec in serialized:
+        sy = rec["school_year"]
+        if sy not in grouped:
+            grouped[sy] = {
+                "school_year": sy,
+                "grade_level": rec["grade_level"],
+                "section_name": rec["section_name"],
+                "records": [],
+            }
+        grouped[sy]["records"].append(rec)
+
+    records_by_year = sorted(grouped.values(), key=lambda g: g["school_year"], reverse=True)
+
+    return Response({
+        "has_history": len(records_by_year) > 0,
+        "records_by_year": records_by_year,
+    })
+
+
+class AcademicRecordListCreate(generics.ListCreateAPIView):
+    """
+    Admin / Teacher: list all academic records (with filters) or create one.
+    POST body: { student, school_year, grade_level, section_name, subject_name, subject_code,
+                 q1, q2, q3, q4, final_grade, remarks, teacher_name }
+    """
+    serializer_class = AcademicRecordSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role not in ("ADMIN", "TEACHER"):
+            return AcademicRecord.objects.none()
+        qs = AcademicRecord.objects.select_related("student", "recorded_by").all()
+        student_id = self.request.query_params.get("student")
+        school_year = self.request.query_params.get("school_year")
+        if student_id:
+            qs = qs.filter(student_id=student_id)
+        if school_year:
+            qs = qs.filter(school_year=school_year)
+        return qs
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.role not in ("ADMIN", "TEACHER"):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only admins and teachers can create academic records.")
+        serializer.save(recorded_by=user)
+
+
+class AcademicRecordDetail(generics.RetrieveUpdateDestroyAPIView):
+    """Admin / Teacher: retrieve, update or delete a single academic record."""
+    serializer_class = AcademicRecordSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role not in ("ADMIN", "TEACHER"):
+            return AcademicRecord.objects.none()
+        return AcademicRecord.objects.all()
+
+    def perform_update(self, serializer):
+        serializer.save(recorded_by=self.request.user)
 

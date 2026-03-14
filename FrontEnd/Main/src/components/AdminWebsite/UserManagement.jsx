@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, Edit2, Search, Filter, Users,
-  BookOpen, GraduationCap, Save, X, UserCheck, UserX,
+  BookOpen, GraduationCap, Save, X, UserCheck, UserX, RefreshCw,
 } from 'lucide-react';
 import { apiFetch } from '../api/apiFetch';
 import StatCard, { StatsGrid } from './StatCard';
@@ -12,9 +12,12 @@ const UserManagement = () => {
   // ── data ──
   const [students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
+  const [activeEnrollments, setActiveEnrollments] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   // ── UI ──
   const [activeTab, setActiveTab] = useState('students');
@@ -59,6 +62,13 @@ const UserManagement = () => {
     } catch (e) { console.error(e); }
   }, []);
 
+  const fetchActiveEnrollments = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/enrollments/?status=ACTIVE');
+      if (res.ok) setActiveEnrollments(await res.json());
+    } catch (e) { console.error(e); }
+  }, []);
+
   const fetchSubjects = useCallback(async () => {
     try {
       const res = await apiFetch('/api/accounts/subjects/');
@@ -73,13 +83,44 @@ const UserManagement = () => {
     } catch (e) { console.error(e); }
   }, []);
 
+  const refreshAll = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setRefreshing(true);
+    try {
+      await Promise.all([fetchStudents(), fetchTeachers(), fetchActiveEnrollments(), fetchSubjects(), fetchSections()]);
+      setLastUpdated(new Date());
+    } finally {
+      if (showSpinner) setRefreshing(false);
+    }
+  }, [fetchStudents, fetchTeachers, fetchActiveEnrollments, fetchSubjects, fetchSections]);
+
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([fetchStudents(), fetchTeachers(), fetchSubjects(), fetchSections()]);
+      await refreshAll(false);
       setLoading(false);
     })();
-  }, [fetchStudents, fetchTeachers, fetchSubjects, fetchSections]);
+  }, [refreshAll]);
+
+  useEffect(() => {
+    // Keep user/teacher tables synced with backend edits from other modules.
+    const intervalId = window.setInterval(() => {
+      refreshAll(false);
+    }, 15000);
+
+    const onFocus = () => refreshAll(false);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshAll(false);
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [refreshAll]);
 
   // ── helpers ──
   const studentName = (u) => {
@@ -121,6 +162,84 @@ const UserManagement = () => {
     const p = u.profile;
     if (!p) return '—';
     return `${p.parent_first_name} ${p.parent_last_name}`;
+  };
+
+  const activeEnrollmentMaps = useMemo(() => {
+    const byParentUser = new Map();
+    const byEmail = new Map();
+
+    activeEnrollments.forEach((e) => {
+      if (e.parent_user) byParentUser.set(e.parent_user, e);
+      const email = String(e.email || '').trim().toLowerCase();
+      if (email) byEmail.set(email, e);
+    });
+
+    return { byParentUser, byEmail };
+  }, [activeEnrollments]);
+
+  const enrollmentForUser = (u) => {
+    const byParent = activeEnrollmentMaps.byParentUser.get(u.id);
+    if (byParent) return byParent;
+    const email = String(u.email || '').trim().toLowerCase();
+    if (!email) return null;
+    return activeEnrollmentMaps.byEmail.get(email) || null;
+  };
+
+  const sectionById = useMemo(() => {
+    const m = new Map();
+    sections.forEach((s) => m.set(s.id, s));
+    return m;
+  }, [sections]);
+
+  const studentNameDisplay = (u) => {
+    const p = u.profile;
+    if (p?.student_first_name || p?.student_last_name) {
+      return `${p.student_first_name || ''} ${p.student_last_name || ''}`.trim();
+    }
+    const e = enrollmentForUser(u);
+    if (e?.first_name || e?.last_name) {
+      return `${e.first_name || ''} ${e.last_name || ''}`.trim();
+    }
+    return u.username;
+  };
+
+  const studentGradeDisplay = (u) => {
+    const pGrade = u.profile?.grade_level;
+    if (pGrade) return gradeLabelFromProfile(pGrade);
+    const e = enrollmentForUser(u);
+    return e?.grade_level ? gradeLabelFromProfile(e.grade_level) : '—';
+  };
+
+  const studentSectionDisplay = (u) => {
+    const pSection = u.profile?.section;
+    if (pSection?.name) return pSection.name;
+    const e = enrollmentForUser(u);
+    const sec = e?.section ? sectionById.get(e.section) : null;
+    return sec?.name || '—';
+  };
+
+  const parentNameDisplay = (u) => {
+    const p = u.profile;
+    if (p?.parent_first_name || p?.parent_last_name) {
+      return `${p.parent_first_name || ''} ${p.parent_last_name || ''}`.trim();
+    }
+    const e = enrollmentForUser(u);
+    const pi = e?.parent_info;
+    const fallback = pi?.guardian_name || pi?.mother_name || pi?.father_name;
+    return fallback || '—';
+  };
+
+  const contactDisplay = (u) => {
+    const pContact = u.profile?.contact_number;
+    if (pContact) return pContact;
+    const e = enrollmentForUser(u);
+    return e?.mobile_number || e?.telephone_number || '—';
+  };
+
+  const sectionLabel = (section) => {
+    if (!section) return '—';
+    const prefix = Number(section.grade_level) === 0 ? 'K' : `G${section.grade_level}`;
+    return `${prefix} – ${section.name}`;
   };
 
   // ── filter ──
@@ -323,11 +442,26 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
           </button>
         </div>
         {activeTab === 'teachers' && (
-          <button className="btn-primary" onClick={() => setShowCreateForm(true)}>
-            <Plus size={18} /> Add New Teacher
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button className="btn-secondary" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest data from database">
+              <RefreshCw size={16} /> {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+            <button className="btn-primary" onClick={() => setShowCreateForm(true)}>
+              <Plus size={18} /> Add New Teacher
+            </button>
+          </div>
+        )}
+        {activeTab === 'students' && (
+          <button className="btn-secondary" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest data from database">
+            <RefreshCw size={16} /> {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
         )}
       </div>
+      {lastUpdated && (
+        <div style={{ fontSize: 12, color: '#64748b', marginTop: -8, marginBottom: 10 }}>
+          Last synced: {lastUpdated.toLocaleTimeString()}
+        </div>
+      )}
 
       {/* Stats */}
       {activeTab === 'students' && (
@@ -380,11 +514,11 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                 </select>
               </div>
               <div className="form-group">
-                <label>Section</label>
+                <label>Assigned Section</label>
                 <select value={createForm.section_teacher}
                   onChange={(e) => setCreateForm({ ...createForm, section_teacher: e.target.value })}>
                   <option value="">— None —</option>
-                  {sections.map((s) => <option key={s.id} value={s.id}>G{s.grade_level} – {s.name}</option>)}
+                  {sections.map((s) => <option key={s.id} value={s.id}>{sectionLabel(s)}</option>)}
                 </select>
               </div>
             </div>
@@ -457,7 +591,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                   onChange={(e) => setStudentForm({ ...studentForm, section: e.target.value })}>
                   <option value="">— None —</option>
                   {sections.map((s) => (
-                    <option key={s.id} value={s.id}>G{s.grade_level} – {s.name}</option>
+                    <option key={s.id} value={s.id}>{sectionLabel(s)}</option>
                   ))}
                 </select>
               </div>
@@ -549,13 +683,13 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
               <tbody>
                 {paginatedStudents.map((u) => (
                   <tr key={u.id}>
-                    <td><strong>{studentName(u)}</strong></td>
+                    <td><strong>{studentNameDisplay(u)}</strong></td>
                     <td>{u.profile?.lrn || "—"}</td>
-                    <td>{gradeLabelFromProfile(u.profile?.grade_level)}</td>
-                    <td>{u.profile?.section ? u.profile.section.name : '—'}</td>
-                    <td>{parentName(u)}</td>
+                    <td>{studentGradeDisplay(u)}</td>
+                    <td>{studentSectionDisplay(u)}</td>
+                    <td>{parentNameDisplay(u)}</td>
                     <td><a href={`mailto:${u.email}`}>{u.email}</a></td>
-                    <td>{u.profile?.contact_number || '—'}</td>
+                    <td>{contactDisplay(u)}</td>
                     <td>
                       <div className="action-buttons">
                         <button className="btn-edit" onClick={() => openStudentEdit(u)} title="Edit Student">
@@ -588,7 +722,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                   <th>Email</th>
                   <th>Employee ID</th>
                   <th>Subject</th>
-                  <th>Section</th>
+                  <th>Assigned Section</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -625,11 +759,9 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                           <select className="inline-select" value={assignForm.section}
                             onChange={(e) => setAssignForm({ ...assignForm, section: e.target.value })}>
                             <option value="">— None —</option>
-                            {sections.map((s) => (
-                              <option key={s.id} value={s.id}>G{s.grade_level} – {s.name}</option>
-                            ))}
+                            {sections.map((s) => <option key={s.id} value={s.id}>{sectionLabel(s)}</option>)}
                           </select>
-                        ) : tp?.section ? `G${tp.section.grade_level} – ${tp.section.name}` : '—'}
+                        ) : tp?.section ? sectionLabel(tp.section) : '—'}
                       </td>
                       <td><span className={`status-badge ${u.status.toLowerCase()}`}>{u.status}</span></td>
                       <td>
