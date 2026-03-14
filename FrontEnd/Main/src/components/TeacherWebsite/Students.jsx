@@ -15,10 +15,37 @@ import { apiFetch } from "../api/apiFetch";
 
 const API = "";
 
+const getGradeSource = (obj) =>
+  obj?.grade_level ??
+  obj?.grade ??
+  obj?.grade_code ??
+  obj?.gradeLevel ??
+  obj?.grade_level_display ??
+  "";
+
 const normalizeGradeCode = (value) => {
   if (value === null || value === undefined) return "";
 
-  const v = String(value).trim().toLowerCase();
+  let v = String(value).trim().toLowerCase();
+  v = v.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+
+  if (v.startsWith("grade ")) {
+    const rest = v.slice(6).trim();
+
+    if (rest === "kinder") return "kinder";
+    if (rest === "pre-kinder" || rest === "prek" || rest === "pre kinder") return "prek";
+    if (/^\d$/.test(rest)) return `grade${rest}`;
+    if (/^grade\s*\d$/.test(rest)) return rest.replace(/\s+/g, "");
+    if (/^grade\d$/.test(rest)) return rest;
+  }
+
+  if (/^g\s*\d$/.test(v)) {
+    return `grade${v.replace(/[^\d]/g, "")}`;
+  }
+
+  if (/^grade\s*\d$/.test(v)) {
+    return v.replace(/\s+/g, "");
+  }
 
   const map = {
     "0": "kinder",
@@ -43,26 +70,10 @@ const normalizeGradeCode = (value) => {
     "grade 6": "grade6",
     prek: "prek",
     "pre-kinder": "prek",
+    "pre kinder": "prek",
   };
 
   return map[v] || "";
-};
-
-const GRADE_LABEL = (level) => {
-  const code = normalizeGradeCode(level);
-
-  const shortLabels = {
-    prek: "PK",
-    kinder: "K",
-    grade1: "G1",
-    grade2: "G2",
-    grade3: "G3",
-    grade4: "G4",
-    grade5: "G5",
-    grade6: "G6",
-  };
-
-  return shortLabels[code] || String(level || "—");
 };
 
 const GRADE_FULL_LABEL = (level) => {
@@ -79,7 +90,7 @@ const GRADE_FULL_LABEL = (level) => {
     grade6: "Grade 6",
   };
 
-  return fullLabels[code] || String(level || "—");
+  return fullLabels[code] || "—";
 };
 
 const Students = () => {
@@ -92,7 +103,6 @@ const Students = () => {
   const [expandedStudentId, setExpandedStudentId] = useState(null);
   const [schoolYear, setSchoolYear] = useState(null);
 
-  // Fetch sections on mount
   useEffect(() => {
     (async () => {
       try {
@@ -105,9 +115,12 @@ const Students = () => {
           const data = await secRes.json();
           const nextSections = Array.isArray(data) ? data : [];
           setSections(nextSections);
+
           if (nextSections.length > 0) {
             setSelectedSection(String(nextSections[0].id));
           }
+        } else {
+          setSections([]);
         }
 
         if (syRes.ok) {
@@ -116,13 +129,13 @@ const Students = () => {
         }
       } catch (e) {
         console.error("Failed to load sections:", e);
+        setSections([]);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  // Fetch students when section changes
   useEffect(() => {
     if (!selectedSection) {
       setStudents([]);
@@ -151,7 +164,6 @@ const Students = () => {
     })();
   }, [selectedSection]);
 
-  // Filter students by search term
   const filteredStudents = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return students;
@@ -168,14 +180,12 @@ const Students = () => {
     setExpandedStudentId((prev) => (prev === id ? null : id));
   };
 
-  // Get current section label
   const currentSectionName = useMemo(() => {
     const sec = sections.find((s) => String(s.id) === String(selectedSection));
     if (!sec) return "—";
-    return `${GRADE_FULL_LABEL(sec.grade_level)} - ${sec.name}`;
+    return `${GRADE_FULL_LABEL(getGradeSource(sec))} - ${sec.name}`;
   }, [sections, selectedSection]);
 
-  // Stats
   const stats = useMemo(() => {
     const male = filteredStudents.filter((s) => s.gender?.toLowerCase() === "male").length;
     const female = filteredStudents.filter(
@@ -191,7 +201,6 @@ const Students = () => {
 
   return (
     <div className="sr">
-      {/* Header */}
       <header className="sr__header">
         <div className="sr__headerLeft">
           <h2 className="sr__title">Students Roster</h2>
@@ -224,13 +233,13 @@ const Students = () => {
             disabled={loading}
           >
             {loading ? (
-              <option>Loading...</option>
+              <option value="">Loading...</option>
             ) : sections.length === 0 ? (
-              <option>No sections assigned</option>
+              <option value="">No sections assigned</option>
             ) : (
               sections.map((sec) => (
-                <option key={sec.id} value={sec.id}>
-                  {GRADE_FULL_LABEL(sec.grade_level)} - {sec.name}
+                <option key={sec.id} value={String(sec.id)}>
+                  {GRADE_FULL_LABEL(getGradeSource(sec))} - {sec.name}
                 </option>
               ))
             )}
@@ -238,7 +247,6 @@ const Students = () => {
         </div>
       </header>
 
-      {/* Stats */}
       <section className="sr__stats">
         <div className="srStat">
           <div className="srStat__icon srStat__icon--primary">
@@ -281,10 +289,8 @@ const Students = () => {
         </div>
       </section>
 
-      {/* Loading */}
       {loadingStudents && <div className="sr__loading">Loading students...</div>}
 
-      {/* Table */}
       {!loadingStudents && (
         <section className="sr__card">
           <div className="sr__tableWrap">
@@ -368,9 +374,7 @@ const Students = () => {
                                   <div className="srField">
                                     <div className="srLabel">Grade Level</div>
                                     <div className="srValue">
-                                      {student.grade_level
-                                        ? GRADE_FULL_LABEL(student.grade_level)
-                                        : "—"}
+                                      {GRADE_FULL_LABEL(getGradeSource(student))}
                                     </div>
                                   </div>
 

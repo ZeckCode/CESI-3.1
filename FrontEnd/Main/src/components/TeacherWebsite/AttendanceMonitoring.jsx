@@ -5,22 +5,100 @@ import { apiFetch } from "../api/apiFetch";
 
 const API = "";
 
+const getGradeSource = (obj) =>
+  obj?.grade_level ??
+  obj?.grade ??
+  obj?.grade_code ??
+  obj?.gradeLevel ??
+  obj?.grade_level_display ??
+  "";
+
+const normalizeGradeCode = (value) => {
+  if (value === null || value === undefined) return "";
+
+  let v = String(value).trim().toLowerCase();
+  v = v.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+
+  if (v.startsWith("grade ")) {
+    const rest = v.slice(6).trim();
+
+    if (rest === "kinder") return "kinder";
+    if (rest === "pre-kinder" || rest === "prek" || rest === "pre kinder") return "prek";
+    if (/^\d$/.test(rest)) return `grade${rest}`;
+    if (/^grade\s*\d$/.test(rest)) return rest.replace(/\s+/g, "");
+    if (/^grade\d$/.test(rest)) return rest;
+  }
+
+  if (/^g\s*\d$/.test(v)) {
+    return `grade${v.replace(/[^\d]/g, "")}`;
+  }
+
+  if (/^grade\s*\d$/.test(v)) {
+    return v.replace(/\s+/g, "");
+  }
+
+  const map = {
+    "0": "kinder",
+    "1": "grade1",
+    "2": "grade2",
+    "3": "grade3",
+    "4": "grade4",
+    "5": "grade5",
+    "6": "grade6",
+    kinder: "kinder",
+    grade1: "grade1",
+    grade2: "grade2",
+    grade3: "grade3",
+    grade4: "grade4",
+    grade5: "grade5",
+    grade6: "grade6",
+    "grade 1": "grade1",
+    "grade 2": "grade2",
+    "grade 3": "grade3",
+    "grade 4": "grade4",
+    "grade 5": "grade5",
+    "grade 6": "grade6",
+    prek: "prek",
+    "pre-kinder": "prek",
+    "pre kinder": "prek",
+  };
+
+  return map[v] || "";
+};
+
+const GRADE_FULL_LABEL = (level) => {
+  const code = normalizeGradeCode(level);
+
+  const fullLabels = {
+    prek: "Pre-Kinder",
+    kinder: "Kinder",
+    grade1: "Grade 1",
+    grade2: "Grade 2",
+    grade3: "Grade 3",
+    grade4: "Grade 4",
+    grade5: "Grade 5",
+    grade6: "Grade 6",
+  };
+
+  return fullLabels[code] || "—";
+};
+
 const AttendanceMonitoring = () => {
   // ── Filters ──
   const [sections, setSections] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [selectedSection, setSelectedSection] = useState("");
-  const [selectedSchedule, setSelectedSchedule] = useState(""); // optional per-subject
+  const [selectedSchedule, setSelectedSchedule] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
-    return today.toISOString().split("T")[0]; // YYYY-MM-DD
+    return today.toISOString().split("T")[0];
   });
 
   // ── Data ──
   const [students, setStudents] = useState([]);
-  const [attendance, setAttendance] = useState({}); // { [studentId]: status }
-  const [notes, setNotes] = useState({}); // { [studentId]: note }
-  
+  const [attendance, setAttendance] = useState({});
+  const [notes, setNotes] = useState({});
+
   // ── UI State ──
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -30,7 +108,6 @@ const AttendanceMonitoring = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyRows, setHistoryRows] = useState([]);
 
-  // ─── Fetch teacher's sections on mount ───
   useEffect(() => {
     (async () => {
       try {
@@ -38,16 +115,17 @@ const AttendanceMonitoring = () => {
           apiFetch(`${API}/api/attendance/my-sections/`),
           apiFetch(`${API}/api/classmanagement/schedules/my/`),
         ]);
-        
+
         if (sectionsRes.ok) {
           const data = await sectionsRes.json();
-          setSections(data);
-          if (data.length > 0) setSelectedSection(String(data[0].id));
+          const nextSections = Array.isArray(data) ? data : [];
+          setSections(nextSections);
+          if (nextSections.length > 0) setSelectedSection(String(nextSections[0].id));
         }
-        
+
         if (schedulesRes.ok) {
           const schedData = await schedulesRes.json();
-          setSchedules(schedData);
+          setSchedules(Array.isArray(schedData) ? schedData : []);
         }
       } catch (e) {
         console.error("Failed to load sections:", e);
@@ -55,52 +133,47 @@ const AttendanceMonitoring = () => {
     })();
   }, []);
 
-  // ─── Filter schedules by selected section ───
   const filteredSchedules = useMemo(() => {
     if (!selectedSection) return [];
     return schedules.filter((s) => String(s.section?.id || s.section) === selectedSection);
   }, [schedules, selectedSection]);
 
-  // ─── Fetch students + existing attendance when section/date/schedule changes ───
   const fetchStudentsAndAttendance = useCallback(async () => {
     if (!selectedSection) return;
-    
+
     setLoading(true);
     try {
-      // Fetch students in section
       const studentsRes = await apiFetch(
         `${API}/api/attendance/records/section_students/?section=${selectedSection}`
       );
-      
+
       if (studentsRes.ok) {
         const studentsData = await studentsRes.json();
-        setStudents(studentsData);
-        
-        // Initialize all as PRESENT by default
+        setStudents(Array.isArray(studentsData) ? studentsData : []);
+
         const initialAttendance = {};
         const initialNotes = {};
         studentsData.forEach((s) => {
           initialAttendance[s.id] = "PRESENT";
           initialNotes[s.id] = "";
         });
-        
-        // Fetch existing attendance for this date
+
         let url = `${API}/api/attendance/records/?section=${selectedSection}&date=${selectedDate}`;
         if (selectedSchedule) {
           url += `&schedule=${selectedSchedule}`;
         }
-        
+
         const attendanceRes = await apiFetch(url);
         if (attendanceRes.ok) {
           const existingRecords = await attendanceRes.json();
           existingRecords.forEach((rec) => {
-            if (initialAttendance.hasOwnProperty(rec.student)) {
+            if (Object.prototype.hasOwnProperty.call(initialAttendance, rec.student)) {
               initialAttendance[rec.student] = rec.status;
               initialNotes[rec.student] = rec.notes || "";
             }
           });
         }
-        
+
         setAttendance(initialAttendance);
         setNotes(initialNotes);
       }
@@ -150,42 +223,39 @@ const AttendanceMonitoring = () => {
     fetchHistory();
   }, [showHistory, fetchHistory]);
 
-  // ─── Update status ───
   const updateStatus = (studentId, newStatus) => {
     setAttendance((prev) => ({ ...prev, [studentId]: newStatus }));
   };
 
-  // ─── Save Attendance ───
   const handleSave = async () => {
     if (!selectedSection || students.length === 0) return;
-    
+
     setSaving(true);
     setMessage(null);
-    
+
     try {
       const records = students.map((s) => ({
         student_id: s.id,
         status: attendance[s.id] || "PRESENT",
         notes: notes[s.id] || "",
       }));
-      
+
       const body = {
-        section: parseInt(selectedSection),
+        section: parseInt(selectedSection, 10),
         date: selectedDate,
         records,
       };
-      
-      // Add schedule if per-subject attendance
+
       if (selectedSchedule) {
-        body.schedule = parseInt(selectedSchedule);
+        body.schedule = parseInt(selectedSchedule, 10);
       }
-      
+
       const res = await apiFetch(`${API}/api/attendance/records/bulk_upsert/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      
+
       if (res.ok) {
         const result = await res.json();
         setMessage({ type: "success", text: result.message || "Attendance saved successfully!" });
@@ -198,12 +268,10 @@ const AttendanceMonitoring = () => {
       setMessage({ type: "error", text: "An error occurred while saving" });
     } finally {
       setSaving(false);
-      // Clear message after 3 seconds
       setTimeout(() => setMessage(null), 3000);
     }
   };
 
-  // ─── Stats ───
   const counts = useMemo(() => {
     const values = Object.values(attendance);
     return {
@@ -215,9 +283,11 @@ const AttendanceMonitoring = () => {
     };
   }, [attendance]);
 
-  // ─── Get current section name ───
   const currentSection = sections.find((s) => String(s.id) === selectedSection);
   const currentSchedule = schedules.find((s) => String(s.id) === selectedSchedule);
+  const currentSectionLabel = currentSection
+    ? `${GRADE_FULL_LABEL(getGradeSource(currentSection))} - ${currentSection.name}`
+    : "";
   const isTodaySelected = selectedDate === new Date().toISOString().split("T")[0];
 
   const openHistoryEdit = (date) => {
@@ -322,12 +392,11 @@ const AttendanceMonitoring = () => {
 
   return (
     <div className="am">
-      {/* ════ Header ════ */}
       <header className="am__header">
         <div className="am__headerLeft">
           <h2 className="am__title">Attendance Monitoring</h2>
           <p className="am__subtitle">
-            {currentSection && <span className="am__sectionTag">{currentSection.name}</span>}
+            {currentSection && <span className="am__sectionTag">{currentSectionLabel}</span>}
             {currentSchedule && (
               <>
                 {" · "}
@@ -349,7 +418,6 @@ const AttendanceMonitoring = () => {
         </div>
 
         <div className="am__headerRight">
-          {/* Date Picker */}
           <div className="am__dateWrap">
             <Calendar size={16} className="am__dateIcon" />
             <input
@@ -360,24 +428,22 @@ const AttendanceMonitoring = () => {
             />
           </div>
 
-          {/* Section Select */}
           <select
             className="am__select"
             value={selectedSection}
             onChange={(e) => {
               setSelectedSection(e.target.value);
-              setSelectedSchedule(""); // Reset schedule when section changes
+              setSelectedSchedule("");
             }}
           >
             <option value="">Select Section</option>
             {sections.map((sec) => (
               <option key={sec.id} value={sec.id}>
-                {sec.name}
+                {GRADE_FULL_LABEL(getGradeSource(sec))} - {sec.name}
               </option>
             ))}
           </select>
 
-          {/* Schedule (Subject) Select - Optional */}
           {filteredSchedules.length > 0 && (
             <select
               className="am__select am__select--schedule"
@@ -393,7 +459,6 @@ const AttendanceMonitoring = () => {
             </select>
           )}
 
-          {/* Save Button */}
           <button
             className="am__saveBtn am__saveBtn--ghost"
             type="button"
@@ -416,7 +481,6 @@ const AttendanceMonitoring = () => {
         </div>
       </header>
 
-      {/* ════ Message ════ */}
       {message && (
         <div className={`am__message am__message--${message.type}`}>
           {message.type === "success" ? <CheckCircle size={18} /> : <XCircle size={18} />}
@@ -424,7 +488,6 @@ const AttendanceMonitoring = () => {
         </div>
       )}
 
-      {/* ════ Stats ════ */}
       <section className="am__stats">
         <div className="stat stat--total">
           <div className="stat__icon"><Users size={20} /></div>
@@ -523,7 +586,6 @@ const AttendanceMonitoring = () => {
         </div>
       )}
 
-      {/* ════ Table ════ */}
       {!showEditModal && attendanceTable}
 
       {showEditModal && (

@@ -17,7 +17,7 @@ const DAY_MAP = {
 const DAYS_ORDER = ["MON", "TUE", "WED", "THU", "FRI"];
 const TIME_SLOTS = [
   "07:00", "08:00", "09:00", "10:00", "11:00", "12:00",
-  "13:00", "14:00", "15:00", "16:00", "17:00"
+  "13:00", "14:00", "15:00", "16:00", "17:00",
 ];
 
 // Color palette for subjects
@@ -26,24 +26,109 @@ const SUBJECT_COLORS = [
   "#cffafe", "#f3e8ff", "#fef9c3", "#dcfce7", "#ffe4e6",
 ];
 
+const getGradeSource = (obj) =>
+  obj?.grade_level ??
+  obj?.grade ??
+  obj?.grade_code ??
+  obj?.gradeLevel ??
+  obj?.grade_level_display ??
+  "";
+
+const normalizeGradeCode = (value) => {
+  if (value === null || value === undefined) return "";
+
+  let v = String(value).trim().toLowerCase();
+  v = v.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+
+  if (v.startsWith("grade ")) {
+    const rest = v.slice(6).trim();
+
+    if (rest === "kinder") return "kinder";
+    if (rest === "pre-kinder" || rest === "prek" || rest === "pre kinder") return "prek";
+    if (/^\d$/.test(rest)) return `grade${rest}`;
+    if (/^grade\s*\d$/.test(rest)) return rest.replace(/\s+/g, "");
+    if (/^grade\d$/.test(rest)) return rest;
+  }
+
+  if (/^g\s*\d$/.test(v)) {
+    return `grade${v.replace(/[^\d]/g, "")}`;
+  }
+
+  if (/^grade\s*\d$/.test(v)) {
+    return v.replace(/\s+/g, "");
+  }
+
+  const map = {
+    "0": "kinder",
+    "1": "grade1",
+    "2": "grade2",
+    "3": "grade3",
+    "4": "grade4",
+    "5": "grade5",
+    "6": "grade6",
+    kinder: "kinder",
+    grade1: "grade1",
+    grade2: "grade2",
+    grade3: "grade3",
+    grade4: "grade4",
+    grade5: "grade5",
+    grade6: "grade6",
+    "grade 1": "grade1",
+    "grade 2": "grade2",
+    "grade 3": "grade3",
+    "grade 4": "grade4",
+    "grade 5": "grade5",
+    "grade 6": "grade6",
+    prek: "prek",
+    "pre-kinder": "prek",
+    "pre kinder": "prek",
+  };
+
+  return map[v] || "";
+};
+
+const GRADE_FULL_LABEL = (level) => {
+  const code = normalizeGradeCode(level);
+
+  const fullLabels = {
+    prek: "Pre-Kinder",
+    kinder: "Kinder",
+    grade1: "Grade 1",
+    grade2: "Grade 2",
+    grade3: "Grade 3",
+    grade4: "Grade 4",
+    grade5: "Grade 5",
+    grade6: "Grade 6",
+  };
+
+  return fullLabels[code] || "—";
+};
+
 const TeacherClassSchedule = () => {
   const [viewMode, setViewMode] = useState("table");
   const [schedules, setSchedules] = useState([]);
+  const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [schoolYear, setSchoolYear] = useState(null);
 
-  // Fetch schedules on mount
+  // Fetch schedules + sections on mount
   useEffect(() => {
     (async () => {
       try {
-        const [schedRes, syRes] = await Promise.all([
+        const [schedRes, secRes, syRes] = await Promise.all([
           apiFetch(`${API}/api/classmanagement/schedules/my/`),
+          apiFetch(`${API}/api/attendance/my-sections/`),
           apiFetch(`${API}/api/classmanagement/school-years/active/`),
         ]);
 
         if (schedRes.ok) {
           const data = await schedRes.json();
-          setSchedules(data);
+          setSchedules(Array.isArray(data) ? data : []);
+        }
+
+        if (secRes.ok) {
+          const secData = await secRes.json();
+          setSections(Array.isArray(secData) ? secData : []);
         }
 
         if (syRes.ok) {
@@ -58,10 +143,18 @@ const TeacherClassSchedule = () => {
     })();
   }, []);
 
+  const sectionMap = useMemo(() => {
+    const map = {};
+    sections.forEach((sec) => {
+      map[String(sec.id)] = sec;
+    });
+    return map;
+  }, [sections]);
+
   // Assign colors to subjects
   const subjectColorMap = useMemo(() => {
     const map = {};
-    const uniqueSubjects = [...new Set(schedules.map(s => s.subject))];
+    const uniqueSubjects = [...new Set(schedules.map((s) => s.subject))];
     uniqueSubjects.forEach((subj, idx) => {
       map[subj] = SUBJECT_COLORS[idx % SUBJECT_COLORS.length];
     });
@@ -70,7 +163,7 @@ const TeacherClassSchedule = () => {
 
   // Stats
   const stats = useMemo(() => {
-    const uniqueSections = new Set(schedules.map(s => s.section));
+    const uniqueSections = new Set(schedules.map((s) => s.section));
     const totalHours = schedules.reduce((sum, s) => {
       if (s.start_time && s.end_time) {
         const [sh, sm] = s.start_time.split(":").map(Number);
@@ -87,35 +180,57 @@ const TeacherClassSchedule = () => {
     };
   }, [schedules]);
 
-  // Format time for display
   const formatTime = (time) => {
     if (!time) return "";
     const [h, m] = time.split(":");
-    const hour = parseInt(h);
+    const hour = parseInt(h, 10);
     const ampm = hour >= 12 ? "PM" : "AM";
     const hour12 = hour % 12 || 12;
     return `${hour12}:${m} ${ampm}`;
   };
 
-  // Get class for a time slot and day (checks if class overlaps this hour)
+  const getSectionDetails = (sched) => {
+    const sectionId = String(sched.section?.id ?? sched.section ?? "");
+    const fromSectionList = sectionMap[sectionId];
+
+    const sectionName =
+      fromSectionList?.name ||
+      sched.section_name ||
+      sched.section?.name ||
+      "—";
+
+    const gradeValue =
+      getGradeSource(fromSectionList) ||
+      getGradeSource(sched.section) ||
+      getGradeSource(sched);
+
+    return {
+      sectionName,
+      gradeLabel: GRADE_FULL_LABEL(gradeValue),
+    };
+  };
+
+  const sectionLabel = (sched) => {
+    const { sectionName, gradeLabel } = getSectionDetails(sched);
+    return `${gradeLabel} - ${sectionName}`;
+  };
+
   const getClassForSlot = (day, timeSlot) => {
-    const slotHour = parseInt(timeSlot.split(":")[0]);
-    
+    const slotHour = parseInt(timeSlot.split(":")[0], 10);
+
     return schedules.find((s) => {
       if (s.day_of_week !== day) return false;
       if (!s.start_time) return false;
-      
-      const startHour = parseInt(s.start_time.split(":")[0]);
-      const endHour = s.end_time ? parseInt(s.end_time.split(":")[0]) : startHour + 1;
-      
-      // Check if this slot is within the class time range
+
+      const startHour = parseInt(s.start_time.split(":")[0], 10);
+      const endHour = s.end_time ? parseInt(s.end_time.split(":")[0], 10) : startHour + 1;
+
       return slotHour >= startHour && slotHour < endHour;
     });
   };
 
   return (
     <div className="tcs">
-      {/* Header */}
       <header className="tcs__header">
         <div className="tcs__headerLeft">
           <h2 className="tcs__title">Class Schedule</h2>
@@ -147,7 +262,6 @@ const TeacherClassSchedule = () => {
         </div>
       </header>
 
-      {/* Stats */}
       <section className="tcs__stats">
         <div className="tcsStat">
           <div className="tcsStat__icon tcsStat__icon--primary">
@@ -180,12 +294,8 @@ const TeacherClassSchedule = () => {
         </div>
       </section>
 
-      {/* Loading */}
-      {loading && (
-        <div className="tcs__loading">Loading schedule...</div>
-      )}
+      {loading && <div className="tcs__loading">Loading schedule...</div>}
 
-      {/* Table View */}
       {!loading && viewMode === "table" && (
         <section className="tcsBlock">
           <div className="tcsTableWrap">
@@ -223,7 +333,7 @@ const TeacherClassSchedule = () => {
                           )}
                         </td>
                         <td className="tcsTd">
-                          <span className="tcsPill">{sched.section_name}</span>
+                          <span className="tcsPill">{sectionLabel(sched)}</span>
                         </td>
                         <td className="tcsTd">
                           <span className="tcsDay">{DAY_MAP[sched.day_of_week]?.full || sched.day_of_week}</span>
@@ -246,7 +356,6 @@ const TeacherClassSchedule = () => {
         </section>
       )}
 
-      {/* Calendar/Timeline View */}
       {!loading && viewMode === "calendar" && (
         <section className="tcsBlock">
           <div className="tcsTableWrap">
@@ -278,7 +387,7 @@ const TeacherClassSchedule = () => {
                                 {sched.subject_name}
                               </div>
                               <div className="calBlock__meta">
-                                {sched.section_name}
+                                {sectionLabel(sched)}
                               </div>
                               <div className="calBlock__meta">
                                 {sched.room_code || "TBA"}
