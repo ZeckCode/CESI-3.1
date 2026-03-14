@@ -34,7 +34,9 @@ class SectionSerializer(serializers.ModelSerializer):
     capacity = serializers.IntegerField(required=False)
     room_code = serializers.CharField(source="room.code", read_only=True, allow_null=True)
     room_name = serializers.CharField(source="room.name", read_only=True, allow_null=True)
-
+    
+    
+    
     class Meta:
         model = Section
         fields = [
