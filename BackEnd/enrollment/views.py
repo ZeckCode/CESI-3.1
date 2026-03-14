@@ -159,9 +159,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         if changed:
             profile.save()
 
-    def perform_update(self, serializer):
-        enrollment = serializer.save()
-        self._sync_enrollment_to_profile(enrollment)
+  
 
     def _get_parent_names_from_enrollment(self, enrollment):
         parent_info = getattr(enrollment, "parent_info", None)
@@ -333,7 +331,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             create_if_missing=False,
             uploaded_id_image=uploaded_id_image,
         )
-
+        self._sync_enrollment_to_profile(enrollment)
     # ------------------- Custom Actions -------------------
 
     @action(detail=False, methods=["get"])
@@ -513,7 +511,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             update_fields = ["status", "remarks", "updated_at", "student_number"]
             if uploaded_id_image:
                     update_fields.append("id_image")
-            if section_id:
+            if enrollment.section is not None:
                 update_fields.append("section")
 
             enrollment.save(update_fields=update_fields)
