@@ -410,7 +410,10 @@ def section_performance(request):
         raw_subj = request.query_params.get("subject")
         if not raw_subj:
             return Response({"detail": "subject param required for admin"}, status=400)
-        subject_id = int(raw_subj)
+        try:
+            subject_id = int(raw_subj)
+        except (ValueError, TypeError):
+            return Response({"detail": "Invalid subject id"}, status=400)
 
     # Quarter date range
     from datetime import date as date_class
@@ -445,8 +448,11 @@ def section_performance(request):
         students_map[stu.id] = name or stu.username
 
     # Fallback: profile-linked students not in enrollment
-    for p in UserProfile.objects.filter(section_id=section_id, user__role="PARENT_STUDENT"
-                                        ).select_related("user"):
+    for p in UserProfile.objects.filter(
+        section_id=section_id,
+        user__role="PARENT_STUDENT",
+        user__status="ACTIVE",
+    ).select_related("user"):
         if p.user_id not in students_map:
             students_map[p.user_id] = " ".join(
                 pt for pt in [p.student_first_name or "", p.student_last_name or ""] if pt
