@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import "../TeacherWebsiteCSS/Dashboard.css";
 import { apiFetch } from "../api/apiFetch";
 
-const API_BASE = "http://127.0.0.1:8000"; // only needed if file/file_url returns /media/...
+const API_BASE = ""; // only needed if file/file_url returns /media/...
 
 function toAbsUrl(path) {
   if (!path) return null;
@@ -211,77 +211,148 @@ function TeacherAnnouncementDetailModal({ a, onClose }) {
 }
 
 
+// ── Helpers ──────────────────────
+const FMT_TIME = (t) => {
+  if (!t) return "";
+  const parts = t.split(":");
+  const h = parseInt(parts[0], 10);
+  const m = parts[1] || "00";
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hr = ((h - 1 + 12) % 12) + 1;
+  return `${hr}:${m} ${ampm}`;
+};
+
+const GRADE_LBL = (level) =>
+  level === 0 || level === "0" ? "K" : `G${level}`;
+
+const TODAY_CODE = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][
+  new Date().getDay()
+];
+
+// ── Teacher Dashboard ─────────────
 const Dashboard = () => {
+  const [teacherInfo, setTeacherInfo] = useState(null);
+  const [sections, setSections] = useState([]);
+  const [schedule, setSchedule] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [meRes, secRes, schRes] = await Promise.all([
+          apiFetch("/api/accounts/me/detail/"),
+          apiFetch("/api/grades/my-sections/"),
+          apiFetch("/api/classmanagement/schedules/my/"),
+        ]);
+        if (meRes.ok) setTeacherInfo(await meRes.json());
+        if (secRes.ok) {
+          const s = await secRes.json();
+          setSections(Array.isArray(s) ? s : []);
+        }
+        if (schRes.ok) {
+          const s = await schRes.json();
+          setSchedule(Array.isArray(s) ? s : []);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const todaySchedule = useMemo(
+    () => schedule.filter((s) => s.day_of_week === TODAY_CODE),
+    [schedule]
+  );
+
+  const subjectName =
+    teacherInfo?.teacher_profile?.subject?.name || "No subject assigned";
+  const teacherName = teacherInfo?.username || "Teacher";
+
   return (
     <div className="dash">
       <header className="dash__header">
-        <h2 className="dash__title">Dashboard</h2>
+        <div>
+          <h2 className="dash__title">Dashboard</h2>
+          <p className="dash__welcome">
+            Welcome back, <strong>{teacherName}</strong>
+          </p>
+        </div>
       </header>
 
+      {/* Stats Row */}
+      <div className="dash__statsRow">
+        <div className="dashStat dashStat--blue">
+          <span className="dashStat__icon" aria-hidden="true">🏫</span>
+          <div>
+            <div className="dashStat__label">SECTIONS</div>
+            <div className="dashStat__value">{loading ? "—" : sections.length}</div>
+          </div>
+        </div>
+
+        <div className="dashStat dashStat--success">
+          <span className="dashStat__icon" aria-hidden="true">📚</span>
+          <div>
+            <div className="dashStat__label">SUBJECT</div>
+            <div className="dashStat__value dashStat__value--sm">
+              {loading ? "—" : subjectName}
+            </div>
+          </div>
+        </div>
+
+        <div className="dashStat dashStat--warn">
+          <span className="dashStat__icon" aria-hidden="true">📅</span>
+          <div>
+            <div className="dashStat__label">TODAY'S CLASSES</div>
+            <div className="dashStat__value">
+              {loading ? "—" : todaySchedule.length}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main grid: today's schedule + announcements */}
       <div className="dash__grid">
-        {/* Notifications */}
+        {/* Today's Schedule */}
         <section className="card">
           <div className="card__header card__header--blue">
             <h6 className="card__headerTitle">
-              <span className="icon icon--header" aria-hidden="true">🔔</span>
-              Notifications
+              <span className="icon icon--header" aria-hidden="true">📅</span>
+              Today's Schedule
             </h6>
           </div>
 
           <div className="card__body card__body--flush">
-            <div className="list">
-              {/* Notification 1 */}
-              <button className="list__item" type="button">
-                <div className="list__row">
-                  <div className="list__left">
-                    <div className="iconBox iconBox--blue" aria-hidden="true">📘</div>
-                    <div>
-                      <div className="list__title">Encoding of Grades</div>
-                      <div className="list__meta">
-                        Submission of Grades due at January 1, 2025
+            {loading ? (
+              <div className="list__staticItem">Loading schedule…</div>
+            ) : todaySchedule.length === 0 ? (
+              <div className="list__staticItem">No classes scheduled today.</div>
+            ) : (
+              <div className="list">
+                {todaySchedule.map((s) => (
+                  <div className="list__item" key={s.id} style={{ cursor: "default" }}>
+                    <div className="list__row">
+                      <div className="list__left">
+                        <div className="iconBox iconBox--blue" aria-hidden="true">
+                          📘
+                        </div>
+                        <div>
+                          <div className="list__title">{s.subject_name}</div>
+                          <div className="list__meta">
+                            {GRADE_LBL(s.grade_level)} – {s.section_name}
+                            {s.room_code ? ` · Room ${s.room_code}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="list__time list__time--primary">
+                        {FMT_TIME(s.start_time)} – {FMT_TIME(s.end_time)}
                       </div>
                     </div>
                   </div>
-                  <div className="list__time list__time--primary">10:00 AM</div>
-                </div>
-              </button>
-
-              {/* Notification 2 */}
-              <button className="list__item" type="button">
-                <div className="list__row">
-                  <div className="list__left">
-                    <div className="iconBox iconBox--warn" aria-hidden="true">⚠️</div>
-                    <div>
-                      <div className="list__title">Library Notice</div>
-                      <div className="list__meta">
-                        The library will close early at 3:00 PM today.
-                      </div>
-                    </div>
-                  </div>
-                  <div className="list__time">10:30 AM</div>
-                </div>
-              </button>
-
-              {/* Notification 3 */}
-              <button className="list__item" type="button">
-                <div className="list__row">
-                  <div className="list__left">
-                    <div className="iconBox iconBox--success" aria-hidden="true">✅</div>
-                    <div>
-                      <div className="list__title">CESI Portal Updated</div>
-                      <div className="list__meta">
-                        <span className="bold">CESI Portal</span> is now available. Thank you for waiting.
-                      </div>
-                    </div>
-                  </div>
-                  <div className="list__time">Yesterday</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div className="card__footer">
-            <a className="link link--primary" href="#">View All Notifications</a>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -293,7 +364,6 @@ const Dashboard = () => {
               Announcements
             </h6>
           </div>
-
           <TeacherAnnouncementsPanel />
         </section>
       </div>
@@ -306,25 +376,22 @@ const Dashboard = () => {
             ABOUT CESI
           </h6>
         </div>
-
         <div className="card__body">
           <div className="media">
             <div className="media__imgWrap">
               <img className="media__img" src="/port.png" alt="CESI Portal" />
             </div>
-
             <div className="media__content">
               <h5 className="media__title">What is CESI Portal</h5>
               <p className="media__text">
-                The CESI Portal is your all-in-one academic command center. Designed for efficiency and transparency,
-                it allows students to seamlessly manage their educational journey. From monitoring real-time
-                academic performance to tracking attendance and daily schedules, everything you need is organized
-                into a single, user-friendly digital hub.
+                The CESI Portal is your all-in-one academic command center. Designed for
+                efficiency and transparency, it allows teachers to seamlessly manage grades,
+                attendance, and student performance. Everything you need is organized into a
+                single, user-friendly digital hub.
               </p>
-
               <div className="chips">
                 <span className="chip">💻 Real-time Data</span>
-                <span className="chip">🫶 Student-First</span>
+                <span className="chip">🏫 Class Management</span>
                 <span className="chip">🛡️ Secure Access</span>
                 <span className="chip">📱 Mobile Ready</span>
                 <span className="chip">🕒 24/7 Availability</span>
@@ -342,17 +409,16 @@ const Dashboard = () => {
             Back to School
           </h6>
         </div>
-
         <div className="card__body">
           <div className="media">
             <div className="media__imgWrap">
               <img className="media__img" src="/bsch.jpg" alt="Back to School" />
             </div>
-
             <div className="media__content">
               <h5 className="media__title media__title--plain">Back to School</h5>
               <p className="media__text">
-                Welcome back Students! Get ready for exciting events, schedules, and enjoy your school days!
+                Welcome back! Get ready for another enriching year of teaching, guiding,
+                and inspiring your students.
               </p>
             </div>
           </div>

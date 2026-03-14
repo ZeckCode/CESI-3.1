@@ -264,6 +264,65 @@
   line-height: 1.6;
 }
 
+/* Welcome subtitle */
+.dash__welcome{
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Stats Row */
+.dash__statsRow{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 700px){
+  .dash__statsRow{ grid-template-columns: 1fr; }
+}
+
+.dashStat{
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.dashStat--blue  { border-left: 5px solid var(--blue); }
+.dashStat--success{ border-left: 5px solid var(--success); }
+.dashStat--warn  { border-left: 5px solid var(--warn); }
+
+.dashStat__icon{
+  font-size: 24px;
+  flex: 0 0 auto;
+}
+
+.dashStat__label{
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.dashStat__value{
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.dashStat__value--sm{
+  font-size: 15px;
+  font-weight: 800;
+}
+
 /* Chips */
 .chips{
   display: flex;

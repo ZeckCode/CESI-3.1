@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Save, Users, Calendar, CheckCircle, XCircle, Clock, BookOpen } from "lucide-react";
+import { Save, Users, Calendar, CheckCircle, XCircle, Clock, BookOpen, History } from "lucide-react";
 import "../TeacherWebsiteCSS/AttendanceMonitoring.css";
 import { apiFetch } from "../api/apiFetch";
 
@@ -25,6 +25,10 @@ const AttendanceMonitoring = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRows, setHistoryRows] = useState([]);
 
   // ─── Fetch teacher's sections on mount ───
   useEffect(() => {
@@ -111,6 +115,41 @@ const AttendanceMonitoring = () => {
     fetchStudentsAndAttendance();
   }, [fetchStudentsAndAttendance]);
 
+  useEffect(() => {
+    if (!selectedSection) {
+      setShowEditModal(false);
+    }
+  }, [selectedSection]);
+
+  const fetchHistory = useCallback(async () => {
+    if (!selectedSection) {
+      setHistoryRows([]);
+      return;
+    }
+    setHistoryLoading(true);
+    try {
+      let url = `${API}/api/attendance/records/history/?section=${selectedSection}`;
+      if (selectedSchedule) url += `&schedule=${selectedSchedule}`;
+      const res = await apiFetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setHistoryRows(Array.isArray(data) ? data : []);
+      } else {
+        setHistoryRows([]);
+      }
+    } catch (e) {
+      console.error("Failed to load attendance history:", e);
+      setHistoryRows([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [selectedSection, selectedSchedule]);
+
+  useEffect(() => {
+    if (!showHistory) return;
+    fetchHistory();
+  }, [showHistory, fetchHistory]);
+
   // ─── Update status ───
   const updateStatus = (studentId, newStatus) => {
     setAttendance((prev) => ({ ...prev, [studentId]: newStatus }));
@@ -150,6 +189,7 @@ const AttendanceMonitoring = () => {
       if (res.ok) {
         const result = await res.json();
         setMessage({ type: "success", text: result.message || "Attendance saved successfully!" });
+        if (showHistory) fetchHistory();
       } else {
         setMessage({ type: "error", text: "Failed to save attendance" });
       }
@@ -170,6 +210,7 @@ const AttendanceMonitoring = () => {
       present: values.filter((s) => s === "PRESENT").length,
       absent: values.filter((s) => s === "ABSENT").length,
       late: values.filter((s) => s === "LATE").length,
+      excused: values.filter((s) => s === "EXCUSED").length,
       total: values.length,
     };
   }, [attendance]);
@@ -177,6 +218,107 @@ const AttendanceMonitoring = () => {
   // ─── Get current section name ───
   const currentSection = sections.find((s) => String(s.id) === selectedSection);
   const currentSchedule = schedules.find((s) => String(s.id) === selectedSchedule);
+  const isTodaySelected = selectedDate === new Date().toISOString().split("T")[0];
+
+  const openHistoryEdit = (date) => {
+    setSelectedDate(date);
+    setShowHistory(false);
+    setShowEditModal(true);
+  };
+
+  const attendanceTable = (
+    <section className="am__card">
+      {loading ? (
+        <div className="am__loading">Loading students...</div>
+      ) : (
+        <div className="am__tableWrap">
+          <table className="am__table">
+            <thead>
+              <tr>
+                <th className="am__th am__th--left">#</th>
+                <th className="am__th am__th--left">Student Name</th>
+                <th className="am__th">Status</th>
+                <th className="am__th">Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {students.length === 0 ? (
+                <tr>
+                  <td className="am__td am__empty" colSpan={4}>
+                    {selectedSection ? "No students enrolled in this section." : "Please select a section."}
+                  </td>
+                </tr>
+              ) : (
+                students.map((student, idx) => (
+                  <tr className="am__tr" key={student.id}>
+                    <td className="am__td am__td--left am__td--num">{idx + 1}</td>
+                    <td className="am__td am__td--left">
+                      <div className="am__name">{student.name}</div>
+                      <div className="am__id">{student.username}</div>
+                    </td>
+
+                    <td className="am__td">
+                      <span
+                        className={`am__badge am__badge--${attendance[student.id]?.toLowerCase()}`}
+                      >
+                        {attendance[student.id]}
+                      </span>
+                    </td>
+
+                    <td className="am__td">
+                      <div className="am__toggle">
+                        <button
+                          type="button"
+                          onClick={() => updateStatus(student.id, "PRESENT")}
+                          className={`am__toggleBtn ${
+                            attendance[student.id] === "PRESENT" ? "am__toggleBtn--present" : "am__toggleBtn--idle"
+                          }`}
+                          title="Present"
+                        >
+                          P
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateStatus(student.id, "ABSENT")}
+                          className={`am__toggleBtn ${
+                            attendance[student.id] === "ABSENT" ? "am__toggleBtn--absent" : "am__toggleBtn--idle"
+                          }`}
+                          title="Absent"
+                        >
+                          A
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateStatus(student.id, "LATE")}
+                          className={`am__toggleBtn ${
+                            attendance[student.id] === "LATE" ? "am__toggleBtn--late" : "am__toggleBtn--idle"
+                          }`}
+                          title="Late"
+                        >
+                          L
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateStatus(student.id, "EXCUSED")}
+                          className={`am__toggleBtn ${
+                            attendance[student.id] === "EXCUSED" ? "am__toggleBtn--excused" : "am__toggleBtn--idle"
+                          }`}
+                          title="Excused"
+                        >
+                          E
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
 
   return (
     <div className="am">
@@ -192,6 +334,14 @@ const AttendanceMonitoring = () => {
                 <span className="am__scheduleTag">
                   <BookOpen size={14} style={{ marginRight: 4, verticalAlign: "middle" }} />
                   {currentSchedule.subject?.name || currentSchedule.subject_name}
+                </span>
+              </>
+            )}
+            {selectedSection && (
+              <>
+                {" · "}
+                <span className="am__dateTag">
+                  Editing: {selectedDate}{isTodaySelected ? " (Today)" : ""}
                 </span>
               </>
             )}
@@ -245,6 +395,16 @@ const AttendanceMonitoring = () => {
 
           {/* Save Button */}
           <button
+            className="am__saveBtn am__saveBtn--ghost"
+            type="button"
+            onClick={() => setShowHistory((prev) => !prev)}
+            disabled={!selectedSection}
+          >
+            <History size={16} />
+            {showHistory ? "Hide History" : "History"}
+          </button>
+
+          <button
             className="am__saveBtn"
             type="button"
             onClick={handleSave}
@@ -297,90 +457,99 @@ const AttendanceMonitoring = () => {
             <div className="stat__value stat__value--warn">{counts.late}</div>
           </div>
         </div>
+
+        <div className="stat stat--excused">
+          <div className="stat__icon"><Clock size={20} /></div>
+          <div className="stat__content">
+            <div className="stat__label">EXCUSED</div>
+            <div className="stat__value stat__value--warn">{counts.excused}</div>
+          </div>
+        </div>
       </section>
+
+      {showHistory && (
+        <div className="am__modalOverlay" onClick={() => setShowHistory(false)}>
+          <section className="am__card am__historyCard am__historyModal" onClick={(e) => e.stopPropagation()}>
+            <div className="am__historyHeader">
+              <h3>Attendance History</h3>
+              <div className="am__historyHeaderActions">
+                <span className="am__historyHint">Click a date to load and edit its attendance records.</span>
+                <button type="button" className="am__closeBtn" onClick={() => setShowHistory(false)}>Close</button>
+              </div>
+            </div>
+            {historyLoading ? (
+              <div className="am__loading">Loading history...</div>
+            ) : historyRows.length === 0 ? (
+              <div className="am__loading">No saved records yet for this filter.</div>
+            ) : (
+              <div className="am__tableWrap am__tableWrap--history">
+                <table className="am__table">
+                  <thead>
+                    <tr>
+                      <th className="am__th am__th--left">Date</th>
+                      <th className="am__th">Present</th>
+                      <th className="am__th">Absent</th>
+                      <th className="am__th">Late</th>
+                      <th className="am__th">Excused</th>
+                      <th className="am__th">Total</th>
+                      <th className="am__th">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyRows.map((row) => (
+                      <tr key={row.date} className="am__tr">
+                        <td className="am__td am__td--left">{row.date}</td>
+                        <td className="am__td">{row.present}</td>
+                        <td className="am__td">{row.absent}</td>
+                        <td className="am__td">{row.late}</td>
+                        <td className="am__td">{row.excused || 0}</td>
+                        <td className="am__td">{row.total}</td>
+                        <td className="am__td">
+                          <button
+                            type="button"
+                            className="am__toggleBtn am__toggleBtn--idle"
+                            onClick={() => openHistoryEdit(row.date)}
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
 
       {/* ════ Table ════ */}
-      <section className="am__card">
-        {loading ? (
-          <div className="am__loading">Loading students...</div>
-        ) : (
-          <div className="am__tableWrap">
-            <table className="am__table">
-              <thead>
-                <tr>
-                  <th className="am__th am__th--left">#</th>
-                  <th className="am__th am__th--left">Student Name</th>
-                  <th className="am__th">Status</th>
-                  <th className="am__th">Action</th>
-                </tr>
-              </thead>
+      {!showEditModal && attendanceTable}
 
-              <tbody>
-                {students.length === 0 ? (
-                  <tr>
-                    <td className="am__td am__empty" colSpan={4}>
-                      {selectedSection ? "No students enrolled in this section." : "Please select a section."}
-                    </td>
-                  </tr>
-                ) : (
-                  students.map((student, idx) => (
-                    <tr className="am__tr" key={student.id}>
-                      <td className="am__td am__td--left am__td--num">{idx + 1}</td>
-                      <td className="am__td am__td--left">
-                        <div className="am__name">{student.name}</div>
-                        <div className="am__id">{student.username}</div>
-                      </td>
-
-                      <td className="am__td">
-                        <span
-                          className={`am__badge am__badge--${attendance[student.id]?.toLowerCase()}`}
-                        >
-                          {attendance[student.id]}
-                        </span>
-                      </td>
-
-                      <td className="am__td">
-                        <div className="am__toggle">
-                          <button
-                            type="button"
-                            onClick={() => updateStatus(student.id, "PRESENT")}
-                            className={`am__toggleBtn ${
-                              attendance[student.id] === "PRESENT" ? "am__toggleBtn--present" : "am__toggleBtn--idle"
-                            }`}
-                            title="Present"
-                          >
-                            P
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateStatus(student.id, "ABSENT")}
-                            className={`am__toggleBtn ${
-                              attendance[student.id] === "ABSENT" ? "am__toggleBtn--absent" : "am__toggleBtn--idle"
-                            }`}
-                            title="Absent"
-                          >
-                            A
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateStatus(student.id, "LATE")}
-                            className={`am__toggleBtn ${
-                              attendance[student.id] === "LATE" ? "am__toggleBtn--late" : "am__toggleBtn--idle"
-                            }`}
-                            title="Late"
-                          >
-                            L
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      {showEditModal && (
+        <div className="am__modalOverlay" onClick={() => setShowEditModal(false)}>
+          <section className="am__card am__historyModal am__editModal" onClick={(e) => e.stopPropagation()}>
+            <div className="am__historyHeader">
+              <h3>Edit Attendance: {selectedDate}</h3>
+              <div className="am__historyHeaderActions">
+                <button
+                  type="button"
+                  className="am__saveBtn"
+                  onClick={handleSave}
+                  disabled={saving || !selectedSection || students.length === 0}
+                >
+                  <Save size={16} />
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+                <button type="button" className="am__closeBtn" onClick={() => setShowEditModal(false)}>
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="am__editBody">{attendanceTable}</div>
+          </section>
+        </div>
+      )}
     </div>
   );
 };

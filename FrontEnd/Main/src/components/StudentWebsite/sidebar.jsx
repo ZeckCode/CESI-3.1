@@ -5,6 +5,7 @@ import {
   UserCircle,
   BookOpenText,
   GraduationCap,
+  History,
   CalendarDays,
   ClipboardCheck,
   MessageSquare,
@@ -53,6 +54,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
         items: [
           { id: "profile", label: "Student Info", icon: UserCircle },
           { id: "grades", label: "Grades", icon: GraduationCap },
+          { id: "academic-history", label: "Academic History", icon: History },
           { id: "attendance", label: "Attendance", icon: ClipboardCheck },
           { id: "schedule", label: "Schedule", icon: CalendarDays },
         ],

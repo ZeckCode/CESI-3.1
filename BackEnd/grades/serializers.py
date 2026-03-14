@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import GradeWeight, GradeItem, StudentScore, ClassStanding
+from .models import GradeWeight, GradeItem, StudentScore, ClassStanding, AcademicRecord
 from accounts.models import Subject
 
 
@@ -75,4 +75,39 @@ class StudentListSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     username = serializers.CharField()
     student_name = serializers.CharField()
-    grade_level = serializers.IntegerField()
+    grade_level = serializers.SerializerMethodField()
+
+    def get_grade_level(self, obj):
+        value = obj.get("grade_level") if isinstance(obj, dict) else getattr(obj, "grade_level", None)
+        if value is None:
+            return ""
+
+        value = str(value).strip().lower()
+
+        if value.startswith("grade"):
+            num = value.replace("grade", "")
+            return f"Grade {num}" if num.isdigit() else value
+
+        return f"Grade {value}" if value.isdigit() else value
+
+
+# ─── Academic Record (historical) ───
+class AcademicRecordSerializer(serializers.ModelSerializer):
+    recorded_by_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = AcademicRecord
+        fields = [
+            "id", "student", "school_year", "grade_level", "section_name",
+            "subject_name", "subject_code",
+            "q1", "q2", "q3", "q4", "final_grade",
+            "remarks", "teacher_name",
+            "recorded_by", "recorded_by_name",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["recorded_by", "created_at", "updated_at"]
+
+    def get_recorded_by_name(self, obj):
+        if not obj.recorded_by:
+            return None
+        return getattr(obj.recorded_by, "username", None) or str(obj.recorded_by_id)

@@ -79,9 +79,9 @@ const Students = () => {
     if (!term) return students;
 
     return students.filter((s) => {
-      const fullName = `${s.user?.first_name || ""} ${s.user?.last_name || ""}`.toLowerCase();
+      const fullName = (s.name || `${s.first_name || ""} ${s.last_name || ""}`).toLowerCase();
       const lrn = (s.lrn || "").toLowerCase();
-      const email = (s.user?.email || "").toLowerCase();
+      const email = (s.email || "").toLowerCase();
       return fullName.includes(term) || lrn.includes(term) || email.includes(term);
     });
   }, [students, searchTerm]);
@@ -99,7 +99,9 @@ const Students = () => {
   // Stats
   const stats = useMemo(() => {
     const male = filteredStudents.filter((s) => s.gender?.toLowerCase() === "male").length;
-    const female = filteredStudents.filter((s) => s.gender?.toLowerCase() === "female").length;
+    const female = filteredStudents.filter(
+      (s) => s.gender?.toLowerCase() === "female" || s.gender?.toLowerCase() === "f"
+    ).length;
     return {
       total: filteredStudents.length,
       male,
@@ -146,11 +148,17 @@ const Students = () => {
             ) : sections.length === 0 ? (
               <option>No sections assigned</option>
             ) : (
-              sections.map((sec) => (
-                <option key={sec.id} value={sec.id}>
-                  {sec.name}
-                </option>
-              ))
+              sections.map((sec) => {
+                const gradeLabel =
+                  sec.grade_level === 0 || sec.grade_level === "0" || sec.grade_level === "kinder"
+                    ? "K"
+                    : `${sec.grade_level}`;
+                return (
+                  <option key={sec.id} value={sec.id}>
+                    {gradeLabel} - {sec.name}
+                  </option>
+                );
+              })
             )}
           </select>
         </div>
@@ -228,11 +236,11 @@ const Students = () => {
                 ) : (
                   filteredStudents.map((student) => {
                     const isOpen = expandedStudentId === student.id;
-                    const firstName = student.user?.first_name || "";
-                    const lastName = student.user?.last_name || "";
-                    const fullName = `${firstName} ${lastName}`.trim() || "Unknown Student";
+                    const firstName = student.first_name || "";
+                    const lastName = student.last_name || "";
+                    const fullName = student.name || `${firstName} ${lastName}`.trim() || "Unknown Student";
                     const initial = firstName.charAt(0) || lastName.charAt(0) || "S";
-                    const email = student.user?.email || "—";
+                    const email = student.email || "—";
                     const lrn = student.lrn || "—";
                     const gender = student.gender || "—";
 
@@ -302,10 +310,7 @@ const Students = () => {
                                     </div>
                                   </div>
 
-                                  <div className="srField">
-                                    <div className="srLabel">Payment Mode</div>
-                                    <div className="srValue">{student.payment_mode || "—"}</div>
-                                  </div>
+
                                 </div>
                               </div>
                             </td>

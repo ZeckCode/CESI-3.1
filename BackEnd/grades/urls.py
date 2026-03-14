@@ -4,6 +4,8 @@ from . import views
 urlpatterns = [
     # Teacher info
     path("teacher-info/", views.teacher_info, name="teacher-info"),
+    path("my-sections/", views.teacher_sections, name="grade-teacher-sections"),
+    path("section-performance/", views.section_performance, name="section-performance"),
 
     # Weights
     path("weights/<int:subject_id>/", views.get_weights, name="grade-weights"),
@@ -23,10 +25,16 @@ urlpatterns = [
 
     # Students by grade
     path("students/<int:grade_level>/", views.students_by_grade, name="students-by-grade"),
+    path("students/section/<int:section_id>/", views.students_by_section, name="students-by-section"),
 
     # Computed grades
     path("compute/<int:student_id>/<int:subject_id>/", views.student_quarter_grades, name="student-quarter-grades"),
 
     # Parent — my child's report card
     path("my-grades/", views.my_grades, name="my-grades"),
+
+    # Academic History (historical records for old/returning students)
+    path("my-academic-history/", views.my_academic_history, name="my-academic-history"),
+    path("academic-history/", views.AcademicRecordListCreate.as_view(), name="academic-history-list"),
+    path("academic-history/<int:pk>/", views.AcademicRecordDetail.as_view(), name="academic-history-detail"),
 ]

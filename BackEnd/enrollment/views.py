@@ -120,6 +120,47 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         return f"{prefix}{next_seq:06d}"
 
+    @staticmethod
+    def _grade_code_to_section_level(grade_code: str):
+        mapping = {
+            "kinder": 0,
+            "grade1": 1,
+            "grade2": 2,
+            "grade3": 3,
+            "grade4": 4,
+            "grade5": 5,
+            "grade6": 6,
+        }
+        return mapping.get((grade_code or "").strip().lower())
+
+    @staticmethod
+    def _sync_enrollment_to_profile(enrollment):
+        """Keep the linked parent/student profile aligned with approved enrollment data."""
+        parent_user = enrollment.parent_user
+        if not parent_user:
+            return
+        profile = UserProfile.objects.filter(user=parent_user).first()
+        if not profile:
+            return
+
+        changed = False
+        if enrollment.grade_level and profile.grade_level != enrollment.grade_level:
+            profile.grade_level = enrollment.grade_level
+            changed = True
+        if enrollment.section_id != profile.section_id:
+            profile.section_id = enrollment.section_id
+            changed = True
+        if enrollment.student_number and profile.student_number != enrollment.student_number:
+            profile.student_number = enrollment.student_number
+            changed = True
+        if enrollment.payment_mode and profile.payment_mode != enrollment.payment_mode:
+            profile.payment_mode = enrollment.payment_mode
+            changed = True
+        if changed:
+            profile.save()
+
+  
+
     def _get_parent_names_from_enrollment(self, enrollment):
         parent_info = getattr(enrollment, "parent_info", None)
 
@@ -290,7 +331,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             create_if_missing=False,
             uploaded_id_image=uploaded_id_image,
         )
-
+        self._sync_enrollment_to_profile(enrollment)
     # ------------------- Custom Actions -------------------
 
     @action(detail=False, methods=["get"])
@@ -433,6 +474,20 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 )
 
         with transaction.atomic():
+            # 0) Auto-assign section based on enrollment grade if not already assigned.
+            if enrollment.section_id is None:
+                section_level = self._grade_code_to_section_level(grade_code)
+                if section_level is not None:
+                    auto_section = (
+                        Section.objects
+                        .filter(grade_level=section_level)
+                        .order_by("id")
+                        .first()
+                    )
+                    if auto_section:
+                        enrollment.section = auto_section
+
+            # 1) Assign student number if not yet set
             if not enrollment.student_number:
                 while True:
                     candidate = self.generate_student_number()
@@ -456,7 +511,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             update_fields = ["status", "remarks", "updated_at", "student_number"]
             if uploaded_id_image:
                     update_fields.append("id_image")
-            if section_id:
+            if enrollment.section is not None:
                 update_fields.append("section")
 
             enrollment.save(update_fields=update_fields)
@@ -481,6 +536,9 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                         self._send_promotion_email(enrollment, parent_email, grade_code)
                     else:
                         self._send_parent_portal_email(enrollment, parent_email)
+
+            # Keep profile section/grade aligned for both promotion and new-student flows.
+            self._sync_enrollment_to_profile(enrollment)
 
         serializer = self.get_serializer(enrollment)
         return Response(serializer.data)

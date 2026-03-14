@@ -27,7 +27,8 @@ const CATEGORIES = [
 
 const Grade = () => {
   // ── core state ──
-  const [gradeLevel, setGradeLevel] = useState(0);
+  const [sections, setSections] = useState([]);
+  const [selectedSection, setSelectedSection] = useState("");
   const [quarter, setQuarter] = useState(1);
   const [teacherSubject, setTeacherSubject] = useState(null); // {subject_id, subject_name, subject_code}
   const [schoolYear, setSchoolYear] = useState(null); // active school year
@@ -53,6 +54,9 @@ const Grade = () => {
   const [editItem, setEditItem] = useState(null); // grade item being edited
   const [editForm, setEditForm] = useState({});
 
+  const currentSection = sections.find((s) => String(s.id) === selectedSection) || null;
+  const gradeLevel = currentSection?.grade_level ?? 0;
+
   // ─── fetch teacher info + active school year on mount ───
   useEffect(() => {
     (async () => {
@@ -76,14 +80,50 @@ const Grade = () => {
     })();
   }, []);
 
+  // ─── fetch class-management sections for this teacher + subject ───
+  useEffect(() => {
+    if (!teacherSubject?.subject_id) return;
+    (async () => {
+      try {
+        const res = await apiFetch(`${API}/api/grades/my-sections/?subject=${teacherSubject.subject_id}`);
+        if (!res.ok) {
+          setSections([]);
+          setSelectedSection("");
+          return;
+        }
+        const data = await res.json();
+        const nextSections = Array.isArray(data) ? data : [];
+        setSections(nextSections);
+        if (!nextSections.length) {
+          setSelectedSection("");
+          return;
+        }
+        setSelectedSection((prev) => {
+          const hasPrev = nextSections.some((s) => String(s.id) === String(prev));
+          return hasPrev ? prev : String(nextSections[0].id);
+        });
+      } catch (e) {
+        console.error(e);
+        setSections([]);
+        setSelectedSection("");
+      }
+    })();
+  }, [teacherSubject]);
+
   // ─── fetch items + students + scores + weights when filters change ───
   const fetchAll = useCallback(async () => {
-    if (!teacherSubject) return;
+    if (!teacherSubject || !selectedSection) {
+      setStudents([]);
+      setItems([]);
+      setScores([]);
+      setClassStandings([]);
+      return;
+    }
     const subj = teacherSubject.subject_id;
 
     const [itemsRes, studentsRes, scoresRes, csRes, wRes] = await Promise.all([
       apiFetch(`${API}/api/grades/items/?subject=${subj}&grade_level=${gradeLevel}&quarter=${quarter}`),
-      apiFetch(`${API}/api/grades/students/${gradeLevel}/`),
+      apiFetch(`${API}/api/grades/students/section/${selectedSection}/`),
       apiFetch(`${API}/api/grades/scores/?subject=${subj}&grade_level=${gradeLevel}&quarter=${quarter}`),
       apiFetch(`${API}/api/grades/class-standing/?subject=${subj}&quarter=${quarter}`),
       apiFetch(`${API}/api/grades/weights/${subj}/`),
@@ -98,7 +138,7 @@ const Grade = () => {
       setWeights(wd);
       setTempWeights(wd);
     }
-  }, [teacherSubject, gradeLevel, quarter]);
+  }, [teacherSubject, selectedSection, gradeLevel, quarter]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -292,7 +332,11 @@ const Grade = () => {
         <p className="ge__subtitle">
           <span className="ge__subjectTag">{teacherSubject.subject_name}</span>
           {" · "}
-          <span className="ge__classTag">{GRADE_LEVELS.find((g) => g.value === gradeLevel)?.label}</span>
+          <span className="ge__classTag">
+            {currentSection
+              ? `${GRADE_LEVELS.find((g) => g.value === gradeLevel)?.label || `Grade ${gradeLevel}`} - ${currentSection.name}`
+              : "No section assigned"}
+          </span>
           {" · "}
           <span className="ge__quarterTag">Quarter {quarter}</span>
           {schoolYear && (
@@ -309,8 +353,12 @@ const Grade = () => {
 
       {/* ════ Toolbar ════ */}
       <div className="ge__toolbar">
-        <select className="ge__select" value={gradeLevel} onChange={(e) => setGradeLevel(Number(e.target.value))}>
-          {GRADE_LEVELS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
+        <select className="ge__select" value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)}>
+          {sections.length === 0 && <option value="">No assigned sections</option>}
+          {sections.map((sec) => {
+            const levelLabel = GRADE_LEVELS.find((g) => g.value === sec.grade_level)?.label || `Grade ${sec.grade_level}`;
+            return <option key={sec.id} value={sec.id}>{`${levelLabel} - ${sec.name}`}</option>;
+          })}
         </select>
         <div className="ge__quarterTabs">
           {QUARTERS.map((q) => (
@@ -393,7 +441,7 @@ const Grade = () => {
             </thead>
             <tbody>
               {students.length === 0 && (
-                <tr><td className="ge__td" colSpan={items.length + 4}>No students enrolled in this grade level.</td></tr>
+                <tr><td className="ge__td" colSpan={items.length + 4}>{selectedSection ? "No students enrolled in this section." : "No section selected."}</td></tr>
               )}
               {students.map((stu) => {
                 const qg = quarterGrade(stu.id);

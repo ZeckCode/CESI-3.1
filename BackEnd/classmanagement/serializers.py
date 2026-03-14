@@ -20,7 +20,7 @@ class ScheduleReadSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source="subject.name", read_only=True)
     subject_code = serializers.CharField(source="subject.code", read_only=True)
     section_name = serializers.CharField(source="section.name", read_only=True)
-    grade_level = serializers.IntegerField(source="section.grade_level", read_only=True)
+    grade_level = serializers.CharField(source="section.grade_level_display", read_only=True)
     room_code = serializers.CharField(source="room.code", read_only=True, allow_null=True)
     school_year_name = serializers.CharField(source="school_year.name", read_only=True, allow_null=True)
 
@@ -43,6 +43,8 @@ class ScheduleWriteSerializer(serializers.ModelSerializer):
             "id", "teacher", "subject", "section",
             "day_of_week", "start_time", "end_time", "room", "school_year",
         ]
+        
+        
 
     def validate(self, data):
         start = data.get("start_time") or (self.instance and self.instance.start_time)

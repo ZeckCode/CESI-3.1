@@ -72,7 +72,75 @@
 .btn-print { background: white; color: #0056b3; }
 .btn-download { background: #0056b3; color: white; }
 
-/* Table Containers */
+/* ── Ledger Summary Cards ─────────────────────── */
+.ledger-summary-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 1100px) {
+  .ledger-summary-row { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 700px) {
+  .ledger-summary-row { grid-template-columns: 1fr 1fr; }
+}
+
+.ledger-sumCard {
+  background: #fff;
+  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.05);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 5px solid #e5e7eb;
+}
+
+.ledger-sumCard--blue    { border-left-color: #0056b3; }
+.ledger-sumCard--success { border-left-color: #15803d; }
+.ledger-sumCard--warn    { border-left-color: #b45309; }
+.ledger-sumCard--danger  { border-left-color: #dc2626; }
+.ledger-sumCard--neutral { border-left-color: #9ca3af; }
+
+/* Outstanding balance card spans 2 cols on wide screens */
+.ledger-sumCard--balance {
+  grid-column: span 1;
+}
+
+.ledger-sumCard--balanceOwed  { border-left-color: #dc2626; background: #fff5f5; }
+.ledger-sumCard--balanceClear { border-left-color: #15803d; background: #f0fdf4; }
+
+.ledger-sumCard__label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #6b7280;
+}
+
+.ledger-sumCard__value {
+  font-size: 18px;
+  font-weight: 900;
+  color: #1f2937;
+  line-height: 1.1;
+}
+
+.ledger-sumCard__value--lg {
+  font-size: 20px;
+}
+
+.ledger-sumCard__sub {
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 2px;
+  color: #6b7280;
+}
+
+/* ── Table Containers */
 .ledger-section {
   background: var(--white);
   border-radius: 1.2rem;
