@@ -74,15 +74,16 @@ const Dashboard = () => {
     return [];
   };
 
-  const normalizeStatus = (value) =>
-    String(value || "")
-      .trim()
-      .toLowerCase();
-
   const parseAmount = (value) => {
     const n = parseFloat(value);
     return Number.isFinite(n) ? n : 0;
   };
+
+  const normalizeStatusLower = (value) =>
+    String(value || "").trim().toLowerCase();
+
+  const normalizeStatusUpper = (value) =>
+    String(value || "").trim().toUpperCase();
 
   const normalizeGradeLabel = (value) => {
     const raw = String(value || "").trim().toLowerCase();
@@ -129,19 +130,10 @@ const Dashboard = () => {
     );
   };
 
-  const getTransactionDate = (t) => {
-    return t.date || t.created_at || t.transaction_date || t.paid_at || null;
-  };
-
-  const getTransactionType = (t) =>
-    String(t.transaction_type || t.type || "")
-      .trim()
-      .toLowerCase();
-
   const getTransactionStatus = (t) =>
-    String(t.status || t.payment_status || "")
-      .trim()
-      .toLowerCase();
+    String(t.status || "").trim().toUpperCase();
+
+  const getTransactionDate = (t) => t.date_created || t.due_date || null;
 
   async function loadDashboardData() {
     setLoading(true);
@@ -150,6 +142,7 @@ const Dashboard = () => {
       const [
         enrollRes,
         financeRes,
+        financeStatsRes,
         attendRes,
         schedRes,
         annRes,
@@ -163,6 +156,10 @@ const Dashboard = () => {
         apiFetch("/api/finance/transactions/")
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
+
+        apiFetch("/api/finance/transactions/stats/")
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
 
         apiFetch("/api/attendance/records/")
           .then((r) => (r.ok ? r.json() : []))
@@ -193,38 +190,44 @@ const Dashboard = () => {
       const subjects = safeArray(subjectRes);
       const sections = safeArray(sectionRes);
 
-      // -------------------------
-      // ENROLLMENT STATS
-      // -------------------------
+      // ─────────────────────────
+      // Enrollment stats
+      // keep old working behavior
+      // ─────────────────────────
       const approvedEnrollments = enrollments.filter((e) => {
-        const s = normalizeStatus(e.status);
-        return s === "approved" || s === "enrolled";
+        const s = normalizeStatusLower(e.status);
+        return (
+          s === "approved" ||
+          s === "enrolled" ||
+          s === "accept" ||
+          s === "accepted" ||
+          s === "confirmed"
+        );
       });
 
-      const pendingEnrollments = enrollments.filter(
-        (e) => normalizeStatus(e.status) === "pending"
-      );
-
-      // -------------------------
-      // FINANCE STATS
-      // -------------------------
-      const paymentTransactions = transactions.filter((t) => {
-        const type = getTransactionType(t);
-        return type === "payment" || !type;
+      const pendingEnrollments = enrollments.filter((e) => {
+        const s = normalizeStatusLower(e.status);
+        return s === "pending";
       });
 
-      const totalRevenue = paymentTransactions.reduce(
+      // ─────────────────────────
+      // Finance stats
+      // fixed to match backend
+      // ─────────────────────────
+      const totalRevenueComputed = transactions.reduce(
         (sum, t) => sum + parseAmount(t.amount),
         0
       );
 
-      // -------------------------
-      // ATTENDANCE STATS
-      // -------------------------
-      const totalPresent = attendRecords.filter((r) => {
-        const s = normalizeStatus(r.status);
-        return s === "present";
-      }).length;
+      const totalRevenue =
+        financeStatsRes?.totalRevenue ?? totalRevenueComputed;
+
+      // ─────────────────────────
+      // Attendance stats
+      // ─────────────────────────
+      const totalPresent = attendRecords.filter(
+        (r) => normalizeStatusLower(r.status) === "present"
+      ).length;
 
       const attendanceRate =
         attendRecords.length > 0
@@ -239,7 +242,7 @@ const Dashboard = () => {
       });
 
       const todayPresent = todayRecords.filter(
-        (r) => normalizeStatus(r.status) === "present"
+        (r) => normalizeStatusLower(r.status) === "present"
       ).length;
 
       const todayAttendanceRate =
@@ -248,7 +251,7 @@ const Dashboard = () => {
           : 0;
 
       setStats({
-        totalStudents: approvedEnrollments.length,
+        totalStudents: approvedEnrollments.length || enrollments.length,
         totalRevenue,
         activeClasses: sections.length,
         attendanceRate,
@@ -259,9 +262,9 @@ const Dashboard = () => {
         pendingEnrollments: pendingEnrollments.length,
       });
 
-      // -------------------------
-      // STUDENTS PER GRADE LEVEL
-      // -------------------------
+      // ─────────────────────────
+      // Students per grade level
+      // ─────────────────────────
       const gradeCounts = {};
 
       enrollments.forEach((e) => {
@@ -284,43 +287,41 @@ const Dashboard = () => {
       const enrollmentLevelData = Object.entries(gradeCounts)
         .map(([level, students]) => ({ level, students }))
         .sort((a, b) => {
-          const aIndex = gradeOrder.indexOf(a.level);
-          const bIndex = gradeOrder.indexOf(b.level);
-          return (
-            (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex)
-          );
+          const ai = gradeOrder.indexOf(a.level);
+          const bi = gradeOrder.indexOf(b.level);
+          return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
         });
 
       setEnrollmentByLevel(enrollmentLevelData);
 
-      // -------------------------
-      // PAYMENT BREAKDOWN
-      // -------------------------
-      const paidCount = paymentTransactions.filter((t) => {
-        const s = getTransactionStatus(t);
-        return s === "paid" || s === "completed" || s === "success";
-      }).length;
-
-      const pendingCount = paymentTransactions.filter(
-        (t) => getTransactionStatus(t) === "pending"
+      // ─────────────────────────
+      // Payment breakdown
+      // fixed to match PAID/PENDING/OVERDUE
+      // ─────────────────────────
+      const paid = transactions.filter(
+        (t) => getTransactionStatus(t) === "PAID"
       ).length;
 
-      const overdueCount = paymentTransactions.filter((t) => {
-        const s = getTransactionStatus(t);
-        return s === "overdue" || s === "failed" || s === "unpaid";
-      }).length;
+      const pending = transactions.filter(
+        (t) => getTransactionStatus(t) === "PENDING"
+      ).length;
 
-      const paymentData = [
-        { name: "Paid", value: paidCount },
-        { name: "Pending", value: pendingCount },
-        { name: "Overdue", value: overdueCount },
-      ].filter((item) => item.value > 0);
+      const overdue = transactions.filter(
+        (t) => getTransactionStatus(t) === "OVERDUE"
+      ).length;
 
-      setPaymentBreakdown(paymentData);
+      const payData = [
+        { name: "Paid", value: paid },
+        { name: "Pending", value: pending },
+        { name: "Overdue", value: overdue },
+      ].filter((d) => d.value > 0);
 
-      // -------------------------
-      // MONTHLY REVENUE
-      // -------------------------
+      setPaymentBreakdown(payData);
+
+      // ─────────────────────────
+      // Revenue trend by month
+      // fixed to use date_created
+      // ─────────────────────────
       const monthMap = {};
       const monthNames = [
         "Jan",
@@ -337,7 +338,7 @@ const Dashboard = () => {
         "Dec",
       ];
 
-      paymentTransactions.forEach((t) => {
+      transactions.forEach((t) => {
         const rawDate = getTransactionDate(t);
         if (!rawDate) return;
 
@@ -369,9 +370,9 @@ const Dashboard = () => {
 
       setRevenueMonthly(monthlyRevenueData);
 
-      // -------------------------
-      // ATTENDANCE TREND
-      // -------------------------
+      // ─────────────────────────
+      // Attendance trend
+      // ─────────────────────────
       const dayMap = {};
       const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -392,7 +393,7 @@ const Dashboard = () => {
 
         dayMap[key].total += 1;
 
-        if (normalizeStatus(r.status) === "present") {
+        if (normalizeStatusLower(r.status) === "present") {
           dayMap[key].present += 1;
         } else {
           dayMap[key].absent += 1;
@@ -417,9 +418,9 @@ const Dashboard = () => {
 
       setAttendanceTrend(attendanceData);
 
-      // -------------------------
-      // SUBJECT DISTRIBUTION
-      // -------------------------
+      // ─────────────────────────
+      // Subject distribution
+      // ─────────────────────────
       const subjectData = subjects.slice(0, 8).map((s, i) => ({
         name: s.name || s.subject_name || `Subject ${i + 1}`,
         sections: sections.filter(
@@ -433,14 +434,14 @@ const Dashboard = () => {
 
       setSubjectDistribution(subjectData);
 
-      // -------------------------
-      // ANNOUNCEMENTS
-      // -------------------------
+      // ─────────────────────────
+      // Announcements
+      // ─────────────────────────
       setAnnouncements(anns.slice(0, 5));
 
-      // -------------------------
-      // TODAY'S SCHEDULE
-      // -------------------------
+      // ─────────────────────────
+      // Today's schedule
+      // ─────────────────────────
       const dayNameToday = new Date().toLocaleDateString("en-US", {
         weekday: "long",
       });
@@ -465,7 +466,8 @@ const Dashboard = () => {
           }
           const text = String(days).toUpperCase();
           return (
-            text.includes(dayNameToday.toUpperCase()) || text.includes(shortToday)
+            text.includes(dayNameToday.toUpperCase()) ||
+            text.includes(shortToday)
           );
         })
         .slice(0, 5);
@@ -552,7 +554,11 @@ const Dashboard = () => {
                   boxShadow: "0 4px 12px rgba(0,0,0,.1)",
                 }}
               />
-              <Bar dataKey="students" fill="url(#barGradient)" radius={[6, 6, 0, 0]} />
+              <Bar
+                dataKey="students"
+                fill="url(#barGradient)"
+                radius={[6, 6, 0, 0]}
+              />
               <defs>
                 <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#6366f1" />
@@ -652,7 +658,10 @@ const Dashboard = () => {
                 }
               >
                 {paymentBreakdown.map((_, i) => (
-                  <Cell key={i} fill={PAYMENT_COLORS[i % PAYMENT_COLORS.length]} />
+                  <Cell
+                    key={i}
+                    fill={PAYMENT_COLORS[i % PAYMENT_COLORS.length]}
+                  />
                 ))}
               </Pie>
               <Tooltip
