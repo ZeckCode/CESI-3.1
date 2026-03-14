@@ -199,7 +199,10 @@ export default function AcademicHistory() {
 
   useEffect(() => {
     apiFetch("/api/grades/my-academic-history/")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        return res.json();
+      })
       .then((json) => {
         setData(json);
         setLoading(false);
