@@ -18,10 +18,79 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tool
 const API = "";
 const QUARTERS = [1, 2, 3, 4];
 
-const GRADE_LABEL = (level) => {
-  if (level === 0 || level === "0" || level === "kinder") return "K";
-  return `G${level}`;
+// const GRADE_LABEL = (level) => {
+//   if (level === 0 || level === "0" || level === "kinder") return "K";
+//   return `G${level}`;
+// };
+
+const normalizeGradeCode = (value) => {
+  if (value === null || value === undefined) return "";
+
+  const v = String(value).trim().toLowerCase();
+
+  const map = {
+    "0": "kinder",
+    "1": "grade1",
+    "2": "grade2",
+    "3": "grade3",
+    "4": "grade4",
+    "5": "grade5",
+    "6": "grade6",
+    "kinder": "kinder",
+    "grade1": "grade1",
+    "grade2": "grade2",
+    "grade3": "grade3",
+    "grade4": "grade4",
+    "grade5": "grade5",
+    "grade6": "grade6",
+    "grade 1": "grade1",
+    "grade 2": "grade2",
+    "grade 3": "grade3",
+    "grade 4": "grade4",
+    "grade 5": "grade5",
+    "grade 6": "grade6",
+    "prek": "prek",
+    "pre-kinder": "prek",
+  };
+
+  return map[v] || "";
 };
+
+const GRADE_LABEL = (level) => {
+  const code = normalizeGradeCode(level);
+
+  const shortLabels = {
+    prek: "PK",
+    kinder: "K",
+    grade1: "G1",
+    grade2: "G2",
+    grade3: "G3",
+    grade4: "G4",
+    grade5: "G5",
+    grade6: "G6",
+  };
+
+  return shortLabels[code] || String(level || "—");
+};
+
+const GRADE_FULL_LABEL = (level) => {
+  const code = normalizeGradeCode(level);
+
+  const fullLabels = {
+    prek: "Pre-Kinder",
+    kinder: "Kinder",
+    grade1: "Grade 1",
+    grade2: "Grade 2",
+    grade3: "Grade 3",
+    grade4: "Grade 4",
+    grade5: "Grade 5",
+    grade6: "Grade 6",
+  };
+
+  return fullLabels[code] || String(level || "—");
+};
+
+
 
 const SPerformance = () => {
   const [sections, setSections] = useState([]);
@@ -158,9 +227,11 @@ const SPerformance = () => {
           <h2 className="sp__title">Student Performance</h2>
           <p className="sp__subtitle">
             Analysis Dashboard
-            {currentSection
-              ? ` • ${GRADE_LABEL(currentSection.grade_level)} - ${currentSection.name}`
-              : ""}
+            {sections.map((sec) => (
+              <option key={sec.id} value={String(sec.id)}>
+                {GRADE_LABEL(sec.grade_level)} - {sec.name}
+              </option>
+            ))}
           </p>
         </div>
 

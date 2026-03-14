@@ -1,9 +1,86 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Search, Users, User, Mail, Phone, Calendar, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import {
+  Search,
+  Users,
+  User,
+  Mail,
+  Phone,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+} from "lucide-react";
 import "../TeacherWebsiteCSS/Students.css";
 import { apiFetch } from "../api/apiFetch";
 
 const API = "";
+
+const normalizeGradeCode = (value) => {
+  if (value === null || value === undefined) return "";
+
+  const v = String(value).trim().toLowerCase();
+
+  const map = {
+    "0": "kinder",
+    "1": "grade1",
+    "2": "grade2",
+    "3": "grade3",
+    "4": "grade4",
+    "5": "grade5",
+    "6": "grade6",
+    kinder: "kinder",
+    grade1: "grade1",
+    grade2: "grade2",
+    grade3: "grade3",
+    grade4: "grade4",
+    grade5: "grade5",
+    grade6: "grade6",
+    "grade 1": "grade1",
+    "grade 2": "grade2",
+    "grade 3": "grade3",
+    "grade 4": "grade4",
+    "grade 5": "grade5",
+    "grade 6": "grade6",
+    prek: "prek",
+    "pre-kinder": "prek",
+  };
+
+  return map[v] || "";
+};
+
+const GRADE_LABEL = (level) => {
+  const code = normalizeGradeCode(level);
+
+  const shortLabels = {
+    prek: "PK",
+    kinder: "K",
+    grade1: "G1",
+    grade2: "G2",
+    grade3: "G3",
+    grade4: "G4",
+    grade5: "G5",
+    grade6: "G6",
+  };
+
+  return shortLabels[code] || String(level || "—");
+};
+
+const GRADE_FULL_LABEL = (level) => {
+  const code = normalizeGradeCode(level);
+
+  const fullLabels = {
+    prek: "Pre-Kinder",
+    kinder: "Kinder",
+    grade1: "Grade 1",
+    grade2: "Grade 2",
+    grade3: "Grade 3",
+    grade4: "Grade 4",
+    grade5: "Grade 5",
+    grade6: "Grade 6",
+  };
+
+  return fullLabels[code] || String(level || "—");
+};
 
 const Students = () => {
   const [sections, setSections] = useState([]);
@@ -26,9 +103,10 @@ const Students = () => {
 
         if (secRes.ok) {
           const data = await secRes.json();
-          setSections(data);
-          if (data.length > 0) {
-            setSelectedSection(String(data[0].id));
+          const nextSections = Array.isArray(data) ? data : [];
+          setSections(nextSections);
+          if (nextSections.length > 0) {
+            setSelectedSection(String(nextSections[0].id));
           }
         }
 
@@ -59,7 +137,7 @@ const Students = () => {
         );
         if (res.ok) {
           const data = await res.json();
-          setStudents(data);
+          setStudents(Array.isArray(data) ? data : []);
         } else {
           setStudents([]);
         }
@@ -90,10 +168,11 @@ const Students = () => {
     setExpandedStudentId((prev) => (prev === id ? null : id));
   };
 
-  // Get current section name
+  // Get current section label
   const currentSectionName = useMemo(() => {
     const sec = sections.find((s) => String(s.id) === String(selectedSection));
-    return sec?.name || "—";
+    if (!sec) return "—";
+    return `${GRADE_FULL_LABEL(sec.grade_level)} - ${sec.name}`;
   }, [sections, selectedSection]);
 
   // Stats
@@ -102,6 +181,7 @@ const Students = () => {
     const female = filteredStudents.filter(
       (s) => s.gender?.toLowerCase() === "female" || s.gender?.toLowerCase() === "f"
     ).length;
+
     return {
       total: filteredStudents.length,
       male,
@@ -148,17 +228,11 @@ const Students = () => {
             ) : sections.length === 0 ? (
               <option>No sections assigned</option>
             ) : (
-              sections.map((sec) => {
-                const gradeLabel =
-                  sec.grade_level === 0 || sec.grade_level === "0" || sec.grade_level === "kinder"
-                    ? "K"
-                    : `${sec.grade_level}`;
-                return (
-                  <option key={sec.id} value={sec.id}>
-                    {gradeLabel} - {sec.name}
-                  </option>
-                );
-              })
+              sections.map((sec) => (
+                <option key={sec.id} value={sec.id}>
+                  {GRADE_FULL_LABEL(sec.grade_level)} - {sec.name}
+                </option>
+              ))
             )}
           </select>
         </div>
@@ -208,9 +282,7 @@ const Students = () => {
       </section>
 
       {/* Loading */}
-      {loadingStudents && (
-        <div className="sr__loading">Loading students...</div>
-      )}
+      {loadingStudents && <div className="sr__loading">Loading students...</div>}
 
       {/* Table */}
       {!loadingStudents && (
@@ -238,7 +310,8 @@ const Students = () => {
                     const isOpen = expandedStudentId === student.id;
                     const firstName = student.first_name || "";
                     const lastName = student.last_name || "";
-                    const fullName = student.name || `${firstName} ${lastName}`.trim() || "Unknown Student";
+                    const fullName =
+                      student.name || `${firstName} ${lastName}`.trim() || "Unknown Student";
                     const initial = firstName.charAt(0) || lastName.charAt(0) || "S";
                     const email = student.email || "—";
                     const lrn = student.lrn || "—";
@@ -294,7 +367,11 @@ const Students = () => {
                                 <div className="srDetail__grid">
                                   <div className="srField">
                                     <div className="srLabel">Grade Level</div>
-                                    <div className="srValue">{student.grade_level || "—"}</div>
+                                    <div className="srValue">
+                                      {student.grade_level
+                                        ? GRADE_FULL_LABEL(student.grade_level)
+                                        : "—"}
+                                    </div>
                                   </div>
 
                                   <div className="srField">
@@ -309,8 +386,6 @@ const Students = () => {
                                       {student.guardian_contact || "—"}
                                     </div>
                                   </div>
-
-
                                 </div>
                               </div>
                             </td>
