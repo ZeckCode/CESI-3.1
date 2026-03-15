@@ -1,71 +1,71 @@
 {
-  "exported_at": "2026-03-15T00:30:09.851172",
+  "exported_at": "2026-03-15T21:04:06.259019",
   "tables": {
     "accounts_adminprofile": [],
     "accounts_section": [
       {
         "id": 1,
         "name": "Sampaguita",
-        "grade_level": "kinder",
         "adviser_id": 1,
         "room_id": 2,
-        "capacity": 40
+        "capacity": 40,
+        "grade_level": "kinder"
       },
       {
         "id": 3,
         "name": "Daisy",
-        "grade_level": "grade1",
         "adviser_id": null,
         "room_id": null,
-        "capacity": 40
+        "capacity": 40,
+        "grade_level": "grade1"
       },
       {
         "id": 4,
         "name": "Sunflower",
-        "grade_level": "grade2",
         "adviser_id": null,
         "room_id": null,
-        "capacity": 40
+        "capacity": 40,
+        "grade_level": "grade2"
       },
       {
         "id": 6,
         "name": "Lily",
-        "grade_level": "grade3",
         "adviser_id": null,
         "room_id": null,
-        "capacity": 40
+        "capacity": 40,
+        "grade_level": "grade3"
       },
       {
         "id": 7,
         "name": "Jasmine",
-        "grade_level": "grade4",
         "adviser_id": null,
         "room_id": null,
-        "capacity": 40
+        "capacity": 40,
+        "grade_level": "grade4"
       },
       {
         "id": 8,
         "name": "Tulip",
-        "grade_level": "grade5",
         "adviser_id": null,
         "room_id": null,
-        "capacity": 40
+        "capacity": 40,
+        "grade_level": "grade5"
       },
       {
         "id": 9,
         "name": "Carnation",
-        "grade_level": "grade6",
         "adviser_id": null,
         "room_id": null,
-        "capacity": 40
+        "capacity": 40,
+        "grade_level": "grade6"
       },
       {
         "id": 11,
         "name": "asdasd",
-        "grade_level": "prek",
         "adviser_id": null,
         "room_id": null,
-        "capacity": 40
+        "capacity": 40,
+        "grade_level": "prek"
       }
     ],
     "accounts_subject": [
@@ -145,7 +145,7 @@
       {
         "id": 1,
         "password": "pbkdf2_sha256$1200000$fhB4XPkHMZlATctSe3QmjE$C316N0YM1svW4zNs5gb3BN9Mf6/7zH0qx6JaVuo51I8=",
-        "last_login": "2026-03-14 16:12:43.674402",
+        "last_login": "2026-03-15 12:16:18.146719",
         "is_superuser": 1,
         "username": "ace",
         "email": "acy995kim@gmail.com",
@@ -201,7 +201,7 @@
       {
         "id": 6,
         "password": "pbkdf2_sha256$1200000$Uywiyvs0Zvn4jn8I9ODyHD$W4Cu6ZAA5D/ZzlAXqCSZ4MJFXXDij6A/GG9M9MnuXu0=",
-        "last_login": "2026-03-14 16:03:40.922754",
+        "last_login": "2026-03-15 13:03:36.968861",
         "is_superuser": 0,
         "username": "parent_jane",
         "email": "jane.parent@example.com",
@@ -215,7 +215,7 @@
       {
         "id": 7,
         "password": "pbkdf2_sha256$1200000$I7qEWWTIElj9MDDdACHKPf$cyjQbJ4f8A0iB68U7NK/v6XrXHs3bZ9D0C+ypd71gTE=",
-        "last_login": "2026-03-14 14:12:15.104277",
+        "last_login": "2026-03-14 16:37:21.629800",
         "is_superuser": 0,
         "username": "teacher_smith",
         "email": "smith@example.com",
@@ -271,7 +271,7 @@
       {
         "id": 14,
         "password": "pbkdf2_sha256$1200000$q53qIzrj63vOJxIhPAR0hO$bckZXkUvXJLq52IcECxoxPIp/IVZ73fQmaHtSwtsA6w=",
-        "last_login": "2026-03-14 05:53:25.934455",
+        "last_login": "2026-03-15 11:51:35.195663",
         "is_superuser": 0,
         "username": "paoogma",
         "email": "ral531712@gmail.com",
@@ -285,7 +285,7 @@
       {
         "id": 15,
         "password": "pbkdf2_sha256$1200000$Ou3CfbjZU3OaS0M9gKdGdb$I23c3ynGxHE41XwkcqvcSLqqV4wk5VRubGwvWVXqLh8=",
-        "last_login": "2026-03-14 06:21:34.456566",
+        "last_login": "2026-03-15 11:37:20.336360",
         "is_superuser": 0,
         "username": "Jane_Smith",
         "email": "JaneSmith@gmail.com",
@@ -2096,6 +2096,150 @@
         "section_id": 9,
         "student_id": 92,
         "schedule_id": null
+      },
+      {
+        "id": 37,
+        "date": "2026-03-15",
+        "status": "PRESENT",
+        "notes": "",
+        "created_at": "2026-03-15 11:47:17.440528",
+        "updated_at": "2026-03-15 11:47:17.440540",
+        "marked_by_id": 15,
+        "section_id": 9,
+        "student_id": 93,
+        "schedule_id": null
+      },
+      {
+        "id": 38,
+        "date": "2026-03-15",
+        "status": "PRESENT",
+        "notes": "",
+        "created_at": "2026-03-15 11:47:17.445119",
+        "updated_at": "2026-03-15 11:47:17.445134",
+        "marked_by_id": 15,
+        "section_id": 9,
+        "student_id": 94,
+        "schedule_id": null
+      },
+      {
+        "id": 39,
+        "date": "2026-03-15",
+        "status": "PRESENT",
+        "notes": "",
+        "created_at": "2026-03-15 11:47:17.448932",
+        "updated_at": "2026-03-15 11:47:17.448945",
+        "marked_by_id": 15,
+        "section_id": 9,
+        "student_id": 95,
+        "schedule_id": null
+      },
+      {
+        "id": 40,
+        "date": "2026-03-15",
+        "status": "PRESENT",
+        "notes": "",
+        "created_at": "2026-03-15 11:47:17.452507",
+        "updated_at": "2026-03-15 11:47:17.452518",
+        "marked_by_id": 15,
+        "section_id": 9,
+        "student_id": 90,
+        "schedule_id": null
+      },
+      {
+        "id": 41,
+        "date": "2026-03-15",
+        "status": "PRESENT",
+        "notes": "",
+        "created_at": "2026-03-15 11:47:17.456700",
+        "updated_at": "2026-03-15 11:47:17.456714",
+        "marked_by_id": 15,
+        "section_id": 9,
+        "student_id": 97,
+        "schedule_id": null
+      },
+      {
+        "id": 42,
+        "date": "2026-03-15",
+        "status": "PRESENT",
+        "notes": "",
+        "created_at": "2026-03-15 11:47:17.460556",
+        "updated_at": "2026-03-15 11:47:17.460569",
+        "marked_by_id": 15,
+        "section_id": 9,
+        "student_id": 92,
+        "schedule_id": null
+      },
+      {
+        "id": 43,
+        "date": "2026-03-16",
+        "status": "LATE",
+        "notes": "",
+        "created_at": "2026-03-15 11:48:04.006932",
+        "updated_at": "2026-03-15 11:48:04.006945",
+        "marked_by_id": 15,
+        "section_id": 9,
+        "student_id": 93,
+        "schedule_id": null
+      },
+      {
+        "id": 44,
+        "date": "2026-03-16",
+        "status": "ABSENT",
+        "notes": "",
+        "created_at": "2026-03-15 11:48:04.011627",
+        "updated_at": "2026-03-15 11:48:04.011642",
+        "marked_by_id": 15,
+        "section_id": 9,
+        "student_id": 94,
+        "schedule_id": null
+      },
+      {
+        "id": 45,
+        "date": "2026-03-16",
+        "status": "PRESENT",
+        "notes": "",
+        "created_at": "2026-03-15 11:48:04.015579",
+        "updated_at": "2026-03-15 11:48:04.015593",
+        "marked_by_id": 15,
+        "section_id": 9,
+        "student_id": 95,
+        "schedule_id": null
+      },
+      {
+        "id": 46,
+        "date": "2026-03-16",
+        "status": "PRESENT",
+        "notes": "",
+        "created_at": "2026-03-15 11:48:04.019892",
+        "updated_at": "2026-03-15 11:48:04.019908",
+        "marked_by_id": 15,
+        "section_id": 9,
+        "student_id": 90,
+        "schedule_id": null
+      },
+      {
+        "id": 47,
+        "date": "2026-03-16",
+        "status": "PRESENT",
+        "notes": "",
+        "created_at": "2026-03-15 11:48:04.023972",
+        "updated_at": "2026-03-15 11:48:04.023985",
+        "marked_by_id": 15,
+        "section_id": 9,
+        "student_id": 97,
+        "schedule_id": null
+      },
+      {
+        "id": 48,
+        "date": "2026-03-16",
+        "status": "PRESENT",
+        "notes": "",
+        "created_at": "2026-03-15 11:48:04.027703",
+        "updated_at": "2026-03-15 11:48:04.027714",
+        "marked_by_id": 15,
+        "section_id": 9,
+        "student_id": 92,
+        "schedule_id": null
       }
     ],
     "auth_group": [],
@@ -2772,6 +2916,30 @@
         "content_type_id": 28,
         "codename": "view_academicrecord",
         "name": "Can view academic record"
+      },
+      {
+        "id": 113,
+        "content_type_id": 29,
+        "codename": "add_tuitionconfig",
+        "name": "Can add Tuition Configuration"
+      },
+      {
+        "id": 114,
+        "content_type_id": 29,
+        "codename": "change_tuitionconfig",
+        "name": "Can change Tuition Configuration"
+      },
+      {
+        "id": 115,
+        "content_type_id": 29,
+        "codename": "delete_tuitionconfig",
+        "name": "Can delete Tuition Configuration"
+      },
+      {
+        "id": 116,
+        "content_type_id": 29,
+        "codename": "view_tuitionconfig",
+        "name": "Can view Tuition Configuration"
       }
     ],
     "authtoken_token": [
@@ -2791,9 +2959,9 @@
         "user_id": 90
       },
       {
-        "key": "99a185484bc37862814becddba6630682eb998f3",
-        "created": "2026-03-14 16:12:43.677918",
-        "user_id": 1
+        "key": "eece91370f6ac5d3efee05b4e7ff03cbd5dfe12c",
+        "created": "2026-03-15 13:03:36.972120",
+        "user_id": 6
       }
     ],
     "classmanagement_room": [
@@ -4438,6 +4606,11 @@
         "id": 28,
         "app_label": "grades",
         "model": "academicrecord"
+      },
+      {
+        "id": 29,
+        "app_label": "finance",
+        "model": "tuitionconfig"
       }
     ],
     "django_migrations": [
@@ -4782,6 +4955,24 @@
         "app": "grades",
         "name": "0002_academicrecord",
         "applied": "2026-03-14 05:12:18.592391"
+      },
+      {
+        "id": 58,
+        "app": "finance",
+        "name": "0002_tuitionconfig",
+        "applied": "2026-03-15 09:20:21.555465"
+      },
+      {
+        "id": 59,
+        "app": "accounts",
+        "name": "0010_alter_section_grade_level",
+        "applied": "2026-03-15 09:47:37.193070"
+      },
+      {
+        "id": 60,
+        "app": "finance",
+        "name": "0003_alter_tuitionconfig_grade_key",
+        "applied": "2026-03-15 09:53:24.514559"
       }
     ],
     "django_session": [
@@ -6581,9 +6772,14 @@
         "expire_date": "2026-03-28 05:14:13.313051"
       },
       {
-        "session_key": "ds1kscpzqk4qtqsypys7ezwi2rvrn6l3",
-        "session_data": ".eJxVjDsOwjAQBe-yNbK8-BMnJX3OYO36gwPIkeKkQtwdWUoBxWtmRu8Nno69-KOlzS8RJkC4_DKm8Ey1i_igel9FWOu-LSx6Ik7bxLzG9Lqd7d9BoVZggpStiVaZQTvNlGlExKQYHQ-ayenQF5SSaNBKltq4ax4dK2tktknB5wvZuzc6:1w1RbX:hTvidGrNAt7aUDA0ZPuqegOWzhtZmjPFwVtfw-VpN8Q",
-        "expire_date": "2026-03-28 16:12:43.681259"
+        "session_key": "0pkmbmv32bsichlaz85fd2eb78vku9o6",
+        "session_data": ".eJxVjLsOwjAMAP_FM4qahsZxR3a-IbJjQwsolfqYEP-OKnWA9e50b8i8rUPeFpvzqNCDP8PpFwqXp9Xd6IPrfXJlqus8itsTd9jFXSe11-Vo_wYDLwP0kMSTKkqLcmvIhEiQNZpKQLTWx2gUUFKUVKJqR8rW-tAEZCqJOvh8ASeBOIs:1w1k0L:SB6TQKQ4TpRh5LtOKH9lKw8Zg3m8E094d2qTc4Cc0KQ",
+        "expire_date": "2026-03-29 11:51:33.967690"
+      },
+      {
+        "session_key": "ws6ixea1zamxhdfdwko8nu3ociwpznfm",
+        "session_data": ".eJxVjDsOgkAUAO_yarPZlf1Bac8ZyNv3EdRAwkJlvLshodB2ZjJvGHDfxmGvsg4TQwcRLr-sID1lPgQ_cL4vhpZ5W6dijsSctpp-YXndzvZvMGIdoQO0gk5tFJ81Rk8ppKYQJyv-mtrMNkrbBs-UkpIGxRxD4zxZ53IOyvD5Aug7N8I:1w1l84:05rvZnZQzipp6luuueaez-4l-0pfOPKxPJtA6sCD5zk",
+        "expire_date": "2026-03-29 13:03:36.975092"
       }
     ],
     "enrollment_enrollment": [
@@ -10753,6 +10949,168 @@
         "parent_id": 14
       }
     ],
+    "finance_tuitionconfig": [
+      {
+        "id": 1,
+        "grade_key": "kinder",
+        "grade_label": "Kinder",
+        "cash": 24499,
+        "installment": 26500,
+        "initial": 8750,
+        "monthly": 1749,
+        "reservation_fee": 2000,
+        "misc_aug": 5120,
+        "misc_nov": 5120,
+        "assessment": 300,
+        "total_cash": 34739,
+        "total_installment": 36740,
+        "description": "",
+        "status": "active",
+        "is_active": 1,
+        "created_date": "2026-03-15 09:56:55.850059",
+        "updated_date": "2026-03-15 09:56:55.850078"
+      },
+      {
+        "id": 2,
+        "grade_key": "prek",
+        "grade_label": "Pre-Kinder",
+        "cash": 24000,
+        "installment": 25999,
+        "initial": 8700,
+        "monthly": 1700,
+        "reservation_fee": 2000,
+        "misc_aug": 5120,
+        "misc_nov": 5120,
+        "assessment": 300,
+        "total_cash": 34240,
+        "total_installment": 36239,
+        "description": "",
+        "status": "active",
+        "is_active": 1,
+        "created_date": "2026-03-15 11:23:11.669384",
+        "updated_date": "2026-03-15 11:23:11.669402"
+      },
+      {
+        "id": 3,
+        "grade_key": "grade1",
+        "grade_label": "Grade 1",
+        "cash": 25500,
+        "installment": 27500,
+        "initial": 4800,
+        "monthly": 2300,
+        "reservation_fee": 2000,
+        "misc_aug": 5920,
+        "misc_nov": 5920,
+        "assessment": 300,
+        "total_cash": 37340,
+        "total_installment": 39340,
+        "description": "",
+        "status": "active",
+        "is_active": 1,
+        "created_date": "2026-03-15 11:23:57.306855",
+        "updated_date": "2026-03-15 11:23:57.306871"
+      },
+      {
+        "id": 4,
+        "grade_key": "grade2",
+        "grade_label": "Grade 2",
+        "cash": 25500,
+        "installment": 27500,
+        "initial": 4800,
+        "monthly": 2299,
+        "reservation_fee": 2000,
+        "misc_aug": 5920,
+        "misc_nov": 5920,
+        "assessment": 300,
+        "total_cash": 37340,
+        "total_installment": 39340,
+        "description": "",
+        "status": "active",
+        "is_active": 1,
+        "created_date": "2026-03-15 11:24:26.662711",
+        "updated_date": "2026-03-15 11:24:26.662727"
+      },
+      {
+        "id": 5,
+        "grade_key": "grade3",
+        "grade_label": "Grade 3",
+        "cash": 25500,
+        "installment": 27500,
+        "initial": 4800,
+        "monthly": 2299,
+        "reservation_fee": 2000,
+        "misc_aug": 5920,
+        "misc_nov": 5920,
+        "assessment": 300,
+        "total_cash": 37340,
+        "total_installment": 39340,
+        "description": "",
+        "status": "active",
+        "is_active": 1,
+        "created_date": "2026-03-15 11:24:54.666465",
+        "updated_date": "2026-03-15 11:24:54.666479"
+      },
+      {
+        "id": 6,
+        "grade_key": "grade4",
+        "grade_label": "Grade 4",
+        "cash": 26500,
+        "installment": 28500,
+        "initial": 5350,
+        "monthly": 2360,
+        "reservation_fee": 2000,
+        "misc_aug": 6120,
+        "misc_nov": 6120,
+        "assessment": 300,
+        "total_cash": 38740,
+        "total_installment": 40740,
+        "description": "",
+        "status": "active",
+        "is_active": 1,
+        "created_date": "2026-03-15 11:25:54.795886",
+        "updated_date": "2026-03-15 11:25:54.795900"
+      },
+      {
+        "id": 7,
+        "grade_key": "grade5",
+        "grade_label": "Grade 5",
+        "cash": 26500,
+        "installment": 28500,
+        "initial": 5350,
+        "monthly": 2359,
+        "reservation_fee": 2000,
+        "misc_aug": 6120,
+        "misc_nov": 6120,
+        "assessment": 300,
+        "total_cash": 38740,
+        "total_installment": 40740,
+        "description": "",
+        "status": "active",
+        "is_active": 1,
+        "created_date": "2026-03-15 11:26:22.478582",
+        "updated_date": "2026-03-15 11:26:22.478595"
+      },
+      {
+        "id": 8,
+        "grade_key": "grade6",
+        "grade_label": "Grade 6",
+        "cash": 26500,
+        "installment": 28500,
+        "initial": 5350,
+        "monthly": 2360,
+        "reservation_fee": 2000,
+        "misc_aug": 6645,
+        "misc_nov": 6645,
+        "assessment": 300,
+        "total_cash": 39790,
+        "total_installment": 41790,
+        "description": "",
+        "status": "active",
+        "is_active": 1,
+        "created_date": "2026-03-15 11:27:27.480224",
+        "updated_date": "2026-03-15 11:27:27.480238"
+      }
+    ],
     "grades_academicrecord": [],
     "grades_classstanding": [
       {
@@ -10782,6 +11140,34 @@
         "score": 30,
         "student_id": 95,
         "subject_id": 1
+      },
+      {
+        "id": 5,
+        "quarter": 1,
+        "score": 100,
+        "student_id": 92,
+        "subject_id": 7
+      },
+      {
+        "id": 6,
+        "quarter": 1,
+        "score": 2,
+        "student_id": 93,
+        "subject_id": 7
+      },
+      {
+        "id": 7,
+        "quarter": 1,
+        "score": 39,
+        "student_id": 94,
+        "subject_id": 7
+      },
+      {
+        "id": 8,
+        "quarter": 1,
+        "score": -100,
+        "student_id": 95,
+        "subject_id": 7
       }
     ],
     "grades_gradeitem": [

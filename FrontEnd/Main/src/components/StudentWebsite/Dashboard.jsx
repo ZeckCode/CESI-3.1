@@ -305,7 +305,7 @@ const Dashboard = () => {
       </div>
 
       {/* Grade Summary */}
-      <section className="dashboard-card info-card" style={{ marginTop: "1.5rem" }}>
+      {/* <section className="dashboard-card info-card" style={{ marginTop: "1.5rem" }}>
         <div className="card-header-blue">
           <h6 className="header-title">🏅 Grade Summary</h6>
         </div>
@@ -360,7 +360,7 @@ const Dashboard = () => {
             </div>
           )}
         </div>
-      </section>
+      </section> */}
 
       {/* Info Sections */}
       <InfoSection
