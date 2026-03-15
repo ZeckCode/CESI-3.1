@@ -1,7 +1,59 @@
 {
-  "exported_at": "2026-03-15T21:04:06.259019",
+  "exported_at": "2026-03-16T02:53:51.068368",
   "tables": {
     "accounts_adminprofile": [],
+    "accounts_passwordresetrequest": [
+      {
+        "id": 3,
+        "email": "acy995im@gmail.com",
+        "message": "",
+        "status": "LINK_SENT",
+        "requested_at": "2026-03-15 18:05:46.203985",
+        "sent_at": "2026-03-15 18:28:50.143155",
+        "completed_at": null,
+        "user_id": 99
+      },
+      {
+        "id": 4,
+        "email": "ral531715@gmail.com",
+        "message": "",
+        "status": "COMPLETED",
+        "requested_at": "2026-03-15 18:07:26.236720",
+        "sent_at": "2026-03-15 18:24:51.604554",
+        "completed_at": "2026-03-15 18:26:39.409981",
+        "user_id": 3
+      },
+      {
+        "id": 5,
+        "email": "ral222314@gmail.com",
+        "message": "",
+        "status": "COMPLETED",
+        "requested_at": "2026-03-15 18:13:53.103081",
+        "sent_at": "2026-03-15 18:22:57.487180",
+        "completed_at": "2026-03-15 18:23:23.842009",
+        "user_id": 13
+      },
+      {
+        "id": 6,
+        "email": "josefina.lopez10g6@school.local",
+        "message": "",
+        "status": "LINK_SENT",
+        "requested_at": "2026-03-15 18:30:00.500443",
+        "sent_at": "2026-03-15 18:38:23.578935",
+        "completed_at": null,
+        "user_id": 97
+      },
+      {
+        "id": 7,
+        "email": "ral531715@gmail.com",
+        "message": "",
+        "status": "LINK_SENT",
+        "requested_at": "2026-03-15 18:30:03.336510",
+        "sent_at": "2026-03-15 18:38:15.310556",
+        "completed_at": null,
+        "user_id": 3
+      }
+    ],
     "accounts_section": [
       {
         "id": 1,
@@ -145,7 +197,7 @@
       {
         "id": 1,
         "password": "pbkdf2_sha256$1200000$fhB4XPkHMZlATctSe3QmjE$C316N0YM1svW4zNs5gb3BN9Mf6/7zH0qx6JaVuo51I8=",
-        "last_login": "2026-03-15 12:16:18.146719",
+        "last_login": "2026-03-15 18:30:15.068471",
         "is_superuser": 1,
         "username": "ace",
         "email": "acy995kim@gmail.com",
@@ -172,8 +224,8 @@
       },
       {
         "id": 3,
-        "password": "pbkdf2_sha256$1200000$YIDgZGZax9mV5QkkC54Uk0$DZNqsBLhctwvR7V2sDZxwRRF90cF677y3DCXUntdRVs=",
-        "last_login": "2026-02-17 18:10:14.442522",
+        "password": "pbkdf2_sha256$1200000$xY2ne0nC0tySi3yIuqLOQP$yWnSY8+cp+LxcCGRldEEPi3/n7aWmKp5lUpxETiPHZA=",
+        "last_login": "2026-03-15 18:26:59.436807",
         "is_superuser": 0,
         "username": "ZeckAkali",
         "email": "ral531715@gmail.com",
@@ -181,7 +233,7 @@
         "is_active": 1,
         "created_at": "2026-01-26 14:51:21",
         "status": "ACTIVE",
-        "updated_at": "2026-02-16 08:48:32.182028",
+        "updated_at": "2026-03-15 18:26:39.401170",
         "role": "ADMIN"
       },
       {
@@ -201,7 +253,7 @@
       {
         "id": 6,
         "password": "pbkdf2_sha256$1200000$Uywiyvs0Zvn4jn8I9ODyHD$W4Cu6ZAA5D/ZzlAXqCSZ4MJFXXDij6A/GG9M9MnuXu0=",
-        "last_login": "2026-03-15 13:03:36.968861",
+        "last_login": "2026-03-15 13:13:01.708180",
         "is_superuser": 0,
         "username": "parent_jane",
         "email": "jane.parent@example.com",
@@ -256,7 +308,7 @@
       },
       {
         "id": 13,
-        "password": "!Z0W5F4D0OO3RX3J99fKcoQlwc6CTtyLdcU9BZ5qQ",
+        "password": "pbkdf2_sha256$1200000$ixiDjok3zCnW1J5u03wTUv$XOgI+eNiMF50Ts8MxiHUwHe2EYTNqtKhT/XvxlKOxiM=",
         "last_login": null,
         "is_superuser": 0,
         "username": "maryantonnet",
@@ -265,13 +317,13 @@
         "is_active": 1,
         "created_at": "2026-02-16 15:29:40.523964",
         "status": "ACTIVE",
-        "updated_at": "2026-02-16 16:54:25.272048",
+        "updated_at": "2026-03-15 18:23:23.831919",
         "role": "PARENT_STUDENT"
       },
       {
         "id": 14,
-        "password": "pbkdf2_sha256$1200000$q53qIzrj63vOJxIhPAR0hO$bckZXkUvXJLq52IcECxoxPIp/IVZ73fQmaHtSwtsA6w=",
-        "last_login": "2026-03-15 11:51:35.195663",
+        "password": "pbkdf2_sha256$1200000$Ah0bwNdoY7S2OIPv2gSNbA$LRSHmGH5l3I6oq+yIzasGXPPdAsT+JFkKG9k+IdSiGY=",
+        "last_login": "2026-03-15 17:20:43.402192",
         "is_superuser": 0,
         "username": "paoogma",
         "email": "ral531712@gmail.com",
@@ -279,7 +331,7 @@
         "is_active": 1,
         "created_at": "2026-02-17 07:05:22.274969",
         "status": "ACTIVE",
-        "updated_at": "2026-02-17 07:05:57.043808",
+        "updated_at": "2026-03-15 17:16:41.181903",
         "role": "PARENT_STUDENT"
       },
       {
@@ -1485,37 +1537,37 @@
       {
         "id": 1,
         "student_first_name": "Mary",
-        "student_middle_name": "",
+        "student_middle_name": null,
         "student_last_name": "Og",
         "parent_first_name": "Vincy",
-        "parent_middle_name": "",
+        "parent_middle_name": null,
         "parent_last_name": "Gam",
         "contact_number": "0123456789",
         "address": "123 Main St",
-        "section_id": null,
+        "section_id": 4,
         "user_id": 5,
-        "lrn": null,
-        "payment_mode": null,
-        "student_number": null,
-        "grade_level": "4",
-        "avatar": null
+        "lrn": "20231107222",
+        "payment_mode": "cash",
+        "student_number": "2026000011",
+        "grade_level": "grade2",
+        "avatar": ""
       },
       {
         "id": 2,
         "student_first_name": "Johnny",
-        "student_middle_name": "",
+        "student_middle_name": "a",
         "student_last_name": "Doe",
         "parent_first_name": "Jane",
-        "parent_middle_name": "",
+        "parent_middle_name": null,
         "parent_last_name": "Doe",
         "contact_number": "0123456789",
         "address": "123 Main St",
         "section_id": 9,
         "user_id": 6,
-        "lrn": "",
-        "payment_mode": "",
-        "student_number": "",
-        "grade_level": "6",
+        "lrn": "123456789103",
+        "payment_mode": "installment",
+        "student_number": "2026000022",
+        "grade_level": "grade6",
         "avatar": "avatars/Screenshot_3196.png"
       },
       {
@@ -2940,6 +2992,30 @@
         "content_type_id": 29,
         "codename": "view_tuitionconfig",
         "name": "Can view Tuition Configuration"
+      },
+      {
+        "id": 117,
+        "content_type_id": 30,
+        "codename": "add_passwordresetrequest",
+        "name": "Can add password reset request"
+      },
+      {
+        "id": 118,
+        "content_type_id": 30,
+        "codename": "change_passwordresetrequest",
+        "name": "Can change password reset request"
+      },
+      {
+        "id": 119,
+        "content_type_id": 30,
+        "codename": "delete_passwordresetrequest",
+        "name": "Can delete password reset request"
+      },
+      {
+        "id": 120,
+        "content_type_id": 30,
+        "codename": "view_passwordresetrequest",
+        "name": "Can view password reset request"
       }
     ],
     "authtoken_token": [
@@ -2959,9 +3035,14 @@
         "user_id": 90
       },
       {
-        "key": "eece91370f6ac5d3efee05b4e7ff03cbd5dfe12c",
-        "created": "2026-03-15 13:03:36.972120",
+        "key": "81232f189072221be973b21d98504297a361cb5e",
+        "created": "2026-03-15 13:13:01.838656",
         "user_id": 6
+      },
+      {
+        "key": "8f6c8ed95577a88ce6fd1c023a5045d704063ce2",
+        "created": "2026-03-15 16:21:36.167350",
+        "user_id": 1
       }
     ],
     "classmanagement_room": [
@@ -4464,6 +4545,26 @@
         "content_type_id": 8,
         "user_id": 1,
         "action_time": "2026-03-13 09:31:20.893345"
+      },
+      {
+        "id": 45,
+        "object_id": "1",
+        "object_repr": "Mary Og / Parent: Gam",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Grade level\", \"Lrn\", \"Student number\", \"Payment mode\", \"Section\"]}}]",
+        "content_type_id": 12,
+        "user_id": 1,
+        "action_time": "2026-03-15 18:45:14.067881"
+      },
+      {
+        "id": 46,
+        "object_id": "2",
+        "object_repr": "Johnny Doe / Parent: Doe",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Student middle name\", \"Grade level\", \"Lrn\", \"Student number\", \"Payment mode\"]}}]",
+        "content_type_id": 12,
+        "user_id": 1,
+        "action_time": "2026-03-15 18:49:36.650697"
       }
     ],
     "django_content_type": [
@@ -4611,6 +4712,11 @@
         "id": 29,
         "app_label": "finance",
         "model": "tuitionconfig"
+      },
+      {
+        "id": 30,
+        "app_label": "accounts",
+        "model": "passwordresetrequest"
       }
     ],
     "django_migrations": [
@@ -4973,6 +5079,12 @@
         "app": "finance",
         "name": "0003_alter_tuitionconfig_grade_key",
         "applied": "2026-03-15 09:53:24.514559"
+      },
+      {
+        "id": 61,
+        "app": "accounts",
+        "name": "0011_passwordresetrequest",
+        "applied": "2026-03-15 13:49:33.258231"
       }
     ],
     "django_session": [
@@ -6777,9 +6889,9 @@
         "expire_date": "2026-03-29 11:51:33.967690"
       },
       {
-        "session_key": "ws6ixea1zamxhdfdwko8nu3ociwpznfm",
-        "session_data": ".eJxVjDsOgkAUAO_yarPZlf1Bac8ZyNv3EdRAwkJlvLshodB2ZjJvGHDfxmGvsg4TQwcRLr-sID1lPgQ_cL4vhpZ5W6dijsSctpp-YXndzvZvMGIdoQO0gk5tFJ81Rk8ppKYQJyv-mtrMNkrbBs-UkpIGxRxD4zxZ53IOyvD5Aug7N8I:1w1l84:05rvZnZQzipp6luuueaez-4l-0pfOPKxPJtA6sCD5zk",
-        "expire_date": "2026-03-29 13:03:36.975092"
+        "session_key": "codmqlnoo6n1jpmigmqi3c938vymj9th",
+        "session_data": ".eJxVjDsOwjAQBe-yNbK8-BMnJX3OYO36gwPIkeKkQtwdWUoBxWtmRu8Nno69-KOlzS8RJkC4_DKm8Ey1i_igel9FWOu-LSx6Ik7bxLzG9Lqd7d9BoVZggpStiVaZQTvNlGlExKQYHQ-ayenQF5SSaNBKltq4ax4dK2tktknB5wvZuzc6:1w1qEB:4brtwC-hU3dGcx1e4ZO5MNJvSHCmuXl1nxauZxutMhA",
+        "expire_date": "2026-03-29 18:30:15.072336"
       }
     ],
     "enrollment_enrollment": [
@@ -10845,19 +10957,6 @@
     ],
     "finance_transaction": [
       {
-        "id": 1,
-        "student_name": "Parent_jane",
-        "transaction_type": "REGISTRATION",
-        "amount": 10,
-        "description": "utang mo boi",
-        "payment_method": "CASH",
-        "reference_number": "CESI-2026-00001",
-        "due_date": "2026-02-13",
-        "date_created": "2026-02-12 16:56:21.048106",
-        "status": "OVERDUE",
-        "parent_id": 2
-      },
-      {
         "id": 2,
         "student_name": "Johnny Doe",
         "transaction_type": "REGISTRATION",
@@ -10921,19 +11020,6 @@
         "date_created": "2026-02-09 04:42:59.991000",
         "status": "PENDING",
         "parent_id": 6
-      },
-      {
-        "id": 8,
-        "student_name": "Parent_jane",
-        "transaction_type": "REGISTRATION",
-        "amount": 0.01,
-        "description": "",
-        "payment_method": "BANK_TRANSFER",
-        "reference_number": "CESI-2026-00008",
-        "due_date": "2026-02-13",
-        "date_created": "2026-02-12 17:53:03.243166",
-        "status": "PENDING",
-        "parent_id": 2
       },
       {
         "id": 9,
