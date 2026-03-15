@@ -71,9 +71,7 @@ const Ledgers = () => {
     <div className="ledger-content">
       <header className="ledger-header-flex">
         <div className="header-title-area">
-          <h2 className="title-text">
-            <i className="bi bi-clock-history me-2"></i>Transaction History
-          </h2>
+           
           <span className="sy-badge">S.Y. 2025-2026</span>
         </div>
 

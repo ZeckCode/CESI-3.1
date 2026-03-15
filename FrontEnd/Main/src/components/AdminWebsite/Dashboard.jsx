@@ -173,14 +173,14 @@ const Dashboard = () => {
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
 
-        apiFetch("/api/accounts/subjects/")
-          .then((r) => (r.ok ? r.json() : []))
-          .catch(() => []),
+          apiFetch("/api/accounts/subjects/")
+            .then((r) => (r.ok ? r.json() : []))
+            .catch(() => []),
 
-        apiFetch("/api/accounts/sections/")
-          .then((r) => (r.ok ? r.json() : []))
-          .catch(() => []),
-      ]);
+          apiFetch("/api/accounts/sections/")
+            .then((r) => (r.ok ? r.json() : []))
+            .catch(() => []),
+        ]);
 
       const enrollments = safeArray(enrollRes);
       const transactions = safeArray(financeRes);

@@ -394,8 +394,8 @@ const AttendanceMonitoring = () => {
     <div className="am">
       <header className="am__header">
         <div className="am__headerLeft">
-          <h2 className="am__title">Attendance Monitoring</h2>
-          <p className="am__subtitle">
+         
+          <p className="am__title">
             {currentSection && <span className="am__sectionTag">{currentSectionLabel}</span>}
             {currentSchedule && (
               <>

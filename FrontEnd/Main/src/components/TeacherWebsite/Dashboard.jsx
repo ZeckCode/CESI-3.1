@@ -274,7 +274,7 @@ const Dashboard = () => {
     <div className="dash">
       <header className="dash__header">
         <div>
-          <h2 className="dash__title">Dashboard</h2>
+          
           <p className="dash__welcome">
             Welcome back, <strong>{teacherName}</strong>
           </p>

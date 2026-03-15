@@ -203,7 +203,6 @@ const Students = () => {
     <div className="sr">
       <header className="sr__header">
         <div className="sr__headerLeft">
-          <h2 className="sr__title">Students Roster</h2>
           <p className="sr__subtitle">
             {schoolYear && (
               <span className="sr__syTag">

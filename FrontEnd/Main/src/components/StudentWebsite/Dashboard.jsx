@@ -211,7 +211,7 @@ const Dashboard = () => {
   return (
     <div className="dashboard-content">
       <header className="content-header">
-        <h2 className="title-text">Dashboard</h2>
+        
         <p className="sd__welcome">
           Hello, <strong>{studentName}</strong>
           {gradeLabelStr && sectionName

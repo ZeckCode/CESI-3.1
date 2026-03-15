@@ -257,10 +257,7 @@ export default function AcademicHistory() {
       <div className="sg-section">
         <div className="sg-section-header">
           <div>
-            <h2 className="sg-section-title">
-              <History size={22} style={{ marginRight: 8, verticalAlign: "middle" }} />
-              Academic History
-            </h2>
+             
             <p className="sg-section-subtitle">
               {has_history
                 ? "Your complete academic records from previous school years"

@@ -107,7 +107,7 @@ const Grades = () => {
       <section className="sg-section">
         <div className="sg-section-header">
           <div>
-            <h2 className="sg-section-title">Academic Report Card</h2>
+            
             <p className="sg-section-subtitle">S.Y. {schoolYear || "—"}</p>
           </div>
           <div className="sg-header-actions">

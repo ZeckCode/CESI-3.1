@@ -1,17 +1,16 @@
 from rest_framework import serializers
-from .models import Transaction
+from .models import Transaction, TuitionConfig
 from accounts.models import User, UserProfile
 
 
 class TransactionSerializer(serializers.ModelSerializer):
-    """
-    Read serializer – returns full details including parent username
-    and properly formatted dates for the React frontend.
-    """
     parent_username = serializers.CharField(source='parent.username', read_only=True)
     date_created = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
     due_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
 
+    payment_mode = serializers.CharField(source='parent.profile.payment_mode', read_only=True, default='')
+    grade_level = serializers.CharField(source='parent.profile.grade_level', read_only=True, default='')
+    
     class Meta:
         model = Transaction
         fields = [
@@ -23,6 +22,8 @@ class TransactionSerializer(serializers.ModelSerializer):
             'amount',
             'description',
             'payment_method',
+             'grade_level',
+             'payment_mode',
             'reference_number',
             'due_date',
             'date_created',
@@ -31,10 +32,6 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 
 class TransactionCreateSerializer(serializers.ModelSerializer):
-    """
-    Write serializer – used when admins create or update a transaction.
-    Accepts parent (user id), auto-fills student_name from profile if blank.
-    """
     due_date = serializers.DateField(required=False, allow_null=True)
     student_name = serializers.CharField(required=False, allow_blank=True)
 
@@ -57,7 +54,6 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
         return value
 
     def _auto_fill_student_name(self, validated_data):
-        """Auto-fill student_name from the parent's profile if left blank."""
         if not validated_data.get('student_name'):
             try:
                 profile = validated_data['parent'].profile
@@ -70,7 +66,6 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         self._auto_fill_student_name(validated_data)
 
-        # Auto-generate school-side reference number (CESI-YYYY-NNNNN)
         if not validated_data.get('reference_number'):
             from django.utils import timezone
             year = timezone.now().year
@@ -86,9 +81,6 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
 
 
 class ParentDropdownSerializer(serializers.ModelSerializer):
-    """
-    Lightweight serializer for the parent search/dropdown in admin UI.
-    """
     student_name = serializers.SerializerMethodField()
     parent_name = serializers.SerializerMethodField()
 
@@ -111,3 +103,53 @@ class ParentDropdownSerializer(serializers.ModelSerializer):
             return name if name else ""
         except (UserProfile.DoesNotExist, AttributeError):
             return ""
+
+
+# ADD THESE NEW SERIALIZERS
+class TuitionConfigSerializer(serializers.ModelSerializer):
+    created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
+    updated_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
+
+    class Meta:
+        model = TuitionConfig
+        fields = [
+            'id',
+            'grade_key',
+            'grade_label',
+            'cash',
+            'installment',
+            'initial',
+            'monthly',
+            'reservation_fee',
+            'misc_aug',
+            'misc_nov',
+            'assessment',
+            'total_cash',
+            'total_installment',
+            'description',
+            'status',
+            'is_active',
+            'created_date',
+            'updated_date',
+        ]
+        read_only_fields = ['total_cash', 'total_installment', 'created_date', 'updated_date']
+
+
+class TuitionConfigCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TuitionConfig
+        fields = [
+            'grade_key',
+            'grade_label',
+            'cash',
+            'installment',
+            'initial',
+            'monthly',
+            'reservation_fee',
+            'misc_aug',
+            'misc_nov',
+            'assessment',
+            'description',
+            'status',
+            'is_active',
+        ]
