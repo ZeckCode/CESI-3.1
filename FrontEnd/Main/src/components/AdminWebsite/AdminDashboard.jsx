@@ -14,6 +14,7 @@ import GradesRecords from "./GradesRecords";
 import FloatingMessages from "./FloatingMessages";
 import CMSModule from "./CMSModule";
 import TuitionManagement from "./TuitionManagement";
+import AdminPasswordResetRequests from "./AdminPasswordResetRequests";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 
 function AdminDashboard() {
@@ -21,7 +22,6 @@ function AdminDashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleMenuClick = (menuId) => setActiveMenu(menuId);
-
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
 
   const renderContent = () => {
@@ -52,6 +52,8 @@ function AdminDashboard() {
         return <Reports />;
       case "tuition_management":
         return <TuitionManagement />;
+      case "password-reset-requests":
+        return <AdminPasswordResetRequests />;
       default:
         return <Dashboard />;
     }
@@ -74,6 +76,7 @@ function AdminDashboard() {
       "payment-reminders": "Payment Reminders",
       tuition: "Tuition Management",
       notifications: "SMS & Email",
+      "password-reset-requests": "Password Reset Requests",
     };
     return titles[activeMenu] || "Dashboard";
   };
@@ -92,6 +95,7 @@ function AdminDashboard() {
       "assign-teachers": "Assign teachers to classes and subjects.",
       cms: "Manage website content and announcements.",
       reports: "Generate and view system reports.",
+      "password-reset-requests": "Review password reset requests and send reset links.",
     };
     return subtitles[activeMenu] || "Welcome back! Here's what's happening today.";
   };
@@ -105,7 +109,6 @@ function AdminDashboard() {
         onToggleCollapse={handleToggleSidebar}
       />
 
-      {/* ✅ This is the important change: admin-main drives layout with the sidebar CSS */}
       <main className={`admin-main ${sidebarCollapsed ? "collapsed" : ""}`}>
         <Header
           title={getPageTitle()}

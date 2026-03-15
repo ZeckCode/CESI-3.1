@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import BaseUserManager, PermissionsMixin
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.utils import timezone
+from django.conf import settings
+# from BackEnd.CESI import settings
 
 # =========================
 # User Manager
@@ -219,3 +221,27 @@ class TeacherProfile(models.Model):
 
     def __str__(self):
         return f"TeacherProfile({self.user.username})"
+
+
+class PasswordResetRequest(models.Model):
+    STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("LINK_SENT", "Link Sent"),
+        ("COMPLETED", "Completed"),
+        ("REJECTED", "Rejected"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="password_reset_requests"
+    )
+    email = models.EmailField()
+    message = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    requested_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.email} - {self.status}"
