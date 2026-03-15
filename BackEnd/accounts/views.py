@@ -1,3 +1,4 @@
+import token
 from urllib import request
 
 from django.contrib.auth.tokens import default_token_generator
@@ -573,11 +574,12 @@ def update_student_profile(request, user_id):
 
 
 # ══════════════════════════════════════════════════════
-#  PASSWORD RESET REQUESTS
+# PASSWORD RESET REQUESTS
 # ══════════════════════════════════════════════════════
 
 class PasswordResetRequestCreateView(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         serializer = PasswordResetRequestCreateSerializer(data=request.data)
@@ -590,10 +592,21 @@ class PasswordResetRequestCreateView(APIView):
         if not user:
             return Response(
                 {"detail": "No account found with this email."},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        reset_request = PasswordResetRequest.objects.create(
+        existing_pending = PasswordResetRequest.objects.filter(
+            user=user,
+            status__in=["PENDING", "LINK_SENT"]
+        ).exists()
+
+        if existing_pending:
+            return Response(
+                {"detail": "A password reset request is already pending for this account."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        PasswordResetRequest.objects.create(
             user=user,
             email=user.email,
             message=message,
@@ -601,19 +614,59 @@ class PasswordResetRequestCreateView(APIView):
         )
 
         return Response(
-            {
-                "detail": "Password reset request submitted. Please wait for admin approval."
-            },
-            status=status.HTTP_201_CREATED
+            {"detail": "Password reset request submitted. Please wait for admin approval."},
+            status=status.HTTP_201_CREATED,
         )
 
+
+# class PasswordResetRequestCreateView(APIView):
+#     permission_classes = [permissions.AllowAny]
+#     authentication_classes = []
+
+#     def post(self, request):
+#         serializer = PasswordResetRequestCreateSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+
+#         email = serializer.validated_data["email"].strip().lower()
+#         message = serializer.validated_data.get("message", "").strip()
+
+#         user = User.objects.filter(email__iexact=email).first()
+#         if not user:
+#             return Response(
+#                 {"detail": "No account found with this email."},
+#                 status=status.HTTP_404_NOT_FOUND,
+#             )
+
+#         PasswordResetRequest.objects.filter(
+#             user=user,
+#             status__in=["PENDING", "LINK_SENT"]
+#         ).delete()
+
+#         PasswordResetRequest.objects.create(
+#             user=user,
+#             email=user.email,
+#             message=message,
+#             status="PENDING",
+#         )
+
+#         return Response(
+#             {"detail": "Password reset request submitted. Please wait for admin approval."},
+#             status=status.HTTP_201_CREATED,
+#         )
 
 class AdminPasswordResetRequestListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        if getattr(request.user, "role", None) != "ADMIN" and not request.user.is_staff and not request.user.is_superuser:
-            return Response({"detail": "Unauthorized."}, status=status.HTTP_403_FORBIDDEN)
+        if (
+            getattr(request.user, "role", None) != "ADMIN"
+            and not request.user.is_staff
+            and not request.user.is_superuser
+        ):
+            return Response(
+                {"detail": "Unauthorized."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         qs = PasswordResetRequest.objects.select_related("user").order_by("-requested_at")
         serializer = PasswordResetRequestSerializer(qs, many=True)
@@ -624,12 +677,28 @@ class AdminSendPasswordResetLinkView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        if getattr(request.user, "role", None) != "ADMIN" and not request.user.is_staff and not request.user.is_superuser:
-            return Response({"detail": "Unauthorized."}, status=status.HTTP_403_FORBIDDEN)
+        if (
+            getattr(request.user, "role", None) != "ADMIN"
+            and not request.user.is_staff
+            and not request.user.is_superuser
+        ):
+            return Response(
+                {"detail": "Unauthorized."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         reset_request = PasswordResetRequest.objects.select_related("user").filter(pk=pk).first()
         if not reset_request:
-            return Response({"detail": "Request not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Request not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if reset_request.status == "COMPLETED":
+            return Response(
+                {"detail": "This request has already been completed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         user = reset_request.user
 
@@ -640,20 +709,18 @@ class AdminSendPasswordResetLinkView(APIView):
         reset_link = f"{frontend_url}/reset-password/{uid}/{token}"
 
         subject = "CESI Password Reset Link"
-        message = f"""
-            Hello {user.username or user.email},
-
-            Your password reset request has been approved by the admin.
-
-            Click this link to reset your password:
-            {reset_link}
-
-            If you did not request this, please ignore this email.
-
-            Thanks,
-            CESI Admin
-        """.strip()
+        message = (
+            f"Hello {user.username or user.email},\n\n"
+            f"Your password reset request has been approved by the admin.\n\n"
+            f"Click this link to reset your password:\n"
+            f"{reset_link}\n\n"
+            f"If you did not request this, please ignore this email.\n\n"
+            f"Thanks,\n"
+            f"CESI Admin"
+        )
+        print("SENDING TO:", user.email)
         print("RESET LINK:", reset_link)
+            
         send_mail(
             subject=subject,
             message=message,
@@ -665,16 +732,20 @@ class AdminSendPasswordResetLinkView(APIView):
         reset_request.status = "LINK_SENT"
         reset_request.sent_at = timezone.now()
         reset_request.save()
-        return Response({"detail": "Reset link sent successfully."}, status=status.HTTP_200_OK)
+
+        return Response(
+            {"detail": "Reset link sent successfully."},
+            status=status.HTTP_200_OK,
+        )
+
 
 class PasswordResetConfirmView(APIView):
-    
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
 
     def post(self, request):
         print("RESET DATA:", request.data)
-        
+
         uid = (request.data.get("uid") or "").strip()
         token = (request.data.get("token") or "").strip()
         password = (request.data.get("password") or "").strip()
@@ -707,6 +778,10 @@ class PasswordResetConfirmView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        print("DECODED USER:", user.pk, user.username)
+        print("TOKEN RECEIVED:", token)
+        print("TOKEN CHECK:", default_token_generator.check_token(user, token))
+
         if not default_token_generator.check_token(user, token):
             return Response(
                 {"detail": "Invalid or expired token."},
@@ -731,4 +806,3 @@ class PasswordResetConfirmView(APIView):
             {"detail": "Password reset successful."},
             status=status.HTTP_200_OK,
         )
-    
