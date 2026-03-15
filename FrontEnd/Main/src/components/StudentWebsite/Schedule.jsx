@@ -91,10 +91,10 @@ const Schedule = () => {
       {/* Header with View Toggle */}
       <section className="ss-section">
         <div className="ss-section-header">
-          <div>
+          {/* <div>
             <h2 className="ss-section-title">Weekly Schedule</h2>
             <p className="ss-section-subtitle">S.Y. 2025–2026</p>
-          </div>
+          </div> */}
           <div className="ss-view-toggle">
             <button
               className={`ss-toggle-btn ${view === "calendar" ? "active" : ""}`}

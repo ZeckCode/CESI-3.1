@@ -569,8 +569,8 @@ const Grade = () => {
   return (
     <div className="ge">
       <header className="ge__header">
-        <h2 className="ge__title">Grade Encoding</h2>
-        <p className="ge__subtitle">
+        
+        <p className="ge__title">
           <span className="ge__subjectTag">{teacherSubject.subject_name}</span>
           {" · "}
           <span className="ge__classTag">

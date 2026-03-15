@@ -227,7 +227,7 @@ const Attendance = () => {
       <section className="sa-section">
         <div className="sa-section-header">
           <div>
-            <h2 className="sa-section-title">Attendance Records</h2>
+            
             <p className="sa-section-subtitle">S.Y. {stats.school_year || '2025-2026'}</p>
           </div>
           <div className="sa-header-actions">

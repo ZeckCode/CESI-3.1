@@ -40,6 +40,7 @@ export default function StudentMain() {
       profile: "Student Info",
       ledgers: "Ledger",
       grades: "Grades",
+      academic_history: "Academic History",
       schedule: "Schedule",
       attendance: "Attendance",
       messages: "Messages",
@@ -53,7 +54,8 @@ export default function StudentMain() {
       profile: "View student profile and information.",
       ledgers: "View tuition and payment ledger.",
       grades: "View student grades and records.",
-      schedule: "View class schedule.",
+      academic_history: "View your complete academic history.",
+      schedule: "View your class schedule.",
       attendance: "View attendance records.",
       messages: "View and send messages.",
     };

@@ -26,7 +26,7 @@ const Message = () => {
     <div className="msg">
       {/* Top bar */}
       <div className="msg__top">
-        <h2 className="msg__title">Messages</h2>
+        <h2 hidden className="msg__title">Messages</h2>
 
         <button className="msg__newBtn" type="button">
           <span className="msg__icon" aria-hidden="true">➕</span>

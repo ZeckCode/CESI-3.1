@@ -1,0 +1,27 @@
+use this when adding to other page 
+
+import Toast from '../Global/Toast';
+
+import React, { useState, useEffect, useMemo } from 'react';
+
+
+const {
+const [toasts, setToasts] = useState([]);
+
+const addToast = useCallback((title, message, type = "warning") => {
+  const id = Date.now() + Math.random();
+  setToasts((prev) => [...prev, { id, title, message, type }]);
+  setTimeout(() => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, 6000);
+}, []);
+
+const dismissToast = useCallback((id) => {
+  setToasts((prev) => prev.filter((t) => t.id !== id));
+}, []);
+}
+
+return (
+  <main className="???">
+    <Toast toasts={toasts} onDismiss={dismissToast} />
+

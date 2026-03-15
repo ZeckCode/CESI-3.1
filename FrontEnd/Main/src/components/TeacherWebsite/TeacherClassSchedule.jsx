@@ -233,7 +233,7 @@ const TeacherClassSchedule = () => {
     <div className="tcs">
       <header className="tcs__header">
         <div className="tcs__headerLeft">
-          <h2 className="tcs__title">Class Schedule</h2>
+          
           <p className="tcs__subtitle">
             {schoolYear && (
               <span className="tcs__syTag">

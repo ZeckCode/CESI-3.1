@@ -334,7 +334,7 @@ const Profile = () => {
       {error ? <div className="error-message">{error}</div> : null}
 
       <header className="profile-header-flex">
-        <h2 className="title-text">Student Profile</h2>
+         
 
         <div className="header-actions">
           {isEditing ? (

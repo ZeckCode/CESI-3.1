@@ -1,14 +1,20 @@
+from urllib import request
+
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.db.models import Q, Sum
 
-from .models import Transaction
+
+from .models import Transaction, TuitionConfig
+
 from .serializers import (
     TransactionSerializer,
     TransactionCreateSerializer,
     ParentDropdownSerializer,
+    TuitionConfigSerializer,
+    TuitionConfigCreateSerializer,
 )
 from accounts.models import User
 
@@ -201,3 +207,117 @@ def my_ledger_summary(request):
         'total_overdue': float(total_overdue),
         'balance': float(balance),
     })
+    
+    
+    
+    
+# ADD THESE NEW TUITION CONFIG VIEWS
+class TuitionConfigListCreate(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = TuitionConfig.objects.all()
+        search = self.request.query_params.get('search', '')
+        status_filter = self.request.query_params.get('status', '')
+        grade_key = self.request.query_params.get('grade_key', '')
+
+        if search:
+            qs = qs.filter(
+                Q(grade_key__icontains=search)
+                | Q(grade_label__icontains=search)
+                | Q(description__icontains=search)
+            )
+
+        if status_filter:
+            qs = qs.filter(status=status_filter.lower())
+
+        if grade_key:
+            qs = qs.filter(grade_key=grade_key)
+
+        return qs
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return TuitionConfigCreateSerializer
+        return TuitionConfigSerializer
+
+    def create(self, request, *args, **kwargs):
+        print("CONTENT TYPE:", request.content_type)
+        print("DATA:", request.data)
+        
+        if getattr(request.user, 'role', None) != 'ADMIN':
+            return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        return Response(TuitionConfigSerializer(obj).data, status=status.HTTP_201_CREATED)
+
+
+class TuitionConfigDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = TuitionConfig.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method in ('PUT', 'PATCH'):
+            return TuitionConfigCreateSerializer
+        return TuitionConfigSerializer
+
+    def update(self, request, *args, **kwargs):
+        if getattr(request.user, 'role', None) != 'ADMIN':
+            return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        return Response(TuitionConfigSerializer(obj).data)
+
+    def destroy(self, request, *args, **kwargs):
+        if getattr(request.user, 'role', None) != 'ADMIN':
+            return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def tuition_config_stats(request):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    qs = TuitionConfig.objects.all()
+    total_configs = qs.count()
+    active_configs = qs.filter(status='active').count()
+    avg_total_cash = 0
+    if total_configs > 0:
+        avg_total_cash = sum([float(x.total_cash) for x in qs]) / total_configs
+
+    return Response({
+        'total_configs': total_configs,
+        'active_configs': active_configs,
+        'avg_total_cash': round(avg_total_cash, 2),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def tuition_config_by_grade(request, grade_key):
+    qs = TuitionConfig.objects.filter(
+        grade_key=grade_key,
+        is_active=True,
+        status='active',
+    )
+    obj = qs.first()
+    if not obj:
+        return Response({'detail': 'Tuition config not found'}, status=404)
+    return Response(TuitionConfigSerializer(obj).data)
+
+# END OF FILE
+
+# # GET /api/finance/tuition-configs/by-grade/prek/
+# GET /api/finance/tuition-configs/by-grade/kinder/
+# GET /api/finance/tuition-configs/by-grade/grade1-3/
+# GET /api/finance/tuition-configs/by-grade/grade4-5/
+# GET /api/finance/tuition-configs/by-grade/grade6/
+# # 

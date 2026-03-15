@@ -224,8 +224,8 @@ const SPerformance = () => {
       {/* Header */}
       <header className="sp__header">
         <div className="sp__headerLeft">
-          <h2 className="sp__title">Student Performance</h2>
-          <p className="sp__subtitle">
+          
+          <p className="sp__title">
             Analysis Dashboard
             {sections.map((sec) => (
               <option key={sec.id} value={String(sec.id)}>
