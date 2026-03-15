@@ -336,7 +336,7 @@ const Profile = () => {
       <header className="profile-header-flex">
          
 
-        <div className="header-actions">
+        <div hidden className="header-actions">
           {isEditing ? (
             <>
               <button
