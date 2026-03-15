@@ -8,6 +8,9 @@ class TransactionSerializer(serializers.ModelSerializer):
     date_created = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
     due_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
 
+    payment_mode = serializers.CharField(source='parent.profile.payment_mode', read_only=True, default='')
+    grade_level = serializers.CharField(source='parent.profile.grade_level', read_only=True, default='')
+    
     class Meta:
         model = Transaction
         fields = [
@@ -19,6 +22,8 @@ class TransactionSerializer(serializers.ModelSerializer):
             'amount',
             'description',
             'payment_method',
+             'grade_level',
+             'payment_mode',
             'reference_number',
             'due_date',
             'date_created',

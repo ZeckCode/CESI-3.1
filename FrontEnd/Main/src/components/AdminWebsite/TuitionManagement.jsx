@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback  } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Search, Filter, Download, Plus, Edit2, Trash2,
   DollarSign, AlertCircle, CheckCircle, ToggleLeft, ToggleRight
@@ -6,14 +6,9 @@ import {
 import Pagination from './Pagination';
 import '../AdminWebsiteCSS/TuitionManagement.css';
 import { apiFetchData } from '../api/apiFetch';
-
 import Toast from '../Global/Toast';
 
 const API = '';
-
-
-
-
 
 const GRADE_OPTIONS = [
   { value: 'prek', label: 'Pre-Kinder' },
@@ -35,14 +30,6 @@ const formatCurrency = (value) => {
 
 const normalizeStatus = (value) => String(value || '').toLowerCase();
 
-const mapTransactionStatus = (status) => {
-  const s = String(status || '').toLowerCase();
-  if (s === 'paid') return 'paid';
-  if (s === 'overdue') return 'overdue';
-  if (s === 'pending') return 'pending';
-  return 'pending';
-};
-
 const getErrorMessage = (error, fallback) => {
   if (error?.data?.detail) return error.data.detail;
   if (error?.message) return error.message;
@@ -50,7 +37,6 @@ const getErrorMessage = (error, fallback) => {
 };
 
 const TuitionManagement = () => {
-  
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGrade, setFilterGrade] = useState('all');
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -72,21 +58,19 @@ const TuitionManagement = () => {
   const [loadingFees, setLoadingFees] = useState(false);
   const [saving, setSaving] = useState(false);
 
-const [toasts, setToasts] = useState([]);
+  const [toasts, setToasts] = useState([]);
 
-const addToast = useCallback((title, message, type = "warning") => {
-  const id = Date.now() + Math.random();
-  setToasts((prev) => [...prev, { id, title, message, type }]);
-  setTimeout(() => {
+  const addToast = useCallback((title, message, type = 'warning') => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, 6000);
-}, []);
-
-const dismissToast = useCallback((id) => {
-  setToasts((prev) => prev.filter((t) => t.id !== id));
-}, []);
-
-
+  }, []);
 
   const ITEMS_PER_PAGE = 10;
 
@@ -127,11 +111,11 @@ const dismissToast = useCallback((id) => {
     setSelectedFee(null);
   };
 
-  const loadTransactions = async () => {
+  const loadStudents = async () => {
     try {
       setLoadingStudents(true);
 
-      const data = await apiFetchData(`${API}/api/finance/transactions/`, {
+      const data = await apiFetchData(`${API}/api/finance/student-tuition-overview/`, {
         method: 'GET',
       });
 
@@ -140,24 +124,23 @@ const dismissToast = useCallback((id) => {
       const mapped = rows.map((item) => ({
         id: item.id,
         studentName: item.student_name || '—',
+        parentName: item.parent_name || '—',
         gradeLevel: item.grade_level || '—',
-        parentName: item.parent_username || '—',
-        annualFee: Number(item.amount || 0),
-        amountPaid: normalizeStatus(item.status) === 'paid' ? Number(item.amount || 0) : 0,
-        balance: normalizeStatus(item.status) === 'paid' ? 0 : Number(item.amount || 0),
-        status: mapTransactionStatus(item.status),
-        lastPaymentDate:
-          normalizeStatus(item.status) === 'paid' ? item.date_created : item.due_date,
-        enrollmentDate: item.date_created,
-        transactionType: item.transaction_type,
-        description: item.description || '',
-        referenceNumber: item.reference_number || '',
+        paymentMode: item.payment_mode || '',
+        studentNumber: item.student_number || '—',
+        lrn: item.lrn || '—',
+        contactNumber: item.contact_number || '—',
+        username: item.username || '—',
+        totalDue: Number(item.total_due || 0),
+        totalPaid: Number(item.total_paid || 0),
+        remainingBalance: Number(item.remaining_balance || 0),
       }));
 
       setStudentTuition(mapped);
     } catch (error) {
-      console.error('Failed to load transactions:', error);
+      console.error('Failed to load student tuition overview:', error);
       setStudentTuition([]);
+      addToast('Load Failed', getErrorMessage(error, 'Failed to load student tuition overview.'), 'error');
     } finally {
       setLoadingStudents(false);
     }
@@ -176,6 +159,7 @@ const dismissToast = useCallback((id) => {
     } catch (error) {
       console.error('Failed to load tuition configs:', error);
       setTuitionFees([]);
+      addToast('Load Failed', getErrorMessage(error, 'Failed to load tuition configurations.'), 'error');
     } finally {
       setLoadingFees(false);
     }
@@ -204,7 +188,7 @@ const dismissToast = useCallback((id) => {
 
   const refreshAll = async () => {
     await Promise.all([
-      loadTransactions(),
+      loadStudents(),
       loadTuitionConfigs(),
       loadTuitionStats(),
     ]);
@@ -221,10 +205,13 @@ const dismissToast = useCallback((id) => {
   const getFilteredData = () => {
     if (viewMode === 'student') {
       return studentTuition.filter((student) => {
+        const q = searchTerm.toLowerCase();
         const matchesSearch =
-          (student.studentName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (student.parentName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (student.referenceNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
+          (student.studentName || '').toLowerCase().includes(q) ||
+          (student.parentName || '').toLowerCase().includes(q) ||
+          (student.studentNumber || '').toLowerCase().includes(q) ||
+          (student.contactNumber || '').toLowerCase().includes(q) ||
+          (student.username || '').toLowerCase().includes(q);
 
         const studentGrade = String(student.gradeLevel || '').toLowerCase();
         const matchesFilter =
@@ -237,10 +224,11 @@ const dismissToast = useCallback((id) => {
     }
 
     return tuitionFees.filter((fee) => {
+      const q = searchTerm.toLowerCase();
       const matchesSearch =
-        (fee.grade_label || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (fee.grade_key || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (fee.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+        (fee.grade_label || '').toLowerCase().includes(q) ||
+        (fee.grade_key || '').toLowerCase().includes(q) ||
+        (fee.description || '').toLowerCase().includes(q);
 
       const matchesFilter = filterGrade === 'all' || fee.grade_key === filterGrade;
 
@@ -251,9 +239,9 @@ const dismissToast = useCallback((id) => {
   const getPaymentStats = () => {
     if (viewMode === 'student') {
       const totalStudents = studentTuition.length;
-      const totalPaid = studentTuition.reduce((sum, s) => sum + Number(s.amountPaid || 0), 0);
-      const totalOverdue = studentTuition.filter((s) => s.status === 'overdue').length;
-      return { totalStudents, totalPaid, totalOverdue };
+      const cashCount = studentTuition.filter((s) => String(s.paymentMode).toLowerCase() === 'cash').length;
+      const installmentCount = studentTuition.filter((s) => String(s.paymentMode).toLowerCase() === 'installment').length;
+      return { totalStudents, cashCount, installmentCount };
     }
 
     return {
@@ -293,7 +281,7 @@ const dismissToast = useCallback((id) => {
   };
 
   const handleDelete = async (id) => {
-  if (viewMode === 'student') return;
+    if (viewMode === 'student') return;
     if (!window.confirm('Are you sure you want to delete this tuition record?')) return;
 
     try {
@@ -303,16 +291,16 @@ const dismissToast = useCallback((id) => {
 
       await loadTuitionConfigs();
       await loadTuitionStats();
-      addToast("Deleted", "Tuition record deleted successfully.", "success");
+      addToast('Deleted', 'Tuition record deleted successfully.', 'success');
     } catch (error) {
-    console.error('Delete failed:', error);
-    addToast("Delete Failed", getErrorMessage(error, "Failed to delete tuition record."), "error");
-  }
+      console.error('Delete failed:', error);
+      addToast('Delete Failed', getErrorMessage(error, 'Failed to delete tuition record.'), 'error');
+    }
   };
 
   const handleSave = async () => {
     if (!formData.grade_key || !formData.grade_label) {
-      addToast("Missing Fields", "Please select a grade first.", "warning");
+      addToast('Missing Fields', 'Please select a grade first.', 'warning');
       return;
     }
 
@@ -343,8 +331,7 @@ const dismissToast = useCallback((id) => {
           },
           body: JSON.stringify(payload),
         });
-        // alert('Tuition fee added successfully');
-        addToast("Added", "Tuition record added successfully.", "success");
+        addToast('Added', 'Tuition record added successfully.', 'success');
       } else {
         await apiFetchData(`${API}/api/finance/tuition-configs/${selectedFee.id}/`, {
           method: 'PATCH',
@@ -353,8 +340,7 @@ const dismissToast = useCallback((id) => {
           },
           body: JSON.stringify(payload),
         });
-        // alert('Tuition fee updated successfully');
-        addToast("Updated", "Tuition record updated successfully.", "success");
+        addToast('Updated', 'Tuition record updated successfully.', 'success');
       }
 
       setShowModal(false);
@@ -363,7 +349,7 @@ const dismissToast = useCallback((id) => {
       await loadTuitionStats();
     } catch (error) {
       console.error('Save failed:', error);
-      addToast("Save Failed", getErrorMessage(error, "Failed to save tuition record."), "error");
+      addToast('Save Failed', getErrorMessage(error, 'Failed to save tuition record.'), 'error');
     } finally {
       setSaving(false);
     }
@@ -372,8 +358,7 @@ const dismissToast = useCallback((id) => {
   const handleExportData = () => {
     const data = getFilteredData();
     console.log('Export data:', data);
-    // alert('Export feature placeholder');
-    addToast("Export", "Export feature is not implemented yet.", "warning");
+    addToast('Export', 'Export feature is not implemented yet.', 'warning');
   };
 
   const handleInputChange = (e) => {
@@ -402,11 +387,10 @@ const dismissToast = useCallback((id) => {
   );
   const stats = getPaymentStats();
 
-  
   return (
     <main className="tuition-management-main">
-
       <Toast toasts={toasts} onDismiss={dismissToast} />
+
       <section className="tm-section">
         <div className="tm-stats-grid">
           <div className="tm-stat-card tm-stat-blue">
@@ -420,37 +404,37 @@ const dismissToast = useCallback((id) => {
               {viewMode === 'student' ? stats.totalStudents : stats.totalConfigs}
             </div>
             <div className="tm-stat-change">
-              {viewMode === 'student' ? 'Student transaction records' : 'Fee structures configured'}
+              {viewMode === 'student' ? 'Student tuition profiles' : 'Fee structures configured'}
             </div>
           </div>
 
           <div className="tm-stat-card tm-stat-green">
             <div className="tm-stat-header">
               <span className="tm-stat-label">
-                {viewMode === 'student' ? 'Total Paid' : 'Active Fees'}
+                {viewMode === 'student' ? 'Cash Mode' : 'Active Fees'}
               </span>
               <CheckCircle size={24} className="tm-stat-icon" />
             </div>
             <div className="tm-stat-value">
-              {viewMode === 'student' ? formatCurrency(stats.totalPaid) : stats.activeConfigs}
+              {viewMode === 'student' ? stats.cashCount : stats.activeConfigs}
             </div>
             <div className="tm-stat-change">
-              {viewMode === 'student' ? 'Amount collected' : 'Active tuition configurations'}
+              {viewMode === 'student' ? 'Students on cash plan' : 'Active tuition configurations'}
             </div>
           </div>
 
           <div className="tm-stat-card tm-stat-purple">
             <div className="tm-stat-header">
               <span className="tm-stat-label">
-                {viewMode === 'student' ? 'Overdue Accounts' : 'Avg Total Cash'}
+                {viewMode === 'student' ? 'Installment Mode' : 'Avg Total Cash'}
               </span>
               <DollarSign size={24} className="tm-stat-icon" />
             </div>
             <div className="tm-stat-value">
-              {viewMode === 'student' ? stats.totalOverdue : formatCurrency(stats.avgTotalCash)}
+              {viewMode === 'student' ? stats.installmentCount : formatCurrency(stats.avgTotalCash)}
             </div>
             <div className="tm-stat-change">
-              {viewMode === 'student' ? 'Need attention' : 'Average configured cash total'}
+              {viewMode === 'student' ? 'Students on installment plan' : 'Average configured cash total'}
             </div>
           </div>
         </div>
@@ -460,11 +444,11 @@ const dismissToast = useCallback((id) => {
         <div className="tm-section-header">
           <div>
             <h2 className="tm-section-title">
-              {viewMode === 'student' ? 'Student Tuition Records' : 'Tuition Fee Structure'}
+              {viewMode === 'student' ? 'Student Tuition Profiles' : 'Tuition Fee Structure'}
             </h2>
             <p className="tm-section-subtitle">
               {viewMode === 'student'
-                ? 'View student finance transactions'
+                ? 'View student payment plan information'
                 : 'Manage tuition configuration by grade'}
             </p>
           </div>
@@ -495,7 +479,7 @@ const dismissToast = useCallback((id) => {
               type="text"
               placeholder={
                 viewMode === 'student'
-                  ? 'Search by student, parent, or reference number...'
+                  ? 'Search by student, parent, student no., contact, or username...'
                   : 'Search by grade level or description...'
               }
               value={searchTerm}
@@ -534,13 +518,13 @@ const dismissToast = useCallback((id) => {
                   <>
                     <th>Student Name</th>
                     <th>Parent</th>
-                    <th>Transaction Type</th>
-                    <th>Amount</th>
-                    <th>Paid</th>
-                    <th>Balance</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Actions</th>
+                    <th>Grade</th>
+                    <th>Payment Mode</th>
+                    <th>Total Due</th>
+                    <th>Total Paid</th>
+                    <th>Remaining</th>
+                    <th>Student No.</th>
+                    <th>Contact</th>
                   </>
                 ) : (
                   <>
@@ -561,7 +545,7 @@ const dismissToast = useCallback((id) => {
             <tbody>
               {(viewMode === 'student' ? loadingStudents : loadingFees) ? (
                 <tr>
-                  <td colSpan={9} className="tm-no-data">
+                  <td colSpan={viewMode === 'student' ? 9 : 9} className="tm-no-data">
                     <p>Loading...</p>
                   </td>
                 </tr>
@@ -577,36 +561,20 @@ const dismissToast = useCallback((id) => {
                       <>
                         <td className="tm-table-cell tm-cell-bold">{item.studentName}</td>
                         <td className="tm-table-cell">{item.parentName}</td>
-                        <td className="tm-table-cell">{item.transactionType || '—'}</td>
-                        <td className="tm-table-cell">{formatCurrency(item.annualFee)}</td>
-                        <td className="tm-table-cell">{formatCurrency(item.amountPaid)}</td>
-                        <td className="tm-table-cell">{formatCurrency(item.balance)}</td>
                         <td className="tm-table-cell">
-                          <span className={`tm-status tm-status-${item.status}`}>
-                            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                          </span>
+                          {gradeLabelMap[item.gradeLevel] || item.gradeLevel || '—'}
                         </td>
                         <td className="tm-table-cell">
-                          {item.lastPaymentDate ? new Date(item.lastPaymentDate).toLocaleDateString() : 'N/A'}
+                          {item.paymentMode
+                            ? item.paymentMode.charAt(0).toUpperCase() + item.paymentMode.slice(1)
+                            : '—'}
                         </td>
-                        <td className="tm-table-cell tm-actions-cell">
-                          <button
-                            className="tm-action-btn tm-edit-btn"
-                            title="Student records are managed from transactions"
-                            disabled
-                            style={{ opacity: 0.5, cursor: 'not-allowed' }}
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                          <button
-                            className="tm-action-btn tm-delete-btn"
-                            title="Student records are managed from transactions"
-                            disabled
-                            style={{ opacity: 0.5, cursor: 'not-allowed' }}
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </td>
+                        <td className="tm-table-cell">{formatCurrency(item.totalDue)}</td>
+                        <td className="tm-table-cell">{formatCurrency(item.totalPaid)}</td>
+                        <td className="tm-table-cell">{formatCurrency(item.remainingBalance)}</td>
+                        <td className="tm-table-cell">{item.studentNumber || '—'}</td>
+                        <td className="tm-table-cell">{item.contactNumber || '—'}</td>
+
                       </>
                     ) : (
                       <>
@@ -648,7 +616,7 @@ const dismissToast = useCallback((id) => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="tm-no-data">
+                  <td colSpan={viewMode === 'student' ? 9 : 9} className="tm-no-data">
                     <AlertCircle size={24} />
                     <p>No records found</p>
                   </td>

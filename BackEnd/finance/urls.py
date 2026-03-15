@@ -7,7 +7,7 @@ from .views import (
     parent_students,
     my_transactions,
     my_ledger_summary,
-
+    student_tuition_overview,
     TuitionConfigListCreate,
     TuitionConfigDetail,
     tuition_config_stats,
@@ -30,5 +30,7 @@ urlpatterns = [
     path('tuition-configs/', TuitionConfigListCreate.as_view(), name='tuition-config-list'),
     path('tuition-configs/<int:pk>/', TuitionConfigDetail.as_view(), name='tuition-config-detail'),
     path('tuition-configs/stats/', tuition_config_stats, name='tuition-config-stats'),
+    path('student-tuition-overview/', student_tuition_overview, name='student-tuition-overview'),
+    
     path('tuition-configs/by-grade/<str:grade_key>/', tuition_config_by_grade, name='tuition-config-by-grade'),
 ]
