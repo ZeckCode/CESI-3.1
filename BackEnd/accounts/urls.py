@@ -18,8 +18,13 @@ from .views import (
     update_teacher_assignment,
     update_student_profile,
     UpdateProfileView,
+    PasswordResetRequestCreateView,
+    AdminPasswordResetRequestListView,
+    AdminSendPasswordResetLinkView,
+    PasswordResetConfirmView,
+    
 )
-from .views import SetPasswordView, ForgotPasswordView, ResetPasswordView # Import the new view for password reset
+from .views import SetPasswordView # Import the new view for password reset
 
 urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
@@ -51,7 +56,11 @@ urlpatterns = [
     # Set new Password
     path("set-password/", SetPasswordView.as_view(), name="set-password"),
     path("set-password/<str:uidb64>/<str:token>/", SetPasswordView.as_view(), name="set-password"),
-    path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
-    path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
+
+    # Forgot Password
+    path("password-reset-request/", PasswordResetRequestCreateView.as_view(), name="password-reset-request"),
+    path("admin/password-reset-requests/", AdminPasswordResetRequestListView.as_view(), name="admin-password-reset-requests"),
+    path("admin/password-reset-requests/<int:pk>/send-link/", AdminSendPasswordResetLinkView.as_view(), name="admin-send-password-reset-link"),
+    path("password-reset-confirm/", PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
 
 ]

@@ -65,7 +65,11 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
           />
-          <span className="forgot-pass">Forgot your password?</span>
+          <div style={{ textAlign: "right", marginTop: "8px" }}>
+              <a href="/forgot-password" style={{ color: "#2457c5", fontWeight: 600 }}>
+                Forgot Password?
+              </a>
+            </div>
           <button type="submit">Login</button>
         </form>
       </div>

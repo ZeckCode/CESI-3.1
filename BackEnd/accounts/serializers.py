@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, UserProfile, TeacherProfile, AdminProfile, Section, Subject
+from .models import User, UserProfile, TeacherProfile, AdminProfile, Section, Subject, PasswordResetRequest
 
 # Enrollment
 from enrollment.models import Enrollment
@@ -32,7 +32,7 @@ class SectionSerializer(serializers.ModelSerializer):
     student_ids = serializers.SerializerMethodField()
     student_names = serializers.SerializerMethodField()
     capacity = serializers.IntegerField(required=False)
-    grade_level = serializers.CharField(source="get_grade_level_display", read_only=True)                                                                            
+    grade_level = serializers.CharField(source="get_grade_level_display", read_only=True)
     room_code = serializers.CharField(source="room.code", read_only=True, allow_null=True)
     room_name = serializers.CharField(source="room.name", read_only=True, allow_null=True)
 
@@ -89,7 +89,7 @@ class TeacherProfileReadSerializer(serializers.ModelSerializer):
 
     def get_avatar_url(self, obj):
         if obj.avatar:
-            request = self.context.get('request')
+            request = self.context.get("request")
             if request:
                 return request.build_absolute_uri(obj.avatar.url)
             return obj.avatar.url
@@ -116,7 +116,7 @@ class UserProfileReadSerializer(serializers.ModelSerializer):
 
     def get_avatar_url(self, obj):
         if obj.avatar:
-            request = self.context.get('request')
+            request = self.context.get("request")
             if request:
                 return request.build_absolute_uri(obj.avatar.url)
             return obj.avatar.url
@@ -173,15 +173,13 @@ class TeacherAssignmentSerializer(serializers.Serializer):
     employee_id = serializers.CharField(required=False, allow_blank=True)
 
     def validate_subject(self, value):
-        if value is not None:
-            if not Subject.objects.filter(id=value).exists():
-                raise serializers.ValidationError("Subject not found")
+        if value is not None and not Subject.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Subject not found")
         return value
 
     def validate_section(self, value):
-        if value is not None:
-            if not Section.objects.filter(id=value).exists():
-                raise serializers.ValidationError("Section not found")
+        if value is not None and not Section.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Section not found")
         return value
 
 
@@ -200,9 +198,8 @@ class StudentProfileUpdateSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False)
 
     def validate_section(self, value):
-        if value is not None:
-            if not Section.objects.filter(id=value).exists():
-                raise serializers.ValidationError("Section not found")
+        if value is not None and not Section.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Section not found")
         return value
 
 
@@ -254,7 +251,9 @@ class CreateUserSerializer(serializers.Serializer):
             ]
             missing = [f for f in required if not attrs.get(f)]
             if missing:
-                raise serializers.ValidationError({"detail": f"Missing profile fields: {', '.join(missing)}"})
+                raise serializers.ValidationError(
+                    {"detail": f"Missing profile fields: {', '.join(missing)}"}
+                )
 
             section_id = attrs.get("section")
             if section_id:
@@ -353,3 +352,68 @@ class CreateUserSerializer(serializers.Serializer):
             )
 
         return user
+
+
+class PasswordResetRequestCreateSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    message = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_email(self, value):
+        if not User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("No account found with this email.")
+        return value
+
+
+class PasswordResetRequestSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PasswordResetRequest
+        fields = [
+            "id",
+            "user",
+            "user_name",
+            "email",
+            "message",
+            "status",
+            "requested_at",
+            "sent_at",
+            "completed_at",
+        ]
+
+    def get_user_name(self, obj):
+        user = obj.user
+
+        full_name = " ".join(
+            part for part in [
+                getattr(user, "first_name", ""),
+                getattr(user, "last_name", ""),
+            ]
+            if part
+        ).strip()
+
+        if full_name:
+            return full_name
+
+        if getattr(user, "role", None) == "PARENT_STUDENT" and hasattr(user, "profile") and user.profile:
+            student_name = " ".join(
+                part for part in [
+                    getattr(user.profile, "student_first_name", ""),
+                    getattr(user.profile, "student_last_name", ""),
+                ]
+                if part
+            ).strip()
+            if student_name:
+                return student_name
+
+            parent_name = " ".join(
+                part for part in [
+                    getattr(user.profile, "parent_first_name", ""),
+                    getattr(user.profile, "parent_last_name", ""),
+                ]
+                if part
+            ).strip()
+            if parent_name:
+                return parent_name
+
+        return getattr(user, "username", "") or getattr(user, "email", "Unknown User")

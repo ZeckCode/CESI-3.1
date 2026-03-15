@@ -19,6 +19,9 @@ import "../AdminWebsiteCSS/Sidebar.css";
 import { useAuth } from "../Auth/useAuth";
 import { getToken } from "../Auth/auth";
 
+
+
+
 function getInitials(name = "User") {
   const parts = String(name).trim().split(/\s+/);
   const first = parts[0]?.[0] || "U";
@@ -80,6 +83,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
         items: [
           { id: "cms", label: "CMS Module", icon: Globe },
           { id: "reports", label: "Reports", icon: FileBarChart },
+          { id: "password-reset-requests", label: "Password Reset Requests", icon: UsersRound },
         ],
       },
     ],

@@ -77,18 +77,35 @@ REST_FRAMEWORK = {
     # },
 }
 # Email backend for development - prints emails to console
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-# FRONTEND_URL = "http://localhost:5173"  # or your real domain later
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# # FRONTEND_URL = "http://localhost:5173"  # or your real domain later
 
-# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-# EMAIL_HOST = "smtp.gmail.com"
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = "zekaido123@gmail.com"  # Your Gmail address
-# EMAIL_HOST_PASSWORD = "ZeckAkali002"  # Gmail App Password (not normal password)
-# DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = "noreply@cesi.local"
+# # EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# # EMAIL_HOST = "smtp.gmail.com"
+# # EMAIL_PORT = 587
+# # EMAIL_USE_TLS = True
+# # EMAIL_HOST_USER = "zekaido123@gmail.com"  # Your Gmail address
+# # EMAIL_HOST_PASSWORD = "ZeckAkali002"  # Gmail App Password (not normal password)
+# # DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+# # EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# DEFAULT_FROM_EMAIL = "noreply@cesi.local"
+# FRONTEND_URL = "http://localhost:5173"
+
+
+
+
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# FRONTEND_URL = "http://localhost:5173"  # or your real domain later
+# DEFAULT_FROM_EMAIL = "noreply@cesi.local"
+
+# Email backend for production - configure with real SMTP server and credentials
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = "ral531715@gmail.com"  # Your Gmail address
+EMAIL_HOST_PASSWORD = "mjacgbzzcjzubtmr"  # Gmail App Password (not normal password)
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 FRONTEND_URL = "http://localhost:5173"
 
 # CORS settings for development - adjust for production as needed
