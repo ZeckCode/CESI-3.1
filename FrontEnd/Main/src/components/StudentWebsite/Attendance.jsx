@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Calendar, CheckCircle, XCircle, Clock, AlertCircle, 
   ChevronLeft, ChevronRight, X, List, LayoutGrid 
@@ -27,6 +27,9 @@ const Attendance = () => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [dailyDetail, setDailyDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [filterSubject, setFilterSubject] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [subjectOptions, setSubjectOptions] = useState([]);
   
   // Calendar navigation
   const today = new Date();
@@ -38,16 +41,22 @@ const Attendance = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        let attendanceUrl = `/api/attendance/my-attendance/?month=${currentMonth + 1}&year=${currentYear}`;
+        if (filterSubject !== 'all') {
+          attendanceUrl += `&subject=${encodeURIComponent(filterSubject)}`;
+        }
         const [statsRes, attendanceRes] = await Promise.all([
           apiFetch("/api/attendance/my-stats/"),
-          apiFetch(`/api/attendance/my-attendance/?month=${currentMonth + 1}&year=${currentYear}`),
+          apiFetch(attendanceUrl),
         ]);
         
         if (statsRes.ok) {
           setStats(await statsRes.json());
         }
         if (attendanceRes.ok) {
-          setCalendarData(await attendanceRes.json());
+          const data = await attendanceRes.json();
+          setSubjectOptions(data.subjects || []);
+          setCalendarData(data.calendar || []);
         }
       } catch (err) {
         console.error("Attendance fetch error:", err);
@@ -56,7 +65,7 @@ const Attendance = () => {
       }
     };
     fetchData();
-  }, [currentMonth, currentYear]);
+  }, [currentMonth, currentYear, filterSubject]);
 
   // Fetch daily detail when a date is clicked
   const handleDateClick = async (dateStr) => {
@@ -83,9 +92,18 @@ const Attendance = () => {
   const getDaysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (month, year) => new Date(year, month, 1).getDay();
   
+  // Calendar data narrowed by the status filter (subject filter is applied server-side).
+  const displayedCalendarData = useMemo(
+    () =>
+      filterStatus === 'all'
+        ? calendarData
+        : calendarData.filter((d) => d.overall_status === filterStatus),
+    [calendarData, filterStatus]
+  );
+
   const getAttendanceForDate = (day) => {
     const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return calendarData.find(d => d.date === dateStr);
+    return displayedCalendarData.find(d => d.date === dateStr);
   };
 
   const getStatusColor = (status) => {
@@ -251,6 +269,49 @@ const Attendance = () => {
         </div>
       </section>
 
+      {/* Attendance Filters */}
+      <section className="sa-section">
+        <div className="sa-filter-bar">
+          {subjectOptions.length > 0 && (
+            <div className="sa-filter-group">
+              <label className="sa-filter-label">Subject</label>
+              <select
+                value={filterSubject}
+                onChange={(e) => setFilterSubject(e.target.value)}
+                className="sa-filter-select"
+              >
+                <option value="all">All Subjects</option>
+                {subjectOptions.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="sa-filter-group">
+            <label className="sa-filter-label">Status</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="sa-filter-select"
+            >
+              <option value="all">All Statuses</option>
+              <option value="present">Present</option>
+              <option value="late">Late</option>
+              <option value="absent">Absent</option>
+              <option value="partial">Partial</option>
+            </select>
+          </div>
+          {(filterSubject !== 'all' || filterStatus !== 'all') && (
+            <button
+              className="sa-clear-filters"
+              onClick={() => { setFilterSubject('all'); setFilterStatus('all'); }}
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+      </section>
+
       {/* Main Content */}
       {loading ? (
         <div className="sa-loading">Loading attendance data...</div>
@@ -293,6 +354,9 @@ const Attendance = () => {
               <div className="sa-legend-item">
                 <span className="sa-legend-dot sa-status-partial"></span> Partial
               </div>
+              <div className="sa-legend-item">
+                <span className="sa-legend-dot sa-status-excused"></span> Excused
+              </div>
             </div>
           </div>
         </section>
@@ -312,14 +376,14 @@ const Attendance = () => {
                 </tr>
               </thead>
               <tbody>
-                {calendarData.length === 0 ? (
+                {displayedCalendarData.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="sa-empty-cell">
                       No attendance records found for this month.
                     </td>
                   </tr>
                 ) : (
-                  calendarData.map((record) => (
+                  displayedCalendarData.map((record) => (
                     <tr key={record.date}>
                       <td data-label="Date">{record.date}</td>
                       <td data-label="Present">
@@ -371,7 +435,7 @@ const Attendance = () => {
                   {dailyDetail.records.map((item, idx) => (
                     <div key={idx} className={`sa-detail-item sa-item-${item.status.toLowerCase()}`}>
                       <div className="sa-detail-subject">
-                        <span className="sa-subject-name">{item.subject_name || 'General'}</span>
+                        <span className="sa-subject-name">{item.subject_name || '—'}</span>
                         {item.subject_code && (
                           <span className="sa-subject-code">{item.subject_code}</span>
                         )}
@@ -380,9 +444,9 @@ const Attendance = () => {
                         <span className={`sa-status-badge sa-badge-${item.status.toLowerCase()}`}>
                           {item.status}
                         </span>
-                        {item.time_in && (
+                        {item.start_time && (
                           <span className="sa-time">
-                            <Clock size={14} /> {formatTime(item.time_in)}
+                            <Clock size={14} /> {formatTime(item.start_time)}
                           </span>
                         )}
                       </div>

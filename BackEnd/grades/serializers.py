@@ -93,12 +93,16 @@ class StudentListSerializer(serializers.Serializer):
 
 # ─── Academic Record (historical) ───
 class AcademicRecordSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField(read_only=True)
+    student_username = serializers.CharField(source="student.username", read_only=True)
+    student_number = serializers.SerializerMethodField(read_only=True)
     recorded_by_name = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = AcademicRecord
         fields = [
-            "id", "student", "school_year", "grade_level", "section_name",
+            "id", "student", "student_name", "student_username", "student_number",
+            "school_year", "grade_level", "section_name",
             "subject_name", "subject_code",
             "q1", "q2", "q3", "q4", "final_grade",
             "remarks", "teacher_name",
@@ -106,6 +110,20 @@ class AcademicRecordSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
         read_only_fields = ["recorded_by", "created_at", "updated_at"]
+
+    def get_student_name(self, obj):
+        try:
+            profile = obj.student.profile
+            full_name = f"{profile.student_first_name} {profile.student_last_name}".strip()
+            return full_name or obj.student.username
+        except Exception:
+            return obj.student.username
+
+    def get_student_number(self, obj):
+        try:
+            return obj.student.profile.student_number or None
+        except Exception:
+            return None
 
     def get_recorded_by_name(self, obj):
         if not obj.recorded_by:

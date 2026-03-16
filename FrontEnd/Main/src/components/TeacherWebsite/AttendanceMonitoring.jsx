@@ -138,8 +138,20 @@ const AttendanceMonitoring = () => {
     return schedules.filter((s) => String(s.section?.id || s.section) === selectedSection);
   }, [schedules, selectedSection]);
 
+  useEffect(() => {
+    if (!selectedSection || filteredSchedules.length === 0) {
+      setSelectedSchedule("");
+      return;
+    }
+
+    const hasCurrent = filteredSchedules.some((s) => String(s.id) === selectedSchedule);
+    if (!hasCurrent) {
+      setSelectedSchedule(String(filteredSchedules[0].id));
+    }
+  }, [filteredSchedules, selectedSection, selectedSchedule]);
+
   const fetchStudentsAndAttendance = useCallback(async () => {
-    if (!selectedSection) return;
+    if (!selectedSection || !selectedSchedule) return;
 
     setLoading(true);
     try {
@@ -159,9 +171,7 @@ const AttendanceMonitoring = () => {
         });
 
         let url = `${API}/api/attendance/records/?section=${selectedSection}&date=${selectedDate}`;
-        if (selectedSchedule) {
-          url += `&schedule=${selectedSchedule}`;
-        }
+        url += `&schedule=${selectedSchedule}`;
 
         const attendanceRes = await apiFetch(url);
         if (attendanceRes.ok) {
@@ -228,7 +238,11 @@ const AttendanceMonitoring = () => {
   };
 
   const handleSave = async () => {
-    if (!selectedSection || students.length === 0) return;
+    if (!selectedSection || !selectedSchedule || students.length === 0) {
+      setMessage({ type: "error", text: "Please select a subject schedule before saving attendance." });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
 
     setSaving(true);
     setMessage(null);
@@ -246,9 +260,7 @@ const AttendanceMonitoring = () => {
         records,
       };
 
-      if (selectedSchedule) {
-        body.schedule = parseInt(selectedSchedule, 10);
-      }
+      body.schedule = parseInt(selectedSchedule, 10);
 
       const res = await apiFetch(`${API}/api/attendance/records/bulk_upsert/`, {
         method: "POST",
@@ -316,7 +328,11 @@ const AttendanceMonitoring = () => {
               {students.length === 0 ? (
                 <tr>
                   <td className="am__td am__empty" colSpan={4}>
-                    {selectedSection ? "No students enrolled in this section." : "Please select a section."}
+                    {!selectedSection
+                      ? "Please select a section."
+                      : !selectedSchedule
+                      ? "Please select a subject schedule."
+                      : "No students enrolled in this section."}
                   </td>
                 </tr>
               ) : (
@@ -431,10 +447,7 @@ const AttendanceMonitoring = () => {
           <select
             className="am__select"
             value={selectedSection}
-            onChange={(e) => {
-              setSelectedSection(e.target.value);
-              setSelectedSchedule("");
-            }}
+            onChange={(e) => setSelectedSection(e.target.value)}
           >
             <option value="">Select Section</option>
             {sections.map((sec) => (
@@ -450,7 +463,7 @@ const AttendanceMonitoring = () => {
               value={selectedSchedule}
               onChange={(e) => setSelectedSchedule(e.target.value)}
             >
-              <option value="">All Subjects (General)</option>
+              <option value="">Select Subject</option>
               {filteredSchedules.map((sched) => (
                 <option key={sched.id} value={sched.id}>
                   {sched.subject?.name || sched.subject_name} ({sched.day_of_week} {sched.start_time?.slice(0, 5)})
@@ -473,7 +486,7 @@ const AttendanceMonitoring = () => {
             className="am__saveBtn"
             type="button"
             onClick={handleSave}
-            disabled={saving || !selectedSection || students.length === 0}
+            disabled={saving || !selectedSection || !selectedSchedule || students.length === 0}
           >
             <Save size={16} />
             {saving ? "Saving..." : "Save Attendance"}

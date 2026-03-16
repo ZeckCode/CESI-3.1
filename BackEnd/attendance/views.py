@@ -73,7 +73,13 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = AttendanceRecord.objects.select_related(
-            "student", "student__profile", "section", "marked_by"
+            "student",
+            "student__profile",
+            "section",
+            "marked_by",
+            "subject",
+            "schedule",
+            "schedule__subject",
         )
 
         # Filter by section if provided
@@ -98,6 +104,11 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(date__gte=start_date)
         if end_date:
             queryset = queryset.filter(date__lte=end_date)
+
+        # Hide legacy unlinked rows by default. Keep an escape hatch for diagnostics.
+        include_unlinked = self.request.query_params.get("include_unlinked") == "1"
+        if not include_unlinked:
+            queryset = queryset.filter(subject__isnull=False)
 
         return queryset
 
@@ -129,7 +140,22 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         section_id = serializer.validated_data["section"]
         record_date = serializer.validated_data["date"]
         schedule_id = serializer.validated_data.get("schedule", None)
+        subject_id = serializer.validated_data.get("subject", None)
         records = serializer.validated_data["records"]
+
+        if schedule_id is not None:
+            from classmanagement.models import Schedule
+            schedule_obj = Schedule.objects.select_related("subject").filter(
+                id=schedule_id,
+                section_id=section_id,
+            ).first()
+            if not schedule_obj:
+                return Response(
+                    {"error": "Selected schedule is invalid for the given section."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Canonical subject comes from schedule when schedule is provided.
+            subject_id = schedule_obj.subject_id
 
         created_count = 0
         updated_count = 0
@@ -150,6 +176,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
                 "status": status_value,
                 "notes": notes,
                 "marked_by": request.user,
+                "subject_id": subject_id,
             }
 
             obj, created = AttendanceRecord.objects.update_or_create(
@@ -259,7 +286,8 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
 
         # Get unique dates with attendance
         records = AttendanceRecord.objects.filter(
-            section_id=section_id
+            section_id=section_id,
+            subject__isnull=False,
         ).order_by("-date")
 
         # Optional schedule filter for per-subject history views
@@ -380,28 +408,64 @@ class StudentAttendanceView(APIView):
         # Check if requesting daily detail
         date_param = request.query_params.get("date")
         if date_param:
-            # Return detailed per-subject attendance for that day
-            summary = AttendanceRecord.get_daily_summary(user.id, date_param)
-            return Response(summary)
+            records = AttendanceRecord.get_daily_summary(user.id, date_param)
+            return Response({
+                "records": records,
+                "summary": {
+                    "total": len(records),
+                    "present": sum(1 for r in records if r["status"] == "PRESENT"),
+                    "late": sum(1 for r in records if r["status"] == "LATE"),
+                    "absent": sum(1 for r in records if r["status"] == "ABSENT"),
+                    "excused": sum(1 for r in records if r["status"] == "EXCUSED"),
+                },
+            })
 
         # Otherwise return monthly attendance overview
-        records = AttendanceRecord.objects.filter(
-            student=user
-        ).select_related("schedule", "schedule__subject").order_by("-date")
+        records_qs = AttendanceRecord.objects.filter(
+            student=user,
+            subject__isnull=False,
+        ).select_related("subject", "schedule", "schedule__subject").order_by("-date")
 
         # Filter by month/year if provided
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         if month:
-            records = records.filter(date__month=int(month))
+            records_qs = records_qs.filter(date__month=int(month))
         if year:
-            records = records.filter(date__year=int(year))
+            records_qs = records_qs.filter(date__year=int(year))
+
+        # Evaluate once — used for both the subjects list and calendar aggregation
+        all_records = list(records_qs)
+
+        # Derive distinct subject names (always unfiltered so the dropdown stays populated)
+        def resolve_subject_name(record):
+            if record.subject:
+                return record.subject.name
+            if record.schedule and record.schedule.subject:
+                return record.schedule.subject.name
+            return None
+
+        subjects = sorted(set(
+            name
+            for name in (resolve_subject_name(r) for r in all_records)
+            if name
+        ))
+
+        # Apply optional subject filter for calendar aggregation
+        subject_param = request.query_params.get("subject", "").strip()
+        working_records = (
+            [
+                r for r in all_records
+                if (resolve_subject_name(r) or "").lower() == subject_param.lower()
+            ]
+            if subject_param else all_records
+        )
 
         # Group by date for calendar view
         from collections import defaultdict
         daily_data = defaultdict(lambda: {"present": 0, "absent": 0, "late": 0, "excused": 0, "total": 0})
-        
-        for record in records:
+
+        for record in working_records:
             day = record.date.isoformat()
             daily_data[day]["total"] += 1
             if record.status == "PRESENT":
@@ -420,13 +484,12 @@ class StudentAttendanceView(APIView):
             if total == 0:
                 overall = "none"
             elif counts["absent"] > 0:
-                # If any absent, mark as partial
                 overall = "partial" if counts["present"] + counts["late"] > 0 else "absent"
             elif counts["late"] > 0:
                 overall = "late"
             else:
                 overall = "present"
-            
+
             calendar_data.append({
                 "date": day,
                 "present": counts["present"],
@@ -437,7 +500,10 @@ class StudentAttendanceView(APIView):
                 "overall_status": overall,
             })
 
-        return Response(sorted(calendar_data, key=lambda x: x["date"], reverse=True))
+        return Response({
+            "subjects": subjects,
+            "calendar": sorted(calendar_data, key=lambda x: x["date"], reverse=True),
+        })
 
 
 class StudentAttendanceStatsView(APIView):

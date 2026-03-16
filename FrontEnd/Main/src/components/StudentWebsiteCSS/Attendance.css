@@ -257,8 +257,8 @@
 
 /* Status Colors */
 .sa-status-present {
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: #86efac;
+  color: #14532d;
 }
 
 .sa-status-late {
@@ -279,6 +279,65 @@
 .sa-status-excused {
   background-color: #f3e8ff;
   color: #7c3aed;
+}
+
+/* ---- Attendance Filter Bar ---- */
+.sa-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+}
+
+.sa-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sa-filter-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sa-filter-select {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background: white;
+  cursor: pointer;
+  min-width: 150px;
+}
+
+.sa-filter-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.sa-clear-filters {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  color: #ef4444;
+  background: transparent;
+  border: 1px solid #fca5a5;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+
+.sa-clear-filters:hover {
+  background: #fef2f2;
 }
 
 /* Legend */
