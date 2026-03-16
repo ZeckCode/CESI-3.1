@@ -116,6 +116,7 @@ const Grade = () => {
   const [csValue, setCsValue] = useState("");
   const [editItem, setEditItem] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [error, setError] = useState("");
 
   const currentSection =
     sections.find((s) => String(s.id) === String(selectedSection)) || null;
@@ -310,6 +311,12 @@ const Grade = () => {
   const handleAddItem = async (category) => {
     if (!teacherSubject || !selectedSection) return;
 
+    const totalScore = Number(newItem.total_score) || 100;
+    if (totalScore < 0) {
+      setError("Total score cannot be negative.");
+      return;
+    }
+
     const catItems = itemsByCategory(category);
 
     const body = {
@@ -323,7 +330,7 @@ const Grade = () => {
       description: newItem.description?.trim() || "",
       date_given: newItem.date_given || null,
       due_date: newItem.due_date || null,
-      total_score: Number(newItem.total_score) || 100,
+      total_score: totalScore,
       order: Number(catItems.length),
     };
 
@@ -348,6 +355,7 @@ const Grade = () => {
         return;
       }
 
+      setError("");
       setShowAddItem(null);
       setNewItem({
         title: "",
@@ -402,13 +410,19 @@ const Grade = () => {
   const handleEditItem = async () => {
     if (!editItem) return;
 
+    const totalScore = Number(editForm.total_score) || 100;
+    if (totalScore < 0) {
+      setError("Total score cannot be negative.");
+      return;
+    }
+
     try {
       const body = {
         title: editForm.title?.trim() || editItem.title,
         description: editForm.description?.trim() || "",
         date_given: editForm.date_given || null,
         due_date: editForm.due_date || null,
-        total_score: Number(editForm.total_score) || 100,
+        total_score: totalScore,
       };
 
       const res = await apiFetch(`${API}/api/grades/items/${editItem.id}/`, {
@@ -429,6 +443,7 @@ const Grade = () => {
         return;
       }
 
+      setError("");
       setEditItem(null);
       fetchAll();
     } catch (e) {
@@ -442,7 +457,17 @@ const Grade = () => {
 
     const numericScore = parseFloat(scoreValue);
     if (Number.isNaN(numericScore)) {
-      alert("Please enter a valid score.");
+      setError("Please enter a valid score.");
+      return;
+    }
+
+    if (numericScore < 0) {
+      setError("Score cannot be negative.");
+      return;
+    }
+
+    if (numericScore > scoreModal.item.total_score) {
+      setError(`Score cannot exceed ${scoreModal.item.total_score}.`);
       return;
     }
 
@@ -468,6 +493,7 @@ const Grade = () => {
         return;
       }
 
+      setError("");
       setScoreModal(null);
       setScoreValue("");
       fetchAll();
@@ -482,7 +508,17 @@ const Grade = () => {
 
     const numericScore = parseFloat(csValue);
     if (Number.isNaN(numericScore)) {
-      alert("Please enter a valid class standing.");
+      setError("Please enter a valid class standing.");
+      return;
+    }
+
+    if (numericScore < 0) {
+      setError("Class standing score cannot be negative.");
+      return;
+    }
+
+    if (numericScore > 100) {
+      setError("Class standing score cannot exceed 100.");
       return;
     }
 
@@ -509,6 +545,7 @@ const Grade = () => {
         return;
       }
 
+      setError("");
       setCsModal(null);
       setCsValue("");
       fetchAll();
@@ -520,6 +557,20 @@ const Grade = () => {
 
   const handleSaveWeights = async () => {
     if (!teacherSubject) return;
+
+    const weights_array = [
+      { key: 'activity_weight', value: Number(tempWeights.activity_weight || 0) },
+      { key: 'quiz_weight', value: Number(tempWeights.quiz_weight || 0) },
+      { key: 'exam_weight', value: Number(tempWeights.exam_weight || 0) },
+      { key: 'class_standing_weight', value: Number(tempWeights.class_standing_weight || 0) },
+    ];
+
+    for (const w of weights_array) {
+      if (w.value < 0) {
+        setError(`Weight for ${w.key.replace(/_/g, ' ')} cannot be negative.`);
+        return;
+      }
+    }
 
     try {
       const res = await apiFetch(
@@ -542,6 +593,7 @@ const Grade = () => {
         return;
       }
 
+      setError("");
       setShowWeights(false);
       fetchAll();
     } catch (e) {
@@ -841,12 +893,13 @@ const Grade = () => {
           <div className="ge__modal" onClick={(e) => e.stopPropagation()}>
             <div className="ge__modalHeader">
               <h3>Add {showAddItem.charAt(0) + showAddItem.slice(1).toLowerCase()}</h3>
-              <button className="ge__modalClose" onClick={() => setShowAddItem(null)}>
+              <button className="ge__modalClose" onClick={() => { setShowAddItem(null); setError(""); }}>
                 <X size={18} />
               </button>
             </div>
 
             <div className="ge__modalBody">
+              {error && <div style={{ color: "#ef4444", marginBottom: "12px", fontSize: "14px", fontWeight: "500" }}>⚠️ {error}</div>}
               <label>Title</label>
               <input
                 className="ge__input"
@@ -926,12 +979,13 @@ const Grade = () => {
           <div className="ge__modal" onClick={(e) => e.stopPropagation()}>
             <div className="ge__modalHeader">
               <h3>Edit {editItem.category.charAt(0) + editItem.category.slice(1).toLowerCase()}</h3>
-              <button className="ge__modalClose" onClick={() => setEditItem(null)}>
+              <button className="ge__modalClose" onClick={() => { setEditItem(null); setError(""); }}>
                 <X size={18} />
               </button>
             </div>
 
             <div className="ge__modalBody">
+              {error && <div style={{ color: "#ef4444", marginBottom: "12px", fontSize: "14px", fontWeight: "500" }}>⚠️ {error}</div>}
               <label>Title</label>
               <input
                 className="ge__input"
@@ -1006,12 +1060,13 @@ const Grade = () => {
           <div className="ge__modal ge__modal--sm" onClick={(e) => e.stopPropagation()}>
             <div className="ge__modalHeader">
               <h3>Enter Score</h3>
-              <button className="ge__modalClose" onClick={() => setScoreModal(null)}>
+              <button className="ge__modalClose" onClick={() => { setScoreModal(null); setError(""); }}>
                 <X size={18} />
               </button>
             </div>
 
             <div className="ge__modalBody">
+              {error && <div style={{ color: "#ef4444", marginBottom: "12px", fontSize: "14px", fontWeight: "500" }}>⚠️ {error}</div>}
               <p className="ge__scoreInfo">
                 <strong>{scoreModal.student.student_name}</strong>
                 <br />
@@ -1050,12 +1105,13 @@ const Grade = () => {
           <div className="ge__modal ge__modal--sm" onClick={(e) => e.stopPropagation()}>
             <div className="ge__modalHeader">
               <h3>Class Standing</h3>
-              <button className="ge__modalClose" onClick={() => setCsModal(null)}>
+              <button className="ge__modalClose" onClick={() => { setCsModal(null); setError(""); }}>
                 <X size={18} />
               </button>
             </div>
 
             <div className="ge__modalBody">
+              {error && <div style={{ color: "#ef4444", marginBottom: "12px", fontSize: "14px", fontWeight: "500" }}>⚠️ {error}</div>}
               <p className="ge__scoreInfo">
                 <strong>{csModal.student.student_name}</strong>
                 <br />
@@ -1092,12 +1148,13 @@ const Grade = () => {
           <div className="ge__modal" onClick={(e) => e.stopPropagation()}>
             <div className="ge__modalHeader">
               <h3>Grade Weights — {teacherSubject.subject_name}</h3>
-              <button className="ge__modalClose" onClick={() => setShowWeights(false)}>
+              <button className="ge__modalClose" onClick={() => { setShowWeights(false); setError(""); }}>
                 <X size={18} />
               </button>
             </div>
 
             <div className="ge__modalBody">
+              {error && <div style={{ color: "#ef4444", marginBottom: "12px", fontSize: "14px", fontWeight: "500" }}>⚠️ {error}</div>}
               <p className="ge__weightNote">
                 Adjust how much each category contributes to the quarter grade.
                 Total must equal 100%.
