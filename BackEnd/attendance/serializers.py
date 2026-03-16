@@ -5,7 +5,10 @@ from accounts.models import Section
 
 class AttendanceRecordSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
+    student_username = serializers.CharField(source="student.username", read_only=True)
+    student_number = serializers.SerializerMethodField()
     section_name = serializers.CharField(source="section.name", read_only=True)
+    grade_level = serializers.SerializerMethodField()
     marked_by_name = serializers.CharField(source="marked_by.username", read_only=True)
     subject_name = serializers.SerializerMethodField()
     subject_code = serializers.SerializerMethodField()
@@ -17,9 +20,13 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             "id",
             "student",
             "student_name",
+            "student_username",
+            "student_number",
             "section",
             "section_name",
+            "grade_level",
             "schedule",
+            "subject",
             "subject_name",
             "subject_code",
             "schedule_time",
@@ -40,15 +47,32 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
                 return f"{p.student_first_name} {p.student_last_name}"
         return obj.student.username
 
+    def get_student_number(self, obj):
+        if hasattr(obj.student, "profile") and obj.student.profile:
+            return obj.student.profile.lrn or None
+        return None
+
     def get_subject_name(self, obj):
+        if obj.subject:
+            return obj.subject.name
         if obj.schedule and obj.schedule.subject:
             return obj.schedule.subject.name
-        return "Homeroom"
+        return None
+
+    def get_grade_level(self, obj):
+        gl = getattr(obj.section, "grade_level", None)
+        if gl == 0:
+            return "Kinder"
+        if gl is not None:
+            return f"Grade {gl}"
+        return "—"
 
     def get_subject_code(self, obj):
+        if obj.subject:
+            return obj.subject.code
         if obj.schedule and obj.schedule.subject:
             return obj.schedule.subject.code
-        return "HR"
+        return None
 
     def get_schedule_time(self, obj):
         if obj.schedule:
@@ -64,6 +88,7 @@ class BulkAttendanceSerializer(serializers.Serializer):
     section = serializers.IntegerField()
     date = serializers.DateField()
     schedule = serializers.IntegerField(required=False, allow_null=True)
+    subject = serializers.IntegerField(required=False, allow_null=True)
     records = serializers.ListField(
         child=serializers.DictField(
             child=serializers.CharField(allow_blank=True),

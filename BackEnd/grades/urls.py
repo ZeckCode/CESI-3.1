@@ -6,6 +6,7 @@ urlpatterns = [
     path("teacher-info/", views.teacher_info, name="teacher-info"),
     path("my-sections/", views.teacher_sections, name="grade-teacher-sections"),
     path("section-performance/", views.section_performance, name="section-performance"),
+    path("admin-monitoring/", views.admin_grade_records_monitoring, name="admin-grade-monitoring"),
 
     # Weights
     path("weights/<int:subject_id>/", views.get_weights, name="grade-weights"),

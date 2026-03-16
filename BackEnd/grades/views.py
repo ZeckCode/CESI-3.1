@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
-from django.db.models import Q, Sum
+from django.db.models import Count, Max, Q, Sum
 from decimal import Decimal
 
 from .models import GradeWeight, GradeItem, StudentScore, ClassStanding, AcademicRecord
@@ -57,6 +57,17 @@ def normalize_grade_level(value):
         return int(normalized)
     except (ValueError, TypeError):
         return None
+
+
+def grade_level_label(value):
+    normalized = normalize_grade_level(value)
+    if normalized == -1:
+        return "Pre-Kinder"
+    if normalized == 0:
+        return "Kinder"
+    if normalized is not None and normalized > 0:
+        return f"Grade {normalized}"
+    return str(value or "—")
 
 
 # ══════════════════════════════════════════════════════
@@ -399,6 +410,134 @@ def my_grades(request):
     return Response(result)
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_grade_records_monitoring(request):
+    """
+    Admin monitoring payload for current grades + academic history counts.
+    Query params: quarter=<1-4>
+    """
+    user = request.user
+    if user.role != "ADMIN":
+        return Response({"detail": "Forbidden"}, status=403)
+
+    quarter_param = request.query_params.get("quarter", "1")
+    try:
+        quarter = int(quarter_param)
+        if quarter not in (1, 2, 3, 4):
+            raise ValueError()
+    except (TypeError, ValueError):
+        return Response({"detail": "Invalid quarter"}, status=400)
+
+    subjects = list(Subject.objects.all().order_by("name"))
+    history_by_student = {
+        row["student_id"]: row
+        for row in AcademicRecord.objects.values("student_id").annotate(
+            record_count=Count("id"),
+            latest_school_year=Max("school_year"),
+        )
+    }
+
+    enrollments = (
+        Enrollment.objects.filter(status="ACTIVE")
+        .select_related("student", "student__profile", "section")
+        .order_by("grade_level", "section__name", "last_name", "first_name")
+    )
+
+    students = []
+    student_averages = []
+    completed_count = 0
+
+    for enrollment in enrollments:
+        student = enrollment.student
+        if not student:
+            continue
+
+        name = " ".join(
+            part for part in [enrollment.first_name or "", enrollment.last_name or ""] if part
+        ).strip()
+        if not name and hasattr(student, "profile") and student.profile:
+            name = " ".join(
+                part for part in [student.profile.student_first_name or "", student.profile.student_last_name or ""] if part
+            ).strip()
+        name = name or student.username
+
+        section_grade = getattr(enrollment.section, "grade_level", None)
+        normalized_grade = normalize_grade_level(section_grade if section_grade is not None else enrollment.grade_level)
+        subject_breakdown = []
+        graded_values = []
+
+        for subject in subjects:
+            grade_data = _compute_quarter_grade(student.id, subject.id, quarter)
+            quarter_grade = grade_data["quarter_grade"]
+            if quarter_grade is not None:
+                graded_values.append(quarter_grade)
+            subject_breakdown.append({
+                "subject_id": subject.id,
+                "subject_name": subject.name,
+                "subject_code": subject.code,
+                "quarter_grade": quarter_grade,
+                "remarks": (
+                    "PASSED" if quarter_grade is not None and quarter_grade >= 75
+                    else "FAILED" if quarter_grade is not None
+                    else None
+                ),
+            })
+
+        average_grade = round(sum(graded_values) / len(graded_values), 2) if graded_values else None
+        total_subjects = len(subjects)
+        graded_subjects = len(graded_values)
+
+        if total_subjects > 0 and graded_subjects == total_subjects:
+            status_label = "completed"
+            completed_count += 1
+        elif graded_subjects > 0:
+            status_label = "partial"
+        else:
+            status_label = "pending"
+
+        if average_grade is not None:
+            student_averages.append(average_grade)
+
+        history_meta = history_by_student.get(student.id, {})
+        students.append({
+            "student_id": student.id,
+            "student_username": student.username,
+            "student_number": enrollment.student_number or getattr(getattr(student, "profile", None), "student_number", None),
+            "student_name": name,
+            "grade_level": normalized_grade,
+            "grade_level_label": grade_level_label(normalized_grade),
+            "section_name": enrollment.section.name if enrollment.section else "—",
+            "graded_subjects": graded_subjects,
+            "total_subjects": total_subjects,
+            "average_grade": average_grade,
+            "status": status_label,
+            "history_count": history_meta.get("record_count", 0),
+            "latest_history_year": history_meta.get("latest_school_year"),
+            "subject_breakdown": subject_breakdown,
+        })
+
+    students.sort(key=lambda row: (
+        row["grade_level"] if row["grade_level"] is not None else 999,
+        row["section_name"],
+        row["student_name"].lower(),
+    ))
+
+    return Response({
+        "quarter": quarter,
+        "summary": {
+            "total_students": len(students),
+            "graded_students": len(student_averages),
+            "pending_grades": len([row for row in students if row["status"] != "completed"]),
+            "completed_students": completed_count,
+            "average_grade": round(sum(student_averages) / len(student_averages), 2) if student_averages else None,
+            "students_with_history": len([row for row in students if row["history_count"] > 0]),
+            "academic_record_count": sum(row["history_count"] for row in students),
+        },
+        "students": students,
+    })
+
+
 # ══════════════════════════════════════════════════════
 # TEACHER  —  subject info for logged-in teacher
 # ══════════════════════════════════════════════════════
@@ -455,8 +594,14 @@ def section_performance(request):
             return Response({"detail": "Teacher profile not found"}, status=404)
         if not subject_id:
             return Response({"detail": "No subject assigned to this teacher"}, status=404)
-        if not Schedule.objects.filter(teacher=user, section_id=section_id).exists():
+        teacher_schedules = Schedule.objects.filter(
+            teacher=user,
+            section_id=section_id,
+            subject_id=subject_id,
+        )
+        if not teacher_schedules.exists():
             return Response({"detail": "Forbidden"}, status=403)
+        schedule_ids = list(teacher_schedules.values_list("id", flat=True))
     else:
         raw_subj = request.query_params.get("subject")
         if not raw_subj:
@@ -465,6 +610,10 @@ def section_performance(request):
             subject_id = int(raw_subj)
         except (ValueError, TypeError):
             return Response({"detail": "Invalid subject id"}, status=400)
+        schedule_ids = list(
+            Schedule.objects.filter(section_id=section_id, subject_id=subject_id)
+            .values_list("id", flat=True)
+        )
 
     from datetime import date as date_class
     from attendance.models import AttendanceRecord
@@ -509,7 +658,21 @@ def section_performance(request):
     results = []
     for student_id, student_name in students_map.items():
         grade_data = _compute_quarter_grade(student_id, subject_id, quarter)
-        att = AttendanceRecord.get_student_attendance_stats(student_id, q_start, q_end)
+        att = AttendanceRecord.get_student_attendance_stats(
+            student_id,
+            q_start,
+            q_end,
+            schedule_ids=schedule_ids,
+            section_id=section_id,
+        )
+        if att["percentage"] is None:
+            # Fall back to legacy section-level attendance records when subject-linked rows do not exist.
+            att = AttendanceRecord.get_student_attendance_stats(
+                student_id,
+                q_start,
+                q_end,
+                section_id=section_id,
+            )
         results.append({
             "student_id": student_id,
             "student_name": student_name,
@@ -684,7 +847,7 @@ class AcademicRecordListCreate(generics.ListCreateAPIView):
         user = self.request.user
         if user.role not in ("ADMIN", "TEACHER"):
             return AcademicRecord.objects.none()
-        qs = AcademicRecord.objects.select_related("student", "recorded_by").all()
+        qs = AcademicRecord.objects.select_related("student", "student__profile", "recorded_by").all()
         student_id = self.request.query_params.get("student")
         school_year = self.request.query_params.get("school_year")
         if student_id:

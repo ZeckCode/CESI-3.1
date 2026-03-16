@@ -18,6 +18,14 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tool
 const API = "";
 const QUARTERS = [1, 2, 3, 4];
 
+const getCurrentSchoolQuarter = () => {
+  const month = new Date().getMonth() + 1;
+  if (month >= 6 && month <= 8) return 1;
+  if (month >= 9 && month <= 11) return 2;
+  if (month === 12 || month <= 2) return 3;
+  return 4;
+};
+
 // const GRADE_LABEL = (level) => {
 //   if (level === 0 || level === "0" || level === "kinder") return "K";
 //   return `G${level}`;
@@ -95,7 +103,7 @@ const GRADE_FULL_LABEL = (level) => {
 const SPerformance = () => {
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState("");
-  const [quarter, setQuarter] = useState(1);
+  const [quarter, setQuarter] = useState(getCurrentSchoolQuarter);
   const [teacherSubject, setTeacherSubject] = useState(null);
   const [performanceData, setPerformanceData] = useState([]);
   const [loading, setLoading] = useState(false);
