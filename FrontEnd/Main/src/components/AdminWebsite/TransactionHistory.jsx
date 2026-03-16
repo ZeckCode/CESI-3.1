@@ -391,7 +391,7 @@ const TransactionHistory = () => {
             <button className="th-btn-success" onClick={openModal}>
               <Plus size={18} /> Add Transaction
             </button>
-            <button className="th-btn-primary" onClick={handleExportData}>
+            <button hidden className="th-btn-primary" onClick={handleExportData}>
               <Download size={18} /> Export to Excel
             </button>
           </div>
