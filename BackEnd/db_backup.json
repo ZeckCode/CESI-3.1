@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-03-16T02:53:51.068368",
+  "exported_at": "2026-03-16T15:35:16.355970",
   "tables": {
     "accounts_adminprofile": [],
     "accounts_passwordresetrequest": [
@@ -106,8 +106,8 @@
       {
         "id": 9,
         "name": "Carnation",
-        "adviser_id": null,
-        "room_id": null,
+        "adviser_id": 2,
+        "room_id": 7,
         "capacity": 40,
         "grade_level": "grade6"
       },
@@ -197,7 +197,7 @@
       {
         "id": 1,
         "password": "pbkdf2_sha256$1200000$fhB4XPkHMZlATctSe3QmjE$C316N0YM1svW4zNs5gb3BN9Mf6/7zH0qx6JaVuo51I8=",
-        "last_login": "2026-03-15 18:30:15.068471",
+        "last_login": "2026-03-16 07:07:53.719648",
         "is_superuser": 1,
         "username": "ace",
         "email": "acy995kim@gmail.com",
@@ -253,7 +253,7 @@
       {
         "id": 6,
         "password": "pbkdf2_sha256$1200000$Uywiyvs0Zvn4jn8I9ODyHD$W4Cu6ZAA5D/ZzlAXqCSZ4MJFXXDij6A/GG9M9MnuXu0=",
-        "last_login": "2026-03-15 13:13:01.708180",
+        "last_login": "2026-03-16 07:00:40.069175",
         "is_superuser": 0,
         "username": "parent_jane",
         "email": "jane.parent@example.com",
@@ -267,7 +267,7 @@
       {
         "id": 7,
         "password": "pbkdf2_sha256$1200000$I7qEWWTIElj9MDDdACHKPf$cyjQbJ4f8A0iB68U7NK/v6XrXHs3bZ9D0C+ypd71gTE=",
-        "last_login": "2026-03-14 16:37:21.629800",
+        "last_login": "2026-03-16 07:32:15.573936",
         "is_superuser": 0,
         "username": "teacher_smith",
         "email": "smith@example.com",
@@ -1790,78 +1790,6 @@
     ],
     "attendance_attendancerecord": [
       {
-        "id": 7,
-        "date": "2026-03-14",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-14 14:17:39.023869",
-        "updated_at": "2026-03-14 14:17:39.023883",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 93,
-        "schedule_id": null
-      },
-      {
-        "id": 8,
-        "date": "2026-03-14",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-14 14:17:39.028828",
-        "updated_at": "2026-03-14 14:17:39.028842",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 94,
-        "schedule_id": null
-      },
-      {
-        "id": 9,
-        "date": "2026-03-14",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-14 14:17:39.032471",
-        "updated_at": "2026-03-14 14:17:39.032482",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 95,
-        "schedule_id": null
-      },
-      {
-        "id": 10,
-        "date": "2026-03-14",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-14 14:17:39.036133",
-        "updated_at": "2026-03-14 14:17:39.036145",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 90,
-        "schedule_id": null
-      },
-      {
-        "id": 11,
-        "date": "2026-03-14",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-14 14:17:39.040212",
-        "updated_at": "2026-03-14 14:17:39.040226",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 97,
-        "schedule_id": null
-      },
-      {
-        "id": 12,
-        "date": "2026-03-14",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-14 14:17:39.044000",
-        "updated_at": "2026-03-14 14:17:39.044012",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 92,
-        "schedule_id": null
-      },
-      {
         "id": 13,
         "date": "2026-03-14",
         "status": "PRESENT",
@@ -1871,7 +1799,8 @@
         "marked_by_id": 7,
         "section_id": 9,
         "student_id": 93,
-        "schedule_id": 96
+        "schedule_id": 96,
+        "subject_id": 1
       },
       {
         "id": 14,
@@ -1883,7 +1812,8 @@
         "marked_by_id": 7,
         "section_id": 9,
         "student_id": 94,
-        "schedule_id": 96
+        "schedule_id": 96,
+        "subject_id": 1
       },
       {
         "id": 15,
@@ -1895,7 +1825,8 @@
         "marked_by_id": 7,
         "section_id": 9,
         "student_id": 95,
-        "schedule_id": 96
+        "schedule_id": 96,
+        "subject_id": 1
       },
       {
         "id": 16,
@@ -1907,7 +1838,8 @@
         "marked_by_id": 7,
         "section_id": 9,
         "student_id": 90,
-        "schedule_id": 96
+        "schedule_id": 96,
+        "subject_id": 1
       },
       {
         "id": 17,
@@ -1919,7 +1851,8 @@
         "marked_by_id": 7,
         "section_id": 9,
         "student_id": 97,
-        "schedule_id": 96
+        "schedule_id": 96,
+        "subject_id": 1
       },
       {
         "id": 18,
@@ -1931,367 +1864,99 @@
         "marked_by_id": 7,
         "section_id": 9,
         "student_id": 92,
-        "schedule_id": 96
+        "schedule_id": 96,
+        "subject_id": 1
       },
       {
-        "id": 19,
-        "date": "2026-03-13",
+        "id": 50,
+        "date": "2026-03-16",
         "status": "PRESENT",
         "notes": "",
-        "created_at": "2026-03-14 14:59:12.982407",
-        "updated_at": "2026-03-14 14:59:28.817490",
+        "created_at": "2026-03-16 06:49:42.703132",
+        "updated_at": "2026-03-16 06:49:42.703145",
+        "marked_by_id": 7,
+        "section_id": 9,
+        "student_id": 6,
+        "schedule_id": 90,
+        "subject_id": 1
+      },
+      {
+        "id": 51,
+        "date": "2026-03-16",
+        "status": "PRESENT",
+        "notes": "",
+        "created_at": "2026-03-16 06:49:42.708129",
+        "updated_at": "2026-03-16 06:49:42.708141",
         "marked_by_id": 7,
         "section_id": 9,
         "student_id": 93,
-        "schedule_id": null
+        "schedule_id": 90,
+        "subject_id": 1
       },
       {
-        "id": 20,
-        "date": "2026-03-13",
-        "status": "ABSENT",
+        "id": 52,
+        "date": "2026-03-16",
+        "status": "PRESENT",
         "notes": "",
-        "created_at": "2026-03-14 14:59:12.986958",
-        "updated_at": "2026-03-14 14:59:28.821826",
+        "created_at": "2026-03-16 06:49:42.713119",
+        "updated_at": "2026-03-16 06:49:42.713138",
         "marked_by_id": 7,
         "section_id": 9,
         "student_id": 94,
-        "schedule_id": null
+        "schedule_id": 90,
+        "subject_id": 1
       },
       {
-        "id": 21,
-        "date": "2026-03-13",
-        "status": "EXCUSED",
+        "id": 53,
+        "date": "2026-03-16",
+        "status": "PRESENT",
         "notes": "",
-        "created_at": "2026-03-14 14:59:12.991089",
-        "updated_at": "2026-03-14 14:59:28.825263",
+        "created_at": "2026-03-16 06:49:42.716361",
+        "updated_at": "2026-03-16 06:49:42.716370",
         "marked_by_id": 7,
         "section_id": 9,
         "student_id": 95,
-        "schedule_id": null
+        "schedule_id": 90,
+        "subject_id": 1
       },
       {
-        "id": 22,
-        "date": "2026-03-13",
-        "status": "LATE",
+        "id": 54,
+        "date": "2026-03-16",
+        "status": "PRESENT",
         "notes": "",
-        "created_at": "2026-03-14 14:59:12.995304",
-        "updated_at": "2026-03-14 14:59:28.829598",
+        "created_at": "2026-03-16 06:49:42.721845",
+        "updated_at": "2026-03-16 06:49:42.721864",
         "marked_by_id": 7,
         "section_id": 9,
         "student_id": 90,
-        "schedule_id": null
+        "schedule_id": 90,
+        "subject_id": 1
       },
       {
-        "id": 23,
-        "date": "2026-03-13",
+        "id": 55,
+        "date": "2026-03-16",
         "status": "PRESENT",
         "notes": "",
-        "created_at": "2026-03-14 14:59:12.998804",
-        "updated_at": "2026-03-14 14:59:28.835828",
+        "created_at": "2026-03-16 06:49:42.727512",
+        "updated_at": "2026-03-16 06:49:42.727530",
         "marked_by_id": 7,
         "section_id": 9,
         "student_id": 97,
-        "schedule_id": null
+        "schedule_id": 90,
+        "subject_id": 1
       },
       {
-        "id": 24,
-        "date": "2026-03-13",
+        "id": 56,
+        "date": "2026-03-16",
         "status": "PRESENT",
         "notes": "",
-        "created_at": "2026-03-14 14:59:13.002657",
-        "updated_at": "2026-03-14 14:59:28.839782",
+        "created_at": "2026-03-16 06:49:42.732166",
+        "updated_at": "2026-03-16 06:49:42.732185",
         "marked_by_id": 7,
         "section_id": 9,
         "student_id": 92,
-        "schedule_id": null
-      },
-      {
-        "id": 25,
-        "date": "2026-03-11",
-        "status": "LATE",
-        "notes": "",
-        "created_at": "2026-03-14 15:30:19.252926",
-        "updated_at": "2026-03-14 15:31:18.947254",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 93,
-        "schedule_id": null
-      },
-      {
-        "id": 26,
-        "date": "2026-03-11",
-        "status": "ABSENT",
-        "notes": "",
-        "created_at": "2026-03-14 15:30:19.258218",
-        "updated_at": "2026-03-14 15:31:18.972361",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 94,
-        "schedule_id": null
-      },
-      {
-        "id": 27,
-        "date": "2026-03-11",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-14 15:30:19.262765",
-        "updated_at": "2026-03-14 15:31:18.985687",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 95,
-        "schedule_id": null
-      },
-      {
-        "id": 28,
-        "date": "2026-03-11",
-        "status": "LATE",
-        "notes": "",
-        "created_at": "2026-03-14 15:30:19.267445",
-        "updated_at": "2026-03-14 15:31:19.005273",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 90,
-        "schedule_id": null
-      },
-      {
-        "id": 29,
-        "date": "2026-03-11",
-        "status": "EXCUSED",
-        "notes": "",
-        "created_at": "2026-03-14 15:30:19.271804",
-        "updated_at": "2026-03-14 15:31:19.017754",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 97,
-        "schedule_id": null
-      },
-      {
-        "id": 30,
-        "date": "2026-03-11",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-14 15:30:19.277440",
-        "updated_at": "2026-03-14 15:31:19.030786",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 92,
-        "schedule_id": null
-      },
-      {
-        "id": 31,
-        "date": "2026-03-10",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-14 15:31:30.653818",
-        "updated_at": "2026-03-14 15:31:30.653830",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 93,
-        "schedule_id": null
-      },
-      {
-        "id": 32,
-        "date": "2026-03-10",
-        "status": "LATE",
-        "notes": "",
-        "created_at": "2026-03-14 15:31:30.658100",
-        "updated_at": "2026-03-14 15:31:30.658113",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 94,
-        "schedule_id": null
-      },
-      {
-        "id": 33,
-        "date": "2026-03-10",
-        "status": "ABSENT",
-        "notes": "",
-        "created_at": "2026-03-14 15:31:30.662267",
-        "updated_at": "2026-03-14 15:31:30.662283",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 95,
-        "schedule_id": null
-      },
-      {
-        "id": 34,
-        "date": "2026-03-10",
-        "status": "LATE",
-        "notes": "",
-        "created_at": "2026-03-14 15:31:30.667131",
-        "updated_at": "2026-03-14 15:31:30.667146",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 90,
-        "schedule_id": null
-      },
-      {
-        "id": 35,
-        "date": "2026-03-10",
-        "status": "EXCUSED",
-        "notes": "",
-        "created_at": "2026-03-14 15:31:30.671042",
-        "updated_at": "2026-03-14 15:31:30.671055",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 97,
-        "schedule_id": null
-      },
-      {
-        "id": 36,
-        "date": "2026-03-10",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-14 15:31:30.674720",
-        "updated_at": "2026-03-14 15:31:30.674729",
-        "marked_by_id": 7,
-        "section_id": 9,
-        "student_id": 92,
-        "schedule_id": null
-      },
-      {
-        "id": 37,
-        "date": "2026-03-15",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-15 11:47:17.440528",
-        "updated_at": "2026-03-15 11:47:17.440540",
-        "marked_by_id": 15,
-        "section_id": 9,
-        "student_id": 93,
-        "schedule_id": null
-      },
-      {
-        "id": 38,
-        "date": "2026-03-15",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-15 11:47:17.445119",
-        "updated_at": "2026-03-15 11:47:17.445134",
-        "marked_by_id": 15,
-        "section_id": 9,
-        "student_id": 94,
-        "schedule_id": null
-      },
-      {
-        "id": 39,
-        "date": "2026-03-15",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-15 11:47:17.448932",
-        "updated_at": "2026-03-15 11:47:17.448945",
-        "marked_by_id": 15,
-        "section_id": 9,
-        "student_id": 95,
-        "schedule_id": null
-      },
-      {
-        "id": 40,
-        "date": "2026-03-15",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-15 11:47:17.452507",
-        "updated_at": "2026-03-15 11:47:17.452518",
-        "marked_by_id": 15,
-        "section_id": 9,
-        "student_id": 90,
-        "schedule_id": null
-      },
-      {
-        "id": 41,
-        "date": "2026-03-15",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-15 11:47:17.456700",
-        "updated_at": "2026-03-15 11:47:17.456714",
-        "marked_by_id": 15,
-        "section_id": 9,
-        "student_id": 97,
-        "schedule_id": null
-      },
-      {
-        "id": 42,
-        "date": "2026-03-15",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-15 11:47:17.460556",
-        "updated_at": "2026-03-15 11:47:17.460569",
-        "marked_by_id": 15,
-        "section_id": 9,
-        "student_id": 92,
-        "schedule_id": null
-      },
-      {
-        "id": 43,
-        "date": "2026-03-16",
-        "status": "LATE",
-        "notes": "",
-        "created_at": "2026-03-15 11:48:04.006932",
-        "updated_at": "2026-03-15 11:48:04.006945",
-        "marked_by_id": 15,
-        "section_id": 9,
-        "student_id": 93,
-        "schedule_id": null
-      },
-      {
-        "id": 44,
-        "date": "2026-03-16",
-        "status": "ABSENT",
-        "notes": "",
-        "created_at": "2026-03-15 11:48:04.011627",
-        "updated_at": "2026-03-15 11:48:04.011642",
-        "marked_by_id": 15,
-        "section_id": 9,
-        "student_id": 94,
-        "schedule_id": null
-      },
-      {
-        "id": 45,
-        "date": "2026-03-16",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-15 11:48:04.015579",
-        "updated_at": "2026-03-15 11:48:04.015593",
-        "marked_by_id": 15,
-        "section_id": 9,
-        "student_id": 95,
-        "schedule_id": null
-      },
-      {
-        "id": 46,
-        "date": "2026-03-16",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-15 11:48:04.019892",
-        "updated_at": "2026-03-15 11:48:04.019908",
-        "marked_by_id": 15,
-        "section_id": 9,
-        "student_id": 90,
-        "schedule_id": null
-      },
-      {
-        "id": 47,
-        "date": "2026-03-16",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-15 11:48:04.023972",
-        "updated_at": "2026-03-15 11:48:04.023985",
-        "marked_by_id": 15,
-        "section_id": 9,
-        "student_id": 97,
-        "schedule_id": null
-      },
-      {
-        "id": 48,
-        "date": "2026-03-16",
-        "status": "PRESENT",
-        "notes": "",
-        "created_at": "2026-03-15 11:48:04.027703",
-        "updated_at": "2026-03-15 11:48:04.027714",
-        "marked_by_id": 15,
-        "section_id": 9,
-        "student_id": 92,
-        "schedule_id": null
+        "schedule_id": 90,
+        "subject_id": 1
       }
     ],
     "auth_group": [],
@@ -3035,14 +2700,9 @@
         "user_id": 90
       },
       {
-        "key": "81232f189072221be973b21d98504297a361cb5e",
-        "created": "2026-03-15 13:13:01.838656",
-        "user_id": 6
-      },
-      {
-        "key": "8f6c8ed95577a88ce6fd1c023a5045d704063ce2",
-        "created": "2026-03-15 16:21:36.167350",
-        "user_id": 1
+        "key": "0c69e3c498ab895b05f59cb55c32b2762fbaa636",
+        "created": "2026-03-16 07:32:15.589159",
+        "user_id": 7
       }
     ],
     "classmanagement_room": [
@@ -4565,6 +4225,16 @@
         "content_type_id": 12,
         "user_id": 1,
         "action_time": "2026-03-15 18:49:36.650697"
+      },
+      {
+        "id": 47,
+        "object_id": "8",
+        "object_repr": "CS: student_jimenez_78 Q1 TLE101 - TLE: 100.00",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Score\"]}}]",
+        "content_type_id": 18,
+        "user_id": 1,
+        "action_time": "2026-03-16 07:17:56.836242"
       }
     ],
     "django_content_type": [
@@ -5085,6 +4755,12 @@
         "app": "accounts",
         "name": "0011_passwordresetrequest",
         "applied": "2026-03-15 13:49:33.258231"
+      },
+      {
+        "id": 62,
+        "app": "attendance",
+        "name": "0003_attendancerecord_subject",
+        "applied": "2026-03-16 06:48:04.609709"
       }
     ],
     "django_session": [
@@ -6892,6 +6568,16 @@
         "session_key": "codmqlnoo6n1jpmigmqi3c938vymj9th",
         "session_data": ".eJxVjDsOwjAQBe-yNbK8-BMnJX3OYO36gwPIkeKkQtwdWUoBxWtmRu8Nno69-KOlzS8RJkC4_DKm8Ey1i_igel9FWOu-LSx6Ik7bxLzG9Lqd7d9BoVZggpStiVaZQTvNlGlExKQYHQ-ayenQF5SSaNBKltq4ax4dK2tktknB5wvZuzc6:1w1qEB:4brtwC-hU3dGcx1e4ZO5MNJvSHCmuXl1nxauZxutMhA",
         "expire_date": "2026-03-29 18:30:15.072336"
+      },
+      {
+        "session_key": "j300p06ga31dryor1tm8cxs322hy27qq",
+        "session_data": ".eJxVjDsOwjAQBe-yNbK8-BMnJX3OYO36gwPIkeKkQtwdWUoBxWtmRu8Nno69-KOlzS8RJkC4_DKm8Ey1i_igel9FWOu-LSx6Ik7bxLzG9Lqd7d9BoVZggpStiVaZQTvNlGlExKQYHQ-ayenQF5SSaNBKltq4ax4dK2tktknB5wvZuzc6:1w223N:W7Gc6-btTyuO2shIMP8y6oqcTmpPVGES01hA1dkS7_I",
+        "expire_date": "2026-03-30 07:07:53.728818"
+      },
+      {
+        "session_key": "y0uuzmgisksrx0lu0r08kl0ob8pyl3v9",
+        "session_data": ".eJxVjEsOgjAUAO_y1qahUFofS_ecoXk_BDWQUFgZ725IWOh2ZjJvyLRvY96LrXlS6CDB5ZcxydPmQ-iD5vviZJm3dWJ3JO60xfWL2ut2tn-DkcoIHbB4kYixvUqQCqNGJatJWt9UA1pFyERJE5kEQrYaOSaOpuglNEOCzxcRzjkr:1w22Qx:0a1DrKJi1SYDx1B9Fci9-imSGWdlsrb-nWOWKBHgV1k",
+        "expire_date": "2026-03-30 07:32:15.598834"
       }
     ],
     "enrollment_enrollment": [
@@ -7152,8 +6838,8 @@
         "academic_year": "2025-2026",
         "remarks": "APPROVED BY ADMIN",
         "created_at": "2026-03-09 14:37:52.761375",
-        "updated_at": "2026-03-12 23:26:52.497083",
-        "section_id": null,
+        "updated_at": "2026-03-16 06:08:43.510306",
+        "section_id": 7,
         "student_id": 8,
         "address": "Block 1 Lot 26 Phase 2 Area 3",
         "birth_date": "2015-06-26",
@@ -7172,7 +6858,7 @@
         "telephone_number": "82878796",
         "parent_user_id": null,
         "student_number": "2026000006",
-        "id_image": null
+        "id_image": ""
       },
       {
         "id": 12,
@@ -8764,8 +8450,8 @@
         "academic_year": "2024-2025",
         "remarks": "",
         "created_at": "2026-03-09 17:41:59.984068",
-        "updated_at": "2026-03-09 17:41:59.984082",
-        "section_id": null,
+        "updated_at": "2026-03-16 06:08:41.760247",
+        "section_id": 7,
         "student_id": 68,
         "address": "123 Main St, Manila",
         "birth_date": "2015-08-15",
@@ -8784,7 +8470,7 @@
         "telephone_number": "8123456",
         "parent_user_id": null,
         "student_number": "G4001",
-        "id_image": null
+        "id_image": ""
       },
       {
         "id": 64,
@@ -8795,8 +8481,8 @@
         "academic_year": "2024-2025",
         "remarks": "",
         "created_at": "2026-03-09 17:41:59.991478",
-        "updated_at": "2026-03-09 17:41:59.991493",
-        "section_id": null,
+        "updated_at": "2026-03-16 06:08:41.288963",
+        "section_id": 7,
         "student_id": 69,
         "address": "456 Oak Ave, Quezon City",
         "birth_date": "2015-10-22",
@@ -8815,7 +8501,7 @@
         "telephone_number": "8234567",
         "parent_user_id": null,
         "student_number": "G4002",
-        "id_image": null
+        "id_image": ""
       },
       {
         "id": 65,
@@ -8857,8 +8543,8 @@
         "academic_year": "2024-2025",
         "remarks": "",
         "created_at": "2026-03-09 17:42:00.003309",
-        "updated_at": "2026-03-09 17:42:00.003317",
-        "section_id": null,
+        "updated_at": "2026-03-16 06:08:40.622218",
+        "section_id": 7,
         "student_id": 71,
         "address": "321 Elm St, Pasig",
         "birth_date": "2015-01-18",
@@ -8877,7 +8563,7 @@
         "telephone_number": "8456789",
         "parent_user_id": null,
         "student_number": "G4004",
-        "id_image": null
+        "id_image": ""
       },
       {
         "id": 67,
@@ -8888,8 +8574,8 @@
         "academic_year": "2024-2025",
         "remarks": "",
         "created_at": "2026-03-09 17:42:00.007604",
-        "updated_at": "2026-03-09 17:42:00.007612",
-        "section_id": null,
+        "updated_at": "2026-03-16 06:08:39.259970",
+        "section_id": 7,
         "student_id": 72,
         "address": "654 Birch Lane, Cebu",
         "birth_date": "2015-03-25",
@@ -8908,7 +8594,7 @@
         "telephone_number": "8567890",
         "parent_user_id": null,
         "student_number": "G4005",
-        "id_image": null
+        "id_image": ""
       },
       {
         "id": 68,
@@ -8950,8 +8636,8 @@
         "academic_year": "2024-2025",
         "remarks": "",
         "created_at": "2026-03-09 17:42:00.036929",
-        "updated_at": "2026-03-09 17:42:00.036947",
-        "section_id": null,
+        "updated_at": "2026-03-16 06:08:37.443035",
+        "section_id": 7,
         "student_id": 74,
         "address": "246 Spruce St, Iloilo",
         "birth_date": "2015-07-12",
@@ -8970,7 +8656,7 @@
         "telephone_number": "8789012",
         "parent_user_id": null,
         "student_number": "G4007",
-        "id_image": null
+        "id_image": ""
       },
       {
         "id": 70,
@@ -8981,8 +8667,8 @@
         "academic_year": "2024-2025",
         "remarks": "",
         "created_at": "2026-03-09 17:42:00.048139",
-        "updated_at": "2026-03-09 17:42:00.048155",
-        "section_id": null,
+        "updated_at": "2026-03-16 06:08:36.421833",
+        "section_id": 7,
         "student_id": 75,
         "address": "135 Cedar Ln, Bacolod",
         "birth_date": "2015-09-08",
@@ -9001,7 +8687,7 @@
         "telephone_number": "8890123",
         "parent_user_id": null,
         "student_number": "G4008",
-        "id_image": null
+        "id_image": ""
       },
       {
         "id": 71,
@@ -9043,8 +8729,8 @@
         "academic_year": "2024-2025",
         "remarks": "",
         "created_at": "2026-03-09 17:42:00.068056",
-        "updated_at": "2026-03-09 17:42:00.068070",
-        "section_id": null,
+        "updated_at": "2026-03-16 06:08:35.019569",
+        "section_id": 7,
         "student_id": 77,
         "address": "573 Ash Ave, Laguna",
         "birth_date": "2015-02-14",
@@ -9063,7 +8749,7 @@
         "telephone_number": "9012345",
         "parent_user_id": null,
         "student_number": "G4010",
-        "id_image": null
+        "id_image": ""
       },
       {
         "id": 73,
@@ -9745,6 +9431,37 @@
         "telephone_number": "",
         "parent_user_id": 99,
         "student_number": "2026000008",
+        "id_image": ""
+      },
+      {
+        "id": 95,
+        "grade_level": "grade6",
+        "status": "ACTIVE",
+        "enrolled_at": "2026-03-16 05:59:56.536363",
+        "completed_at": null,
+        "academic_year": "2025-2026",
+        "remarks": "Seeded old-student enrollment for admin/portal verification",
+        "created_at": "2026-03-16 05:59:56.536617",
+        "updated_at": "2026-03-16 05:59:56.542298",
+        "section_id": 9,
+        "student_id": 6,
+        "address": null,
+        "birth_date": null,
+        "education_level": "elementary",
+        "email": "jane.parent@example.com",
+        "first_name": "Johnny",
+        "gender": null,
+        "last_name": "Doe",
+        "lrn": null,
+        "middle_name": null,
+        "mobile_number": null,
+        "parent_facebook": null,
+        "payment_mode": "installment",
+        "religion": null,
+        "student_type": "old",
+        "telephone_number": null,
+        "parent_user_id": 6,
+        "student_number": "2026000022",
         "id_image": ""
       }
     ],
@@ -11197,7 +10914,27 @@
         "updated_date": "2026-03-15 11:27:27.480238"
       }
     ],
-    "grades_academicrecord": [],
+    "grades_academicrecord": [
+      {
+        "id": 1,
+        "school_year": "2024-2025",
+        "grade_level": 5,
+        "section_name": "Tulip",
+        "subject_name": "Mathematics",
+        "subject_code": "MATH",
+        "q1": 88,
+        "q2": 90,
+        "q3": 87,
+        "q4": 91,
+        "final_grade": 89,
+        "remarks": "PASSED",
+        "teacher_name": "Mrs. Santos",
+        "created_at": "2026-03-16 05:59:56.547431",
+        "updated_at": "2026-03-16 05:59:56.547462",
+        "recorded_by_id": null,
+        "student_id": 6
+      }
+    ],
     "grades_classstanding": [
       {
         "id": 1,
@@ -11251,9 +10988,30 @@
       {
         "id": 8,
         "quarter": 1,
-        "score": -100,
+        "score": 100,
         "student_id": 95,
         "subject_id": 7
+      },
+      {
+        "id": 9,
+        "quarter": 4,
+        "score": 50,
+        "student_id": 92,
+        "subject_id": 1
+      },
+      {
+        "id": 10,
+        "quarter": 4,
+        "score": 100,
+        "student_id": 93,
+        "subject_id": 1
+      },
+      {
+        "id": 11,
+        "quarter": 4,
+        "score": 100,
+        "student_id": 94,
+        "subject_id": 1
       }
     ],
     "grades_gradeitem": [
@@ -11436,6 +11194,66 @@
         "created_at": "2026-03-14 15:12:08.635647",
         "subject_id": 1,
         "teacher_id": 7
+      },
+      {
+        "id": 13,
+        "grade_level": 4,
+        "quarter": 4,
+        "category": "ACTIVITY",
+        "title": "Activity 1",
+        "description": "",
+        "date_given": null,
+        "due_date": null,
+        "total_score": 100,
+        "order": 0,
+        "created_at": "2026-03-16 06:03:04.366948",
+        "subject_id": 1,
+        "teacher_id": 7
+      },
+      {
+        "id": 14,
+        "grade_level": 6,
+        "quarter": 4,
+        "category": "ACTIVITY",
+        "title": "Activity 1",
+        "description": "",
+        "date_given": null,
+        "due_date": null,
+        "total_score": 100,
+        "order": 0,
+        "created_at": "2026-03-16 06:03:11.843782",
+        "subject_id": 1,
+        "teacher_id": 7
+      },
+      {
+        "id": 15,
+        "grade_level": 6,
+        "quarter": 4,
+        "category": "QUIZ",
+        "title": "Quiz 1",
+        "description": "",
+        "date_given": null,
+        "due_date": null,
+        "total_score": 100,
+        "order": 0,
+        "created_at": "2026-03-16 06:03:21.758287",
+        "subject_id": 1,
+        "teacher_id": 7
+      },
+      {
+        "id": 16,
+        "grade_level": 6,
+        "quarter": 4,
+        "category": "EXAM",
+        "title": "Exam 1",
+        "description": "",
+        "date_given": null,
+        "due_date": null,
+        "total_score": 100,
+        "order": 0,
+        "created_at": "2026-03-16 06:03:24.590408",
+        "subject_id": 1,
+        "teacher_id": 7
       }
     ],
     "grades_gradeweight": [
@@ -11608,6 +11426,86 @@
         "updated_at": "2026-03-14 15:00:12.782782",
         "grade_item_id": 11,
         "student_id": 95
+      },
+      {
+        "id": 19,
+        "score": 100,
+        "created_at": "2026-03-16 06:03:29.033547",
+        "updated_at": "2026-03-16 06:03:29.033577",
+        "grade_item_id": 14,
+        "student_id": 92
+      },
+      {
+        "id": 20,
+        "score": 100,
+        "created_at": "2026-03-16 06:03:31.934872",
+        "updated_at": "2026-03-16 06:03:31.934895",
+        "grade_item_id": 15,
+        "student_id": 92
+      },
+      {
+        "id": 21,
+        "score": 100,
+        "created_at": "2026-03-16 06:03:34.839149",
+        "updated_at": "2026-03-16 06:03:34.839167",
+        "grade_item_id": 16,
+        "student_id": 92
+      },
+      {
+        "id": 22,
+        "score": 95,
+        "created_at": "2026-03-16 06:03:46.223647",
+        "updated_at": "2026-03-16 06:03:46.223673",
+        "grade_item_id": 14,
+        "student_id": 93
+      },
+      {
+        "id": 23,
+        "score": 95,
+        "created_at": "2026-03-16 06:03:49.207701",
+        "updated_at": "2026-03-16 06:03:49.207733",
+        "grade_item_id": 15,
+        "student_id": 93
+      },
+      {
+        "id": 24,
+        "score": 95,
+        "created_at": "2026-03-16 06:03:51.927613",
+        "updated_at": "2026-03-16 06:03:51.927635",
+        "grade_item_id": 16,
+        "student_id": 93
+      },
+      {
+        "id": 25,
+        "score": 80,
+        "created_at": "2026-03-16 06:04:01.994785",
+        "updated_at": "2026-03-16 06:04:01.994810",
+        "grade_item_id": 14,
+        "student_id": 94
+      },
+      {
+        "id": 26,
+        "score": 80,
+        "created_at": "2026-03-16 06:04:04.135252",
+        "updated_at": "2026-03-16 06:04:04.135275",
+        "grade_item_id": 15,
+        "student_id": 94
+      },
+      {
+        "id": 27,
+        "score": 80,
+        "created_at": "2026-03-16 06:04:06.221014",
+        "updated_at": "2026-03-16 06:04:06.221037",
+        "grade_item_id": 16,
+        "student_id": 94
+      },
+      {
+        "id": 28,
+        "score": 20,
+        "created_at": "2026-03-16 07:32:34.841871",
+        "updated_at": "2026-03-16 07:32:34.841928",
+        "grade_item_id": 1,
+        "student_id": 71
       }
     ]
   }
