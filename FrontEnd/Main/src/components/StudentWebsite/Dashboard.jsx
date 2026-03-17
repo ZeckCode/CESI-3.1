@@ -214,9 +214,7 @@ const Dashboard = () => {
         
         <p className="sd__welcome">
           Hello, <strong>{studentName}</strong>
-          {gradeLabelStr && sectionName
-            ? ` · ${gradeLabelStr} – ${sectionName}`
-            : ""}
+         
         </p>
       </header>
 
