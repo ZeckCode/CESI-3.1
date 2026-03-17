@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-03-16T15:35:16.355970",
+  "exported_at": "2026-03-17T16:47:12.840092",
   "tables": {
     "accounts_adminprofile": [],
     "accounts_passwordresetrequest": [
@@ -52,6 +52,16 @@
         "sent_at": "2026-03-15 18:38:15.310556",
         "completed_at": null,
         "user_id": 3
+      },
+      {
+        "id": 8,
+        "email": "ral531712@gmail.com",
+        "message": "Nakalimot e",
+        "status": "COMPLETED",
+        "requested_at": "2026-03-16 07:40:06.365895",
+        "sent_at": "2026-03-16 07:40:31.029290",
+        "completed_at": "2026-03-16 07:40:56.215933",
+        "user_id": 14
       }
     ],
     "accounts_section": [
@@ -197,7 +207,7 @@
       {
         "id": 1,
         "password": "pbkdf2_sha256$1200000$fhB4XPkHMZlATctSe3QmjE$C316N0YM1svW4zNs5gb3BN9Mf6/7zH0qx6JaVuo51I8=",
-        "last_login": "2026-03-16 07:07:53.719648",
+        "last_login": "2026-03-17 08:45:58.361352",
         "is_superuser": 1,
         "username": "ace",
         "email": "acy995kim@gmail.com",
@@ -253,7 +263,7 @@
       {
         "id": 6,
         "password": "pbkdf2_sha256$1200000$Uywiyvs0Zvn4jn8I9ODyHD$W4Cu6ZAA5D/ZzlAXqCSZ4MJFXXDij6A/GG9M9MnuXu0=",
-        "last_login": "2026-03-16 07:00:40.069175",
+        "last_login": "2026-03-17 08:45:38.035098",
         "is_superuser": 0,
         "username": "parent_jane",
         "email": "jane.parent@example.com",
@@ -322,8 +332,8 @@
       },
       {
         "id": 14,
-        "password": "pbkdf2_sha256$1200000$Ah0bwNdoY7S2OIPv2gSNbA$LRSHmGH5l3I6oq+yIzasGXPPdAsT+JFkKG9k+IdSiGY=",
-        "last_login": "2026-03-15 17:20:43.402192",
+        "password": "pbkdf2_sha256$1200000$J0sVobbxyAbRzYfBwGqAtZ$zAvMnl0LxvEH78Uq+/M+6VRFtfiw4aiWGXsv8OPnX68=",
+        "last_login": "2026-03-17 08:45:04.896823",
         "is_superuser": 0,
         "username": "paoogma",
         "email": "ral531712@gmail.com",
@@ -331,7 +341,7 @@
         "is_active": 1,
         "created_at": "2026-02-17 07:05:22.274969",
         "status": "ACTIVE",
-        "updated_at": "2026-03-15 17:16:41.181903",
+        "updated_at": "2026-03-16 07:40:56.164828",
         "role": "PARENT_STUDENT"
       },
       {
@@ -1344,8 +1354,8 @@
       },
       {
         "id": 87,
-        "password": "",
-        "last_login": null,
+        "password": "pbkdf2_sha256$1200000$3ttQETeYW3xxQ03IcCKsnL$hz8cbJqRvSYPcFdtugatL2WPluZ+4z+PQU4NBLDd4+A=",
+        "last_login": "2026-03-17 08:42:15.208657",
         "is_superuser": 0,
         "username": "student_flores_70",
         "email": "isabella.flores10g5@school.local",
@@ -1353,7 +1363,7 @@
         "is_active": 1,
         "created_at": "2026-03-09 17:42:00.126590",
         "status": "ACTIVE",
-        "updated_at": "2026-03-09 17:42:00.126730",
+        "updated_at": "2026-03-17 06:25:50.132836",
         "role": "PARENT_STUDENT"
       },
       {
@@ -1387,7 +1397,7 @@
       {
         "id": 90,
         "password": "pbkdf2_sha256$1200000$Je2nGX6KhZmHruQE6tKKvx$lpZ0hkB3WiwZykagVqdm7WjBVOPzdfaEU6GXGf4q2U0=",
-        "last_login": "2026-03-13 12:07:52.297014",
+        "last_login": "2026-03-17 06:37:47.680894",
         "is_superuser": 0,
         "username": "student_jimenez_73",
         "email": "rafael.jimenez3g6@school.local",
@@ -1429,7 +1439,7 @@
       {
         "id": 93,
         "password": "pbkdf2_sha256$1200000$jA1WAJF9ukCAnW8VcNOdjT$YGQQm4eA9DoH2j456XyXqwfvNXPlJbUoEZjRAwPaXAM=",
-        "last_login": "2026-03-13 10:48:59.774151",
+        "last_login": "2026-03-17 06:33:42.301556",
         "is_superuser": 0,
         "username": "student_gomez_76",
         "email": "felicitas.gomez6g6@school.local",
@@ -1731,6 +1741,24 @@
         "student_number": "G6003",
         "grade_level": "grade6",
         "avatar": "avatars/194536083_70876832253163_1759866734653_57teZ0m.png"
+      },
+      {
+        "id": 12,
+        "student_first_name": "Isabella",
+        "student_middle_name": "Torres",
+        "student_last_name": "Flores",
+        "parent_first_name": "Patricia",
+        "parent_middle_name": "",
+        "parent_last_name": "Flores",
+        "contact_number": "+639012345869",
+        "address": "573 Ash Ave, Laguna",
+        "section_id": 8,
+        "user_id": 87,
+        "lrn": "101007010009",
+        "payment_mode": "installment",
+        "student_number": "G5010",
+        "grade_level": "grade5",
+        "avatar": "avatars/PastoralCommittee_Nario.jfif"
       }
     ],
     "announcements_announcement": [
@@ -2690,19 +2718,14 @@
         "user_id": 99
       },
       {
-        "key": "a78ec82dc0c090e6b6e17df64ab10590f7d14534",
-        "created": "2026-03-13 10:45:42.064574",
-        "user_id": 93
+        "key": "d661e59cfc3df25c3d17a3f1f95b5af9e57fe7f9",
+        "created": "2026-03-17 08:42:15.214753",
+        "user_id": 87
       },
       {
-        "key": "6cec93564127c44c9aa0b1fba4c90e3d8a858248",
-        "created": "2026-03-13 12:07:40.732108",
-        "user_id": 90
-      },
-      {
-        "key": "0c69e3c498ab895b05f59cb55c32b2762fbaa636",
-        "created": "2026-03-16 07:32:15.589159",
-        "user_id": 7
+        "key": "a2d41aee542b0ca8db1ca54d1767801d9d290c27",
+        "created": "2026-03-17 08:45:58.366509",
+        "user_id": 1
       }
     ],
     "classmanagement_room": [
@@ -4235,6 +4258,66 @@
         "content_type_id": 18,
         "user_id": 1,
         "action_time": "2026-03-16 07:17:56.836242"
+      },
+      {
+        "id": 48,
+        "object_id": "20",
+        "object_repr": "Isabella Flores - TUITION (20)",
+        "action_flag": 3,
+        "change_message": "",
+        "content_type_id": 17,
+        "user_id": 1,
+        "action_time": "2026-03-17 08:41:28.795368"
+      },
+      {
+        "id": 49,
+        "object_id": "19",
+        "object_repr": "Isabella Flores - TUITION (19)",
+        "action_flag": 3,
+        "change_message": "",
+        "content_type_id": 17,
+        "user_id": 1,
+        "action_time": "2026-03-17 08:41:28.795465"
+      },
+      {
+        "id": 50,
+        "object_id": "18",
+        "object_repr": "Isabella Flores - TUITION (18)",
+        "action_flag": 3,
+        "change_message": "",
+        "content_type_id": 17,
+        "user_id": 1,
+        "action_time": "2026-03-17 08:41:28.795521"
+      },
+      {
+        "id": 51,
+        "object_id": "23",
+        "object_repr": "Isabella Flores - TUITION (23)",
+        "action_flag": 3,
+        "change_message": "",
+        "content_type_id": 17,
+        "user_id": 1,
+        "action_time": "2026-03-17 08:41:28.795565"
+      },
+      {
+        "id": 52,
+        "object_id": "22",
+        "object_repr": "Isabella Flores - MISC (22)",
+        "action_flag": 3,
+        "change_message": "",
+        "content_type_id": 17,
+        "user_id": 1,
+        "action_time": "2026-03-17 08:41:28.795611"
+      },
+      {
+        "id": 53,
+        "object_id": "21",
+        "object_repr": "Isabella Flores - TUITION (21)",
+        "action_flag": 3,
+        "change_message": "",
+        "content_type_id": 17,
+        "user_id": 1,
+        "action_time": "2026-03-17 08:41:28.795650"
       }
     ],
     "django_content_type": [
@@ -6575,9 +6658,39 @@
         "expire_date": "2026-03-30 07:07:53.728818"
       },
       {
-        "session_key": "y0uuzmgisksrx0lu0r08kl0ob8pyl3v9",
-        "session_data": ".eJxVjEsOgjAUAO_y1qahUFofS_ecoXk_BDWQUFgZ725IWOh2ZjJvyLRvY96LrXlS6CDB5ZcxydPmQ-iD5vviZJm3dWJ3JO60xfWL2ut2tn-DkcoIHbB4kYixvUqQCqNGJatJWt9UA1pFyERJE5kEQrYaOSaOpuglNEOCzxcRzjkr:1w22Qx:0a1DrKJi1SYDx1B9Fci9-imSGWdlsrb-nWOWKBHgV1k",
-        "expire_date": "2026-03-30 07:32:15.598834"
+        "session_key": "gik94c10ys0mz04coc5xcpyjn2uxr376",
+        "session_data": ".eJxVjDEKwzAMAP_iuZjYWFHcsXvfECRLrtOWBOJkCv17MWRo17vjDjPSvpVxr7qOk5irccFcfiFTeuncjDxpfiw2LfO2TmxbYk9b7X0Rfd_O9m9QqJb2lcBdrxHyABlJ0PkICskjD4AoqsSI2YVAPWvIgEEAuuy1F5cwms8XEHM4VA:1w22b3:OmMGNffT9Yy4pZGTHT5Nne-rfNCIJM33P3HdBeHJuRk",
+        "expire_date": "2026-03-30 07:42:41.331728"
+      },
+      {
+        "session_key": "j1xv97o9d9vc3gyl2lmsr6qs68k51zkp",
+        "session_data": ".eJxVjDsOwjAQBe-yNbK8-BMnJX3OYO36gwPIkeKkQtwdWUoBxWtmRu8Nno69-KOlzS8RJkC4_DKm8Ey1i_igel9FWOu-LSx6Ik7bxLzG9Lqd7d9BoVZggpStiVaZQTvNlGlExKQYHQ-ayenQF5SSaNBKltq4ax4dK2tktknB5wvZuzc6:1w22eN:SGsJysvCtpWfh79P6goxQgEpEyHujbjBk8rLpYoYthQ",
+        "expire_date": "2026-03-30 07:46:07.071490"
+      },
+      {
+        "session_key": "prupuznge6mjp1804jza2aytrtjqcd6e",
+        "session_data": ".eJxVjDEKwzAMAP_iuZjYWFHcsXvfECRLrtOWBOJkCv17MWRo17vjDjPSvpVxr7qOk5irccFcfiFTeuncjDxpfiw2LfO2TmxbYk9b7X0Rfd_O9m9QqJb2lcBdrxHyABlJ0PkICskjD4AoqsSI2YVAPWvIgEEAuuy1F5cwms8XEHM4VA:1w2OIP:6jzjarBx67EAHYVcDnPc2RfqejkT5S1q5yRa-BM7KJQ",
+        "expire_date": "2026-03-31 06:52:53.405191"
+      },
+      {
+        "session_key": "klh1waykadob0eo6cu1nv0b8q3mqtxvg",
+        "session_data": ".eJxVjDEKwzAMAP_iuZjYWFHcsXvfECRLrtOWBOJkCv17MWRo17vjDjPSvpVxr7qOk5irccFcfiFTeuncjDxpfiw2LfO2TmxbYk9b7X0Rfd_O9m9QqJb2lcBdrxHyABlJ0PkICskjD4AoqsSI2YVAPWvIgEEAuuy1F5cwms8XEHM4VA:1w2Pfj:ZxOVQ6sh8Cm7h8sm4dbpn7c4atZuHxuyDqxkdFoTCIU",
+        "expire_date": "2026-03-31 08:21:03.554351"
+      },
+      {
+        "session_key": "d88d0smdrno37sxetfu05m97xscpozgi",
+        "session_data": ".eJxVjDEKwzAMAP_iuZjYWFHcsXvfECRLrtOWBOJkCv17MWRo17vjDjPSvpVxr7qOk5irccFcfiFTeuncjDxpfiw2LfO2TmxbYk9b7X0Rfd_O9m9QqJb2lcBdrxHyABlJ0PkICskjD4AoqsSI2YVAPWvIgEEAuuy1F5cwms8XEHM4VA:1w2Pfj:ZxOVQ6sh8Cm7h8sm4dbpn7c4atZuHxuyDqxkdFoTCIU",
+        "expire_date": "2026-03-31 08:21:03.580590"
+      },
+      {
+        "session_key": "1sndq56u5w5hjfb1kxvdf3gm9yiuxb92",
+        "session_data": ".eJxVjDsOwjAQBe-yNbK8-BMnJX3OYO36gwPIkeKkQtwdWUoBxWtmRu8Nno69-KOlzS8RJkC4_DKm8Ey1i_igel9FWOu-LSx6Ik7bxLzG9Lqd7d9BoVZggpStiVaZQTvNlGlExKQYHQ-ayenQF5SSaNBKltq4ax4dK2tktknB5wvZuzc6:1w2Pyi:_jwXPlDmwkdD2YWkk0eGxU5nnI0Ble2_cxRlpYc_wyk",
+        "expire_date": "2026-03-31 08:40:40.309665"
+      },
+      {
+        "session_key": "no8o71ob83jyrwgeifq7t1k28j3d2scx",
+        "session_data": ".eJxVjDsOwjAQBe-yNbK8-BMnJX3OYO36gwPIkeKkQtwdWUoBxWtmRu8Nno69-KOlzS8RJkC4_DKm8Ey1i_igel9FWOu-LSx6Ik7bxLzG9Lqd7d9BoVZggpStiVaZQTvNlGlExKQYHQ-ayenQF5SSaNBKltq4ax4dK2tktknB5wvZuzc6:1w2Q3q:kEYvU3jhrepkeyBK08DCUm0pWDC3oE_UvLJnyuYoQ44",
+        "expire_date": "2026-03-31 08:45:58.371672"
       }
     ],
     "enrollment_enrollment": [
@@ -9036,30 +9149,30 @@
         "status": "ACTIVE",
         "enrolled_at": "2026-03-09 17:42:00.127039",
         "completed_at": null,
-        "academic_year": "2024-2025",
-        "remarks": "",
+        "academic_year": "2025-2026",
+        "remarks": "APPROVED BY ADMIN",
         "created_at": "2026-03-09 17:42:00.130523",
-        "updated_at": "2026-03-09 17:42:00.130538",
-        "section_id": null,
+        "updated_at": "2026-03-17 06:23:28.107141",
+        "section_id": 8,
         "student_id": 87,
         "address": "573 Ash Ave, Laguna",
-        "birth_date": "2014-02-14",
+        "birth_date": "2015-10-31",
         "education_level": "elementary",
         "email": "isabella.flores10g5@school.local",
         "first_name": "Isabella",
         "gender": "Female",
         "last_name": "Flores",
-        "lrn": "101007010",
+        "lrn": "101007010009",
         "middle_name": "Torres",
-        "mobile_number": "09012345869",
+        "mobile_number": "+639012345869",
         "parent_facebook": "isabella.flores.010",
         "payment_mode": "installment",
         "religion": "Catholic",
         "student_type": "new",
         "telephone_number": "9012345",
-        "parent_user_id": null,
+        "parent_user_id": 87,
         "student_number": "G5010",
-        "id_image": null
+        "id_image": "enrollment_ids/PastoralCommittee_Nario.jfif"
       },
       {
         "id": 83,
@@ -10687,45 +10800,6 @@
         "parent_id": 6
       },
       {
-        "id": 3,
-        "student_name": "Mary Og",
-        "transaction_type": "MISC",
-        "amount": 30000,
-        "description": "asd",
-        "payment_method": "GCASH",
-        "reference_number": "CESI-2026-00003",
-        "due_date": "2026-02-14",
-        "date_created": "2026-02-08 06:52:02.972000",
-        "status": "OVERDUE",
-        "parent_id": 5
-      },
-      {
-        "id": 5,
-        "student_name": "Mary Og",
-        "transaction_type": "TUITION",
-        "amount": 5400000,
-        "description": "try out",
-        "payment_method": "BANK_TRANSFER",
-        "reference_number": "CESI-2026-00004",
-        "due_date": "2026-02-09",
-        "date_created": "2026-02-09 03:46:41.888000",
-        "status": "PAID",
-        "parent_id": 5
-      },
-      {
-        "id": 6,
-        "student_name": "Johnny Doe",
-        "transaction_type": "TUITION",
-        "amount": 69420,
-        "description": "asdasd",
-        "payment_method": "BANK_TRANSFER",
-        "reference_number": "CESI-2026-00006",
-        "due_date": "2026-02-21",
-        "date_created": "2026-02-09 03:47:02.770000",
-        "status": "PAID",
-        "parent_id": 6
-      },
-      {
         "id": 7,
         "student_name": "Johnny Doe",
         "transaction_type": "TUITION",
@@ -10735,7 +10809,7 @@
         "reference_number": "CESI-2026-00007",
         "due_date": "2026-02-14",
         "date_created": "2026-02-09 04:42:59.991000",
-        "status": "PENDING",
+        "status": "PAID",
         "parent_id": 6
       },
       {
@@ -10748,8 +10822,34 @@
         "reference_number": "CESI-2026-00009",
         "due_date": "2026-02-11",
         "date_created": "2026-02-17 11:54:47.376377",
-        "status": "PENDING",
+        "status": "PAID",
         "parent_id": 14
+      },
+      {
+        "id": 24,
+        "student_name": "Pao Ogma",
+        "transaction_type": "TUITION",
+        "amount": 38740,
+        "description": "",
+        "payment_method": "CASH",
+        "reference_number": "CESI-2026-00024",
+        "due_date": "2026-03-17",
+        "date_created": "2026-03-17 08:38:02.860897",
+        "status": "PAID",
+        "parent_id": 14
+      },
+      {
+        "id": 25,
+        "student_name": "Isabella Flores",
+        "transaction_type": "TUITION",
+        "amount": 41790,
+        "description": "",
+        "payment_method": "CASH",
+        "reference_number": "CESI-2026-00025",
+        "due_date": null,
+        "date_created": "2026-03-17 08:42:03.445158",
+        "status": "PENDING",
+        "parent_id": 87
       }
     ],
     "finance_tuitionconfig": [
