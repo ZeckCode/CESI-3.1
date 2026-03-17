@@ -251,7 +251,58 @@
 .status-pill.overdue { background: #fee2e2; color: #991b1b; }
 .status-pill.unpaid-balance { background: #fee2e2; color: #991b1b; font-weight: 900; }
 
-/* Ledger Tabs */
+/* Accounting Ledger Table */
+.ledger-accounting th,
+.ledger-accounting td {
+  text-align: left;
+}
+
+.ledger-accounting .text-center {
+  text-align: center;
+}
+
+.ledger-accounting .text-right {
+  text-align: right;
+}
+
+.ledger-accounting tfoot tr {
+  border-top: 2px solid #cbd5e1 !important;
+}
+
+.ledger-accounting tfoot td {
+  padding: 1rem !important;
+  font-weight: 700;
+  background: #f1f5f9;
+}
+
+/* Ledger Info Box */
+.ledger-info {
+  font-size: 0.875rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .ledger-wrapper { flex-direction: column; }
+  .ledger-table thead { display: none; }
+  .ledger-table td {
+    display: flex;
+    justify-content: space-between;
+    border-right: none !important;
+    padding: 0.8rem 1.5rem;
+  }
+  .ledger-table td::before {
+    content: attr(data-label);
+    font-weight: 800;
+    color: var(--blue-dark);
+    font-size: 0.7rem;
+  }
+
+  .ledger-accounting td[data-label="Charge (₱)"]::before,
+  .ledger-accounting td[data-label="Payment (₱)"]::before,
+  .ledger-accounting td[data-label="Balance"]::before {
+    content: attr(data-label) ": ";
+  }
+}
 .ledger-tabs {
   display: flex;
   gap: 0.5rem;
