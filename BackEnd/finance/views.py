@@ -409,3 +409,141 @@ def student_tuition_overview(request):
         })
 
     return Response(data)
+
+
+# ──────────────────────────────────────────────
+# PARENT — tuition installments for their student(s)
+# ──────────────────────────────────────────────
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_tuition_installments(request):
+    """
+    Returns tuition installment breakdown for parent's student(s)
+    with payment status for each installment
+    """
+    if getattr(request.user, 'role', None) != 'PARENT_STUDENT':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    # Get all student profiles for this parent
+    profiles = UserProfile.objects.filter(user=request.user).select_related('section')
+    
+    tuition_map = {
+        t.grade_key: t
+        for t in TuitionConfig.objects.filter(is_active=True, status='active')
+    }
+
+    data = []
+    for profile in profiles:
+        student_name = " ".join(
+            p for p in [
+                profile.student_first_name,
+                profile.student_middle_name,
+                profile.student_last_name,
+            ] if p
+        ).strip()
+
+        payment_mode = (profile.payment_mode or '').strip().lower()
+        grade_key = (profile.grade_level or '').strip().lower()
+        tuition = tuition_map.get(grade_key)
+
+        if not tuition:
+            continue
+
+        # Get total paid for this student
+        total_paid = Decimal('0.00')
+        if profile.user_id:
+            total_paid = (
+                Transaction.objects.filter(
+                    parent=profile.user,
+                    transaction_type='TUITION',
+                    status='PAID'
+                )
+                .aggregate(total=Sum('amount'))
+                .get('total') or Decimal('0.00')
+            )
+
+        # Build installment breakdown
+        installments = []
+        cumulative_paid = Decimal('0.00')
+        
+        if payment_mode == 'installment' and tuition.initial and tuition.monthly:
+            # Initial payment
+            amount = Decimal(str(tuition.initial))
+            is_paid = cumulative_paid < total_paid and cumulative_paid + amount <= total_paid
+            installments.append({
+                'type': 'Initial Payment',
+                'amount': float(amount),
+                'month': 'May',
+                'due_date': '2026-05-31',
+                'is_paid': is_paid,
+            })
+            cumulative_paid += amount
+            
+            # Monthly installments (June - March, 10 months)
+            months = [
+                ('June', '2026-06-30'),
+                ('July', '2026-07-31'),
+                ('August', '2026-08-31'),
+                ('September', '2026-09-30'),
+                ('October', '2026-10-31'),
+                ('November', '2026-11-30'),
+                ('December', '2026-12-31'),
+                ('January', '2027-01-31'),
+                ('February', '2027-02-28'),
+                ('March', '2027-03-31'),
+            ]
+            
+            month_amount = Decimal(str(tuition.monthly))
+            for month, due_date in months:
+                is_paid = cumulative_paid < total_paid and cumulative_paid + month_amount <= total_paid
+                installments.append({
+                    'type': f'{month} Installment',
+                    'amount': float(month_amount),
+                    'month': month,
+                    'due_date': due_date,
+                    'is_paid': is_paid,
+                })
+                cumulative_paid += month_amount
+
+        # Add miscellaneous fees if applicable
+        if tuition.misc_aug:
+            amount = Decimal(str(tuition.misc_aug))
+            is_paid = cumulative_paid < total_paid and cumulative_paid + amount <= total_paid
+            installments.append({
+                'type': 'Miscellaneous (August)',
+                'amount': float(amount),
+                'month': 'August',
+                'due_date': '2026-08-31',
+                'is_paid': is_paid,
+            })
+            cumulative_paid += amount
+        
+        if tuition.misc_nov:
+            amount = Decimal(str(tuition.misc_nov))
+            is_paid = cumulative_paid < total_paid and cumulative_paid + amount <= total_paid
+            installments.append({
+                'type': 'Miscellaneous (November)',
+                'amount': float(amount),
+                'month': 'November',
+                'due_date': '2026-11-30',
+                'is_paid': is_paid,
+            })
+            cumulative_paid += amount
+
+        total_due = tuition.total_installment if payment_mode == 'installment' else tuition.total_cash
+        remaining_balance = total_due - total_paid
+        if remaining_balance < 0:
+            remaining_balance = Decimal('0.00')
+
+        data.append({
+            'student_id': profile.id,
+            'student_name': student_name or '—',
+            'grade_level': profile.grade_level or '',
+            'payment_mode': payment_mode,
+            'total_due': float(total_due),
+            'total_paid': float(total_paid),
+            'remaining_balance': float(remaining_balance),
+            'installments': installments,
+        })
+
+    return Response(data)
