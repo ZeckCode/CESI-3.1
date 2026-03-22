@@ -1,0 +1,153 @@
+.teacher-reminders-main {
+  padding: 24px;
+}
+
+.tr-section {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+}
+
+.tr-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.tr-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.tr-subtitle {
+  margin: 4px 0 0;
+  color: #64748b;
+}
+
+.tr-unread-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 600;
+}
+
+.tr-filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.tr-filter {
+  border: 1px solid #cbd5e1;
+  background: white;
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.tr-filter.active {
+  background: #1d4ed8;
+  color: white;
+  border-color: #1d4ed8;
+}
+
+.tr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tr-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.tr-card.unread {
+  border-left: 5px solid #f59e0b;
+  background: #fffbeb;
+}
+
+.tr-card.read {
+  background: #f8fafc;
+}
+
+.tr-card-top {
+  display: flex;
+  gap: 14px;
+}
+
+.tr-type-icon {
+  margin-top: 4px;
+  color: #334155;
+}
+
+.tr-content {
+  flex: 1;
+}
+
+.tr-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.tr-card-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.tr-message {
+  margin: 10px 0;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.tr-meta {
+  display: flex;
+  gap: 8px;
+  color: #64748b;
+  font-size: 0.92rem;
+  flex-wrap: wrap;
+}
+
+.tr-status.unread {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.tr-status.read {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.tr-actions {
+  margin-top: 12px;
+}
+
+.tr-mark-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: #16a34a;
+  color: white;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.tr-empty {
+  padding: 28px;
+  text-align: center;
+  color: #64748b;
+}

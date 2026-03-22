@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   X,
+  Bell,
 } from "lucide-react";
 import "../AdminWebsiteCSS/Sidebar.css";
 import { useAuth } from "../Auth/useAuth";
@@ -66,6 +67,7 @@ export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, o
         label: "COMMUNICATION",
         items: [
           { id: "message", label: "Messages", icon: MessageSquare },
+          { id: "reminders", label: "Notifications", icon: Bell },
         ],
       },
     ],
@@ -110,7 +112,7 @@ export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, o
   const handleLogout = async () => {
     try {
       await apiFetch("/api/accounts/logout/", { method: "POST" });
-    } catch {;}
+    } catch {}
 
     logout();
     window.location.href = "/";
@@ -172,9 +174,7 @@ export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, o
         <nav className="as-nav">
           {menuSections.map((section, sIdx) => (
             <div key={section.label} className="as-section">
-              {showLabels && (
-                <div className="as-section-label">{section.label}</div>
-              )}
+              {showLabels && <div className="as-section-label">{section.label}</div>}
               {!showLabels && sIdx > 0 && <div className="as-section-dot" />}
 
               {section.items.map((item) => {
@@ -189,9 +189,7 @@ export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, o
                       title={isCollapsed && !isMobile ? item.label : undefined}
                     >
                       <item.icon size={20} className="as-ico" />
-                      {showLabels && (
-                        <span className="as-label">{item.label}</span>
-                      )}
+                      {showLabels && <span className="as-label">{item.label}</span>}
                     </button>
                   </div>
                 );
