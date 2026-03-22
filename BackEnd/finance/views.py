@@ -1,3 +1,4 @@
+# finance/views.py
 from decimal import Decimal
 
 from rest_framework import generics, status
@@ -28,16 +29,18 @@ class TransactionListCreate(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = Transaction.objects.select_related('parent').all()
-        search = self.request.query_params.get('search', '')
-        status_filter = self.request.query_params.get('status', '')
+        qs = Transaction.objects.select_related('parent', 'parent__profile').all()
+        search = self.request.query_params.get('search', '').strip()
+        status_filter = self.request.query_params.get('status', '').strip()
 
         if search:
             qs = qs.filter(
                 Q(student_name__icontains=search)
                 | Q(reference_number__icontains=search)
-                | Q(parent__username__icontains=search)
-            )
+                | Q(parent__profile__student_first_name__icontains=search)
+                | Q(parent__profile__student_last_name__icontains=search)
+                | Q(parent__profile__student_number__icontains=search)
+            ).distinct()
 
         if status_filter and status_filter.upper() in ['PAID', 'PENDING', 'OVERDUE']:
             qs = qs.filter(status=status_filter.upper())
@@ -58,8 +61,7 @@ class TransactionListCreate(generics.ListCreateAPIView):
         transaction = serializer.save()
         out = TransactionSerializer(transaction).data
         return Response(out, status=status.HTTP_201_CREATED)
-
-
+    
 # ──────────────────────────────────────────────
 # ADMIN — detail / update / delete
 # ──────────────────────────────────────────────

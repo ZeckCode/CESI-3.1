@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-03-17T16:47:12.840092",
+  "exported_at": "2026-03-22T15:02:03.278580",
   "tables": {
     "accounts_adminprofile": [],
     "accounts_passwordresetrequest": [
@@ -207,7 +207,7 @@
       {
         "id": 1,
         "password": "pbkdf2_sha256$1200000$fhB4XPkHMZlATctSe3QmjE$C316N0YM1svW4zNs5gb3BN9Mf6/7zH0qx6JaVuo51I8=",
-        "last_login": "2026-03-17 08:45:58.361352",
+        "last_login": "2026-03-22 05:51:36.794013",
         "is_superuser": 1,
         "username": "ace",
         "email": "acy995kim@gmail.com",
@@ -263,7 +263,7 @@
       {
         "id": 6,
         "password": "pbkdf2_sha256$1200000$Uywiyvs0Zvn4jn8I9ODyHD$W4Cu6ZAA5D/ZzlAXqCSZ4MJFXXDij6A/GG9M9MnuXu0=",
-        "last_login": "2026-03-17 08:45:38.035098",
+        "last_login": "2026-03-22 06:43:49.248353",
         "is_superuser": 0,
         "username": "parent_jane",
         "email": "jane.parent@example.com",
@@ -277,7 +277,7 @@
       {
         "id": 7,
         "password": "pbkdf2_sha256$1200000$I7qEWWTIElj9MDDdACHKPf$cyjQbJ4f8A0iB68U7NK/v6XrXHs3bZ9D0C+ypd71gTE=",
-        "last_login": "2026-03-16 07:32:15.573936",
+        "last_login": "2026-03-22 06:30:02.821032",
         "is_superuser": 0,
         "username": "teacher_smith",
         "email": "smith@example.com",
@@ -333,7 +333,7 @@
       {
         "id": 14,
         "password": "pbkdf2_sha256$1200000$J0sVobbxyAbRzYfBwGqAtZ$zAvMnl0LxvEH78Uq+/M+6VRFtfiw4aiWGXsv8OPnX68=",
-        "last_login": "2026-03-17 08:45:04.896823",
+        "last_login": "2026-03-22 05:24:12.341951",
         "is_superuser": 0,
         "username": "paoogma",
         "email": "ral531712@gmail.com",
@@ -1680,7 +1680,7 @@
         "parent_last_name": "we we",
         "contact_number": "+639222111333",
         "address": "18 Honradez, tugatog, Caloocan, Manila, NCR, 1213",
-        "section_id": null,
+        "section_id": 4,
         "user_id": 98,
         "lrn": "32224556656",
         "payment_mode": "cash",
@@ -2709,6 +2709,30 @@
         "content_type_id": 30,
         "codename": "view_passwordresetrequest",
         "name": "Can view password reset request"
+      },
+      {
+        "id": 121,
+        "content_type_id": 31,
+        "codename": "add_reminder",
+        "name": "Can add reminder"
+      },
+      {
+        "id": 122,
+        "content_type_id": 31,
+        "codename": "change_reminder",
+        "name": "Can change reminder"
+      },
+      {
+        "id": 123,
+        "content_type_id": 31,
+        "codename": "delete_reminder",
+        "name": "Can delete reminder"
+      },
+      {
+        "id": 124,
+        "content_type_id": 31,
+        "codename": "view_reminder",
+        "name": "Can view reminder"
       }
     ],
     "authtoken_token": [
@@ -2723,9 +2747,9 @@
         "user_id": 87
       },
       {
-        "key": "a2d41aee542b0ca8db1ca54d1767801d9d290c27",
-        "created": "2026-03-17 08:45:58.366509",
-        "user_id": 1
+        "key": "6ee8ac7dceec686a2af3424eb659400230784be5",
+        "created": "2026-03-22 06:43:49.252433",
+        "user_id": 6
       }
     ],
     "classmanagement_room": [
@@ -4470,6 +4494,11 @@
         "id": 30,
         "app_label": "accounts",
         "model": "passwordresetrequest"
+      },
+      {
+        "id": 31,
+        "app_label": "reminders",
+        "model": "reminder"
       }
     ],
     "django_migrations": [
@@ -4844,6 +4873,12 @@
         "app": "attendance",
         "name": "0003_attendancerecord_subject",
         "applied": "2026-03-16 06:48:04.609709"
+      },
+      {
+        "id": 63,
+        "app": "reminders",
+        "name": "0001_initial",
+        "applied": "2026-03-22 04:15:26.448056"
       }
     ],
     "django_session": [
@@ -6648,11 +6683,6 @@
         "expire_date": "2026-03-29 11:51:33.967690"
       },
       {
-        "session_key": "codmqlnoo6n1jpmigmqi3c938vymj9th",
-        "session_data": ".eJxVjDsOwjAQBe-yNbK8-BMnJX3OYO36gwPIkeKkQtwdWUoBxWtmRu8Nno69-KOlzS8RJkC4_DKm8Ey1i_igel9FWOu-LSx6Ik7bxLzG9Lqd7d9BoVZggpStiVaZQTvNlGlExKQYHQ-ayenQF5SSaNBKltq4ax4dK2tktknB5wvZuzc6:1w1qEB:4brtwC-hU3dGcx1e4ZO5MNJvSHCmuXl1nxauZxutMhA",
-        "expire_date": "2026-03-29 18:30:15.072336"
-      },
-      {
         "session_key": "j300p06ga31dryor1tm8cxs322hy27qq",
         "session_data": ".eJxVjDsOwjAQBe-yNbK8-BMnJX3OYO36gwPIkeKkQtwdWUoBxWtmRu8Nno69-KOlzS8RJkC4_DKm8Ey1i_igel9FWOu-LSx6Ik7bxLzG9Lqd7d9BoVZggpStiVaZQTvNlGlExKQYHQ-ayenQF5SSaNBKltq4ax4dK2tktknB5wvZuzc6:1w223N:W7Gc6-btTyuO2shIMP8y6oqcTmpPVGES01hA1dkS7_I",
         "expire_date": "2026-03-30 07:07:53.728818"
@@ -6691,6 +6721,16 @@
         "session_key": "no8o71ob83jyrwgeifq7t1k28j3d2scx",
         "session_data": ".eJxVjDsOwjAQBe-yNbK8-BMnJX3OYO36gwPIkeKkQtwdWUoBxWtmRu8Nno69-KOlzS8RJkC4_DKm8Ey1i_igel9FWOu-LSx6Ik7bxLzG9Lqd7d9BoVZggpStiVaZQTvNlGlExKQYHQ-ayenQF5SSaNBKltq4ax4dK2tktknB5wvZuzc6:1w2Q3q:kEYvU3jhrepkeyBK08DCUm0pWDC3oE_UvLJnyuYoQ44",
         "expire_date": "2026-03-31 08:45:58.371672"
+      },
+      {
+        "session_key": "du4njvms0v5g74e9cuf2o2k7f7ef0x4j",
+        "session_data": ".eJxVjDEKwzAMAP_iuZjYWFHcsXvfECRLrtOWBOJkCv17MWRo17vjDjPSvpVxr7qOk5irccFcfiFTeuncjDxpfiw2LfO2TmxbYk9b7X0Rfd_O9m9QqJb2lcBdrxHyABlJ0PkICskjD4AoqsSI2YVAPWvIgEEAuuy1F5cwms8XEHM4VA:1w4BIJ:Hqs6lD7_sKUuSLepNxz-q6tc1T26Wr7YbZQaXGo2NB8",
+        "expire_date": "2026-04-05 05:24:11.401418"
+      },
+      {
+        "session_key": "um965jsbvq6i3q81hvad7vug3w83yq91",
+        "session_data": ".eJxVjDsOgkAUAO_yarPZlf1Bac8ZyNv3EdRAwkJlvLshodB2ZjJvGHDfxmGvsg4TQwcRLr-sID1lPgQ_cL4vhpZ5W6dijsSctpp-YXndzvZvMGIdoQO0gk5tFJ81Rk8ppKYQJyv-mtrMNkrbBs-UkpIGxRxD4zxZ53IOyvD5Aug7N8I:1w4CXN:2cPnn9O5e69Xgg2rxkVwJ-r4aPSNvmFgwaP-8T5MgGY",
+        "expire_date": "2026-04-05 06:43:49.256045"
       }
     ],
     "enrollment_enrollment": [
@@ -8532,8 +8572,8 @@
         "academic_year": "2024-2025",
         "remarks": "",
         "created_at": "2026-03-09 17:41:59.979663",
-        "updated_at": "2026-03-09 17:41:59.979696",
-        "section_id": null,
+        "updated_at": "2026-03-22 06:04:27.959415",
+        "section_id": 6,
         "student_id": 67,
         "address": "441 Maple Ridge, Batangas",
         "birth_date": "2016-10-28",
@@ -8552,7 +8592,7 @@
         "telephone_number": "0012345",
         "parent_user_id": null,
         "student_number": "G3010",
-        "id_image": null
+        "id_image": ""
       },
       {
         "id": 63,
@@ -10850,6 +10890,19 @@
         "date_created": "2026-03-17 08:42:03.445158",
         "status": "PENDING",
         "parent_id": 87
+      },
+      {
+        "id": 26,
+        "student_name": "daphy Lozana",
+        "transaction_type": "TUITION",
+        "amount": 1,
+        "description": "",
+        "payment_method": "OTHER",
+        "reference_number": "CESI-2026-00026",
+        "due_date": null,
+        "date_created": "2026-03-22 05:07:42.081346",
+        "status": "PENDING",
+        "parent_id": 12
       }
     ],
     "finance_tuitionconfig": [
@@ -11606,6 +11659,217 @@
         "updated_at": "2026-03-16 07:32:34.841928",
         "grade_item_id": 1,
         "student_id": 71
+      }
+    ],
+    "reminders_reminder": [
+      {
+        "id": 1,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a reminder regarding your child's TUITION. Amount due: ₱41790.00. Status: PENDING. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 04:28:47.871187",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 2,
+        "title": "Payment Reminder - REGISTRATION",
+        "message": "Good day. This is a reminder regarding your child's REGISTRATION. Amount due: ₱1200.00. Status: PENDING. Due date: 2026-02-14. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 04:28:58.081544",
+        "recipient_id": 6,
+        "sender_id": 1,
+        "transaction_id": 2
+      },
+      {
+        "id": 3,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a reminder regarding your child's TUITION. Amount due: ₱41790.00. Status: PENDING. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 04:38:17.959211",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 4,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a reminder regarding your child's TUITION. Amount due: ₱41790.00. Status: PENDING. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 04:38:37.138414",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 5,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a reminder regarding your child's TUITION. Amount due: ₱41790.00. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 04:38:51.940806",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 6,
+        "title": "Payment Reminder - REGISTRATION",
+        "message": "Good day. This is a reminder regarding your child's REGISTRATION. Amount due: ₱1200.00. Due date: 2026-02-14. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 04:38:51.944447",
+        "recipient_id": 6,
+        "sender_id": 1,
+        "transaction_id": 2
+      },
+      {
+        "id": 7,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a reminder regarding your child's TUITION. Amount due: ₱41790.00. Status: PENDING. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 04:39:03.150481",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 8,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a reminder regarding your child's TUITION. Amount due: ₱41790.00. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 04:39:15.889032",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 9,
+        "title": "Payment Reminder - REGISTRATION",
+        "message": "Good day. This is a reminder regarding your child's REGISTRATION. Amount due: ₱1200.00. Due date: 2026-02-14. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 1,
+        "created_at": "2026-03-22 04:39:16.238382",
+        "recipient_id": 6,
+        "sender_id": 1,
+        "transaction_id": 2
+      },
+      {
+        "id": 10,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a payment reminder for Isabella Flores regarding TUITION. Reference No: CESI-2026-00025. Amount due: ₱41790.00. Status: PENDING. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 04:53:09.749518",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 11,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a payment reminder for Isabella Flores regarding TUITION. Reference No: CESI-2026-00025. Amount due: ₱41790.00. Status: PENDING. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 04:59:39.291066",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 12,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a payment reminder for Isabella Flores regarding TUITION. Reference No: CESI-2026-00025. Amount due: ₱41790.00. Status: PENDING. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 05:02:49.321873",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 13,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a payment reminder for Isabella Flores regarding TUITION. Reference No: CESI-2026-00025. Amount due: ₱41790.00. Status: PENDING. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 05:04:04.483938",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 14,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a payment reminder for Isabella Flores regarding TUITION. Reference No: CESI-2026-00025. Amount due: ₱41790.00. Status: PENDING. Please settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 05:04:55.259354",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 15,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a payment reminder for Isabella Flores \n regarding TUITION.  Reference No: CESI-2026-00025.\n Amount due: ₱41790.00. \n Status: PENDING. \n  \nPlease settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 05:06:19.841027",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 16,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a payment reminder for Isabella Flores \nregarding TUITION.  Reference No: CESI-2026-00025.\n Amount due: ₱41790.00. \n Status: PENDING. \n  \nPlease settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 05:06:49.731476",
+        "recipient_id": 87,
+        "sender_id": 1,
+        "transaction_id": 25
+      },
+      {
+        "id": 17,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a payment reminder for daphy Lozana \nregarding TUITION.  Reference No: CESI-2026-00026.\n Amount due: ₱1.00. \n Status: PENDING. \n  \nPlease settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-22 05:07:44.974884",
+        "recipient_id": 12,
+        "sender_id": 1,
+        "transaction_id": 26
+      },
+      {
+        "id": 18,
+        "title": "Performance Reminder",
+        "message": "Performance reminder for Johnny Doe for Quarter 4. Attendance: 100%. Issue: No grades encoded yet. Please review the student's academic standing and provide support as needed.",
+        "reminder_type": "PERFORMANCE",
+        "is_read": 0,
+        "created_at": "2026-03-22 06:21:05.752906",
+        "recipient_id": 6,
+        "sender_id": 7,
+        "transaction_id": null
+      },
+      {
+        "id": 19,
+        "title": "Performance Reminder",
+        "message": "Performance reminder for Johnny Doe for Quarter 4. Attendance: 100%. Issue: No grades encoded yet. Please review the student's academic standing and provide support as needed.",
+        "reminder_type": "PERFORMANCE",
+        "is_read": 0,
+        "created_at": "2026-03-22 06:30:12.501733",
+        "recipient_id": 6,
+        "sender_id": 7,
+        "transaction_id": null
       }
     ]
   }

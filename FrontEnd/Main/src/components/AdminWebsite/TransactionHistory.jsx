@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Search, Filter, Download, CreditCard,
-  DollarSign, CheckCircle, Clock, TrendingUp,
-  Plus, X, ChevronDown, ChevronUp, Edit2, Trash2
+  CheckCircle, Clock, TrendingUp,
+  Plus, X, ChevronDown, ChevronUp, Edit2, Trash2,
+  Bell
 } from 'lucide-react';
 import '../AdminWebsiteCSS/TransactionHistory.css';
 import Pagination from './Pagination';
@@ -10,7 +11,6 @@ import { getToken } from '../Auth/auth';
 
 const API_BASE = '';
 
-/** Build headers with auth token */
 const authHeaders = (extra = {}) => {
   const token = getToken();
   return {
@@ -55,7 +55,6 @@ const EMPTY_FORM = {
 };
 
 const TransactionHistory = () => {
-  // ── state ──
   const [transactions, setTransactions] = useState([]);
   const [stats, setStats] = useState({ totalRevenue: 0, collected: 0, pending: 0 });
   const [searchTerm, setSearchTerm] = useState('');
@@ -64,22 +63,18 @@ const TransactionHistory = () => {
   const [txnPage, setTxnPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
-  // expandable student detail row
   const [expandedRow, setExpandedRow] = useState(null);
-  const [studentDetails, setStudentDetails] = useState({}); // keyed by parent id
+  const [studentDetails, setStudentDetails] = useState({});
 
-  // modal (add + edit)
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ ...EMPTY_FORM });
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [editingTxn, setEditingTxn] = useState(null); // null = add mode, object = edit mode
+  const [editingTxn, setEditingTxn] = useState(null);
 
-  // delete confirmation
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // parent search dropdown
   const [parentOptions, setParentOptions] = useState([]);
   const [parentSearch, setParentSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -88,16 +83,20 @@ const TransactionHistory = () => {
   const dropdownRef = useRef(null);
   const debounceRef = useRef(null);
 
-  // ── fetch transactions ──
+  const [sendingReminderId, setSendingReminderId] = useState(null);
+  const [sendingBulk, setSendingBulk] = useState(false);
+
   const fetchTransactions = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
       if (filterStatus !== 'all') params.append('status', filterStatus);
+
       const res = await fetch(`${API_BASE}/api/finance/transactions/?${params}`, {
         credentials: 'include',
         headers: authHeaders(),
       });
+
       if (!res.ok) throw new Error('Failed to load');
       const data = await res.json();
       setTransactions(Array.isArray(data) ? data : []);
@@ -106,7 +105,6 @@ const TransactionHistory = () => {
     }
   }, [searchTerm, filterStatus]);
 
-  // ── fetch stats ──
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/finance/transactions/stats/`, {
@@ -126,12 +124,13 @@ const TransactionHistory = () => {
     fetchStats();
   }, [fetchTransactions, fetchStats]);
 
-  // pagination
   const txnTotalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
   const paginatedTransactions = transactions.slice((txnPage - 1) * ITEMS_PER_PAGE, txnPage * ITEMS_PER_PAGE);
-  useEffect(() => { setTxnPage(1); }, [searchTerm, filterStatus]);
 
-  // ── parent search ──
+  useEffect(() => {
+    setTxnPage(1);
+  }, [searchTerm, filterStatus]);
+
   const searchParents = useCallback(async (query) => {
     setParentLoading(true);
     try {
@@ -139,14 +138,16 @@ const TransactionHistory = () => {
         `${API_BASE}/api/finance/parents/?search=${encodeURIComponent(query)}`,
         { credentials: 'include', headers: authHeaders() }
       );
+
       if (!res.ok) {
         console.error('Parent search failed:', res.status, res.statusText);
         if (res.status === 401 || res.status === 403) {
           setParentOptions([]);
-          setShowDropdown(true); // show "not authorized" in empty state
+          setShowDropdown(true);
         }
         return;
       }
+
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
       setParentOptions(list);
@@ -161,11 +162,12 @@ const TransactionHistory = () => {
   const handleParentSearchChange = (e) => {
     const val = e.target.value;
     setParentSearch(val);
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
+
     if (val.trim().length >= 1) {
       debounceRef.current = setTimeout(() => searchParents(val), 300);
     } else {
-      // show all parents when field is focused/empty
       debounceRef.current = setTimeout(() => searchParents(''), 300);
     }
   };
@@ -177,14 +179,15 @@ const TransactionHistory = () => {
       parent: parent.id,
       student_name: parent.student_name || prev.student_name || '',
     }));
+
     const displayName = parent.student_name
-      ? `${parent.username} — ${parent.student_name}`
-      : `${parent.username} — ${parent.email}`;
+      ? `${parent.student_name} — ${parent.student_number || parent.email || ''}`
+      : `${parent.email || parent.username}`;
+
     setParentSearch(displayName);
     setShowDropdown(false);
   };
 
-  // close dropdown when clicking outside
   useEffect(() => {
     const handler = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -195,7 +198,6 @@ const TransactionHistory = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // ── form helpers ──
   const openModal = () => {
     setEditingTxn(null);
     setFormData({ ...EMPTY_FORM });
@@ -218,11 +220,13 @@ const TransactionHistory = () => {
       due_date: txn.due_date || '',
       status: txn.status || 'PENDING',
     });
-    const editDisplay = txn.parent_username
-      ? `${txn.parent_username}${txn.student_name ? ' — ' + txn.student_name : ''}`
+
+    const editDisplay = txn.student_name
+      ? `${txn.student_name}${txn.student_number ? ' — ' + txn.student_number : ''}`
       : '';
+
     setParentSearch(editDisplay);
-    setSelectedParent({ id: txn.parent, username: txn.parent_username });
+    setSelectedParent({ id: txn.parent });
     setFormError('');
     setShowModal(true);
     searchParents('');
@@ -241,6 +245,7 @@ const TransactionHistory = () => {
       setFormError('Please select a parent/student account.');
       return;
     }
+
     if (!formData.amount || Number(formData.amount) <= 0) {
       setFormError('Please enter a valid amount.');
       return;
@@ -280,9 +285,9 @@ const TransactionHistory = () => {
     }
   };
 
-  // ── delete ──
   const handleDelete = async () => {
     if (!deleteTarget) return;
+
     setDeleting(true);
     try {
       const res = await fetch(`${API_BASE}/api/finance/transactions/${deleteTarget.id}/`, {
@@ -290,9 +295,11 @@ const TransactionHistory = () => {
         credentials: 'include',
         headers: authHeaders(),
       });
+
       if (!res.ok && res.status !== 204) {
         throw new Error('Failed to delete');
       }
+
       setDeleteTarget(null);
       fetchTransactions();
       fetchStats();
@@ -303,29 +310,76 @@ const TransactionHistory = () => {
     }
   };
 
-  // ── export placeholder ──
+  const sendReminder = async (transactionId) => {
+    setSendingReminderId(transactionId);
+    try {
+      const res = await fetch(`${API_BASE}/api/reminders/payments/${transactionId}/send/`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: authHeaders(),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to send reminder.');
+      }
+
+      alert(data.detail || 'Payment reminder sent successfully.');
+    } catch (err) {
+      console.error('Error sending reminder:', err);
+      alert(err.message || 'Failed to send reminder.');
+    } finally {
+      setSendingReminderId(null);
+    }
+  };
+
+  const sendBulkReminders = async () => {
+    setSendingBulk(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/reminders/payments/send-bulk/`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: authHeaders(),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to send bulk reminders.');
+      }
+
+      alert(data.detail || 'Bulk reminders sent successfully.');
+    } catch (err) {
+      console.error('Error sending bulk reminders:', err);
+      alert(err.message || 'Failed to send bulk reminders.');
+    } finally {
+      setSendingBulk(false);
+    }
+  };
+
   const handleExportData = () => {
     alert('Exporting transaction data to Excel...');
   };
 
-  // ── label helpers ──
   const typeLabel = (val) => TRANSACTION_TYPES.find((t) => t.value === val)?.label || val;
   const methodLabel = (val) => PAYMENT_METHODS.find((m) => m.value === val)?.label || val;
+
   const statusClass = (s) => {
     if (!s) return '';
     const lower = s.toLowerCase();
     if (lower === 'paid') return 'completed';
-    return lower; // pending | overdue
+    return lower;
   };
 
-  // ── toggle student detail row ──
   const toggleStudentRow = async (txn) => {
     if (expandedRow === txn.id) {
       setExpandedRow(null);
       return;
     }
+
     setExpandedRow(txn.id);
-    // fetch students for this parent (cache per parent id)
+
     if (!studentDetails[txn.parent]) {
       try {
         const res = await fetch(
@@ -344,7 +398,6 @@ const TransactionHistory = () => {
 
   return (
     <main className="transaction-history-main">
-      {/* Stats Overview */}
       <section className="th-section">
         <div className="th-stats-grid">
           <div className="th-stat-card th-stat-blue">
@@ -380,7 +433,6 @@ const TransactionHistory = () => {
         </div>
       </section>
 
-      {/* Transaction History */}
       <section className="th-section">
         <div className="th-section-header">
           <div>
@@ -391,24 +443,33 @@ const TransactionHistory = () => {
             <button className="th-btn-success" onClick={openModal}>
               <Plus size={18} /> Add Transaction
             </button>
+
+            <button
+              className="th-btn-warning"
+              onClick={sendBulkReminders}
+              disabled={sendingBulk}
+            >
+              <Bell size={18} /> {sendingBulk ? 'Sending...' : 'Send Bulk Reminders'}
+            </button>
+
             <button className="th-btn-primary" onClick={handleExportData}>
               <Download size={18} /> Export to Excel
             </button>
           </div>
         </div>
 
-        {/* Filters */}
         <div className="th-filters-container">
           <div className="th-search-box">
             <Search size={20} className="th-search-icon" />
             <input
               type="text"
-              placeholder="Search by student name, reference, or parent..."
+              placeholder="Search by student name, student number, or reference..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="th-search-input"
             />
           </div>
+
           <div className="th-filter-group">
             <Filter size={20} />
             <select
@@ -424,14 +485,13 @@ const TransactionHistory = () => {
           </div>
         </div>
 
-        {/* Transaction Table */}
         <div className="th-table-container">
           <table className="th-table">
             <thead>
               <tr>
                 <th>Date</th>
                 <th>Reference No.</th>
-                <th>Parent Account</th>
+                <th>Student Number</th>
                 <th>Student Name</th>
                 <th></th>
                 <th>Transaction Type</th>
@@ -441,6 +501,7 @@ const TransactionHistory = () => {
                 <th>Actions</th>
               </tr>
             </thead>
+
             <tbody>
               {transactions.length === 0 ? (
                 <tr>
@@ -451,96 +512,114 @@ const TransactionHistory = () => {
               ) : (
                 paginatedTransactions.map((txn) => (
                   <React.Fragment key={txn.id}>
-                  <tr
-                    className={hoveredRow === txn.id ? 'th-row-hover' : ''}
-                    onMouseEnter={() => setHoveredRow(txn.id)}
-                    onMouseLeave={() => setHoveredRow(null)}
-                  >
-                    <td>{txn.date_created ? txn.date_created.split(' ')[0] : '—'}</td>
-                    <td className="th-reference-cell">{txn.reference_number || '—'}</td>
-                    <td>{txn.parent_username || '—'}</td>
-                    <td className="th-student-name-cell">{txn.student_name}</td>
-                    <td className="th-caret-cell">
-                      <button
-                        className="th-caret-btn"
-                        onClick={() => toggleStudentRow(txn)}
-                        title="View enrolled student(s)"
-                      >
-                        {expandedRow === txn.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                      </button>
-                    </td>
-                    <td>{typeLabel(txn.transaction_type)}</td>
-                    <td>
-                      <span className="th-payment-method">
-                        <CreditCard size={16} />
-                        {methodLabel(txn.payment_method)}
-                      </span>
-                    </td>
-                    <td className="th-amount-cell">₱{Number(txn.amount).toLocaleString()}</td>
-                    <td>
-                      <span className={`th-status-badge th-status-${statusClass(txn.status)}`}>
-                        {txn.status}
-                      </span>
-                    </td>
-                    <td className="th-actions-cell">
-                      <button
-                        className="th-action-btn th-edit-btn"
-                        onClick={() => openEditModal(txn)}
-                        title="Edit"
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      <button
-                        className="th-action-btn th-delete-btn"
-                        onClick={() => setDeleteTarget(txn)}
-                        title="Delete"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </td>
-                  </tr>
-                  {/* Expandable student detail row */}
-                  {expandedRow === txn.id && (
-                    <tr className="th-expanded-row">
-                      <td colSpan="10">
-                        <div className="th-student-detail-panel">
-                          <h4 className="th-detail-title">Enrolled Student(s) — {txn.parent_username}</h4>
-                          {studentDetails[txn.parent] ? (
-                            studentDetails[txn.parent].length > 0 ? (
-                              <div className="th-student-cards">
-                                {studentDetails[txn.parent].map((s, idx) => (
-                                  <div key={idx} className="th-student-card">
-                                    <div className="th-student-card-name">{s.student_name}</div>
-                                    <div className="th-student-card-info">
-                                      <span>Grade {s.grade_level}</span>
-                                      <span className="th-dot">•</span>
-                                      <span>{s.section}</span>
-                                    </div>
-                                    <div className="th-student-card-parent">
-                                      Parent: {s.parent_name} · {s.contact_number}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="th-detail-empty">No student profile found.</p>
-                            )
-                          ) : (
-                            <p className="th-detail-loading">Loading…</p>
-                          )}
-                        </div>
+                    <tr
+                      className={hoveredRow === txn.id ? 'th-row-hover' : ''}
+                      onMouseEnter={() => setHoveredRow(txn.id)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                    >
+                      <td>{txn.date_created ? txn.date_created.split(' ')[0] : '—'}</td>
+                      <td className="th-reference-cell">{txn.reference_number || '—'}</td>
+                      <td>{txn.student_number || '—'}</td>
+                      <td className="th-student-name-cell">{txn.student_name}</td>
+                      <td className="th-caret-cell">
+                        <button
+                          className="th-caret-btn"
+                          onClick={() => toggleStudentRow(txn)}
+                          title="View enrolled student(s)"
+                        >
+                          {expandedRow === txn.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        </button>
+                      </td>
+                      <td>{typeLabel(txn.transaction_type)}</td>
+                      <td>
+                        <span className="th-payment-method">
+                          <CreditCard size={16} />
+                          {methodLabel(txn.payment_method)}
+                        </span>
+                      </td>
+                      <td className="th-amount-cell">₱{Number(txn.amount).toLocaleString()}</td>
+                      <td>
+                        <span className={`th-status-badge th-status-${statusClass(txn.status)}`}>
+                          {txn.status}
+                        </span>
+                      </td>
+                      <td className="th-actions-cell">
+                        {txn.status !== 'PAID' && (
+                          <button
+                            className="th-action-btn th-reminder-btn"
+                            onClick={() => sendReminder(txn.id)}
+                            title="Send Reminder"
+                            disabled={sendingReminderId === txn.id}
+                          >
+                            <Bell size={15} />
+                          </button>
+                        )}
+
+                        <button
+                          className="th-action-btn th-edit-btn"
+                          onClick={() => openEditModal(txn)}
+                          title="Edit"
+                        >
+                          <Edit2 size={15} />
+                        </button>
+
+                        <button
+                          className="th-action-btn th-delete-btn"
+                          onClick={() => setDeleteTarget(txn)}
+                          title="Delete"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>))
+
+                    {expandedRow === txn.id && (
+                      <tr className="th-expanded-row">
+                        <td colSpan="10">
+                          <div className="th-student-detail-panel">
+                            <h4 className="th-detail-title">Enrolled Student(s) — {txn.student_name}</h4>
+                            {studentDetails[txn.parent] ? (
+                              studentDetails[txn.parent].length > 0 ? (
+                                <div className="th-student-cards">
+                                  {studentDetails[txn.parent].map((s, idx) => (
+                                    <div key={idx} className="th-student-card">
+                                      <div className="th-student-card-name">{s.student_name}</div>
+                                      <div className="th-student-card-info">
+                                        
+                                        <span>{s.section}</span>
+                                      </div>
+                                      <div className="th-student-card-parent">
+                                        Student No: {txn.student_number || '—'} | Contact No: {s.contact_number}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="th-detail-empty">No student profile found.</p>
+                              )
+                            ) : (
+                              <p className="th-detail-loading">Loading…</p>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))
               )}
             </tbody>
           </table>
-          <Pagination currentPage={txnPage} totalPages={txnTotalPages} onPageChange={setTxnPage} totalItems={transactions.length} itemsPerPage={ITEMS_PER_PAGE} />
+
+          <Pagination
+            currentPage={txnPage}
+            totalPages={txnTotalPages}
+            onPageChange={setTxnPage}
+            totalItems={transactions.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </div>
       </section>
 
-      {/* ── Add Transaction Modal ── */}
       {showModal && (
         <div className="th-modal-overlay" onClick={() => setShowModal(false)}>
           <div className="th-modal" onClick={(e) => e.stopPropagation()}>
@@ -554,12 +633,11 @@ const TransactionHistory = () => {
             <form className="th-modal-form" onSubmit={handleSubmit}>
               {formError && <div className="th-form-error">{formError}</div>}
 
-              {/* Parent search */}
               <div className="th-form-group" ref={dropdownRef}>
                 <label>Parent / Student Account *</label>
                 <input
                   type="text"
-                  placeholder="Search by name, username, or email..."
+                  placeholder="Search by student name or student number..."
                   value={parentSearch}
                   onChange={handleParentSearchChange}
                   onFocus={() => {
@@ -569,6 +647,7 @@ const TransactionHistory = () => {
                   className="th-form-input"
                   autoComplete="off"
                 />
+
                 {showDropdown && parentOptions.length > 0 && (
                   <ul className="th-dropdown-list">
                     {parentOptions.map((p) => (
@@ -578,17 +657,15 @@ const TransactionHistory = () => {
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => selectParent(p)}
                       >
-                        <strong>{p.username}</strong>
+                        <strong>{p.student_name || 'Unnamed Student'}</strong>
                         <span className="th-dropdown-sub">
-                          {p.student_name
-                            ? `Student: ${p.student_name}`
-                            : p.email}
-                          {p.parent_name ? ` · Parent: ${p.parent_name}` : ''}
+                          {p.student_number ? `Student No: ${p.student_number}` : p.email}
                         </span>
                       </li>
                     ))}
                   </ul>
                 )}
+
                 {showDropdown && parentOptions.length === 0 && (
                   <ul className="th-dropdown-list">
                     <li className="th-dropdown-item th-dropdown-empty">
@@ -598,7 +675,6 @@ const TransactionHistory = () => {
                 )}
               </div>
 
-              {/* Student name (auto-filled, editable) */}
               <div className="th-form-group">
                 <label>Student Name</label>
                 <input
@@ -607,11 +683,10 @@ const TransactionHistory = () => {
                   value={formData.student_name}
                   onChange={handleFormChange}
                   className="th-form-input"
-                  placeholder="Auto-filled from parent profile"
+                  placeholder="Auto-filled from student profile"
                 />
               </div>
 
-              {/* Two columns */}
               <div className="th-form-row">
                 <div className="th-form-group">
                   <label>Transaction Type *</label>
@@ -626,6 +701,7 @@ const TransactionHistory = () => {
                     ))}
                   </select>
                 </div>
+
                 <div className="th-form-group">
                   <label>Amount (₱) *</label>
                   <input
@@ -655,6 +731,7 @@ const TransactionHistory = () => {
                     ))}
                   </select>
                 </div>
+
                 <div className="th-form-group">
                   <label>Status</label>
                   <select
@@ -682,8 +759,11 @@ const TransactionHistory = () => {
                   />
                 </div>
               </div>
+
               {!editingTxn && (
-                <p className="th-auto-ref-note">Reference number will be auto-generated (e.g. CESI-2026-00001)</p>
+                <p className="th-auto-ref-note">
+                  Reference number will be auto-generated (e.g. CESI-2026-00001)
+                </p>
               )}
 
               <div className="th-form-group">
@@ -706,6 +786,7 @@ const TransactionHistory = () => {
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
                   className="th-btn-success"
@@ -719,7 +800,6 @@ const TransactionHistory = () => {
         </div>
       )}
 
-      {/* ── Delete Confirmation Modal ── */}
       {deleteTarget && (
         <div className="th-modal-overlay" onClick={() => setDeleteTarget(null)}>
           <div className="th-delete-modal" onClick={(e) => e.stopPropagation()}>

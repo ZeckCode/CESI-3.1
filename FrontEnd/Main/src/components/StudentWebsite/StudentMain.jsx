@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "../AdminWebsite/Header";
 
@@ -10,15 +10,50 @@ import AcademicHistory from "./AcademicHistory";
 import Schedule from "./Schedule";
 import Attendance from "./Attendance";
 import Message from "./Message";
+import StudentReminders from "./StudentReminders";
+import { getToken } from "../Auth/auth";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 import "../StudentWebsiteCSS/StudentPortal.css";
+
+const API_BASE = "";
+
+const authHeaders = (extra = {}) => {
+  const token = getToken();
+  return {
+    ...(token ? { Authorization: `Token ${token}` } : {}),
+    ...extra,
+  };
+};
 
 export default function StudentMain() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [unreadReminders, setUnreadReminders] = useState(0);
 
   const handleMenuClick = (menuId) => setActiveMenu(menuId);
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
+
+  useEffect(() => {
+    const loadUnreadReminders = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/reminders/`, {
+          credentials: "include",
+          headers: authHeaders(),
+        });
+
+        if (!res.ok) throw new Error("Failed to load reminders");
+
+        const data = await res.json();
+        const reminders = Array.isArray(data) ? data : [];
+        setUnreadReminders(reminders.filter((r) => !r.is_read).length);
+      } catch (err) {
+        console.error("Error loading unread reminders:", err);
+        setUnreadReminders(0);
+      }
+    };
+
+    loadUnreadReminders();
+  }, []);
 
   const renderContent = () => {
     switch (activeMenu) {
@@ -30,6 +65,7 @@ export default function StudentMain() {
       case "schedule": return <Schedule />;
       case "attendance": return <Attendance />;
       case "messages": return <Message />;
+      case "reminders": return <StudentReminders />;
       default: return <Dashboard />;
     }
   };
@@ -44,6 +80,7 @@ export default function StudentMain() {
       schedule: "Schedule",
       attendance: "Attendance",
       messages: "Messages",
+      reminders: "Notifications",
     };
     return titles[activeMenu] || "Dashboard";
   };
@@ -58,6 +95,7 @@ export default function StudentMain() {
       schedule: "View your class schedule.",
       attendance: "View attendance records.",
       messages: "View and send messages.",
+      reminders: "View payment reminders and important updates.",
     };
     return subtitles[activeMenu] || "Welcome back!";
   };
@@ -77,6 +115,9 @@ export default function StudentMain() {
           subtitle={getPageSubtitle()}
           onToggleCollapse={handleToggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
+          showRemindersBell={true}
+          onOpenReminders={() => setActiveMenu("reminders")}
+          unreadReminders={unreadReminders}
         />
 
         {renderContent()}

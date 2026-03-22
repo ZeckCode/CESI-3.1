@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import Dashboard from "./Dashboard";
@@ -16,14 +16,48 @@ import CMSModule from "./CMSModule";
 import TuitionManagement from "./TuitionManagement";
 import AdminPasswordResetRequests from "./AdminPasswordResetRequests";
 import Messages from "./Messages";
+import { getToken } from "../Auth/auth";
 import "../AdminWebsiteCSS/AdminDashboard.css";
+
+const API_BASE = "";
+
+const authHeaders = (extra = {}) => {
+  const token = getToken();
+  return {
+    ...(token ? { Authorization: `Token ${token}` } : {}),
+    ...extra,
+  };
+};
 
 function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [unreadReminders, setUnreadReminders] = useState(0);
 
   const handleMenuClick = (menuId) => setActiveMenu(menuId);
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
+
+  useEffect(() => {
+    const loadUnreadReminders = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/reminders/?type=PAYMENT`, {
+          credentials: "include",
+          headers: authHeaders(),
+        });
+
+        if (!res.ok) throw new Error("Failed to load reminders");
+
+        const data = await res.json();
+        const reminders = Array.isArray(data) ? data : [];
+        setUnreadReminders(reminders.filter((r) => !r.is_read).length);
+      } catch (err) {
+        console.error("Error loading unread payment reminders:", err);
+        setUnreadReminders(0);
+      }
+    };
+
+    loadUnreadReminders();
+  }, []);
 
   const renderContent = () => {
     switch (activeMenu) {
@@ -120,6 +154,9 @@ function AdminDashboard() {
           subtitle={getPageSubtitle()}
           onToggleCollapse={handleToggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
+          showRemindersBell={true}
+          onOpenReminders={() => setActiveMenu("payment-reminders")}
+          unreadReminders={unreadReminders}
         />
 
         {renderContent()}

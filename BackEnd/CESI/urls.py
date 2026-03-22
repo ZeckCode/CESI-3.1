@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/classmanagement/', include('classmanagement.urls')),  # <-- classmanagement endpoints
     path('api/attendance/', include('attendance.urls')),  # <-- attendance endpoints
     path('api/messaging/', include('messaging.urls')),  # <-- messaging endpoints
+    path("api/reminders/", include("reminders.urls")),  # <-- reminders endpoints
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

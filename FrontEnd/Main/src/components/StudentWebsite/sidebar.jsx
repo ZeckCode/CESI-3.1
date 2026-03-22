@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   X,
+  Bell,
 } from "lucide-react";
 import "../AdminWebsiteCSS/Sidebar.css";
 import { useAuth } from "../Auth/useAuth";
@@ -57,6 +58,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
           { id: "academic-history", label: "Academic History", icon: History },
           { id: "attendance", label: "Attendance", icon: ClipboardCheck },
           { id: "schedule", label: "Schedule", icon: CalendarDays },
+          
         ],
       },
       {
@@ -69,6 +71,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
         label: "COMMUNICATION",
         items: [
           { id: "messages", label: "Messages", icon: MessageSquare },
+          { id: "reminders", label: "Notifications", icon: Bell },
         ],
       },
     ],
