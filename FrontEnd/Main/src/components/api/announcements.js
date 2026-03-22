@@ -2,6 +2,19 @@ import { getToken } from "../auth/auth";
 
 const API_BASE = "";  // use Vite proxy
 
+export async function getSchoolYear() {
+  const token = getToken();
+
+  const res = await fetch(`${API_BASE}/api/classmanagement/school-years/active/`, {
+    headers: {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) throw new Error("Failed to load school year");
+  return res.json();
+}
+
 export async function fetchAnnouncements() {
   const token = getToken();
 

@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   FileBarChart,
+  MessageSquare,
 } from "lucide-react";
 import "../AdminWebsiteCSS/Sidebar.css";
 import { useAuth } from "../Auth/useAuth";
@@ -84,6 +85,12 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
           { id: "cms", label: "CMS Module", icon: Globe },
           { id: "reports", label: "Reports", icon: FileBarChart },
           { id: "password-reset-requests", label: "Password Reset Requests", icon: UsersRound },
+        ],
+      },
+      {
+        label: "SAFETY & MODERATION",
+        items: [
+          { id: "messages", label: "Message Moderation", icon: MessageSquare },
         ],
       },
     ],

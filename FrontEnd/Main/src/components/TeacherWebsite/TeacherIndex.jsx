@@ -4,7 +4,7 @@ import Header from "../AdminWebsite/Header";
 import Dashboard from "./Dashboard.jsx";
 import Grade from "./Grade.jsx";
 import AttendanceMonitoring from "./AttendanceMonitoring.jsx";
-import Message from "./Message.jsx";
+import Messages from "./Messages.jsx";
 import TeacherClassSchedule from "./TeacherClassSchedule.jsx";
 import Students from "./Students.jsx";
 import SPerformance from "./SPerformance.jsx";
@@ -26,7 +26,7 @@ function TeacherDashboard() {
       case "attendance":
         return <AttendanceMonitoring />;
       case "message":
-        return <Message />;
+        return <Messages />;
       case "schedule":
         return <TeacherClassSchedule />;
       case "students":

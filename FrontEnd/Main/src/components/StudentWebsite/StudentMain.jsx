@@ -9,7 +9,7 @@ import Grades from "./Grades";
 import AcademicHistory from "./AcademicHistory";
 import Schedule from "./Schedule";
 import Attendance from "./Attendance";
-import Messages from "./Messages";
+import Message from "./Message";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 import "../StudentWebsiteCSS/StudentPortal.css";
 
@@ -29,7 +29,7 @@ export default function StudentMain() {
       case "academic-history": return <AcademicHistory />;
       case "schedule": return <Schedule />;
       case "attendance": return <Attendance />;
-      case "messages": return <Messages />;
+      case "messages": return <Message />;
       default: return <Dashboard />;
     }
   };
