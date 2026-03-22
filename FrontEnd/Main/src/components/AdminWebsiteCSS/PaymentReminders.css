@@ -341,3 +341,20 @@
   .pr-table tbody tr td:last-child { border-bottom: 0; }
   .pr-search-box { min-width: 0; }
 }
+
+
+.pr-transaction-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pr-transaction-ref {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pr-transaction-id {
+  font-size: 0.85rem;
+  color: #64748b;
+}

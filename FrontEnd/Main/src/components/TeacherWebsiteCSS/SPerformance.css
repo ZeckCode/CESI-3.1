@@ -395,3 +395,25 @@
 
 .spBtnDanger:hover { background: rgba(220,53,69,.08); }
 .spBtnDanger:active { transform: translateY(1px); }
+
+
+.spActionBtn {
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.spActionBtn:hover {
+  background: #1d4ed8;
+}
+
+.spActionBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

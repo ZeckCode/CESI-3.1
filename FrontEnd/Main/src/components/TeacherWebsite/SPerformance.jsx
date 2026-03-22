@@ -26,11 +26,6 @@ const getCurrentSchoolQuarter = () => {
   return 4;
 };
 
-// const GRADE_LABEL = (level) => {
-//   if (level === 0 || level === "0" || level === "kinder") return "K";
-//   return `G${level}`;
-// };
-
 const normalizeGradeCode = (value) => {
   if (value === null || value === undefined) return "";
 
@@ -98,8 +93,6 @@ const GRADE_FULL_LABEL = (level) => {
   return fullLabels[code] || String(level || "—");
 };
 
-
-
 const SPerformance = () => {
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState("");
@@ -108,8 +101,8 @@ const SPerformance = () => {
   const [performanceData, setPerformanceData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [initLoading, setInitLoading] = useState(true);
+  const [sendingReminderId, setSendingReminderId] = useState(null);
 
-  // ── Load teacher + sections on mount ──
   useEffect(() => {
     (async () => {
       try {
@@ -131,9 +124,11 @@ const SPerformance = () => {
     })();
   }, []);
 
-  // ── Fetch performance data when section/quarter changes ──
   const fetchPerformance = useCallback(async () => {
-    if (!selectedSection) { setPerformanceData([]); return; }
+    if (!selectedSection) {
+      setPerformanceData([]);
+      return;
+    }
     setLoading(true);
     try {
       const res = await apiFetch(
@@ -149,9 +144,41 @@ const SPerformance = () => {
     }
   }, [selectedSection, quarter]);
 
-  useEffect(() => { fetchPerformance(); }, [fetchPerformance]);
+  useEffect(() => {
+    fetchPerformance();
+  }, [fetchPerformance]);
 
-  // ── Derived stats ──
+  const sendPerformanceReminder = async (student) => {
+    setSendingReminderId(student.student_id);
+    try {
+      const res = await apiFetch(`${API}/api/reminders/performance/send/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          student_id: student.student_id,
+          student_name: student.student_name,
+          section_id: selectedSection,
+          quarter,
+          issue: student.issue,
+          quarter_grade: student.quarter_grade,
+          attendance_pct: student.attendance_pct,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to send performance reminder.");
+      }
+
+      alert(data.detail || `Performance reminder sent for ${student.student_name}.`);
+    } catch (e) {
+      console.error(e);
+      alert(e.message || "Failed to send performance reminder.");
+    } finally {
+      setSendingReminderId(null);
+    }
+  };
+
   const stats = useMemo(() => {
     const graded = performanceData.filter((s) => s.quarter_grade !== null);
     const total = performanceData.length;
@@ -179,10 +206,9 @@ const SPerformance = () => {
       .sort((a, b) => b.quarter_grade - a.quarter_grade)
       .slice(0, 5);
 
-    // Grade distribution buckets (only students at or above passing grade 75)
     const dist = { "75-80": 0, "81-85": 0, "86-90": 0, "91-95": 0, "96-100": 0 };
     graded.forEach(({ quarter_grade: g }) => {
-      if (g < 75) return; // below passing threshold — not counted in the distribution
+      if (g < 75) return;
       if (g <= 80) dist["75-80"]++;
       else if (g <= 85) dist["81-85"]++;
       else if (g <= 90) dist["86-90"]++;
@@ -195,22 +221,26 @@ const SPerformance = () => {
 
   const barData = {
     labels: Object.keys(stats.dist),
-    datasets: [{
-      label: "Students",
-      data: Object.values(stats.dist),
-      backgroundColor: "#2563eb",
-      borderRadius: 6,
-    }],
+    datasets: [
+      {
+        label: "Students",
+        data: Object.values(stats.dist),
+        backgroundColor: "#2563eb",
+        borderRadius: 6,
+      },
+    ],
   };
 
   const doughnutData = {
     labels: ["Passed", "Failed / No Grade"],
-    datasets: [{
-      data: [stats.passed, stats.total - stats.passed],
-      backgroundColor: ["#198754", "#dc3545"],
-      borderWidth: 0,
-      hoverOffset: 10,
-    }],
+    datasets: [
+      {
+        data: [stats.passed, stats.total - stats.passed],
+        backgroundColor: ["#198754", "#dc3545"],
+        borderWidth: 0,
+        hoverOffset: 10,
+      },
+    ],
   };
 
   const commonOptions = {
@@ -221,18 +251,20 @@ const SPerformance = () => {
     },
   };
 
-  const currentSection = sections.find((s) => String(s.id) === selectedSection);
-
   if (initLoading) {
-    return <div className="sp"><div style={{ padding: 40, textAlign: "center", color: "#6b7280" }}>Loading performance data...</div></div>;
+    return (
+      <div className="sp">
+        <div style={{ padding: 40, textAlign: "center", color: "#6b7280" }}>
+          Loading performance data...
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="sp">
-      {/* Header */}
       <header className="sp__header">
         <div className="sp__headerLeft">
-          
           <p className="sp__title">
             Analysis Dashboard
             {sections.map((sec) => (
@@ -244,15 +276,12 @@ const SPerformance = () => {
         </div>
 
         <div className="sp__headerControls">
-          {/* Section selector */}
           <select
             className="sp__select"
             value={selectedSection}
             onChange={(e) => setSelectedSection(e.target.value)}
           >
-            {sections.length === 0 && (
-              <option value="">No sections assigned</option>
-            )}
+            {sections.length === 0 && <option value="">No sections assigned</option>}
             {sections.map((sec) => (
               <option key={sec.id} value={String(sec.id)}>
                 {GRADE_LABEL(sec.grade_level)} - {sec.name}
@@ -260,7 +289,6 @@ const SPerformance = () => {
             ))}
           </select>
 
-          {/* Quarter tabs */}
           <div className="sp__quarterTabs">
             {QUARTERS.map((q) => (
               <button
@@ -282,7 +310,6 @@ const SPerformance = () => {
         </div>
       )}
 
-      {/* Top Cards */}
       <section className="sp__cards">
         <div className="spCard spCard--primary">
           <div className="spCard__icon" aria-hidden="true">🧮</div>
@@ -318,7 +345,6 @@ const SPerformance = () => {
         </div>
       </section>
 
-      {/* Charts */}
       <section className="sp__charts">
         <div className="spPanel">
           <div className="spPanel__title">Grade Distribution Frequency</div>
@@ -343,7 +369,6 @@ const SPerformance = () => {
         </div>
       </section>
 
-      {/* Ranking table */}
       <section className="spBlock">
         <div className="spBlock__head spBlock__head--dark">
           <h6 className="spBlock__headTitle">Ranking Top Performers</h6>
@@ -396,7 +421,6 @@ const SPerformance = () => {
         </div>
       </section>
 
-      {/* At-Risk table */}
       <section className="spBlock spBlock--mb">
         <div className="spBlock__head spBlock__head--danger">
           <h6 className="spBlock__headTitle">Students At Risk / Underperforming</h6>
@@ -418,6 +442,7 @@ const SPerformance = () => {
                   <th className="spTh">GRADE</th>
                   <th className="spTh">ATTENDANCE</th>
                   <th className="spTh">PRIMARY ISSUE</th>
+                  <th className="spTh">ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
@@ -447,6 +472,15 @@ const SPerformance = () => {
                       </td>
                       <td className="spTd">
                         <span className="spPill spPill--dangerSoft">{s.issue}</span>
+                      </td>
+                      <td className="spTd">
+                        <button
+                          className="spActionBtn"
+                          onClick={() => sendPerformanceReminder(s)}
+                          disabled={sendingReminderId === s.student_id}
+                        >
+                          {sendingReminderId === s.student_id ? "Sending..." : "Send Reminder"}
+                        </button>
                       </td>
                     </tr>
                   );
