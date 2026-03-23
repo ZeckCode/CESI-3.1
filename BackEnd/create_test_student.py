@@ -5,6 +5,14 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CESI.settings')
 django.setup()
 
+from django.conf import settings
+
+if not settings.DEBUG:
+    raise SystemExit(
+        "This script must only be run in a DEBUG (development) environment. "
+        "Set DEBUG=True in your settings before running it."
+    )
+
 from accounts.models import User, UserProfile, Section
 
 # Check if user already exists
@@ -39,10 +47,9 @@ else:
 
 print('')
 print('═' * 50)
-print('TEST CREDENTIALS - Student 2')
+print('TEST CREDENTIALS - Student 2 (dev only)')
 print('═' * 50)
 print(f'Username: student2_test')
-print(f'Password: TestPass123!@')
 print(f'Name:     Test Student2')
 print('═' * 50)
 print('')

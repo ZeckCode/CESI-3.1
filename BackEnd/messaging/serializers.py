@@ -135,9 +135,17 @@ class ChatDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ['creator', 'created_at', 'updated_at']
 
 
+class ChatMinimalSerializer(serializers.ModelSerializer):
+    """Minimal chat info for nested use in restrictions/flags."""
+    class Meta:
+        model = Chat
+        fields = ['id', 'name', 'chat_type']
+
+
 class ChatRestrictionSerializer(serializers.ModelSerializer):
     user = UserMinimalSerializer(read_only=True)
     restricted_by = UserMinimalSerializer(read_only=True)
+    chat = ChatMinimalSerializer(read_only=True)
 
     class Meta:
         model = ChatRestriction
@@ -149,6 +157,7 @@ class MessageFlagSerializer(serializers.ModelSerializer):
     """Serialize flagged messages for admin review."""
     message = MessageSerializer(read_only=True)
     reviewed_by = UserMinimalSerializer(read_only=True)
+    chat = ChatMinimalSerializer(read_only=True)
 
     class Meta:
         model = MessageFlag
@@ -173,19 +182,31 @@ class ChatCreateSerializer(serializers.ModelSerializer):
 
 class MessageCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating messages with encryption."""
-    content = serializers.CharField(write_only=True)
+    content = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = Message
         fields = ['chat', 'content', 'image']
 
+    def validate(self, attrs):
+        content = attrs.get('content')
+        image = attrs.get('image')
+        has_content = bool(content and content.strip())
+        has_image = image is not None
+        if not has_content and not has_image:
+            raise serializers.ValidationError(
+                "A message must contain either text content or an image."
+            )
+        return attrs
+
     def create(self, validated_data):
-        content = validated_data.pop('content')
+        content = validated_data.pop('content', None)
         validated_data['sender'] = self.context['request'].user
         validated_data['encrypted_content'] = None
-        
+
         message = Message(**validated_data)
-        message.content = content  # This triggers encryption via property setter
+        if content:
+            message.content = content  # This triggers encryption via property setter
         message.save()
         return message
 

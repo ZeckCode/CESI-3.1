@@ -3,73 +3,58 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from cryptography.fernet import Fernet
 import os
-from django.core.cache import cache
+import logging
 
 User = get_user_model()
 
 # ═══════════════════════════════════════════════════════════
 # Encryption Helper
 # ═══════════════════════════════════════════════════════════
-ENCRYPTION_KEY_CACHE_KEY = 'messaging_encryption_key'
-KEY_FILE_PATH = '/tmp/messaging_encryption.key'  # Store in persistent temp location
-
-def get_or_create_encryption_key():
-    """Get or create encryption key - stored in file for persistence."""
-    try:
-        # Try to read from key file first
-        if os.path.exists(KEY_FILE_PATH):
-            with open(KEY_FILE_PATH, 'r') as f:
-                key = f.read().strip().encode()
-                return key
-    except Exception as e:
-        print(f"Warning: Could not read key file: {e}")
-    
-    # Try environment variable
-    key_env = os.getenv('MESSAGING_ENCRYPTION_KEY')
-    if key_env:
-        return key_env.encode() if isinstance(key_env, str) else key_env
-    
-    # Generate new key and save to file
-    try:
-        key = Fernet.generate_key()
-        os.makedirs(os.path.dirname(KEY_FILE_PATH) or '.', exist_ok=True)
-        with open(KEY_FILE_PATH, 'wb') as f:
-            f.write(key)
-        return key
-    except Exception as e:
-        print(f"Error creating key file: {e}")
-        # Fallback to environment or default
-        return Fernet.generate_key()
+logger = logging.getLogger(__name__)
 
 
 def get_encryption_key():
-    """Get encryption key (same key every time)."""
-    return get_or_create_encryption_key()
+    """
+    Load the messaging encryption key from the MESSAGING_ENCRYPTION_KEY
+    environment variable.  The key must be a valid Fernet key (base64-encoded
+    32-byte value, e.g. generated once with Fernet.generate_key()).
+
+    For local development the key can also be placed in a .env file loaded
+    by python-decouple / django-environ.  In all cases the key must be set
+    before startup – this function raises ImproperlyConfigured so the server
+    fails fast rather than silently generating a new key on every restart
+    (which would make all existing encrypted messages permanently unreadable).
+    """
+    from django.core.exceptions import ImproperlyConfigured
+
+    key_env = os.getenv('MESSAGING_ENCRYPTION_KEY')
+    if not key_env:
+        raise ImproperlyConfigured(
+            "MESSAGING_ENCRYPTION_KEY environment variable is not set. "
+            "Generate a key with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\" "
+            "and add it to your environment or .env file."
+        )
+    return key_env.encode() if isinstance(key_env, str) else key_env
 
 
 def encrypt_message(text):
-    """Encrypt message content."""
+    """Encrypt message content.  Raises on failure to prevent plaintext storage."""
     if not text:
         return None
-    try:
-        cipher = Fernet(get_encryption_key())
-        return cipher.encrypt(text.encode()).decode()
-    except Exception as e:
-        print(f"Encryption error: {e}")
-        return text  # Return unencrypted if encryption fails
+    cipher = Fernet(get_encryption_key())
+    return cipher.encrypt(text.encode()).decode()
 
 
 def decrypt_message(encrypted_text):
-    """Decrypt message content."""
+    """Decrypt message content.  Returns None and logs a warning on failure."""
     if not encrypted_text:
         return None
     try:
         cipher = Fernet(get_encryption_key())
         return cipher.decrypt(encrypted_text.encode()).decode()
     except Exception as e:
-        print(f"Decryption error: {e}")
-        # If decryption fails, try to return as-is (might be unencrypted)
-        return encrypted_text
+        logger.warning("Failed to decrypt message content: %s", e)
+        return None
 
 
 

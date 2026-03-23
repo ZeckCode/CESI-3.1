@@ -12,7 +12,6 @@ import {
   listMessageReports,
   reviewMessageReport,
 } from "../api/messaging";
-import { getToken } from "../Auth/auth";
 
 const AdminMessages = () => {
   const [activeTab, setActiveTab] = useState("profanity");
@@ -78,6 +77,13 @@ const AdminMessages = () => {
     return user.display_name || fullName || user.username || "User";
   };
 
+  const getChatLabel = (chat) => {
+    if (typeof chat === "object" && chat !== null) {
+      return chat.name || `Chat #${chat.id}`;
+    }
+    return `Chat #${chat}`;
+  };
+
   // Profanity Management
   const handleAddProfanityWord = async (e) => {
     e.preventDefault();
@@ -88,7 +94,7 @@ const AdminMessages = () => {
       setProfanityWords((prev) => [...prev, word]);
       setNewWord("");
       setNewCategory("SWEAR");
-    } catch (err) {
+    } catch {
       setError("Failed to add profanity word");
     }
   };
@@ -100,7 +106,7 @@ const AdminMessages = () => {
       await deleteProfanityWord(id);
       setProfanityWords((prev) => prev.filter((w) => w.id !== id));
       setSelectedWordModal(null);
-    } catch (err) {
+    } catch {
       setError("Failed to delete profanity word");
     }
   };
@@ -111,7 +117,7 @@ const AdminMessages = () => {
       setProfanityWords((prev) =>
         prev.map((w) => (w.id === word.id ? updated : w))
       );
-    } catch (err) {
+    } catch {
       setError("Failed to update profanity word");
     }
   };
@@ -122,13 +128,17 @@ const AdminMessages = () => {
 
     setFlagActionSubmitting(true);
     try {
-      const options = {};
+      const options = {
+        admin_notes: flagAdminNotes,
+      };
+
       if (action === "restrict") {
-        options.restriction_type = flagRestrictionType;
         if (flagRestrictionType === "TEMP_MUTE") {
-          options.duration_hours = flagRestrictionDuration;
+          options.is_permanent = false;
+          options.restrict_duration = flagRestrictionDuration;
+        } else {
+          options.is_permanent = true;
         }
-        options.admin_notes = flagAdminNotes;
       }
 
       await takeFlagAction(selectedFlagModal.id, action, options);
@@ -139,7 +149,7 @@ const AdminMessages = () => {
       setFlagAdminNotes("");
       setFlagRestrictionDuration(24);
       setFlagRestrictionType("TEMP_MUTE");
-    } catch (err) {
+    } catch {
       setError("Failed to take action on flag");
     } finally {
       setFlagActionSubmitting(false);
@@ -154,7 +164,7 @@ const AdminMessages = () => {
       await liftRestriction(id);
       setRestrictions((prev) => prev.filter((r) => r.id !== id));
       setSelectedRestrictionModal(null);
-    } catch (err) {
+    } catch {
       setError("Failed to lift restriction");
     }
   };
@@ -171,7 +181,7 @@ const AdminMessages = () => {
       );
       setSelectedReportModal(null);
       setReportAdminNotes("");
-    } catch (err) {
+    } catch {
       setError(`Failed to ${action} report`);
     } finally {
       setReportActionSubmitting(false);
@@ -623,7 +633,7 @@ const AdminMessages = () => {
                         {restriction.restriction_type === "TEMP_MUTE" ? "⏱️ Temp Mute" : "🔒 Permanent"}
                       </div>
                       <div style={{ fontSize: "12px", color: "#666" }}>
-                        {restriction.chat.name}
+                        {getChatLabel(restriction.chat)}
                       </div>
                     </div>
                   ))

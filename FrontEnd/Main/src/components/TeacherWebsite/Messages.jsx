@@ -7,8 +7,6 @@ import {
   createClassChat,
   createProjectChat,
   searchUsers,
-  searchSections,
-  searchSubjects,
   sendMessage,
   listChatRequests,
   respondToChatRequest,
@@ -36,6 +34,7 @@ const Messages = () => {
   const [newChatType, setNewChatType] = useState("individual");
   const [newChatName, setNewChatName] = useState("");
   const [newChatTarget, setNewChatTarget] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState(null);
   const [initialMessage, setInitialMessage] = useState("");
   const [newChatSection, setNewChatSection] = useState("");
   const [newChatSubject, setNewChatSubject] = useState("");
@@ -43,25 +42,19 @@ const Messages = () => {
   const [isSending, setIsSending] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [respondingToRequest, setRespondingToRequest] = useState(null);
-  const [selectedFlaggedMessage, setSelectedFlaggedMessage] = useState(null);
-  const [showMemberManager, setShowMemberManager] = useState(false);
   const [sections, setSections] = useState([]);
   const [subjects, setSubjects] = useState([]);
-  const [reportModal, setReportModal] = useState(null);
   const [reportReason, setReportReason] = useState("");
   const [reportDescription, setReportDescription] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [userSuggestions, setUserSuggestions] = useState([]);
-  const [sectionSuggestions, setSectionSuggestions] = useState([]);
-  const [subjectSuggestions, setSubjectSuggestions] = useState([]);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showGroupActionsModal, setShowGroupActionsModal] = useState(false);
   const [groupActionView, setGroupActionView] = useState("menu");
   
   // Chat editing and member management
-  const [editingChatName, setEditingChatName] = useState(false);
   const [newChatNameValue, setNewChatNameValue] = useState("");
   const [showAddMemberForm, setShowAddMemberForm] = useState(false);
   const [memberToAdd, setMemberToAdd] = useState("");
@@ -147,7 +140,7 @@ const Messages = () => {
       setSelectedChat(chatData);
       setMessages(chatData.messages || []);
       setError("");
-    } catch (err) {
+    } catch {
       setError("Failed to load chat");
     }
   };
@@ -167,7 +160,7 @@ const Messages = () => {
       setInput("");
       setImage(null);
       setError("");
-    } catch (err) {
+    } catch {
       setError("Failed to send message");
     } finally {
       setIsSending(false);
@@ -181,8 +174,8 @@ const Messages = () => {
       return;
     }
 
-    if (newChatType === "individual" && !newChatTarget) {
-      setError("Please select a user");
+    if (newChatType === "individual" && !selectedUserId) {
+      setError("Please select a user from the suggestions list");
       return;
     }
     if (newChatType === "class" && (!newChatSection || !newChatSubject)) {
@@ -197,7 +190,7 @@ const Messages = () => {
     try {
       let chatData = null;
       if (newChatType === "individual") {
-        await createChatRequest(newChatTarget, initialMessage || "");
+        await createChatRequest(selectedUserId, initialMessage || "");
       } else if (newChatType === "class") {
         chatData = await createClassChat(newChatSection, newChatSubject, schoolYear.name);
       } else {
@@ -210,6 +203,7 @@ const Messages = () => {
       setNewChatType("individual");
       setNewChatName("");
       setNewChatTarget("");
+      setSelectedUserId(null);
       setInitialMessage("");
       setNewChatSection("");
       setNewChatSubject("");
@@ -224,6 +218,7 @@ const Messages = () => {
 
   const handleUserSearch = async (query) => {
     setNewChatTarget(query);
+    setSelectedUserId(null);
     if (query.length < 2) {
       setUserSuggestions([]);
       setShowUserDropdown(false);
@@ -240,7 +235,7 @@ const Messages = () => {
   };
 
   const handleSelectUser = (user) => {
-    setNewChatTarget(user.id);
+    setSelectedUserId(user.id);
     setSelectedUserText(getUserDisplayName(user));
     setUserSuggestions([]);
     setShowUserDropdown(false);
@@ -281,51 +276,6 @@ const Messages = () => {
     }
   };
 
-  const handleSectionSearch = async (query) => {
-    setNewChatSection(query);
-    try {
-      const data = await searchSections(query);
-      setSectionSuggestions(data || []);
-      setShowSectionDropdown(true);
-    } catch (err) {
-      console.error("Search failed:", err);
-    }
-  };
-
-  const handleSelectSection = (section) => {
-    setNewChatSection(section.id);
-    setSectionSuggestions([]);
-    setShowSectionDropdown(false);
-  };
-
-  const handleSubjectSearch = async (query) => {
-    setNewChatSubject(query);
-    try {
-      const data = await searchSubjects(query);
-      setSubjectSuggestions(data || []);
-      setShowSubjectDropdown(true);
-    } catch (err) {
-      console.error("Search failed:", err);
-    }
-  };
-
-  const handleSelectSubject = (subject) => {
-    setNewChatSubject(subject.id);
-    setSubjectSuggestions([]);
-    setShowSubjectDropdown(false);
-  };
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 10485760) {
-        setError("Image must be less than 10MB");
-        return;
-      }
-      setImage(file);
-    }
-  };
-
   // Chat editing and member management handlers
   const handleEditChatName = async () => {
     if (!selectedChat || !newChatNameValue.trim()) {
@@ -339,7 +289,6 @@ const Messages = () => {
       setChats((prev) =>
         prev.map((c) => (c.id === selectedChat.id ? { ...c, name: newChatNameValue } : c))
       );
-      setEditingChatName(false);
       setShowEditModal(false);
       setNewChatNameValue("");
       setError("");
@@ -578,7 +527,7 @@ const Messages = () => {
                         setSelectedUserText("");
                         handleUserSearch(e.target.value);
                       }}
-                      onFocus={() => String(newChatTarget).length >= 2 && setShowUserDropdown(true)}
+                      onFocus={() => !selectedUserId && String(newChatTarget).length >= 2 && setShowUserDropdown(true)}
                       style={{width: "100%", padding: "8px", marginBottom: "10px"}}
                     />
                     {showUserDropdown && userSuggestions.length > 0 && (
@@ -596,7 +545,7 @@ const Messages = () => {
                         ))}
                       </div>
                     )}
-                    {newChatTarget && (
+                    {selectedUserId && (
                       <textarea
                         placeholder="Initial message (optional)..."
                         value={initialMessage}
@@ -771,7 +720,7 @@ const Messages = () => {
               </div>
 
               {/* Add member form */}
-              {showAddMemberForm && false && selectedChat.chat_type !== "INDIVIDUAL" && selectedChat.creator?.id === currentUser?.id && (
+              {showAddMemberForm && selectedChat.chat_type !== "INDIVIDUAL" && selectedChat.creator?.id === currentUser?.id && (
                 <div style={{padding: "10px", borderBottom: "1px solid #eee", backgroundColor: "#f9f9f9"}}>
                   <div style={{position: "relative", marginBottom: "5px"}}>
                     <input
@@ -821,9 +770,9 @@ const Messages = () => {
                     Start the conversation!
                   </div>
                 ) : (
-                  messages.map((msg, idx) => (
+                  messages.map((msg) => (
                     <div
-                      key={idx}
+                      key={msg.id}
                       className={
                         msg.sender.id === currentUser?.id
                           ? "bubbleWrap bubbleWrap--right"
@@ -914,7 +863,7 @@ const Messages = () => {
                       style={{width: "100%", padding: "8px", marginBottom: "12px"}}
                     />
                     <div style={{display: "flex", justifyContent: "flex-end", gap: "8px"}}>
-                      <button onClick={() => { setShowEditModal(false); setEditingChatName(false); }} style={{padding: "8px 12px", border: "1px solid #ccc", background: "#fff"}}>Cancel</button>
+                      <button onClick={() => { setShowEditModal(false); }} style={{padding: "8px 12px", border: "1px solid #ccc", background: "#fff"}}>Cancel</button>
                       <button onClick={handleEditChatName} style={{padding: "8px 12px", backgroundColor: "#24148a", color: "white", border: "none"}}>Save</button>
                     </div>
                   </div>
@@ -930,7 +879,6 @@ const Messages = () => {
                         <div style={{display: "grid", gap: "8px"}}>
                           <button
                             onClick={() => {
-                              setEditingChatName(true);
                               setNewChatNameValue(selectedChat.name || "");
                               setShowEditModal(true);
                               setShowGroupActionsModal(false);

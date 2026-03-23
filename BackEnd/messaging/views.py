@@ -105,9 +105,12 @@ class ChatViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter chats user is member of."""
         user = self.request.user
-        return Chat.objects.filter(
+        qs = Chat.objects.filter(
             (Q(members__user=user) | Q(creator=user)) & Q(is_active=True)
-        ).distinct().prefetch_related('members__user', 'messages__sender')
+        ).distinct().prefetch_related('members__user')
+        if getattr(self, 'action', None) == 'retrieve':
+            qs = qs.prefetch_related('messages__sender')
+        return qs
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -385,8 +388,15 @@ class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
 
     def get_queryset(self):
-        """Get messages from chats user is member of."""
+        """
+        Get messages visible to the current user.
+
+        Admins can see all messages (for moderation).
+        Non-admin users are limited to messages in chats they belong to.
+        """
         user = self.request.user
+        if getattr(user, 'role', None) == 'ADMIN':
+            return Message.objects.all().prefetch_related('sender')
         user_chats = Chat.objects.filter(
             Q(members__user=user) | Q(creator=user)
         ).values_list('id', flat=True)
@@ -454,7 +464,7 @@ class MessageViewSet(viewsets.ModelViewSet):
             )
 
         # Check profanity & censor
-        content = serializer.validated_data['content']
+        content = serializer.validated_data.get('content', '') or ''
         is_flagged, flagged_words, censored_content = check_profanity(content)
 
         # Image check: teachers only
@@ -474,7 +484,8 @@ class MessageViewSet(viewsets.ModelViewSet):
             flagged_words=','.join(flagged_words) if flagged_words else '',
             school_year=chat.school_year
         )
-        message.content = censored_content  # Encrypt censored version
+        if censored_content:
+            message.content = censored_content  # Encrypt censored version
         message.save()
 
         # Create flag if profanity detected
@@ -518,7 +529,7 @@ class MessageViewSet(viewsets.ModelViewSet):
 
         return Response(
             {'detail': 'Message deleted.'},
-            status=status.HTTP_204_NO_CONTENT
+            status=status.HTTP_200_OK
         )
 
 
@@ -547,7 +558,6 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
 
         flag = self.get_object()
         action_type = request.data.get('action')  # 'delete', 'restrict', 'approve', 'dismiss'
-        restrict_duration = request.data.get('restrict_duration')  # hours (for temp mute)
         admin_notes = request.data.get('admin_notes', '')
 
         if action_type == 'delete':
@@ -558,9 +568,18 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
             flag.status = 'DELETED'
 
         elif action_type == 'restrict':
-            # Restrict user (temp or permanent)
-            is_permanent = request.data.get('is_permanent', False)
-            
+            # Accept both old (restriction_type/duration_hours) and new (is_permanent/restrict_duration)
+            # field names to remain compatible with different client versions.
+            is_permanent = request.data.get('is_permanent')
+            restriction_type_field = request.data.get('restriction_type')
+
+            if is_permanent is None:
+                # Fall back to restriction_type field
+                is_permanent = restriction_type_field != 'TEMP_MUTE'
+
+            # Duration: accept both restrict_duration and duration_hours
+            restrict_duration = request.data.get('restrict_duration') or request.data.get('duration_hours')
+
             restriction, created = ChatRestriction.objects.get_or_create(
                 chat=flag.chat,
                 user=flag.message.sender,
@@ -570,12 +589,19 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
                     'reason': f"Flagged message with words: {flag.flagged_words}"
                 }
             )
-            
-            if not created and not is_permanent:
+
+            if not is_permanent:
                 # Update expiry for temp mute
-                restriction.expires_at = timezone.now() + timedelta(hours=restrict_duration or 24)
+                try:
+                    duration_hours = int(restrict_duration or 24)
+                except (TypeError, ValueError):
+                    return Response(
+                        {'detail': 'restrict_duration must be a valid number of hours.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                restriction.expires_at = timezone.now() + timedelta(hours=duration_hours)
                 restriction.save()
-            
+
             flag.status = 'USER_RESTRICTED'
 
         elif action_type == 'approve':
@@ -628,7 +654,7 @@ class ChatRestrictionViewSet(viewsets.ModelViewSet):
         restriction.delete()
         return Response(
             {'detail': 'Restriction lifted.'},
-            status=status.HTTP_204_NO_CONTENT
+            status=status.HTTP_200_OK
         )
 
 
@@ -670,7 +696,15 @@ class ChatRequestViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            recipient = User.objects.get(id=recipient_id)
+            recipient_id_int = int(recipient_id)
+        except (TypeError, ValueError):
+            return Response(
+                {'detail': 'recipient must be a valid integer ID.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            recipient = User.objects.get(id=recipient_id_int)
         except User.DoesNotExist:
             return Response(
                 {'detail': 'Recipient not found.'},
@@ -766,7 +800,7 @@ class ChatRequestViewSet(viewsets.ModelViewSet):
 
             return Response(
                 {'detail': 'Chat request declined.'},
-                status=status.HTTP_204_NO_CONTENT
+                status=status.HTTP_200_OK
             )
 
         else:
