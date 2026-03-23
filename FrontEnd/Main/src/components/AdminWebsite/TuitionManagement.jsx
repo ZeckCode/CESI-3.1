@@ -1,3 +1,4 @@
+// TuitionManagement.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Search, Filter, Download, Plus, Edit2, Trash2,

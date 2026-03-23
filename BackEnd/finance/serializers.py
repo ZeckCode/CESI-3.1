@@ -1,4 +1,7 @@
+from decimal import Decimal
+from django.db.models import Sum
 from rest_framework import serializers
+
 from .models import Transaction, TuitionConfig
 from accounts.models import User, UserProfile
 
@@ -6,7 +9,10 @@ from accounts.models import User, UserProfile
 class TransactionSerializer(serializers.ModelSerializer):
     parent_username = serializers.CharField(source='parent.username', read_only=True)
     date_created = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
+    transaction_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
+    date_posted = serializers.DateField(format="%Y-%m-%d", read_only=True)
     due_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
+
     student_name = serializers.CharField(read_only=True)
     student_number = serializers.CharField(source='parent.profile.student_number', read_only=True, default='')
     payment_mode = serializers.CharField(source='parent.profile.payment_mode', read_only=True, default='')
@@ -20,20 +26,35 @@ class TransactionSerializer(serializers.ModelSerializer):
             'parent_username',
             'student_name',
             'student_number',
-            'transaction_type',
-            'amount',
-            'description',
-            'payment_method',
             'grade_level',
             'payment_mode',
+
+            'transaction_type',
+            'entry_type',
+            'item',
+            'school_year',
+            'semester',
+
+            'amount',
+            'debit',
+            'credit',
+            'balance',
+
+            'description',
+            'payment_method',
             'reference_number',
+            'transaction_date',
+            'date_posted',
             'due_date',
             'date_created',
             'status',
         ]
+        read_only_fields = ['debit', 'credit', 'balance', 'date_posted', 'date_created']
+
 
 class TransactionCreateSerializer(serializers.ModelSerializer):
     due_date = serializers.DateField(required=False, allow_null=True)
+    transaction_date = serializers.DateField(required=False, allow_null=True)
     student_name = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
@@ -42,9 +63,14 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
             'parent',
             'student_name',
             'transaction_type',
+            'entry_type',
+            'item',
+            'school_year',
+            'semester',
             'amount',
             'description',
             'payment_method',
+            'transaction_date',
             'due_date',
             'status',
         ]
@@ -54,15 +80,139 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Selected user is not a Parent/Student account.")
         return value
 
+    def validate_status(self, value):
+        allowed = {'PAID', 'PARTIAL', 'PENDING', 'OVERDUE', 'POSTED'}
+        if value not in allowed:
+            raise serializers.ValidationError(
+                "Invalid status. Allowed values: PAID, PARTIAL, PENDING, OVERDUE, POSTED."
+            )
+        return value
+
     def _auto_fill_student_name(self, validated_data):
-        if not validated_data.get('student_name'):
-            try:
-                profile = validated_data['parent'].profile
-                validated_data['student_name'] = (
-                    f"{profile.student_first_name} {profile.student_last_name}"
-                )
-            except UserProfile.DoesNotExist:
-                validated_data['student_name'] = validated_data['parent'].username
+        parent = validated_data.get('parent') or getattr(self.instance, 'parent', None)
+        if validated_data.get('student_name'):
+            return
+
+        if not parent:
+            return
+
+        try:
+            profile = parent.profile
+            validated_data['student_name'] = (
+                f"{profile.student_first_name} {profile.student_last_name}"
+            ).strip()
+        except UserProfile.DoesNotExist:
+            validated_data['student_name'] = parent.username
+
+    def _compute_next_balance(self, parent):
+        totals = Transaction.objects.filter(parent=parent).aggregate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit'),
+        )
+        total_debit = Decimal(str(totals.get('total_debit') or 0))
+        total_credit = Decimal(str(totals.get('total_credit') or 0))
+        return total_debit - total_credit
+
+    def validate(self, attrs):
+        parent = attrs.get('parent') or getattr(self.instance, 'parent', None)
+        transaction_type = attrs.get('transaction_type') or getattr(self.instance, 'transaction_type', None)
+        entry_type = attrs.get('entry_type') or getattr(self.instance, 'entry_type', None)
+        item = attrs.get('item') or getattr(self.instance, 'item', None)
+        amount = attrs.get('amount', getattr(self.instance, 'amount', None))
+        due_date = attrs.get('due_date', getattr(self.instance, 'due_date', None))
+
+        if amount is not None:
+            amount = Decimal(str(amount))
+            if amount <= 0:
+                raise serializers.ValidationError({'amount': 'Amount must be greater than 0.'})
+
+        if entry_type == 'DEBIT' and item == 'PAYMENT':
+            raise serializers.ValidationError({'item': 'PAYMENT item must use CREDIT entry type.'})
+
+        if entry_type == 'CREDIT' and item in {'REGISTRATION', 'MONTHLY', 'MISC', 'RESERVATION', 'ASSESSMENT'}:
+            raise serializers.ValidationError({'item': f'{item} is normally a DEBIT billing entry.'})
+
+        if not parent or transaction_type != 'TUITION':
+            return attrs
+
+        try:
+            profile = parent.profile
+        except UserProfile.DoesNotExist:
+            raise serializers.ValidationError("Parent/student profile not found.")
+
+        payment_mode = (profile.payment_mode or '').strip().lower()
+        grade_key = (profile.grade_level or '').strip().lower()
+
+        tuition = TuitionConfig.objects.filter(
+            grade_key=grade_key,
+            is_active=True,
+            status='active'
+        ).first()
+
+        if not tuition:
+            raise serializers.ValidationError(
+                "No active tuition configuration found for this student's grade level."
+            )
+
+        amount = Decimal(str(amount or '0'))
+
+        if payment_mode == 'cash':
+            expected = Decimal(str(tuition.total_cash or 0))
+
+            if entry_type == 'CREDIT' and item == 'PAYMENT':
+                if amount != expected:
+                    raise serializers.ValidationError({
+                        'amount': f'Cash payment must equal the full total cash amount: {expected}.'
+                    })
+
+                if due_date:
+                    raise serializers.ValidationError({
+                        'due_date': 'Due date is not allowed for cash payment entries.'
+                    })
+
+            if entry_type == 'DEBIT' and item == 'REGISTRATION':
+                if amount != expected:
+                    raise serializers.ValidationError({
+                        'amount': f'Cash billing entry must equal the full total cash amount: {expected}.'
+                    })
+
+        elif payment_mode == 'installment':
+            initial = Decimal(str(tuition.initial or 0))
+            monthly = Decimal(str(tuition.monthly or 0))
+            misc_aug = Decimal(str(tuition.misc_aug or 0))
+            misc_nov = Decimal(str(tuition.misc_nov or 0))
+            total_installment = Decimal(str(tuition.total_installment or 0))
+
+            if entry_type == 'CREDIT':
+                valid_credit_amounts = {a for a in [initial, monthly, misc_aug, misc_nov] if a > 0}
+                if item in {'PAYMENT', 'INITIAL'} and amount not in valid_credit_amounts:
+                    raise serializers.ValidationError({
+                        'amount': (
+                            f'Installment credit/payment must match one of: '
+                            f'initial ({initial}), monthly ({monthly}), misc_aug ({misc_aug}), misc_nov ({misc_nov}).'
+                        )
+                    })
+
+            if entry_type == 'DEBIT':
+                if item == 'REGISTRATION' and amount != total_installment:
+                    raise serializers.ValidationError({
+                        'amount': f'Registration debit must equal total installment: {total_installment}.'
+                    })
+                if item == 'MONTHLY' and amount != monthly:
+                    raise serializers.ValidationError({
+                        'amount': f'Monthly debit must equal monthly amount: {monthly}.'
+                    })
+                if item == 'MISC' and amount not in {misc_aug, misc_nov}:
+                    raise serializers.ValidationError({
+                        'amount': f'MISC debit must equal misc_aug ({misc_aug}) or misc_nov ({misc_nov}).'
+                    })
+
+        else:
+            raise serializers.ValidationError({
+                'parent': 'Student payment mode must be either cash or installment.'
+            })
+
+        return attrs
 
     def create(self, validated_data):
         self._auto_fill_student_name(validated_data)
@@ -74,11 +224,33 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
             seq = (last.id + 1) if last else 1
             validated_data['reference_number'] = f"CESI-{year}-{seq:05d}"
 
-        return super().create(validated_data)
+        if not validated_data.get('transaction_date'):
+            from django.utils import timezone
+            validated_data['transaction_date'] = timezone.localdate()
+
+        tx = super().create(validated_data)
+
+        tx.balance = self._compute_next_balance(tx.parent)
+        tx.save(update_fields=['balance'])
+
+        return tx
 
     def update(self, instance, validated_data):
         self._auto_fill_student_name(validated_data)
-        return super().update(instance, validated_data)
+        tx = super().update(instance, validated_data)
+
+        totals = Transaction.objects.filter(parent=tx.parent).order_by(
+            'transaction_date', 'date_posted', 'id'
+        )
+
+        running = Decimal('0.00')
+        for row in totals:
+            running += Decimal(str(row.debit or 0)) - Decimal(str(row.credit or 0))
+            if row.balance != running:
+                row.balance = running
+                row.save(update_fields=['balance'])
+
+        return tx
 
 
 class ParentDropdownSerializer(serializers.ModelSerializer):
@@ -106,7 +278,6 @@ class ParentDropdownSerializer(serializers.ModelSerializer):
             return ""
 
 
-# ADD THESE NEW SERIALIZERS
 class TuitionConfigSerializer(serializers.ModelSerializer):
     created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
     updated_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
@@ -154,3 +325,25 @@ class TuitionConfigCreateSerializer(serializers.ModelSerializer):
             'status',
             'is_active',
         ]
+
+    def validate(self, attrs):
+        cash = Decimal(str(attrs.get('cash', 0) or 0))
+        installment = Decimal(str(attrs.get('installment', 0) or 0))
+        initial = Decimal(str(attrs.get('initial', 0) or 0))
+        monthly = Decimal(str(attrs.get('monthly', 0) or 0))
+        misc_aug = Decimal(str(attrs.get('misc_aug', 0) or 0))
+        misc_nov = Decimal(str(attrs.get('misc_nov', 0) or 0))
+
+        if cash < 0 or installment < 0 or initial < 0 or monthly < 0 or misc_aug < 0 or misc_nov < 0:
+            raise serializers.ValidationError("Tuition amounts cannot be negative.")
+
+        expected_installment = initial + (monthly * Decimal('10'))
+        if installment != expected_installment:
+            raise serializers.ValidationError({
+                'installment': (
+                    f'Installment must equal initial + (monthly × 10). '
+                    f'Expected: {expected_installment}.'
+                )
+            })
+
+        return attrs

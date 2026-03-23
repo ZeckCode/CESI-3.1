@@ -1,3 +1,6 @@
+from decimal import Decimal
+from datetime import date
+
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
@@ -23,6 +26,8 @@ from .serializers import (
     EnrollmentDetailedSerializer,
     EnrollmentCreateSerializer,
 )
+
+from finance.models import Transaction, TuitionConfig
 
 
 class EnrollmentSettingsView(APIView):
@@ -120,6 +125,12 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         return f"{prefix}{next_seq:06d}"
 
+    def generate_reference_number(self):
+        year = timezone.now().year
+        last = Transaction.objects.order_by("-id").first()
+        seq = (last.id + 1) if last else 1
+        return f"CESI-{year}-{seq:05d}"
+
     @staticmethod
     def _grade_code_to_section_level(grade_code: str):
         mapping = {
@@ -134,8 +145,252 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         return mapping.get((grade_code or "").strip().lower())
 
     @staticmethod
+    def _semester_from_date(dt):
+        return "1st" if dt.month in [6, 7, 8, 9, 10] else "2nd"
+
+    def _student_full_name(self, enrollment):
+        return " ".join(
+            p for p in [
+                enrollment.first_name or "",
+                enrollment.middle_name or "",
+                enrollment.last_name or "",
+            ] if p
+        ).strip()
+
+    def _build_installment_schedule(self, tuition):
+        items = []
+
+        monthly = Decimal(str(tuition.monthly or 0))
+        misc_aug = Decimal(str(tuition.misc_aug or 0))
+        misc_nov = Decimal(str(tuition.misc_nov or 0))
+
+        months = [
+            ("June", date(2026, 6, 30)),
+            ("July", date(2026, 7, 31)),
+            ("August", date(2026, 8, 31)),
+            ("September", date(2026, 9, 30)),
+            ("October", date(2026, 10, 31)),
+            ("November", date(2026, 11, 30)),
+            ("December", date(2026, 12, 31)),
+            ("January", date(2027, 1, 31)),
+            ("February", date(2027, 2, 28)),
+            ("March", date(2027, 3, 31)),
+        ]
+
+        if monthly > 0:
+            for label, due in months:
+                items.append({
+                    "item": "MONTHLY",
+                    "description": f"{label} Installment",
+                    "amount": monthly,
+                    "transaction_date": due,
+                    "due_date": due,
+                    "semester": self._semester_from_date(due),
+                })
+
+        if misc_aug > 0:
+            due = date(2026, 8, 31)
+            items.append({
+                "item": "MISC",
+                "description": "Miscellaneous (August)",
+                "amount": misc_aug,
+                "transaction_date": due,
+                "due_date": due,
+                "semester": self._semester_from_date(due),
+            })
+
+        if misc_nov > 0:
+            due = date(2026, 11, 30)
+            items.append({
+                "item": "MISC",
+                "description": "Miscellaneous (November)",
+                "amount": misc_nov,
+                "transaction_date": due,
+                "due_date": due,
+                "semester": self._semester_from_date(due),
+            })
+
+        return items
+
+    def _recompute_parent_ledger_balances(self, parent_user):
+        rows = Transaction.objects.filter(parent=parent_user).order_by(
+            "transaction_date", "date_posted", "id"
+        )
+
+        running = Decimal("0.00")
+        for row in rows:
+            running += Decimal(str(row.debit or 0)) - Decimal(str(row.credit or 0))
+            if row.balance != running:
+                row.balance = running
+                row.save(update_fields=["balance"])
+
+    def _ledger_exists_for_enrollment(self, enrollment):
+        if not enrollment.parent_user:
+            return False
+
+        student_name = self._student_full_name(enrollment)
+        school_year = enrollment.academic_year or ""
+
+        return Transaction.objects.filter(
+            parent=enrollment.parent_user,
+            student_name=student_name,
+            school_year=school_year,
+            transaction_type="TUITION",
+            item="REGISTRATION",
+        ).exists()
+
+    def _create_transaction(
+        self,
+        *,
+        parent_user,
+        student_name,
+        school_year,
+        semester,
+        transaction_type,
+        entry_type,
+        item,
+        amount,
+        description,
+        payment_method="CASH",
+        transaction_date=None,
+        due_date=None,
+        status_value="POSTED",
+    ):
+        tx = Transaction.objects.create(
+            parent=parent_user,
+            student_name=student_name,
+            school_year=school_year,
+            semester=semester,
+            transaction_type=transaction_type,
+            entry_type=entry_type,
+            item=item,
+            amount=Decimal(str(amount or 0)),
+            description=description,
+            payment_method=payment_method,
+            reference_number=self.generate_reference_number(),
+            transaction_date=transaction_date or timezone.localdate(),
+            due_date=due_date,
+            status=status_value,
+        )
+        return tx
+
+    def _create_finance_ledger_for_enrollment(self, enrollment):
+        if not enrollment.parent_user:
+            return
+
+        if self._ledger_exists_for_enrollment(enrollment):
+            return
+
+        grade_key = (enrollment.grade_level or "").strip().lower()
+        payment_mode = (enrollment.payment_mode or "").strip().lower()
+        school_year = enrollment.academic_year or ""
+        student_name = self._student_full_name(enrollment)
+
+        tuition = TuitionConfig.objects.filter(
+            grade_key=grade_key,
+            is_active=True,
+            status="active",
+        ).first()
+
+        if not tuition:
+            return
+
+        today = timezone.localdate()
+        semester = self._semester_from_date(today)
+
+        if payment_mode == "cash":
+            total_cash = Decimal(str(tuition.total_cash or 0))
+
+            self._create_transaction(
+                parent_user=enrollment.parent_user,
+                student_name=student_name,
+                school_year=school_year,
+                semester=semester,
+                transaction_type="TUITION",
+                entry_type="DEBIT",
+                item="REGISTRATION",
+                amount=total_cash,
+                description="Cash Tuition Billing",
+                payment_method="CASH",
+                transaction_date=today,
+                due_date=None,
+                status_value="POSTED",
+            )
+
+            self._create_transaction(
+                parent_user=enrollment.parent_user,
+                student_name=student_name,
+                school_year=school_year,
+                semester=semester,
+                transaction_type="TUITION",
+                entry_type="CREDIT",
+                item="PAYMENT",
+                amount=total_cash,
+                description="Cash Tuition Payment",
+                payment_method="CASH",
+                transaction_date=today,
+                due_date=None,
+                status_value="PAID",
+            )
+
+        elif payment_mode == "installment":
+            total_installment = Decimal(str(tuition.total_installment or 0))
+            initial = Decimal(str(tuition.initial or 0))
+
+            self._create_transaction(
+                parent_user=enrollment.parent_user,
+                student_name=student_name,
+                school_year=school_year,
+                semester=semester,
+                transaction_type="TUITION",
+                entry_type="DEBIT",
+                item="REGISTRATION",
+                amount=total_installment,
+                description="Installment Tuition Billing",
+                payment_method="CASH",
+                transaction_date=today,
+                due_date=None,
+                status_value="POSTED",
+            )
+
+            if initial > 0:
+                self._create_transaction(
+                    parent_user=enrollment.parent_user,
+                    student_name=student_name,
+                    school_year=school_year,
+                    semester=semester,
+                    transaction_type="TUITION",
+                    entry_type="CREDIT",
+                    item="INITIAL",
+                    amount=initial,
+                    description="Initial Tuition Payment",
+                    payment_method="CASH",
+                    transaction_date=today,
+                    due_date=date(2026, 5, 31),
+                    status_value="PAID",
+                )
+
+            for sched in self._build_installment_schedule(tuition):
+                self._create_transaction(
+                    parent_user=enrollment.parent_user,
+                    student_name=student_name,
+                    school_year=school_year,
+                    semester=sched["semester"],
+                    transaction_type="TUITION",
+                    entry_type="DEBIT",
+                    item=sched["item"],
+                    amount=sched["amount"],
+                    description=sched["description"],
+                    payment_method="CASH",
+                    transaction_date=sched["transaction_date"],
+                    due_date=sched["due_date"],
+                    status_value="PENDING",
+                )
+
+        self._recompute_parent_ledger_balances(enrollment.parent_user)
+
+    @staticmethod
     def _sync_enrollment_to_profile(enrollment):
-        """Keep the linked parent/student profile aligned with approved enrollment data."""
         parent_user = enrollment.parent_user
         if not parent_user:
             return
@@ -159,8 +414,6 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         if changed:
             profile.save()
 
-  
-
     def _get_parent_names_from_enrollment(self, enrollment):
         parent_info = getattr(enrollment, "parent_info", None)
 
@@ -180,10 +433,6 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         return parent_first_name, parent_last_name
 
     def _sync_parent_user_and_profile(self, enrollment, create_if_missing=False, uploaded_id_image=None):
-        """
-        Sync enrollment data -> linked parent user + user profile.
-        Used after PATCH/PUT and after admin approval.
-        """
         parent_email = (enrollment.email or "").strip().lower()
         parent_user = enrollment.parent_user
 
@@ -271,7 +520,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             profile.avatar = uploaded_id_image
 
         profile.save()
-    # New Student Enrolled
+
     def _send_parent_portal_email(self, enrollment, parent_email):
         if not enrollment.parent_user:
             return
@@ -316,9 +565,6 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         )
 
     def perform_update(self, serializer):
-        """
-        Runs on PATCH/PUT /api/enrollments/<id>/
-        """
         enrollment = serializer.save()
         uploaded_id_image = self.request.FILES.get("id_image")
 
@@ -332,6 +578,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             uploaded_id_image=uploaded_id_image,
         )
         self._sync_enrollment_to_profile(enrollment)
+
     # ------------------- Custom Actions -------------------
 
     @action(detail=False, methods=["get"])
@@ -459,6 +706,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 {"detail": f"Cannot approve. Missing required fields: {', '.join(required_missing)}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
         is_promotion = (enrollment.student_type or "").strip().lower() == "old"
         parent_email = (enrollment.email or "").strip().lower()
         uploaded_id_image = request.FILES.get("id_image")
@@ -474,7 +722,6 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 )
 
         with transaction.atomic():
-            # 0) Auto-assign section based on enrollment grade if not already assigned.
             if enrollment.section_id is None:
                 section_level = self._grade_code_to_section_level(grade_code)
                 if section_level is not None:
@@ -487,7 +734,6 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     if auto_section:
                         enrollment.section = auto_section
 
-            # 1) Assign student number if not yet set
             if not enrollment.student_number:
                 while True:
                     candidate = self.generate_student_number()
@@ -497,12 +743,9 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
             enrollment.status = "ACTIVE"
 
-            # if uploaded_id_image and hasattr(enrollment, "id_image"):
-            #     enrollment.id_image = uploaded_id_image
-            
             if uploaded_id_image:
                 enrollment.id_image = uploaded_id_image
-            
+
             note = "APPROVED BY ADMIN"
             enrollment.remarks = (enrollment.remarks or "").strip()
             if note not in enrollment.remarks:
@@ -510,7 +753,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
             update_fields = ["status", "remarks", "updated_at", "student_number"]
             if uploaded_id_image:
-                    update_fields.append("id_image")
+                update_fields.append("id_image")
             if enrollment.section is not None:
                 update_fields.append("section")
 
@@ -537,8 +780,10 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     else:
                         self._send_parent_portal_email(enrollment, parent_email)
 
-            # Keep profile section/grade aligned for both promotion and new-student flows.
             self._sync_enrollment_to_profile(enrollment)
+
+            if enrollment.parent_user:
+                self._create_finance_ledger_for_enrollment(enrollment)
 
         serializer = self.get_serializer(enrollment)
         return Response(serializer.data)

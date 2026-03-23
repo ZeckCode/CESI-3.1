@@ -108,13 +108,13 @@ const Ledgers = () => {
           <div className="ledger-sumCard__sub" style={{ fontSize: "0.7rem" }}>Already submitted</div>
         </div>
 
-        <div className="ledger-sumCard ledger-sumCard--warn">
+        {/* <div className="ledger-sumCard ledger-sumCard--warn">
           <div className="ledger-sumCard__label">⏳ PENDING</div>
           <div className="ledger-sumCard__value">
             ₱{summary ? Number(summary.total_pending).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—"}
           </div>
           <div className="ledger-sumCard__sub" style={{ fontSize: "0.7rem" }}>Not yet processed</div>
-        </div>
+        </div> */}
 
         <div className={`ledger-sumCard ${
           summary && summary.total_overdue > 0 ? "ledger-sumCard--danger" : "ledger-sumCard--neutral"
@@ -340,7 +340,7 @@ const Ledgers = () => {
                     textAlign: "center",
                   }}>
                     <div style={{ fontSize: "0.75rem", color: "#64748b", marginBottom: "0.5rem" }}>
-                      TOTAL TUITION DUE
+                      TOTAL TUITION FEE
                     </div>
                     <div style={{ fontSize: "1.25rem", fontWeight: "600", color: "#0284c7" }}>
                       ₱{Number(student.total_due).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
@@ -388,7 +388,6 @@ const Ledgers = () => {
                           <th>Due Date</th>
                           <th>Amount</th>
                           <th>Status</th>
-                          <th>Contribution</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -414,12 +413,7 @@ const Ledgers = () => {
                                 {inst.is_paid ? "✓ Paid" : "⏳ Unpaid"}
                               </span>
                             </td>
-                            <td data-label="Contribution" style={{ 
-                              fontWeight: 600, 
-                              color: !inst.is_paid ? "#ce1126" : "#22c55e"
-                            }}>
-                              {inst.is_paid ? "✓ Cleared" : "→ Balance"}
-                            </td>
+                            
                           </tr>
                         ))}
                       </tbody>

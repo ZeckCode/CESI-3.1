@@ -1,11 +1,11 @@
-# finance/views.py
 from decimal import Decimal
+from datetime import date
 
+from django.db.models import Q, Sum
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from django.db.models import Q, Sum
 
 from accounts.models import User, UserProfile
 from .models import Transaction, TuitionConfig
@@ -18,20 +18,127 @@ from .serializers import (
 )
 
 
-# ──────────────────────────────────────────────
-# ADMIN — list all transactions + create new
-# ──────────────────────────────────────────────
+def build_installment_schedule(tuition):
+    items = []
+
+    initial = Decimal(str(tuition.initial or 0))
+    monthly = Decimal(str(tuition.monthly or 0))
+    misc_aug = Decimal(str(tuition.misc_aug or 0))
+    misc_nov = Decimal(str(tuition.misc_nov or 0))
+
+    if initial > 0:
+        items.append({
+            'type': 'Initial Payment',
+            'item': 'INITIAL',
+            'month': 'May',
+            'amount': initial,
+            'due_date': date(2026, 5, 31),
+        })
+
+    months = [
+        ('June', date(2026, 6, 30)),
+        ('July', date(2026, 7, 31)),
+        ('August', date(2026, 8, 31)),
+        ('September', date(2026, 9, 30)),
+        ('October', date(2026, 10, 31)),
+        ('November', date(2026, 11, 30)),
+        ('December', date(2026, 12, 31)),
+        ('January', date(2027, 1, 31)),
+        ('February', date(2027, 2, 28)),
+        ('March', date(2027, 3, 31)),
+    ]
+
+    if monthly > 0:
+        for label, due in months:
+            items.append({
+                'type': f'{label} Installment',
+                'item': 'MONTHLY',
+                'month': label,
+                'amount': monthly,
+                'due_date': due,
+            })
+
+    if misc_aug > 0:
+        items.append({
+            'type': 'Miscellaneous (August)',
+            'item': 'MISC',
+            'month': 'August',
+            'amount': misc_aug,
+            'due_date': date(2026, 8, 31),
+        })
+
+    if misc_nov > 0:
+        items.append({
+            'type': 'Miscellaneous (November)',
+            'item': 'MISC',
+            'month': 'November',
+            'amount': misc_nov,
+            'due_date': date(2026, 11, 30),
+        })
+
+    return items
+
+
+def ledger_totals_for_parent(parent):
+    totals = Transaction.objects.filter(parent=parent).aggregate(
+        total_debit=Sum('debit'),
+        total_credit=Sum('credit'),
+    )
+    total_debit = Decimal(str(totals.get('total_debit') or 0))
+    total_credit = Decimal(str(totals.get('total_credit') or 0))
+    balance = total_debit - total_credit
+    if balance < 0:
+        balance = Decimal('0.00')
+    return total_debit, total_credit, balance
+
+
+def tuition_paid_for_parent(parent):
+    totals = Transaction.objects.filter(
+        parent=parent,
+        transaction_type='TUITION'
+    ).aggregate(total_credit=Sum('credit'))
+    return Decimal(str(totals.get('total_credit') or 0))
+
+
+def compute_cash_status(total_due, total_paid):
+    if total_due > 0 and total_paid >= total_due:
+        return 'PAID'
+    return 'PENDING'
+
+
+def compute_installment_status(total_due, total_paid, tuition):
+    today = date.today()
+
+    if total_due > 0 and total_paid >= total_due:
+        return 'PAID'
+
+    schedule = build_installment_schedule(tuition)
+
+    if total_paid <= 0:
+        has_overdue = any(item['due_date'] < today for item in schedule if item['item'] != 'INITIAL')
+        return 'OVERDUE' if has_overdue else 'PENDING'
+
+    covered = Decimal('0.00')
+    for item in schedule:
+        next_covered = covered + item['amount']
+        if next_covered > total_paid:
+            if item['due_date'] < today:
+                return 'OVERDUE'
+            return 'PARTIAL'
+        covered = next_covered
+
+    return 'PARTIAL'
+
+
 class TransactionListCreate(generics.ListCreateAPIView):
-    """
-    GET  → list every transaction (admin panel)
-    POST → create a new transaction from admin panel
-    """
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = Transaction.objects.select_related('parent', 'parent__profile').all()
         search = self.request.query_params.get('search', '').strip()
-        status_filter = self.request.query_params.get('status', '').strip()
+        status_filter = self.request.query_params.get('status', '').strip().upper()
+        entry_type = self.request.query_params.get('entry_type', '').strip().upper()
+        school_year = self.request.query_params.get('school_year', '').strip()
 
         if search:
             qs = qs.filter(
@@ -40,12 +147,19 @@ class TransactionListCreate(generics.ListCreateAPIView):
                 | Q(parent__profile__student_first_name__icontains=search)
                 | Q(parent__profile__student_last_name__icontains=search)
                 | Q(parent__profile__student_number__icontains=search)
+                | Q(item__icontains=search)
             ).distinct()
 
-        if status_filter and status_filter.upper() in ['PAID', 'PENDING', 'OVERDUE']:
-            qs = qs.filter(status=status_filter.upper())
+        if status_filter and status_filter in ['PAID', 'PARTIAL', 'PENDING', 'OVERDUE', 'POSTED']:
+            qs = qs.filter(status=status_filter)
 
-        return qs
+        if entry_type and entry_type in ['DEBIT', 'CREDIT']:
+            qs = qs.filter(entry_type=entry_type)
+
+        if school_year:
+            qs = qs.filter(school_year=school_year)
+
+        return qs.order_by('transaction_date', 'date_posted', 'id')
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -61,10 +175,8 @@ class TransactionListCreate(generics.ListCreateAPIView):
         transaction = serializer.save()
         out = TransactionSerializer(transaction).data
         return Response(out, status=status.HTTP_201_CREATED)
-    
-# ──────────────────────────────────────────────
-# ADMIN — detail / update / delete
-# ──────────────────────────────────────────────
+
+
 class TransactionDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Transaction.objects.select_related('parent').all()
     permission_classes = [IsAuthenticated]
@@ -92,29 +204,29 @@ class TransactionDetail(generics.RetrieveUpdateDestroyAPIView):
         return super().destroy(request, *args, **kwargs)
 
 
-# ──────────────────────────────────────────────
-# ADMIN — financial summary stats
-# ──────────────────────────────────────────────
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def transaction_stats(request):
     if getattr(request.user, 'role', None) != 'ADMIN':
         return Response({'detail': 'Forbidden'}, status=403)
 
-    total = Transaction.objects.aggregate(total=Sum('amount'))['total'] or 0
-    collected = Transaction.objects.filter(status='PAID').aggregate(s=Sum('amount'))['s'] or 0
-    pending = Transaction.objects.filter(status__in=['PENDING', 'OVERDUE']).aggregate(s=Sum('amount'))['s'] or 0
+    totals = Transaction.objects.aggregate(
+        total_debit=Sum('debit'),
+        total_credit=Sum('credit'),
+    )
+    total_debit = Decimal(str(totals.get('total_debit') or 0))
+    total_credit = Decimal(str(totals.get('total_credit') or 0))
+    balance = total_debit - total_credit
+    if balance < 0:
+        balance = Decimal('0.00')
 
     return Response({
-        'totalRevenue': float(total),
-        'collected': float(collected),
-        'pending': float(pending),
+        'total_billed': float(total_debit),
+        'total_collected': float(total_credit),
+        'outstanding_balance': float(balance),
     })
 
 
-# ──────────────────────────────────────────────
-# ADMIN — parent search / dropdown list
-# ──────────────────────────────────────────────
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def parent_list(request):
@@ -139,9 +251,6 @@ def parent_list(request):
     return Response(serializer.data)
 
 
-# ──────────────────────────────────────────────
-# ADMIN — students belonging to a parent account
-# ──────────────────────────────────────────────
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def parent_students(request, parent_id):
@@ -168,49 +277,32 @@ def parent_students(request, parent_id):
     return Response(students)
 
 
-# ──────────────────────────────────────────────
-# PARENT — own transactions only
-# ──────────────────────────────────────────────
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_transactions(request):
     if getattr(request.user, 'role', None) != 'PARENT_STUDENT':
         return Response({'detail': 'Forbidden'}, status=403)
 
-    qs = Transaction.objects.filter(parent=request.user).order_by('-date_created')
+    qs = Transaction.objects.filter(parent=request.user).order_by('transaction_date', 'date_posted', 'id')
     serializer = TransactionSerializer(qs, many=True)
     return Response(serializer.data)
 
 
-# ──────────────────────────────────────────────
-# PARENT — ledger summary (totals + balance)
-# ──────────────────────────────────────────────
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_ledger_summary(request):
     if getattr(request.user, 'role', None) != 'PARENT_STUDENT':
         return Response({'detail': 'Forbidden'}, status=403)
 
-    qs = Transaction.objects.filter(parent=request.user)
-
-    total_billed = qs.aggregate(s=Sum('amount'))['s'] or 0
-    total_paid = qs.filter(status='PAID').aggregate(s=Sum('amount'))['s'] or 0
-    total_pending = qs.filter(status='PENDING').aggregate(s=Sum('amount'))['s'] or 0
-    total_overdue = qs.filter(status='OVERDUE').aggregate(s=Sum('amount'))['s'] or 0
-    balance = total_billed - total_paid
+    total_billed, total_paid, balance = ledger_totals_for_parent(request.user)
 
     return Response({
         'total_billed': float(total_billed),
         'total_paid': float(total_paid),
-        'total_pending': float(total_pending),
-        'total_overdue': float(total_overdue),
         'balance': float(balance),
     })
 
 
-# ──────────────────────────────────────────────
-# ADMIN — tuition config list/create
-# ──────────────────────────────────────────────
 class TuitionConfigListCreate(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
@@ -250,9 +342,6 @@ class TuitionConfigListCreate(generics.ListCreateAPIView):
         return Response(TuitionConfigSerializer(obj).data, status=status.HTTP_201_CREATED)
 
 
-# ──────────────────────────────────────────────
-# ADMIN — tuition config detail/update/delete
-# ──────────────────────────────────────────────
 class TuitionConfigDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = TuitionConfig.objects.all()
     permission_classes = [IsAuthenticated]
@@ -279,9 +368,6 @@ class TuitionConfigDetail(generics.RetrieveUpdateDestroyAPIView):
         return super().destroy(request, *args, **kwargs)
 
 
-# ──────────────────────────────────────────────
-# ADMIN — tuition config stats
-# ──────────────────────────────────────────────
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def tuition_config_stats(request):
@@ -303,9 +389,6 @@ def tuition_config_stats(request):
     })
 
 
-# ──────────────────────────────────────────────
-# PUBLIC — tuition config by grade
-# ──────────────────────────────────────────────
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def tuition_config_by_grade(request, grade_key):
@@ -322,9 +405,6 @@ def tuition_config_by_grade(request, grade_key):
     return Response(TuitionConfigSerializer(obj).data)
 
 
-# ──────────────────────────────────────────────
-# ADMIN — student tuition overview
-# ──────────────────────────────────────────────
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def student_tuition_overview(request):
@@ -377,23 +457,26 @@ def student_tuition_overview(request):
         tuition = tuition_map.get(grade_key)
 
         total_due = Decimal('0.00')
+        total_paid = Decimal('0.00')
+        account_status = 'PENDING'
+
         if tuition:
             if payment_mode == 'cash':
-                total_due = tuition.total_cash or Decimal('0.00')
+                total_due = Decimal(str(tuition.total_cash or 0))
             elif payment_mode == 'installment':
-                total_due = tuition.total_installment or Decimal('0.00')
+                total_due = Decimal(str(tuition.total_installment or 0))
 
-        total_paid = Decimal('0.00')
         if profile.user_id:
-            total_paid = (
-                Transaction.objects.filter(parent=profile.user, status='PAID')
-                .aggregate(total=Sum('amount'))
-                .get('total') or Decimal('0.00')
-            )
+            total_paid = tuition_paid_for_parent(profile.user)
 
         remaining_balance = total_due - total_paid
         if remaining_balance < 0:
             remaining_balance = Decimal('0.00')
+
+        if payment_mode == 'cash':
+            account_status = compute_cash_status(total_due, total_paid)
+        elif payment_mode == 'installment' and tuition:
+            account_status = compute_installment_status(total_due, total_paid, tuition)
 
         data.append({
             'id': profile.id,
@@ -408,33 +491,28 @@ def student_tuition_overview(request):
             'total_due': float(total_due),
             'total_paid': float(total_paid),
             'remaining_balance': float(remaining_balance),
+            'account_status': account_status,
         })
 
     return Response(data)
 
 
-# ──────────────────────────────────────────────
-# PARENT — tuition installments for their student(s)
-# ──────────────────────────────────────────────
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_tuition_installments(request):
-    """
-    Returns tuition installment breakdown for parent's student(s)
-    with payment status for each installment
-    """
     if getattr(request.user, 'role', None) != 'PARENT_STUDENT':
         return Response({'detail': 'Forbidden'}, status=403)
 
-    # Get all student profiles for this parent
     profiles = UserProfile.objects.filter(user=request.user).select_related('section')
-    
+
     tuition_map = {
         t.grade_key: t
         for t in TuitionConfig.objects.filter(is_active=True, status='active')
     }
 
+    today = date.today()
     data = []
+
     for profile in profiles:
         student_name = " ".join(
             p for p in [
@@ -451,88 +529,38 @@ def my_tuition_installments(request):
         if not tuition:
             continue
 
-        # Get total paid for this student
-        total_paid = Decimal('0.00')
-        if profile.user_id:
-            total_paid = (
-                Transaction.objects.filter(
-                    parent=profile.user,
-                    transaction_type='TUITION',
-                    status='PAID'
-                )
-                .aggregate(total=Sum('amount'))
-                .get('total') or Decimal('0.00')
-            )
+        total_paid = tuition_paid_for_parent(profile.user)
 
-        # Build installment breakdown
         installments = []
-        cumulative_paid = Decimal('0.00')
-        
-        if payment_mode == 'installment' and tuition.initial and tuition.monthly:
-            # Initial payment
-            amount = Decimal(str(tuition.initial))
-            is_paid = cumulative_paid < total_paid and cumulative_paid + amount <= total_paid
-            installments.append({
-                'type': 'Initial Payment',
-                'amount': float(amount),
-                'month': 'May',
-                'due_date': '2026-05-31',
-                'is_paid': is_paid,
-            })
-            cumulative_paid += amount
-            
-            # Monthly installments (June - March, 10 months)
-            months = [
-                ('June', '2026-06-30'),
-                ('July', '2026-07-31'),
-                ('August', '2026-08-31'),
-                ('September', '2026-09-30'),
-                ('October', '2026-10-31'),
-                ('November', '2026-11-30'),
-                ('December', '2026-12-31'),
-                ('January', '2027-01-31'),
-                ('February', '2027-02-28'),
-                ('March', '2027-03-31'),
-            ]
-            
-            month_amount = Decimal(str(tuition.monthly))
-            for month, due_date in months:
-                is_paid = cumulative_paid < total_paid and cumulative_paid + month_amount <= total_paid
+
+        if payment_mode == 'installment':
+            schedule = build_installment_schedule(tuition)
+            covered = Decimal('0.00')
+
+            for item in schedule:
+                amount = item['amount']
+                next_covered = covered + amount
+
+                is_paid = total_paid >= next_covered
+                is_overdue = (not is_paid) and (item['due_date'] < today)
+
                 installments.append({
-                    'type': f'{month} Installment',
-                    'amount': float(month_amount),
-                    'month': month,
-                    'due_date': due_date,
+                    'type': item['type'],
+                    'item': item['item'],
+                    'amount': float(amount),
+                    'month': item['month'],
+                    'due_date': item['due_date'].isoformat(),
                     'is_paid': is_paid,
+                    'status': 'PAID' if is_paid else ('OVERDUE' if is_overdue else 'PENDING'),
                 })
-                cumulative_paid += month_amount
+                covered = next_covered
 
-        # Add miscellaneous fees if applicable
-        if tuition.misc_aug:
-            amount = Decimal(str(tuition.misc_aug))
-            is_paid = cumulative_paid < total_paid and cumulative_paid + amount <= total_paid
-            installments.append({
-                'type': 'Miscellaneous (August)',
-                'amount': float(amount),
-                'month': 'August',
-                'due_date': '2026-08-31',
-                'is_paid': is_paid,
-            })
-            cumulative_paid += amount
-        
-        if tuition.misc_nov:
-            amount = Decimal(str(tuition.misc_nov))
-            is_paid = cumulative_paid < total_paid and cumulative_paid + amount <= total_paid
-            installments.append({
-                'type': 'Miscellaneous (November)',
-                'amount': float(amount),
-                'month': 'November',
-                'due_date': '2026-11-30',
-                'is_paid': is_paid,
-            })
-            cumulative_paid += amount
+            total_due = Decimal(str(tuition.total_installment or 0))
+            overall_status = compute_installment_status(total_due, total_paid, tuition)
+        else:
+            total_due = Decimal(str(tuition.total_cash or 0))
+            overall_status = compute_cash_status(total_due, total_paid)
 
-        total_due = tuition.total_installment if payment_mode == 'installment' else tuition.total_cash
         remaining_balance = total_due - total_paid
         if remaining_balance < 0:
             remaining_balance = Decimal('0.00')
@@ -545,6 +573,7 @@ def my_tuition_installments(request):
             'total_due': float(total_due),
             'total_paid': float(total_paid),
             'remaining_balance': float(remaining_balance),
+            'overall_status': overall_status,
             'installments': installments,
         })
 
