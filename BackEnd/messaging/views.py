@@ -651,6 +651,12 @@ class ChatRequestViewSet(viewsets.ModelViewSet):
         )
         status_filter = self.request.query_params.get('status')
 
+        if status_filter:
+            normalized_status = status_filter.upper()
+            valid_statuses = {'PENDING', 'ACCEPTED', 'DECLINED'}
+            if normalized_status in valid_statuses:
+                queryset = queryset.filter(status=normalized_status)
+
         # For pending items, show only requests that the current user can act on.
         if status_filter and status_filter.upper() == 'PENDING':
             queryset = queryset.filter(recipient=self.request.user)

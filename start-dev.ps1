@@ -139,10 +139,19 @@ try {
 
 # Install / update Python deps
 Write-Step "Installing/updating Python packages..."
-& "$VenvPip" install -r "$ReqFile" --quiet --disable-pip-version-check 2>&1 | Out-Null
+# Use "python -m pip" instead of pip.exe to avoid stale launcher paths
+# when the project folder is moved/copied between machines.
+& "$VenvPython" -m pip install -r "$ReqFile" --quiet --disable-pip-version-check 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Warn "pip install had warnings - trying again with output..."
-    & "$VenvPip" install -r "$ReqFile"
+    & "$VenvPython" -m ensurepip --upgrade 2>&1 | Out-Null
+    & "$VenvPython" -m pip install -r "$ReqFile"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Failed to install Python dependencies in the virtual environment."
+        Write-Err "Delete BackEnd\\venv and run this script again to recreate it."
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
 }
 Write-Ok "Python packages up to date"
 
