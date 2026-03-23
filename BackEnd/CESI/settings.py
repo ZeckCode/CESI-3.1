@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'grades',
     'attendance',
     'classmanagement',
+    'messaging',
     'reminders',
 ]
 

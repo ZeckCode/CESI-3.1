@@ -15,6 +15,7 @@ import FloatingMessages from "./FloatingMessages";
 import CMSModule from "./CMSModule";
 import TuitionManagement from "./TuitionManagement";
 import AdminPasswordResetRequests from "./AdminPasswordResetRequests";
+import Messages from "./Messages";
 import { getToken } from "../Auth/auth";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 
@@ -88,6 +89,8 @@ function AdminDashboard() {
         return <TuitionManagement />;
       case "password-reset-requests":
         return <AdminPasswordResetRequests />;
+      case "messages":
+        return <Messages />;
       default:
         return <Dashboard />;
     }
@@ -111,6 +114,7 @@ function AdminDashboard() {
       tuition: "Tuition Management",
       notifications: "SMS & Email",
       "password-reset-requests": "Password Reset Requests",
+      messages: "Message Moderation",
     };
     return titles[activeMenu] || "Dashboard";
   };
@@ -130,6 +134,7 @@ function AdminDashboard() {
       cms: "Manage website content and announcements.",
       reports: "Generate and view system reports.",
       "password-reset-requests": "Review password reset requests and send reset links.",
+      messages: "Manage profanity filters, flagged messages, chat requests, and message reports.",
     };
     return subtitles[activeMenu] || "Welcome back! Here's what's happening today.";
   };

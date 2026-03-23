@@ -12,3 +12,6 @@ django-cors-headers>=4.3,<5.0
 
 # Pillow (image processing for avatar uploads)
 Pillow>=12.0,<13.0
+
+# cryptography (Fernet encryption for messaging module)
+cryptography>=46.0,<47.0
