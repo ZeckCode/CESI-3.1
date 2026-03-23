@@ -825,3 +825,110 @@ textarea.th-form-input {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* Ledger table spacing */
+.th-table {
+  min-width: 1500px;
+}
+
+.th-table th,
+.th-table td {
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.th-amount-cell {
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-align: right;
+  min-width: 120px;
+}
+
+.th-reference-cell {
+  min-width: 130px;
+}
+
+.th-student-name-cell {
+  min-width: 180px;
+}
+
+.th-actions-cell {
+  min-width: 120px;
+}
+
+.th-caret-cell {
+  width: 42px;
+  min-width: 42px;
+}
+
+.th-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.th-status-paid,
+.th-status-completed {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.th-status-partial {
+  background-color: #e0f2fe;
+  color: #075985;
+}
+
+.th-status-pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.th-status-posted {
+  background-color: #e2e8f0;
+  color: #334155;
+}
+
+.th-status-overdue,
+.th-status-failed {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.th-form-error {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.th-header-actions {
+  flex-wrap: wrap;
+}
+
+.th-btn-warning,
+.th-btn-primary,
+.th-btn-success {
+  white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+  .th-table {
+    min-width: 1350px;
+  }
+}
+
+@media (max-width: 768px) {
+  .th-table {
+    min-width: 1200px;
+  }
+
+  .th-header-actions {
+    width: 100%;
+  }
+
+  .th-btn-warning,
+  .th-btn-primary,
+  .th-btn-success {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}

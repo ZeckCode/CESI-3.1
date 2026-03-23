@@ -31,6 +31,12 @@ const formatCurrency = (value) => {
 
 const normalizeStatus = (value) => String(value || '').toLowerCase();
 
+const paymentModeLabel = (value) => {
+  const v = String(value || '').toLowerCase();
+  if (!v) return '—';
+  return v.charAt(0).toUpperCase() + v.slice(1);
+};
+
 const getErrorMessage = (error, fallback) => {
   if (error?.data?.detail) return error.data.detail;
   if (error?.message) return error.message;
@@ -135,6 +141,7 @@ const TuitionManagement = () => {
         totalDue: Number(item.total_due || 0),
         totalPaid: Number(item.total_paid || 0),
         remainingBalance: Number(item.remaining_balance || 0),
+        accountStatus: item.account_status || 'PENDING',
       }));
 
       setStudentTuition(mapped);
@@ -327,18 +334,14 @@ const TuitionManagement = () => {
       if (modalMode === 'add') {
         await apiFetchData(`${API}/api/finance/tuition-configs/`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         addToast('Added', 'Tuition record added successfully.', 'success');
       } else {
         await apiFetchData(`${API}/api/finance/tuition-configs/${selectedFee.id}/`, {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         addToast('Updated', 'Tuition record updated successfully.', 'success');
@@ -524,6 +527,7 @@ const TuitionManagement = () => {
                     <th>Total Due</th>
                     <th>Total Paid</th>
                     <th>Remaining</th>
+                    <th>Status</th>
                     <th>Student No.</th>
                     <th>Contact</th>
                   </>
@@ -546,7 +550,7 @@ const TuitionManagement = () => {
             <tbody>
               {(viewMode === 'student' ? loadingStudents : loadingFees) ? (
                 <tr>
-                  <td colSpan={viewMode === 'student' ? 9 : 9} className="tm-no-data">
+                  <td colSpan={viewMode === 'student' ? 10 : 9} className="tm-no-data">
                     <p>Loading...</p>
                   </td>
                 </tr>
@@ -565,17 +569,17 @@ const TuitionManagement = () => {
                         <td className="tm-table-cell">
                           {gradeLabelMap[item.gradeLevel] || item.gradeLevel || '—'}
                         </td>
-                        <td className="tm-table-cell">
-                          {item.paymentMode
-                            ? item.paymentMode.charAt(0).toUpperCase() + item.paymentMode.slice(1)
-                            : '—'}
-                        </td>
+                        <td className="tm-table-cell">{paymentModeLabel(item.paymentMode)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.totalDue)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.totalPaid)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.remainingBalance)}</td>
+                        <td className="tm-table-cell">
+                          <span className={`tm-status tm-status-${normalizeStatus(item.accountStatus)}`}>
+                            {item.accountStatus}
+                          </span>
+                        </td>
                         <td className="tm-table-cell">{item.studentNumber || '—'}</td>
                         <td className="tm-table-cell">{item.contactNumber || '—'}</td>
-
                       </>
                     ) : (
                       <>
@@ -617,7 +621,7 @@ const TuitionManagement = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={viewMode === 'student' ? 9 : 9} className="tm-no-data">
+                  <td colSpan={viewMode === 'student' ? 10 : 9} className="tm-no-data">
                     <AlertCircle size={24} />
                     <p>No records found</p>
                   </td>

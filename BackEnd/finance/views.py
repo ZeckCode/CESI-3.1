@@ -26,13 +26,14 @@ def build_installment_schedule(tuition):
     misc_aug = Decimal(str(tuition.misc_aug or 0))
     misc_nov = Decimal(str(tuition.misc_nov or 0))
 
+    initial_due = date(2026, 5, 31)
     if initial > 0:
         items.append({
             'type': 'Initial Payment',
             'item': 'INITIAL',
             'month': 'May',
             'amount': initial,
-            'due_date': date(2026, 5, 31),
+            'due_date': initial_due,
         })
 
     months = [
@@ -244,6 +245,7 @@ def parent_list(request):
             | Q(profile__student_last_name__icontains=search)
             | Q(profile__parent_first_name__icontains=search)
             | Q(profile__parent_last_name__icontains=search)
+            | Q(profile__student_number__icontains=search)
         )
 
     qs = qs.select_related('profile')
@@ -272,6 +274,8 @@ def parent_students(request, parent_id):
             'section': str(p.section) if p.section else '—',
             'parent_name': f"{p.parent_first_name} {p.parent_last_name}",
             'contact_number': p.contact_number,
+            'student_number': p.student_number or '',
+            'payment_mode': p.payment_mode or '',
         })
 
     return Response(students)
@@ -464,7 +468,7 @@ def student_tuition_overview(request):
             if payment_mode == 'cash':
                 total_due = Decimal(str(tuition.total_cash or 0))
             elif payment_mode == 'installment':
-                total_due = Decimal(str(tuition.total_installment or 0))
+                total_due = sum((item['amount'] for item in build_installment_schedule(tuition)), Decimal('0.00'))
 
         if profile.user_id:
             total_paid = tuition_paid_for_parent(profile.user)
@@ -530,7 +534,6 @@ def my_tuition_installments(request):
             continue
 
         total_paid = tuition_paid_for_parent(profile.user)
-
         installments = []
 
         if payment_mode == 'installment':
@@ -555,7 +558,7 @@ def my_tuition_installments(request):
                 })
                 covered = next_covered
 
-            total_due = Decimal(str(tuition.total_installment or 0))
+            total_due = sum((item['amount'] for item in schedule), Decimal('0.00'))
             overall_status = compute_installment_status(total_due, total_paid, tuition)
         else:
             total_due = Decimal(str(tuition.total_cash or 0))

@@ -256,10 +256,22 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
 class ParentDropdownSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     parent_name = serializers.SerializerMethodField()
+    student_number = serializers.CharField(source='profile.student_number', read_only=True, default='')
+    grade_level = serializers.CharField(source='profile.grade_level', read_only=True, default='')
+    payment_mode = serializers.CharField(source='profile.payment_mode', read_only=True, default='')
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'student_name', 'parent_name']
+        fields = [
+            'id',
+            'username',
+            'email',
+            'student_name',
+            'parent_name',
+            'student_number',
+            'grade_level',
+            'payment_mode',
+        ]
 
     def get_student_name(self, obj):
         try:
@@ -276,7 +288,6 @@ class ParentDropdownSerializer(serializers.ModelSerializer):
             return name if name else ""
         except (UserProfile.DoesNotExist, AttributeError):
             return ""
-
 
 class TuitionConfigSerializer(serializers.ModelSerializer):
     created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)

@@ -51,10 +51,6 @@ class EnrollmentSettingsView(APIView):
 
 
 class EnrollmentViewSet(viewsets.ModelViewSet):
-    """
-    Public can CREATE only.
-    Admin can list/retrieve/update/delete/approve/decline.
-    """
     queryset = Enrollment.objects.select_related(
         "student", "section", "parent_info", "parent_user"
     ).all()
@@ -160,9 +156,21 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     def _build_installment_schedule(self, tuition):
         items = []
 
+        initial = Decimal(str(tuition.initial or 0))
         monthly = Decimal(str(tuition.monthly or 0))
         misc_aug = Decimal(str(tuition.misc_aug or 0))
         misc_nov = Decimal(str(tuition.misc_nov or 0))
+
+        initial_due = date(2026, 5, 31)
+        if initial > 0:
+            items.append({
+                "item": "INITIAL",
+                "description": "Initial Tuition Billing",
+                "amount": initial,
+                "transaction_date": initial_due,
+                "due_date": initial_due,
+                "semester": self._semester_from_date(initial_due),
+            })
 
         months = [
             ("June", date(2026, 6, 30)),
@@ -236,7 +244,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             student_name=student_name,
             school_year=school_year,
             transaction_type="TUITION",
-            item="REGISTRATION",
+            item__in=["REGISTRATION", "INITIAL"],
         ).exists()
 
     def _create_transaction(
@@ -334,43 +342,11 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             )
 
         elif payment_mode == "installment":
-            total_installment = Decimal(str(tuition.total_installment or 0))
-            initial = Decimal(str(tuition.initial or 0))
+            schedule = self._build_installment_schedule(tuition)
 
-            self._create_transaction(
-                parent_user=enrollment.parent_user,
-                student_name=student_name,
-                school_year=school_year,
-                semester=semester,
-                transaction_type="TUITION",
-                entry_type="DEBIT",
-                item="REGISTRATION",
-                amount=total_installment,
-                description="Installment Tuition Billing",
-                payment_method="CASH",
-                transaction_date=today,
-                due_date=None,
-                status_value="POSTED",
-            )
+            for sched in schedule:
+                debit_status = "POSTED" if sched["item"] == "INITIAL" else "PENDING"
 
-            if initial > 0:
-                self._create_transaction(
-                    parent_user=enrollment.parent_user,
-                    student_name=student_name,
-                    school_year=school_year,
-                    semester=semester,
-                    transaction_type="TUITION",
-                    entry_type="CREDIT",
-                    item="INITIAL",
-                    amount=initial,
-                    description="Initial Tuition Payment",
-                    payment_method="CASH",
-                    transaction_date=today,
-                    due_date=date(2026, 5, 31),
-                    status_value="PAID",
-                )
-
-            for sched in self._build_installment_schedule(tuition):
                 self._create_transaction(
                     parent_user=enrollment.parent_user,
                     student_name=student_name,
@@ -384,7 +360,26 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     payment_method="CASH",
                     transaction_date=sched["transaction_date"],
                     due_date=sched["due_date"],
-                    status_value="PENDING",
+                    status_value=debit_status,
+                )
+
+            initial = Decimal(str(tuition.initial or 0))
+            if initial > 0:
+                initial_due = date(2026, 5, 31)
+                self._create_transaction(
+                    parent_user=enrollment.parent_user,
+                    student_name=student_name,
+                    school_year=school_year,
+                    semester=self._semester_from_date(initial_due),
+                    transaction_type="TUITION",
+                    entry_type="CREDIT",
+                    item="INITIAL",
+                    amount=initial,
+                    description="Initial Tuition Payment",
+                    payment_method="CASH",
+                    transaction_date=today,
+                    due_date=initial_due,
+                    status_value="PAID",
                 )
 
         self._recompute_parent_ledger_balances(enrollment.parent_user)
