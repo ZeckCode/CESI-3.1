@@ -15,26 +15,62 @@ logger = logging.getLogger(__name__)
 
 def get_encryption_key():
     """
-    Load the messaging encryption key from the MESSAGING_ENCRYPTION_KEY
-    environment variable.  The key must be a valid Fernet key (base64-encoded
-    32-byte value, e.g. generated once with Fernet.generate_key()).
+    Return the Fernet encryption key for message content.
 
-    For local development the key can also be placed in a .env file loaded
-    by python-decouple / django-environ.  In all cases the key must be set
-    before startup – this function raises ImproperlyConfigured so the server
-    fails fast rather than silently generating a new key on every restart
-    (which would make all existing encrypted messages permanently unreadable).
+    Resolution order:
+    1. MESSAGING_ENCRYPTION_KEY environment variable (required in production).
+    2. A key stored in <BASE_DIR>/.messaging_key (auto-generated on first run).
+       This fallback is only active when Django's DEBUG setting is True so
+       that production deployments always fail fast if the env var is absent.
+
+    Developers who don't set MESSAGING_ENCRYPTION_KEY will get an
+    auto-generated key stored at BackEnd/.messaging_key (gitignored).  The
+    key survives server restarts so existing messages can still be decrypted.
+
+    In production (DEBUG=False) the env var is mandatory and the server will
+    raise ImproperlyConfigured at startup if it is absent.
     """
     from django.core.exceptions import ImproperlyConfigured
+    from django.conf import settings
 
+    # 1. Prefer the explicit env var (always safe in all environments).
     key_env = os.getenv('MESSAGING_ENCRYPTION_KEY')
-    if not key_env:
-        raise ImproperlyConfigured(
-            "MESSAGING_ENCRYPTION_KEY environment variable is not set. "
-            "Generate a key with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\" "
-            "and add it to your environment or .env file."
-        )
-    return key_env.encode() if isinstance(key_env, str) else key_env
+    if key_env:
+        return key_env.encode() if isinstance(key_env, str) else key_env
+
+    # 2. In development, generate / load a stable key file so the app works
+    #    out of the box without any manual setup.
+    if getattr(settings, 'DEBUG', False):
+        key_file = os.path.join(settings.BASE_DIR, '.messaging_key')
+        if os.path.exists(key_file):
+            try:
+                with open(key_file, 'rb') as f:
+                    return f.read().strip()
+            except OSError as e:
+                logger.warning("Could not read dev key file %s: %s", key_file, e)
+
+        # First run: generate a new key and persist it.
+        key = Fernet.generate_key()
+        try:
+            with open(key_file, 'wb') as f:
+                f.write(key)
+            logger.info(
+                "Generated a new messaging encryption key for development at %s. "
+                "Set MESSAGING_ENCRYPTION_KEY in your environment to use a stable "
+                "key across machines.",
+                key_file,
+            )
+        except OSError as e:
+            logger.warning("Could not write dev key file %s: %s", key_file, e)
+        return key
+
+    # 3. Production with no env var → fail fast.
+    raise ImproperlyConfigured(
+        "MESSAGING_ENCRYPTION_KEY environment variable is not set. "
+        "Generate a key with: "
+        "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\" "
+        "and add it to your environment or .env file."
+    )
 
 
 def encrypt_message(text):

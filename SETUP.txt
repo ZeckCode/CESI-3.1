@@ -13,6 +13,15 @@
   dependencies, run migrations, and start both servers.
   That's it — skip to STEP 3 below.
 
+  NOTE: The messaging feature uses end-to-end encryption.
+  In local development (DEBUG=True) a key is generated
+  automatically and saved to BackEnd/.messaging_key — no
+  setup needed.  For production (DEBUG=False), set the
+  MESSAGING_ENCRYPTION_KEY environment variable to a
+  stable Fernet key before starting the server:
+
+    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
 
 PREREQUISITES
 ─────────────
