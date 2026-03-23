@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Edit2, Trash2, Search, Filter,
   CheckCircle, Clock, AlertCircle, XCircle, Eye, RefreshCw,
@@ -449,9 +449,19 @@ export default function EnrollmentManagement() {
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((title, message, type = "warning") => {
-    const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev, { id, title, message, type }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 6000);
+  const id = Date.now() + Math.random();
+
+  setToasts((prev) => {
+    const exists = prev.some(
+      (t) => t.title === title && t.message === message && t.type === type
+    );
+    if (exists) return prev;
+    return [...prev, { id, title, message, type }];
+  });
+
+  setTimeout(() => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, 6000);
   }, []);
 
   const dismissToast = useCallback((id) => {

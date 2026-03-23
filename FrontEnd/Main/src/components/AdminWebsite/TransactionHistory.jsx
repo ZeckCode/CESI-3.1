@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Search, Filter, Download, CreditCard,
-  CheckCircle, Clock, TrendingUp,
+  Search, Filter, Download,
+  CheckCircle, Clock,
   Plus, X, ChevronDown, ChevronUp, Edit2, Trash2,
-  Bell
+  Bell, Receipt
 } from 'lucide-react';
 import '../AdminWebsiteCSS/TransactionHistory.css';
 import Pagination from './Pagination';
@@ -37,34 +37,72 @@ const PAYMENT_METHODS = [
   { value: 'OTHER', label: 'Other' },
 ];
 
+const ENTRY_TYPES = [
+  { value: 'DEBIT', label: 'Debit / Billing' },
+  { value: 'CREDIT', label: 'Credit / Payment' },
+];
+
+const ITEM_OPTIONS = [
+  { value: 'REGISTRATION', label: 'Registration' },
+  { value: 'PAYMENT', label: 'Payment' },
+  { value: 'INITIAL', label: 'Initial Payment' },
+  { value: 'MONTHLY', label: 'Monthly Installment' },
+  { value: 'MISC', label: 'Miscellaneous' },
+  { value: 'RESERVATION', label: 'Reservation Fee' },
+  { value: 'ASSESSMENT', label: 'Assessment' },
+  { value: 'OTHER', label: 'Other' },
+];
+
 const STATUS_OPTIONS = [
   { value: 'PAID', label: 'Paid' },
+  { value: 'PARTIAL', label: 'Partial' },
   { value: 'PENDING', label: 'Pending' },
   { value: 'OVERDUE', label: 'Overdue' },
+  { value: 'POSTED', label: 'Posted' },
 ];
 
 const EMPTY_FORM = {
   parent: '',
   student_name: '',
   transaction_type: 'TUITION',
+  entry_type: 'CREDIT',
+  item: 'PAYMENT',
+  school_year: '2026-2027',
+  semester: '1st',
   amount: '',
   description: '',
   payment_method: 'CASH',
+  transaction_date: '',
   due_date: '',
-  status: 'PENDING',
+  status: 'PAID',
+};
+
+const formatCurrency = (value) => `₱${Number(value || 0).toLocaleString()}`;
+
+const statusPriority = {
+  OVERDUE: 1,
+  PARTIAL: 2,
+  PENDING: 3,
+  POSTED: 4,
+  PAID: 5,
 };
 
 const TransactionHistory = () => {
   const [transactions, setTransactions] = useState([]);
-  const [stats, setStats] = useState({ totalRevenue: 0, collected: 0, pending: 0 });
+  const [stats, setStats] = useState({
+    total_billed: 0,
+    total_collected: 0,
+    outstanding_balance: 0,
+  });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [hoveredRow, setHoveredRow] = useState(null);
+  const [filterEntryType, setFilterEntryType] = useState('all');
+
   const [txnPage, setTxnPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
   const [expandedRow, setExpandedRow] = useState(null);
-  const [studentDetails, setStudentDetails] = useState({});
 
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ ...EMPTY_FORM });
@@ -90,20 +128,22 @@ const TransactionHistory = () => {
     try {
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
-      if (filterStatus !== 'all') params.append('status', filterStatus);
+      if (filterStatus !== 'all') params.append('status', filterStatus.toUpperCase());
+      if (filterEntryType !== 'all') params.append('entry_type', filterEntryType.toUpperCase());
 
-      const res = await fetch(`${API_BASE}/api/finance/transactions/?${params}`, {
+      const res = await fetch(`${API_BASE}/api/finance/transactions/?${params.toString()}`, {
         credentials: 'include',
         headers: authHeaders(),
       });
 
-      if (!res.ok) throw new Error('Failed to load');
+      if (!res.ok) throw new Error('Failed to load transactions');
       const data = await res.json();
       setTransactions(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching transactions:', err);
+      setTransactions([]);
     }
-  }, [searchTerm, filterStatus]);
+  }, [searchTerm, filterStatus, filterEntryType]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -113,7 +153,11 @@ const TransactionHistory = () => {
       });
       if (!res.ok) return;
       const data = await res.json();
-      setStats(data);
+      setStats({
+        total_billed: Number(data.total_billed || 0),
+        total_collected: Number(data.total_collected || 0),
+        outstanding_balance: Number(data.outstanding_balance || 0),
+      });
     } catch (err) {
       console.error('Error fetching stats:', err);
     }
@@ -124,12 +168,9 @@ const TransactionHistory = () => {
     fetchStats();
   }, [fetchTransactions, fetchStats]);
 
-  const txnTotalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
-  const paginatedTransactions = transactions.slice((txnPage - 1) * ITEMS_PER_PAGE, txnPage * ITEMS_PER_PAGE);
-
   useEffect(() => {
     setTxnPage(1);
-  }, [searchTerm, filterStatus]);
+  }, [searchTerm, filterStatus, filterEntryType]);
 
   const searchParents = useCallback(async (query) => {
     setParentLoading(true);
@@ -140,20 +181,17 @@ const TransactionHistory = () => {
       );
 
       if (!res.ok) {
-        console.error('Parent search failed:', res.status, res.statusText);
-        if (res.status === 401 || res.status === 403) {
-          setParentOptions([]);
-          setShowDropdown(true);
-        }
+        setParentOptions([]);
+        setShowDropdown(true);
         return;
       }
 
       const data = await res.json();
-      const list = Array.isArray(data) ? data : [];
-      setParentOptions(list);
+      setParentOptions(Array.isArray(data) ? data : []);
       setShowDropdown(true);
     } catch (err) {
       console.error('Error searching parents:', err);
+      setParentOptions([]);
     } finally {
       setParentLoading(false);
     }
@@ -164,12 +202,7 @@ const TransactionHistory = () => {
     setParentSearch(val);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (val.trim().length >= 1) {
-      debounceRef.current = setTimeout(() => searchParents(val), 300);
-    } else {
-      debounceRef.current = setTimeout(() => searchParents(''), 300);
-    }
+    debounceRef.current = setTimeout(() => searchParents(val.trim()), 300);
   };
 
   const selectParent = (parent) => {
@@ -181,7 +214,7 @@ const TransactionHistory = () => {
     }));
 
     const displayName = parent.student_name
-      ? `${parent.student_name} — ${parent.student_number || parent.email || ''}`
+      ? `${parent.student_name}${parent.student_number ? ` — ${parent.student_number}` : ''}`
       : `${parent.email || parent.username}`;
 
     setParentSearch(displayName);
@@ -214,18 +247,23 @@ const TransactionHistory = () => {
       parent: txn.parent,
       student_name: txn.student_name || '',
       transaction_type: txn.transaction_type || 'TUITION',
+      entry_type: txn.entry_type || 'CREDIT',
+      item: txn.item || 'PAYMENT',
+      school_year: txn.school_year || '2026-2027',
+      semester: txn.semester || '1st',
       amount: txn.amount || '',
       description: txn.description || '',
       payment_method: txn.payment_method || 'CASH',
+      transaction_date: txn.transaction_date || '',
       due_date: txn.due_date || '',
-      status: txn.status || 'PENDING',
+      status: txn.status || 'POSTED',
     });
 
-    const editDisplay = txn.student_name
-      ? `${txn.student_name}${txn.student_number ? ' — ' + txn.student_number : ''}`
-      : '';
-
-    setParentSearch(editDisplay);
+    setParentSearch(
+      txn.student_name
+        ? `${txn.student_name}${txn.student_number ? ` — ${txn.student_number}` : ''}`
+        : ''
+    );
     setSelectedParent({ id: txn.parent });
     setFormError('');
     setShowModal(true);
@@ -234,7 +272,22 @@ const TransactionHistory = () => {
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+
+      if (name === 'entry_type') {
+        if (value === 'DEBIT' && next.item === 'PAYMENT') next.item = 'REGISTRATION';
+        if (
+          value === 'CREDIT' &&
+          ['REGISTRATION', 'MONTHLY', 'MISC', 'RESERVATION', 'ASSESSMENT'].includes(next.item)
+        ) {
+          next.item = 'PAYMENT';
+        }
+      }
+
+      return next;
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -253,9 +306,12 @@ const TransactionHistory = () => {
 
     setSubmitting(true);
     try {
-      const body = { ...formData };
-      body.amount = parseFloat(body.amount).toFixed(2);
-      if (!body.due_date) body.due_date = null;
+      const body = {
+        ...formData,
+        amount: parseFloat(formData.amount).toFixed(2),
+        due_date: formData.due_date || null,
+        transaction_date: formData.transaction_date || null,
+      };
 
       const isEdit = !!editingTxn;
       const url = isEdit
@@ -271,7 +327,14 @@ const TransactionHistory = () => {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || JSON.stringify(errData) || 'Server error');
+        const detail =
+          errData.detail ||
+          errData.amount?.[0] ||
+          errData.item?.[0] ||
+          errData.due_date?.[0] ||
+          JSON.stringify(errData) ||
+          'Server error';
+        throw new Error(detail);
       }
 
       setShowModal(false);
@@ -320,11 +383,7 @@ const TransactionHistory = () => {
       });
 
       const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to send reminder.');
-      }
-
+      if (!res.ok) throw new Error(data.detail || 'Failed to send reminder.');
       alert(data.detail || 'Payment reminder sent successfully.');
     } catch (err) {
       console.error('Error sending reminder:', err);
@@ -344,11 +403,7 @@ const TransactionHistory = () => {
       });
 
       const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to send bulk reminders.');
-      }
-
+      if (!res.ok) throw new Error(data.detail || 'Failed to send bulk reminders.');
       alert(data.detail || 'Bulk reminders sent successfully.');
     } catch (err) {
       console.error('Error sending bulk reminders:', err);
@@ -362,39 +417,72 @@ const TransactionHistory = () => {
     alert('Exporting transaction data to Excel...');
   };
 
-  const typeLabel = (val) => TRANSACTION_TYPES.find((t) => t.value === val)?.label || val;
-  const methodLabel = (val) => PAYMENT_METHODS.find((m) => m.value === val)?.label || val;
+  const itemLabel = (val) => ITEM_OPTIONS.find((i) => i.value === val)?.label || val;
+  const entryLabel = (val) => ENTRY_TYPES.find((e) => e.value === val)?.label || val;
 
   const statusClass = (s) => {
     if (!s) return '';
-    const lower = s.toLowerCase();
-    if (lower === 'paid') return 'completed';
-    return lower;
+    return String(s).toLowerCase();
   };
 
-  const toggleStudentRow = async (txn) => {
-    if (expandedRow === txn.id) {
-      setExpandedRow(null);
-      return;
-    }
+  const groupedTransactions = useMemo(() => {
+    const map = new Map();
 
-    setExpandedRow(txn.id);
+    transactions.forEach((tx) => {
+      const key = tx.student_number || `parent-${tx.parent}`;
 
-    if (!studentDetails[txn.parent]) {
-      try {
-        const res = await fetch(
-          `${API_BASE}/api/finance/parents/${txn.parent}/students/`,
-          { credentials: 'include', headers: authHeaders() }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setStudentDetails((prev) => ({ ...prev, [txn.parent]: data }));
-        }
-      } catch (err) {
-        console.error('Error fetching students:', err);
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          parent: tx.parent,
+          student_number: tx.student_number || '—',
+          student_name: tx.student_name || '—',
+          grade_level: tx.grade_level || '—',
+          payment_mode: tx.payment_mode || '—',
+          latest_date: tx.transaction_date || '',
+          total_debit: 0,
+          total_credit: 0,
+          balance: 0,
+          account_status: tx.status || 'PENDING',
+          rows: [],
+        });
       }
-    }
-  };
+
+      const group = map.get(key);
+      group.rows.push(tx);
+      group.total_debit += Number(tx.debit || 0);
+      group.total_credit += Number(tx.credit || 0);
+      group.balance = Number(tx.balance || 0);
+
+      if ((tx.transaction_date || '') > group.latest_date) {
+        group.latest_date = tx.transaction_date || '';
+      }
+
+      const currentPriority = statusPriority[group.account_status] || 99;
+      const nextPriority = statusPriority[tx.status] || 99;
+      if (nextPriority < currentPriority) {
+        group.account_status = tx.status || 'PENDING';
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) =>
+      String(b.latest_date || '').localeCompare(String(a.latest_date || ''))
+    );
+  }, [transactions]);
+
+  const txnTotalPages = Math.max(1, Math.ceil(groupedTransactions.length / ITEMS_PER_PAGE));
+  const paginatedTransactions = useMemo(
+    () =>
+      groupedTransactions.slice(
+        (txnPage - 1) * ITEMS_PER_PAGE,
+        txnPage * ITEMS_PER_PAGE
+      ),
+    [groupedTransactions, txnPage]
+  );
+
+  const isReminderEligible = (group) =>
+    Number(group.balance || 0) > 0 &&
+    ['PENDING', 'OVERDUE', 'PARTIAL', 'POSTED'].includes(group.account_status);
 
   return (
     <main className="transaction-history-main">
@@ -402,33 +490,33 @@ const TransactionHistory = () => {
         <div className="th-stats-grid">
           <div className="th-stat-card th-stat-blue">
             <div className="th-stat-header">
-              <span className="th-stat-label">Total Revenue</span>
-              <TrendingUp size={24} className="th-stat-icon" />
+              <span className="th-stat-label">Total Billed</span>
+              <Receipt size={24} className="th-stat-icon" />
             </div>
-            <div className="th-stat-value">₱{Number(stats.totalRevenue).toLocaleString()}</div>
-            <div className="th-stat-change positive">All time</div>
+            <div className="th-stat-value">{formatCurrency(stats.total_billed)}</div>
+            <div className="th-stat-change positive">Ledger debits</div>
           </div>
 
           <div className="th-stat-card th-stat-green">
             <div className="th-stat-header">
-              <span className="th-stat-label">Collected</span>
+              <span className="th-stat-label">Total Collected</span>
               <CheckCircle size={24} className="th-stat-icon" />
             </div>
-            <div className="th-stat-value">₱{Number(stats.collected).toLocaleString()}</div>
+            <div className="th-stat-value">{formatCurrency(stats.total_collected)}</div>
             <div className="th-stat-change positive">
-              {stats.totalRevenue > 0
-                ? `${Math.round((stats.collected / stats.totalRevenue) * 100)}% collection rate`
+              {stats.total_billed > 0
+                ? `${Math.round((stats.total_collected / stats.total_billed) * 100)}% collection rate`
                 : '—'}
             </div>
           </div>
 
           <div className="th-stat-card th-stat-yellow">
             <div className="th-stat-header">
-              <span className="th-stat-label">Pending</span>
+              <span className="th-stat-label">Outstanding Balance</span>
               <Clock size={24} className="th-stat-icon" />
             </div>
-            <div className="th-stat-value">₱{Number(stats.pending).toLocaleString()}</div>
-            <div className="th-stat-change">Outstanding</div>
+            <div className="th-stat-value">{formatCurrency(stats.outstanding_balance)}</div>
+            <div className="th-stat-change">Unpaid balance</div>
           </div>
         </div>
       </section>
@@ -437,11 +525,11 @@ const TransactionHistory = () => {
         <div className="th-section-header">
           <div>
             <h2 className="th-section-title">Transaction History</h2>
-            <p className="th-section-subtitle">All payment transactions recorded in the system</p>
+            <p className="th-section-subtitle">One summary row per student number</p>
           </div>
           <div className="th-header-actions">
             <button className="th-btn-success" onClick={openModal}>
-              <Plus size={18} /> Add Transaction
+              <Plus size={18} /> Add Ledger Entry
             </button>
 
             <button
@@ -458,12 +546,12 @@ const TransactionHistory = () => {
           </div>
         </div>
 
-        <div className="th-filters-container">
+        <div className="th-filters-container" style={{ gap: '12px', flexWrap: 'wrap' }}>
           <div className="th-search-box">
             <Search size={20} className="th-search-icon" />
             <input
               type="text"
-              placeholder="Search by student name, student number, or reference..."
+              placeholder="Search by student, student number, or reference..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="th-search-input"
@@ -477,10 +565,25 @@ const TransactionHistory = () => {
               onChange={(e) => setFilterStatus(e.target.value)}
               className="th-filter-select"
             >
-              <option value="all">All Transactions</option>
+              <option value="all">All Status</option>
               <option value="paid">Paid</option>
+              <option value="partial">Partial</option>
               <option value="pending">Pending</option>
               <option value="overdue">Overdue</option>
+              <option value="posted">Posted</option>
+            </select>
+          </div>
+
+          <div className="th-filter-group">
+            <Filter size={20} />
+            <select
+              value={filterEntryType}
+              onChange={(e) => setFilterEntryType(e.target.value)}
+              className="th-filter-select"
+            >
+              <option value="all">All Entry Types</option>
+              <option value="debit">Debit</option>
+              <option value="credit">Credit</option>
             </select>
           </div>
         </div>
@@ -490,66 +593,49 @@ const TransactionHistory = () => {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Reference No.</th>
-                <th>Student Number</th>
+                <th>Student No.</th>
                 <th>Student Name</th>
-                <th></th>
-                <th>Transaction Type</th>
-                <th>Payment Method</th>
-                <th>Amount</th>
+                <th>Grade Level</th>
+                <th>Payment Mode</th>
+                <th>Total Debit</th>
+                <th>Total Credit</th>
+                <th>Balance</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {transactions.length === 0 ? (
+              {groupedTransactions.length === 0 ? (
                 <tr>
                   <td colSpan="10" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                     No transactions found.
                   </td>
                 </tr>
               ) : (
-                paginatedTransactions.map((txn) => (
-                  <React.Fragment key={txn.id}>
-                    <tr
-                      className={hoveredRow === txn.id ? 'th-row-hover' : ''}
-                      onMouseEnter={() => setHoveredRow(txn.id)}
-                      onMouseLeave={() => setHoveredRow(null)}
-                    >
-                      <td>{txn.date_created ? txn.date_created.split(' ')[0] : '—'}</td>
-                      <td className="th-reference-cell">{txn.reference_number || '—'}</td>
-                      <td>{txn.student_number || '—'}</td>
-                      <td className="th-student-name-cell">{txn.student_name}</td>
-                      <td className="th-caret-cell">
-                        <button
-                          className="th-caret-btn"
-                          onClick={() => toggleStudentRow(txn)}
-                          title="View enrolled student(s)"
-                        >
-                          {expandedRow === txn.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                        </button>
-                      </td>
-                      <td>{typeLabel(txn.transaction_type)}</td>
+                paginatedTransactions.map((group) => (
+                  <React.Fragment key={group.key}>
+                    <tr>
+                      <td>{group.latest_date || '—'}</td>
+                      <td>{group.student_number}</td>
+                      <td className="th-student-name-cell">{group.student_name}</td>
+                      <td>{group.grade_level || '—'}</td>
+                      <td style={{ textTransform: 'capitalize' }}>{group.payment_mode || '—'}</td>
+                      <td className="th-amount-cell">{formatCurrency(group.total_debit)}</td>
+                      <td className="th-amount-cell">{formatCurrency(group.total_credit)}</td>
+                      <td className="th-amount-cell">{formatCurrency(group.balance)}</td>
                       <td>
-                        <span className="th-payment-method">
-                          <CreditCard size={16} />
-                          {methodLabel(txn.payment_method)}
-                        </span>
-                      </td>
-                      <td className="th-amount-cell">₱{Number(txn.amount).toLocaleString()}</td>
-                      <td>
-                        <span className={`th-status-badge th-status-${statusClass(txn.status)}`}>
-                          {txn.status}
+                        <span className={`th-status-badge th-status-${statusClass(group.account_status)}`}>
+                          {group.account_status}
                         </span>
                       </td>
                       <td className="th-actions-cell">
-                        {txn.status !== 'PAID' && (
+                        {isReminderEligible(group) && (
                           <button
                             className="th-action-btn th-reminder-btn"
-                            onClick={() => sendReminder(txn.id)}
+                            onClick={() => sendReminder(group.rows[0].id)}
                             title="Send Reminder"
-                            disabled={sendingReminderId === txn.id}
+                            disabled={sendingReminderId === group.rows[0].id}
                           >
                             <Bell size={15} />
                           </button>
@@ -557,49 +643,101 @@ const TransactionHistory = () => {
 
                         <button
                           className="th-action-btn th-edit-btn"
-                          onClick={() => openEditModal(txn)}
-                          title="Edit"
+                          onClick={() => setExpandedRow(expandedRow === group.key ? null : group.key)}
+                          title="View Ledger Details"
                         >
-                          <Edit2 size={15} />
-                        </button>
-
-                        <button
-                          className="th-action-btn th-delete-btn"
-                          onClick={() => setDeleteTarget(txn)}
-                          title="Delete"
-                        >
-                          <Trash2 size={15} />
+                          {expandedRow === group.key ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                         </button>
                       </td>
                     </tr>
 
-                    {expandedRow === txn.id && (
+                    {expandedRow === group.key && (
                       <tr className="th-expanded-row">
                         <td colSpan="10">
                           <div className="th-student-detail-panel">
-                            <h4 className="th-detail-title">Enrolled Student(s) — {txn.student_name}</h4>
-                            {studentDetails[txn.parent] ? (
-                              studentDetails[txn.parent].length > 0 ? (
-                                <div className="th-student-cards">
-                                  {studentDetails[txn.parent].map((s, idx) => (
-                                    <div key={idx} className="th-student-card">
-                                      <div className="th-student-card-name">{s.student_name}</div>
-                                      <div className="th-student-card-info">
-                                        
-                                        <span>{s.section}</span>
-                                      </div>
-                                      <div className="th-student-card-parent">
-                                        Student No: {txn.student_number || '—'} | Contact No: {s.contact_number}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="th-detail-empty">No student profile found.</p>
-                              )
-                            ) : (
-                              <p className="th-detail-loading">Loading…</p>
-                            )}
+                            <h4 className="th-detail-title">
+                              {group.student_name} — {group.student_number}
+                            </h4>
+
+                            <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
+                              Grade: <strong>{group.grade_level || '—'}</strong> | Payment Mode:{' '}
+                              <strong style={{ textTransform: 'capitalize' }}>{group.payment_mode || '—'}</strong> | Balance:{' '}
+                              <strong>{formatCurrency(group.balance)}</strong>
+                            </div>
+
+                            <div className="th-table-container" style={{ marginTop: '0.75rem' }}>
+                              <table className="th-table">
+                                <thead>
+                                  <tr>
+                                    <th>Date</th>
+                                    <th>Reference</th>
+                                    <th>Entry Type</th>
+                                    <th>Item</th>
+                                    <th>Debit</th>
+                                    <th>Credit</th>
+                                    <th>Balance</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {group.rows
+                                    .slice()
+                                    .sort((a, b) =>
+                                      String(a.transaction_date || '').localeCompare(String(b.transaction_date || ''))
+                                    )
+                                    .map((tx) => (
+                                      <tr key={tx.id}>
+                                        <td>{tx.transaction_date || '—'}</td>
+                                        <td>{tx.reference_number || '—'}</td>
+                                        <td>{entryLabel(tx.entry_type)}</td>
+                                        <td>{itemLabel(tx.item)}</td>
+                                        <td className="th-amount-cell">
+                                          {Number(tx.debit || 0) > 0 ? formatCurrency(tx.debit) : '—'}
+                                        </td>
+                                        <td className="th-amount-cell">
+                                          {Number(tx.credit || 0) > 0 ? formatCurrency(tx.credit) : '—'}
+                                        </td>
+                                        <td className="th-amount-cell">{formatCurrency(tx.balance)}</td>
+                                        <td>
+                                          <span className={`th-status-badge th-status-${statusClass(tx.status)}`}>
+                                            {tx.status}
+                                          </span>
+                                        </td>
+                                        <td className="th-actions-cell">
+                                          {tx.entry_type === 'DEBIT' &&
+                                            ['PENDING', 'OVERDUE', 'PARTIAL', 'POSTED'].includes(tx.status) && (
+                                              <button
+                                                className="th-action-btn th-reminder-btn"
+                                                onClick={() => sendReminder(tx.id)}
+                                                title="Send Reminder"
+                                                disabled={sendingReminderId === tx.id}
+                                              >
+                                                <Bell size={15} />
+                                              </button>
+                                            )}
+
+                                          <button
+                                            className="th-action-btn th-edit-btn"
+                                            onClick={() => openEditModal(tx)}
+                                            title="Edit"
+                                          >
+                                            <Edit2 size={15} />
+                                          </button>
+
+                                          <button
+                                            className="th-action-btn th-delete-btn"
+                                            onClick={() => setDeleteTarget(tx)}
+                                            title="Delete"
+                                          >
+                                            <Trash2 size={15} />
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -614,7 +752,7 @@ const TransactionHistory = () => {
             currentPage={txnPage}
             totalPages={txnTotalPages}
             onPageChange={setTxnPage}
-            totalItems={transactions.length}
+            totalItems={groupedTransactions.length}
             itemsPerPage={ITEMS_PER_PAGE}
           />
         </div>
@@ -624,7 +762,7 @@ const TransactionHistory = () => {
         <div className="th-modal-overlay" onClick={() => setShowModal(false)}>
           <div className="th-modal" onClick={(e) => e.stopPropagation()}>
             <div className="th-modal-header">
-              <h3>{editingTxn ? 'Edit Transaction' : 'Add New Transaction'}</h3>
+              <h3>{editingTxn ? 'Edit Ledger Entry' : 'Add Ledger Entry'}</h3>
               <button className="th-modal-close" onClick={() => { setShowModal(false); setEditingTxn(null); }}>
                 <X size={20} />
               </button>
@@ -703,6 +841,36 @@ const TransactionHistory = () => {
                 </div>
 
                 <div className="th-form-group">
+                  <label>Entry Type *</label>
+                  <select
+                    name="entry_type"
+                    value={formData.entry_type}
+                    onChange={handleFormChange}
+                    className="th-form-input"
+                  >
+                    {ENTRY_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="th-form-row">
+                <div className="th-form-group">
+                  <label>Item *</label>
+                  <select
+                    name="item"
+                    value={formData.item}
+                    onChange={handleFormChange}
+                    className="th-form-input"
+                  >
+                    {ITEM_OPTIONS.map((i) => (
+                      <option key={i.value} value={i.value}>{i.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="th-form-group">
                   <label>Amount (₱) *</label>
                   <input
                     type="number"
@@ -714,6 +882,33 @@ const TransactionHistory = () => {
                     className="th-form-input"
                     placeholder="0.00"
                   />
+                </div>
+              </div>
+
+              <div className="th-form-row">
+                <div className="th-form-group">
+                  <label>School Year</label>
+                  <input
+                    type="text"
+                    name="school_year"
+                    value={formData.school_year}
+                    onChange={handleFormChange}
+                    className="th-form-input"
+                    placeholder="2026-2027"
+                  />
+                </div>
+
+                <div className="th-form-group">
+                  <label>Semester</label>
+                  <select
+                    name="semester"
+                    value={formData.semester}
+                    onChange={handleFormChange}
+                    className="th-form-input"
+                  >
+                    <option value="1st">1st</option>
+                    <option value="2nd">2nd</option>
+                  </select>
                 </div>
               </div>
 
@@ -749,6 +944,17 @@ const TransactionHistory = () => {
 
               <div className="th-form-row">
                 <div className="th-form-group">
+                  <label>Transaction Date</label>
+                  <input
+                    type="date"
+                    name="transaction_date"
+                    value={formData.transaction_date}
+                    onChange={handleFormChange}
+                    className="th-form-input"
+                  />
+                </div>
+
+                <div className="th-form-group">
                   <label>Due Date</label>
                   <input
                     type="date"
@@ -762,7 +968,7 @@ const TransactionHistory = () => {
 
               {!editingTxn && (
                 <p className="th-auto-ref-note">
-                  Reference number will be auto-generated (e.g. CESI-2026-00001)
+                  Reference number will be auto-generated.
                 </p>
               )}
 
@@ -792,7 +998,7 @@ const TransactionHistory = () => {
                   className="th-btn-success"
                   disabled={submitting}
                 >
-                  {submitting ? 'Saving...' : editingTxn ? 'Update Transaction' : 'Save Transaction'}
+                  {submitting ? 'Saving...' : editingTxn ? 'Update Entry' : 'Save Entry'}
                 </button>
               </div>
             </form>
@@ -806,7 +1012,7 @@ const TransactionHistory = () => {
             <div className="th-delete-icon-wrap">
               <Trash2 size={28} />
             </div>
-            <h3>Delete Transaction</h3>
+            <h3>Delete Ledger Entry</h3>
             <p>
               Are you sure you want to delete <strong>{deleteTarget.reference_number || `#${deleteTarget.id}`}</strong> for
               <strong> {deleteTarget.student_name}</strong>?
