@@ -6,6 +6,7 @@ import "../AuthCSS/Login.css";
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
@@ -59,18 +60,35 @@ export default function Login() {
             onChange={(e) => setUsername(e.target.value)}
             placeholder="Email or Username"
           />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-          />
-          <div style={{ textAlign: "right", marginTop: "8px" }}>
-              <a href="/forgot-password" style={{ color: "#2457c5", fontWeight: 600 }}>
+          <div style={{ position: "relative", width: "100%" }}>
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              style={{ width: "100%", paddingRight: "40px", boxSizing: "border-box" }}
+            />
+            <span
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: "absolute",
+                right: "10px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                cursor: "pointer",
+                fontSize: "18px",
+                userSelect: "none",
+              }}
+            >
+              {showPassword ? "👁️" : "👁️‍🗨️"}
+            </span>
+          </div>
+          <button type="submit">Login</button>
+          <div style={{ textAlign: "right", marginTop: "12px" }}>
+              <a href="/forgot-password" style={{ color: "red", fontWeight: 600 }}>
                 Forgot Password?
               </a>
             </div>
-          <button type="submit">Login</button>
         </form>
       </div>
     </div>
