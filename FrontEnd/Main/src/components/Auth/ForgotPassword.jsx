@@ -35,7 +35,7 @@ export default function ForgotPassword() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.detail || "Failed to submit request.");
+        throw new Error(data.detail || "No account found with that email.");
       }
 
       setFeedback({
