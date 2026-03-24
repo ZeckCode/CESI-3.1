@@ -67,6 +67,10 @@ const TuitionManagement = () => {
 
   const [toasts, setToasts] = useState([]);
 
+  const [proofFile, setProofFile] = useState(null);
+  const [proofPreview, setProofPreview] = useState(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
+
   const addToast = useCallback((title, message, type = 'warning') => {
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, title, message, type }]);
@@ -92,6 +96,9 @@ const TuitionManagement = () => {
     misc_aug: '',
     misc_nov: '',
     assessment: '300',
+    credit: '0',
+    transaction_type: 'cash',
+    payment_status: 'active',
     description: '',
     status: 'active',
     is_active: true,
@@ -111,11 +118,16 @@ const TuitionManagement = () => {
       misc_aug: '',
       misc_nov: '',
       assessment: '300',
+      credit: '0',
+      transaction_type: 'cash',
+      payment_status: 'active',
       description: '',
       status: 'active',
       is_active: true,
     });
     setSelectedFee(null);
+    setProofFile(null);
+    setProofPreview(null);
   };
 
   const loadStudents = async () => {
@@ -361,8 +373,66 @@ const TuitionManagement = () => {
 
   const handleExportData = () => {
     const data = getFilteredData();
-    console.log('Export data:', data);
-    addToast('Export', 'Export feature is not implemented yet.', 'warning');
+    
+    if (data.length === 0) {
+      addToast('Export', 'No data to export.', 'warning');
+      return;
+    }
+
+    const escapeCsv = (value) => {
+      const text = String(value ?? '');
+      if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+        return `"${text.replace(/"/g, '""')}"`;
+      }
+      return text;
+    };
+
+    let csv = [];
+    if (viewMode === 'student') {
+      csv = [
+        ['Student Number', 'Student Name', 'Grade Level', 'Payment Mode', 'Parent/Guardian', 'Contact Number', 'Tuition Fee', 'Total Paid', 'Remaining Balance', 'Account Status'].join(','),
+        ...data.map((student) => [
+          escapeCsv(student.studentNumber),
+          escapeCsv(student.studentName),
+          escapeCsv(student.gradeLevel),
+          escapeCsv(paymentModeLabel(student.paymentMode)),
+          escapeCsv(student.parentName),
+          escapeCsv(student.contactNumber),
+          escapeCsv(formatCurrency(student.totalDue)),
+          escapeCsv(formatCurrency(student.totalPaid)),
+          escapeCsv(formatCurrency(student.remainingBalance)),
+          escapeCsv(student.accountStatus),
+        ].join(','))
+      ];
+    } else {
+      csv = [
+        ['Grade Level', 'Cash Payment', 'Initial Payment', 'Monthly Payment', 'Reservation Fee', 'Misc (Aug)', 'Misc (Nov)', 'Assessment', 'Status', 'Description'].join(','),
+        ...data.map((fee) => [
+          escapeCsv(fee.grade_label),
+          escapeCsv(formatCurrency(fee.cash)),
+          escapeCsv(formatCurrency(fee.initial)),
+          escapeCsv(formatCurrency(fee.monthly)),
+          escapeCsv(formatCurrency(fee.reservation_fee)),
+          escapeCsv(formatCurrency(fee.misc_aug)),
+          escapeCsv(formatCurrency(fee.misc_nov)),
+          escapeCsv(formatCurrency(fee.assessment)),
+          escapeCsv(fee.is_active ? 'Active' : 'Inactive'),
+          escapeCsv(fee.description),
+        ].join(','))
+      ];
+    }
+
+    const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tuition-${viewMode}-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    addToast('Export Successful', `Exported ${data.length} ${viewMode === 'student' ? 'students' : 'fee structures'}.`, 'success');
   };
 
   const handleInputChange = (e) => {
@@ -381,6 +451,43 @@ const TuitionManagement = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+  };
+
+  const handleProofFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type (images and PDFs only)
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      addToast('Invalid File Type', 'Please upload an image or PDF file.', 'error');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      addToast('File Too Large', 'Maximum file size is 5MB.', 'error');
+      return;
+    }
+
+    setProofFile(file);
+
+    // Create preview for images
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setProofPreview(event.target?.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // For PDFs, show a generic icon
+      setProofPreview('PDF');
+    }
+  };
+
+  const removeProofFile = () => {
+    setProofFile(null);
+    setProofPreview(null);
   };
 
   const filteredData = getFilteredData();
@@ -524,7 +631,7 @@ const TuitionManagement = () => {
                     <th>Parent</th>
                     <th>Grade</th>
                     <th>Payment Mode</th>
-                    <th>Total Due</th>
+                    <th>Tuition Fee</th>
                     <th>Total Paid</th>
                     <th>Remaining</th>
                     <th>Status</th>
@@ -767,6 +874,127 @@ const TuitionManagement = () => {
                   onChange={handleInputChange}
                   className="tm-form-input"
                 />
+              </div>
+
+              <div className="tm-form-group">
+                <label>Credit / Overpayment (₱)</label>
+                <input
+                  type="number"
+                  name="credit"
+                  value={formData.credit}
+                  onChange={handleInputChange}
+                  className="tm-form-input"
+                  placeholder="Amount paid above total due"
+                />
+              </div>
+
+              <div className="tm-form-group">
+                <label>Transaction Type</label>
+                <select
+                  name="transaction_type"
+                  value={formData.transaction_type}
+                  onChange={handleInputChange}
+                  className="tm-form-input"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="installment">Installment</option>
+                </select>
+              </div>
+
+              <div className="tm-form-group">
+                <label>Payment Status</label>
+                <select
+                  name="payment_status"
+                  value={formData.payment_status}
+                  onChange={handleInputChange}
+                  className="tm-form-input"
+                >
+                  <option value="active">Active</option>
+                  {formData.transaction_type === 'installment' && (
+                    <option value="pending">Pending</option>
+                  )}
+                  <option value="completed">Completed</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+              </div>
+
+              <div className="tm-form-group">
+                <label>Proof of Payment</label>
+                <div style={{ marginTop: '8px' }}>
+                  {!proofPreview ? (
+                    <div style={{
+                      border: '2px dashed #cbd5e1',
+                      borderRadius: '8px',
+                      padding: '24px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      backgroundColor: '#f8fafc',
+                      '&:hover': { borderColor: '#2196F3', backgroundColor: '#f0f7ff' }
+                    }} onClick={() => document.getElementById('proof-file-input')?.click()}>
+                      <div style={{ color: '#64748b', marginBottom: '8px' }}>
+                        📄 Click to upload or drag and drop
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+                        PNG, JPG, GIF or PDF (max. 5MB)
+                      </div>
+                      <input
+                        id="proof-file-input"
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={handleProofFileChange}
+                        style={{ display: 'none' }}
+                      />
+                    </div>
+                  ) : (
+                    <div style={{
+                      border: '2px solid #10b981',
+                      borderRadius: '8px',
+                      padding: '16px',
+                      backgroundColor: '#ecfdf5',
+                      position: 'relative'
+                    }}>
+                      {proofPreview === 'PDF' ? (
+                        <div style={{ textAlign: 'center', padding: '20px' }}>
+                          <div style={{ fontSize: '36px', marginBottom: '8px' }}>📄</div>
+                          <div style={{ fontSize: '14px', fontWeight: 600, color: '#065f46' }}>
+                            {proofFile?.name}
+                          </div>
+                        </div>
+                      ) : (
+                        <img
+                          src={proofPreview}
+                          alt="Proof Preview"
+                          style={{
+                            maxWidth: '100%',
+                            maxHeight: '200px',
+                            borderRadius: '6px',
+                            display: 'block',
+                            margin: '0 auto'
+                          }}
+                        />
+                      )}
+                      <button
+                        onClick={removeProofFile}
+                        style={{
+                          position: 'absolute',
+                          top: '8px',
+                          right: '8px',
+                          background: '#dc2626',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: 600
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="tm-form-group">

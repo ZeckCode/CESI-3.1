@@ -25,6 +25,10 @@ import {
   Bell,
   ClipboardCheck,
   Clock,
+  ChevronDown,
+  User,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
 import "../AdminWebsiteCSS/Dashboard.css";
@@ -61,7 +65,9 @@ const Dashboard = () => {
   const [revenueMonthly, setRevenueMonthly] = useState([]);
   const [attendanceTrend, setAttendanceTrend] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
+  const [expandedAnnouncements, setExpandedAnnouncements] = useState(new Set());
   const [scheduleToday, setScheduleToday] = useState([]);
+  const [attendanceToday, setAttendanceToday] = useState([]);
   const [subjectDistribution, setSubjectDistribution] = useState([]);
 
   useEffect(() => {
@@ -134,6 +140,16 @@ const Dashboard = () => {
     String(t.status || "").trim().toUpperCase();
 
   const getTransactionDate = (t) => t.date_created || t.due_date || null;
+
+  const toggleAnnouncementExpand = (id) => {
+    const newExpanded = new Set(expandedAnnouncements);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedAnnouncements(newExpanded);
+  };
 
   async function loadDashboardData() {
     setLoading(true);
@@ -437,7 +453,7 @@ const Dashboard = () => {
       // ─────────────────────────
       // Announcements
       // ─────────────────────────
-      setAnnouncements(anns.slice(0, 5));
+      setAnnouncements(anns.slice(0, 10));
 
       // ─────────────────────────
       // Today's schedule
@@ -473,6 +489,19 @@ const Dashboard = () => {
         .slice(0, 5);
 
       setScheduleToday(todaySched);
+
+      // ─────────────────────────
+      // Attendance for Today (students list)
+      // ─────────────────────────
+      const attendanceTodayData = todayRecords.slice(0, 10).map((r) => ({
+        id: r.id,
+        studentName: r.student_name || r.name || "Unknown Student",
+        status: normalizeStatusLower(r.status),
+        time: r.time_marked || r.created_at || "",
+        grade: r.grade || r.section || "N/A",
+      }));
+
+      setAttendanceToday(attendanceTodayData);
     } catch (err) {
       console.error("Dashboard load error:", err);
     } finally {
@@ -711,6 +740,44 @@ const Dashboard = () => {
       <section className="dash-row dash-row--2col">
         <div className="dash-card dash-card--list">
           <div className="dash-card-head">
+            <CheckCircle size={16} />
+            <h3 className="dash-card-title">Attendance for Today</h3>
+          </div>
+          {attendanceToday.length === 0 && (
+            <div className="dash-empty-state">
+              <User size={24} className="dash-empty-icon" />
+              <p className="dash-empty">No attendance records yet</p>
+              <span className="dash-empty-sub">Attendance will be recorded once students are marked</span>
+            </div>
+          )}
+          {attendanceToday.map((record) => (
+            <div key={record.id} className="dash-attendance-item">
+              <div className="dash-attendance-left">
+                <div
+                  className={`dash-attendance-badge ${record.status}`}
+                >
+                  {record.status === "present" ? (
+                    <CheckCircle size={16} />
+                  ) : (
+                    <XCircle size={16} />
+                  )}
+                </div>
+                <div className="dash-list-content">
+                  <span className="dash-list-title">{record.studentName}</span>
+                  <span className="dash-list-sub">{record.grade}</span>
+                </div>
+              </div>
+              <span
+                className={`dash-status-label dash-status-${record.status}`}
+              >
+                {record.status === "present" ? "Present" : "Absent"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="dash-card dash-card--list">
+          <div className="dash-card-head">
             <Bell size={16} />
             <h3 className="dash-card-title">Announcements</h3>
           </div>
@@ -718,16 +785,34 @@ const Dashboard = () => {
             <p className="dash-empty">No announcements yet.</p>
           )}
           {announcements.map((a) => (
-            <div key={a.id} className="dash-list-item">
-              <div className="dash-list-dot" />
-              <div className="dash-list-content">
-                <span className="dash-list-title">{a.title}</span>
-                <span className="dash-list-sub">
-                  {a.created_at
-                    ? new Date(a.created_at).toLocaleDateString()
-                    : ""}
-                </span>
+            <div key={a.id} className="dash-announcement-item">
+              <div
+                className="dash-announcement-header"
+                onClick={() => toggleAnnouncementExpand(a.id)}
+              >
+                <div className="dash-announcement-header-left">
+                  <div className="dash-list-dot" />
+                  <div className="dash-list-content">
+                    <span className="dash-list-title">{a.title}</span>
+                    <span className="dash-list-sub">
+                      {a.created_at
+                        ? new Date(a.created_at).toLocaleDateString()
+                        : ""}
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown
+                  size={18}
+                  className={`dash-announcement-toggle ${
+                    expandedAnnouncements.has(a.id) ? "expanded" : ""
+                  }`}
+                />
               </div>
+              {expandedAnnouncements.has(a.id) && (
+                <div className="dash-announcement-content">
+                  <p>{a.content || "No content provided."}</p>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -738,7 +823,11 @@ const Dashboard = () => {
             <h3 className="dash-card-title">Today's Schedule</h3>
           </div>
           {scheduleToday.length === 0 && (
-            <p className="dash-empty">No classes scheduled today.</p>
+            <div className="dash-empty-state">
+              <Calendar size={24} className="dash-empty-icon" />
+              <p className="dash-empty">No schedule yet</p>
+              <span className="dash-empty-sub">Schedule classes for today to see them here</span>
+            </div>
           )}
           {scheduleToday.map((s, i) => (
             <div key={i} className="dash-list-item">
@@ -750,7 +839,7 @@ const Dashboard = () => {
                   {s.subject_name || s.section_name || s.title || "Class"}
                 </span>
                 <span className="dash-list-sub">
-                  {s.room_name || s.teacher_name || ""}
+                  {s.room_name || s.teacher_name || "Room not specified"}
                 </span>
               </div>
             </div>
