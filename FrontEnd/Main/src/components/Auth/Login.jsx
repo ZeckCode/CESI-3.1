@@ -7,6 +7,7 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
@@ -59,18 +60,37 @@ export default function Login() {
             onChange={(e) => setUsername(e.target.value)}
             placeholder="Email or Username"
           />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-          />
-          <div style={{ textAlign: "right", marginTop: "8px" }}>
-              <a href="/forgot-password" style={{ color: "#2457c5", fontWeight: 600 }}>
+          <div style={{ position: "relative", marginTop: "10px" }}>
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              style={{ paddingRight: "40px", width: "100%" }}
+            />
+            <div
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: "absolute",
+                right: "12px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                cursor: "pointer",
+                fontSize: "18px",
+                padding: "5px",
+                color: "#666",
+                userSelect: "none",
+              }}
+            >
+              {showPassword ? "👁️" : "👁️‍🗨️"}
+            </div>
+          </div>
+          <button type="submit">Login</button>
+          <div style={{ textAlign: "right", marginTop: "16px" }}>
+              <a href="/forgot-password" style={{ color: "red", fontWeight: 600, textDecoration: "none" }}>
                 Forgot Password?
               </a>
             </div>
-          <button type="submit">Login</button>
         </form>
       </div>
     </div>
