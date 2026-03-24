@@ -93,6 +93,19 @@ const resolveAttendanceOverallStatus = ({ present, absent, late, excused }) => {
   return 'unknown';
 };
 
+/* Helper: format attendance status for display */
+const formatAttendanceStatus = (status) => {
+  const statusMap = {
+    'present': 'Present',
+    'absent': 'Absent',
+    'partial': 'Partial',
+    'late': 'Late',
+    'excused': 'Excused',
+    'unknown': 'Unknown'
+  };
+  return statusMap[String(status || '').toLowerCase()] || String(status || 'Unknown');
+};
+
 const escapeCsvValue = (value) => {
   const text = String(value ?? '');
   if (text.includes(',') || text.includes('"') || text.includes('\n')) {
@@ -379,15 +392,13 @@ const GradesRecords = () => {
     if (activeTab === 'history') {
       downloadCsv(
         [
-          ['School Year', 'Student', 'Student Number', 'Grade Level', 'Section', 'Subject', 'Subject Code', 'Final Grade', 'Remarks', 'Teacher'],
+          ['School Year', 'Student', 'Student Number', 'Grade Level', 'Section', 'Final Grade', 'Remarks', 'Teacher'],
           ...filteredHistory.map((row) => [
             row.school_year,
             row.student_name,
             row.student_number || '—',
             toGradeLabel(row.grade_level),
             row.section_name || '—',
-            row.subject_name,
-            row.subject_code || '—',
             row.final_grade ?? '—',
             row.remarks || '—',
             row.teacher_name || '—',
@@ -791,7 +802,6 @@ const GradesRecords = () => {
                   <th>Student</th>
                   <th>Grade Level</th>
                   <th>Section</th>
-                  <th>Subject</th>
                   <th>Final Grade</th>
                   <th>Remarks</th>
                   <th>Teacher</th>
@@ -809,12 +819,6 @@ const GradesRecords = () => {
                     </td>
                     <td data-label="Grade Level">{toGradeLabel(record.grade_level)}</td>
                     <td data-label="Section">{record.section_name || '—'}</td>
-                    <td data-label="Subject">
-                      <div className="gr-stack">
-                        <span>{record.subject_name}</span>
-                        <span className="gr-muted">{record.subject_code || '—'}</span>
-                      </div>
-                    </td>
                     <td data-label="Final Grade">
                       {record.final_grade !== null ? (
                         <span className={gradeChipClass(record.final_grade)}>{record.final_grade}</span>
@@ -862,7 +866,7 @@ const GradesRecords = () => {
                         <td data-label="Section">{record.section_name || '—'}</td>
                         <td data-label="Status">
                           <span className={`gr-attendance-badge gr-att-${record.overall_status}`}>
-                            {record.overall_status}
+                            {formatAttendanceStatus(record.overall_status)}
                           </span>
                         </td>
                         <td data-label="Subjects">{record.total_subjects}</td>
@@ -884,7 +888,7 @@ const GradesRecords = () => {
                                   </div>
                                   <div className="gr-stack">
                                     <span className="gr-muted">{subject.schedule_time}</span>
-                                    <span className={`gr-attendance-badge gr-att-${subject.status}`}>{subject.status}</span>
+                                    <span className={`gr-attendance-badge gr-att-${subject.status}`}>{formatAttendanceStatus(subject.status)}</span>
                                   </div>
                                 </div>
                               ))}
