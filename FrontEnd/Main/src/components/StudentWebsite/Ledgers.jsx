@@ -104,14 +104,25 @@ const Ledgers = () => {
     setInstallmentPage(1);
   }, [tuitionInstallments.length]);
 
-  const txTotalPages = Math.max(1, Math.ceil(transactions.length / ITEMS_PER_PAGE));
+  // Filter out Pending transactions and Contribution types
+  const filteredTransactions = useMemo(
+    () =>
+      transactions.filter(
+        (tx) =>
+          normalizeStatus(tx.status) !== "pending" &&
+          tx.transaction_type !== "CONTRIBUTION"
+      ),
+    [transactions]
+  );
+
+  const txTotalPages = Math.max(1, Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE));
   const paginatedTransactions = useMemo(
     () =>
-      transactions.slice(
+      filteredTransactions.slice(
         (txPage - 1) * ITEMS_PER_PAGE,
         txPage * ITEMS_PER_PAGE
       ),
-    [transactions, txPage]
+    [filteredTransactions, txPage]
   );
 
   const installmentTotalPages = Math.max(1, Math.ceil(tuitionInstallments.length / ITEMS_PER_PAGE));
@@ -267,6 +278,10 @@ const Ledgers = () => {
             <div style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}>
               No transactions found.
             </div>
+          ) : filteredTransactions.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}>
+              No completed transactions to display.
+            </div>
           ) : (
             <>
               <div className="table-responsive">
@@ -279,6 +294,7 @@ const Ledgers = () => {
                       <th className="text-center">Debit</th>
                       <th className="text-center">Credit</th>
                       <th className="text-right">Balance</th>
+                      <th className="text-center">Total</th>
                       <th className="text-center">Status</th>
                     </tr>
                   </thead>
@@ -288,6 +304,7 @@ const Ledgers = () => {
                       const isCharge = tx.entry_type === "DEBIT";
                       const debit = Number(tx.debit || 0);
                       const credit = Number(tx.credit || 0);
+                      const total = debit + credit;
 
                       return (
                         <tr
@@ -329,8 +346,6 @@ const Ledgers = () => {
 
                               <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
                                 {tx.due_date ? `Due: ${tx.due_date}` : "No due date"}
-                                {" • "}
-                                {METHOD_LABELS[tx.payment_method] || tx.payment_method}
                               </span>
 
                               {tx.description ? (
@@ -365,6 +380,14 @@ const Ledgers = () => {
                             {formatCurrency(tx.balance)}
                           </td>
 
+                          <td
+                            data-label="Total"
+                            className="text-center"
+                            style={{ fontWeight: 700, color: "#334155" }}
+                          >
+                            {formatCurrency(total)}
+                          </td>
+
                           <td data-label="Status" className="text-center">
                             <span className={`status-pill ${normalizeStatus(tx.status)}`}>
                               {tx.status}
@@ -394,6 +417,12 @@ const Ledgers = () => {
                       </td>
                       <td className="text-right" style={{ color: "#0284c7" }}>
                         {formatCurrency(summary?.balance || 0)}
+                      </td>
+                      <td className="text-center" style={{ color: "#334155" }}>
+                        {formatCurrency(
+                          (Number(summary?.total_billed || 0) +
+                            Number(summary?.total_paid || 0))
+                        )}
                       </td>
                       <td></td>
                     </tr>
@@ -486,7 +515,7 @@ const Ledgers = () => {
                       }}
                     >
                       <div style={{ fontSize: "0.75rem", color: "#64748b", marginBottom: "0.5rem" }}>
-                        TOTAL TUITION FEE
+                        TF (TUITION FEE)
                       </div>
                       <div style={{ fontSize: "1.25rem", fontWeight: "600", color: "#0284c7" }}>
                         {formatCurrency(student.total_due)}

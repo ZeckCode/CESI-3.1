@@ -84,7 +84,7 @@ function AdminDashboard() {
   const renderContent = () => {
     switch (activeMenu) {
       case "dashboard":
-        return <Dashboard />;
+        return <Dashboard onNavigateToEnrollment={() => setActiveMenu("enrollment")} />;
       case "enrollment":
         return <EnrollmentManagement />;
       case "transaction-history":

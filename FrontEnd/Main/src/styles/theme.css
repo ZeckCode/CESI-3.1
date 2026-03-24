@@ -8,7 +8,7 @@
   --text-primary: #1f2937;
   --text-secondary: #6b7280;
   --muted: #9ca3af;
-  --danger: #ef4444;
+  --danger: #e16b6b; /* softened danger color for better readability */
 
   --sidebar-width: 280px;
   --sidebar-collapsed-width: 80px;

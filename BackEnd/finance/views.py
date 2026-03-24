@@ -8,13 +8,16 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
 from accounts.models import User, UserProfile
-from .models import Transaction, TuitionConfig
+from .models import Transaction, TuitionConfig, ProofOfPayment
 from .serializers import (
     TransactionSerializer,
     TransactionCreateSerializer,
     ParentDropdownSerializer,
     TuitionConfigSerializer,
     TuitionConfigCreateSerializer,
+    ProofOfPaymentSerializer,
+    ProofOfPaymentCreateSerializer,
+    ProofOfPaymentReviewSerializer,
 )
 
 
@@ -581,3 +584,146 @@ def my_tuition_installments(request):
         })
 
     return Response(data)
+
+
+# ═══════════════════════════════════════════════════════════
+# PROOF OF PAYMENT VIEWS
+# ═══════════════════════════════════════════════════════════
+
+class ProofOfPaymentListCreate(generics.ListCreateAPIView):
+    """
+    List and create proof of payment submissions.
+    - Parents can view their own submissions
+    - Parents can submit new proofs
+    - Admins can view all submissions
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if getattr(user, 'role', None) == 'ADMIN':
+            # Admins see all
+            qs = ProofOfPayment.objects.select_related('parent', 'transaction', 'reviewed_by').all()
+        else:
+            # Parents see only their own
+            qs = ProofOfPayment.objects.filter(parent=user).select_related(
+                'transaction', 'reviewed_by'
+            )
+
+        # Filter by status if provided
+        status_filter = self.request.query_params.get('status', '').strip().upper()
+        if status_filter in ['PENDING', 'APPROVED', 'REJECTED', 'RESUBMIT']:
+            qs = qs.filter(status=status_filter)
+
+        return qs.order_by('-submitted_date')
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return ProofOfPaymentCreateSerializer
+        return ProofOfPaymentSerializer
+
+    def create(self, request, *args, **kwargs):
+        """Create a new proof of payment submission."""
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        proof = serializer.save()
+        output = ProofOfPaymentSerializer(proof).data
+        return Response(output, status=status.HTTP_201_CREATED)
+
+
+class ProofOfPaymentDetail(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update, or delete a proof of payment.
+    - Admins can review/approve/reject
+    - Parents can update their own pending submissions
+    """
+    permission_classes = [IsAuthenticated]
+    queryset = ProofOfPayment.objects.all()
+
+    def get_serializer_class(self):
+        if self.request.method in ('PUT', 'PATCH'):
+            # Check if admin doing review
+            if getattr(self.request.user, 'role', None) == 'ADMIN':
+                return ProofOfPaymentReviewSerializer
+            # Parent editing their own
+            return ProofOfPaymentCreateSerializer
+        return ProofOfPaymentSerializer
+
+    def get_object(self):
+        obj = super().get_object()
+        user = self.request.user
+        # Check permissions
+        if getattr(user, 'role', None) != 'ADMIN' and obj.parent != user:
+            self.permission_denied(self.request)
+        return obj
+
+    def update(self, request, *args, **kwargs):
+        obj = self.get_object()
+        user = request.user
+
+        # Admin review logic
+        if getattr(user, 'role', None) == 'ADMIN':
+            serializer = self.get_serializer(obj, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(ProofOfPaymentSerializer(obj).data)
+
+        # Parent editing their own pending submission
+        if obj.status != 'PENDING' and obj.status != 'RESUBMIT':
+            return Response(
+                {'detail': 'Can only edit pending or resubmit-required proofs.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = self.get_serializer(obj, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(ProofOfPaymentSerializer(obj).data)
+
+    def destroy(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if obj.status not in ['PENDING', 'REJECTED', 'RESUBMIT']:
+            return Response(
+                {'detail': 'Can only delete pending, rejected, or resubmit-required proofs.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().destroy(request, *args, **kwargs)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_payment_proofs(request):
+    """Get current user's proof of payment submissions."""
+    if getattr(request.user, 'role', None) not in ['PARENT_STUDENT', 'ADMIN']:
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    if getattr(request.user, 'role', None) == 'ADMIN':
+        proofs = ProofOfPayment.objects.select_related('parent', 'transaction', 'reviewed_by').all()
+    else:
+        proofs = ProofOfPayment.objects.filter(parent=request.user).select_related(
+            'transaction', 'reviewed_by'
+        )
+
+    status_filter = request.query_params.get('status', '').strip().upper()
+    if status_filter in ['PENDING', 'APPROVED', 'REJECTED', 'RESUBMIT']:
+        proofs = proofs.filter(status=status_filter)
+
+    serializer = ProofOfPaymentSerializer(proofs, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def payment_proof_stats(request):
+    """Get statistics on proof of payment submissions."""
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    stats = {
+        'pending': ProofOfPayment.objects.filter(status='PENDING').count(),
+        'approved': ProofOfPayment.objects.filter(status='APPROVED').count(),
+        'rejected': ProofOfPayment.objects.filter(status='REJECTED').count(),
+        'resubmit': ProofOfPayment.objects.filter(status='RESUBMIT').count(),
+        'total': ProofOfPayment.objects.count(),
+    }
+    return Response(stats)

@@ -196,20 +196,20 @@
 }
 
 .admin-btn-delete {
-  background: #ef4444;
+  background: #e16b6b;
   color: white;
   padding: 8px 12px;
   font-size: 12px;
 }
 
 .admin-btn-delete:hover {
-  background: #dc2626;
+  background: #c64f4f;
   transform: scale(1.05);
 }
 
 .admin-btn-delete-small {
-  background: #fee2e2;
-  color: #dc2626;
+  background: #fff0f0;
+  color: #c64f4f;
   border: none;
   padding: 6px 10px;
   border-radius: 6px;
@@ -221,7 +221,7 @@
 }
 
 .admin-btn-delete-small:hover {
-  background: #fecaca;
+  background: #fbd2d2;
   transform: scale(1.1);
 }
 
@@ -1689,4 +1689,140 @@
 .inline-select:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(91, 163, 199, 0.2);
+}
+/* ============================================
+   ADMIN CLASS MANAGEMENT - STYLED DROPDOWNS
+   ============================================ */
+
+.admin-class-management {
+  padding: 20px;
+  background: #ffffff;
+  min-height: 100vh;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* ---------- FORM GROUPS (consistent with inputs) ---------- */
+.admin-form-group {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-form-group label {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+/* ALL SELECTS – unified styling */
+/* ============================================
+   ENHANCED DROPDOWN STYLES – NATURAL TO THEME
+   ============================================ */
+
+/* Unified select styling for all dropdowns inside admin class management */
+.admin-class-management select,
+.admin-class-management .admin-form-group select,
+.admin-class-management .admin-filter-box select {
+  /* Base appearance */
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: #ffffff;
+  border: 2px solid #e5e8f0;
+  border-radius: 8px;
+  padding: 10px 36px 10px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1d2e;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  /* Custom arrow (themed) */
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+}
+
+/* Hover state */
+.admin-class-management select:hover {
+  border-color: #cbd5e1;
+  background-color: #fefefe;
+}
+
+/* Focus state – matches theme primary color */
+.admin-class-management select:focus {
+  outline: none;
+  border-color: #5BA3C7;
+  box-shadow: 0 0 0 3px rgba(91, 163, 199, 0.2);
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235BA3C7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+/* Disabled state */
+.admin-class-management select:disabled {
+  background-color: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* ========== FILTER BOX SPECIFIC ========== */
+/* The filter box container already has a border, so the inner select should be borderless */
+.admin-class-management .admin-filter-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: white;
+  padding: 0 12px 0 12px;
+  border-radius: 8px;
+  border: 2px solid #e5e8f0;
+  transition: border-color 0.2s ease;
+}
+
+.admin-class-management .admin-filter-box:focus-within {
+  border-color: #5BA3C7;
+  box-shadow: 0 0 0 3px rgba(91, 163, 199, 0.1);
+}
+
+.admin-class-management .admin-filter-box select {
+  flex: 1;
+  border: none;
+  background-color: transparent;
+  padding: 12px 28px 12px 0;
+  background-position: right 0 center;
+  background-size: 16px;
+  box-shadow: none;
+}
+
+.admin-class-management .admin-filter-box select:focus {
+  border: none;
+  box-shadow: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235BA3C7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+/* ========== MODAL DROPDOWNS (if needed) ========== */
+.admin-modal-content select {
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* ========== RESPONSIVE ADJUSTMENTS ========== */
+@media (max-width: 768px) {
+  .admin-class-management select,
+  .admin-class-management .admin-form-group select {
+    padding: 10px 32px 10px 12px;
+    font-size: 13px;
+  }
+
+  .admin-class-management .admin-filter-box {
+    padding: 0 8px;
+  }
+
+  .admin-class-management .admin-filter-box select {
+    padding: 12px 28px 12px 0;
+    font-size: 13px;
+  }
 }

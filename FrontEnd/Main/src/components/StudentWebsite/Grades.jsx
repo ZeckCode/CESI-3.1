@@ -67,7 +67,27 @@ const Grades = () => {
       return grade.toFixed(1);
     }
     // Show "Pending" for current quarter, "—" for others
-    return getCurrentQuarter() === quarter ? '(Pending)' : '—';
+    return getCurrentQuarter() === quarter ? 'Pending' : '—';
+  };
+
+  // Helper to get status badge for subject based on quarter grades
+  const getSubjectStatusBadge = (subject) => {
+    const currentQuarter = getCurrentQuarter();
+    const currentQuarterGrade = subject[`q${currentQuarter}`];
+    
+    // Show "Pending" badge if current quarter has no grade
+    if (currentQuarterGrade === null) {
+      return { status: 'pending', label: 'Pending' };
+    }
+    
+    // Show "Passed" or "Failed" based on final grade if available
+    if (subject.final_grade !== null) {
+      return subject.final_grade >= 75 
+        ? { status: 'passed', label: 'Passed' }
+        : { status: 'failed', label: 'Failed' };
+    }
+    
+    return null;
   };
 
   const handleExport = () => {
@@ -192,13 +212,24 @@ const Grades = () => {
                       </span>
                     </td>
                     <td data-label="Remarks">
-                      {subj.remarks ? (
-                        <span className={`sg-status-badge sg-status-${subj.remarks.toLowerCase()}`}>
-                          {subj.remarks}
-                        </span>
-                      ) : (
-                        <span className="sg-text-muted">—</span>
-                      )}
+                      {(() => {
+                        const statusBadge = getSubjectStatusBadge(subj);
+                        if (statusBadge) {
+                          return (
+                            <span className={`sg-status-badge sg-status-${statusBadge.status}`}>
+                              {statusBadge.label}
+                            </span>
+                          );
+                        }
+                        if (subj.remarks) {
+                          return (
+                            <span className={`sg-status-badge sg-status-${subj.remarks.toLowerCase()}`}>
+                              {subj.remarks}
+                            </span>
+                          );
+                        }
+                        return <span className="sg-text-muted">—</span>;
+                      })()}
                     </td>
                   </tr>
                 ))}
