@@ -205,6 +205,28 @@
   color: white;
 }
 
+/* Status Badge Styles - All Enrollment Statuses */
+.status-badge.pending {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
+.status-badge.active {
+  background: var(--success);
+  color: #ffffff;
+}
+
+.status-badge.completed {
+  background: #2196F3;
+  color: #ffffff;
+}
+
+.status-badge.dropped {
+  background: var(--danger);
+  color: #ffffff;
+  border: 2px solid #7f1d1d;
+}
+
 .status-badge.inactive {
   background: var(--gray-600);
 }

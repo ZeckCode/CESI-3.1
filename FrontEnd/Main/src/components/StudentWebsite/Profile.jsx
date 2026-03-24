@@ -53,6 +53,17 @@ const formatFullName = (...parts) =>
     .filter(Boolean)
     .join(" ");
 
+// Format enrollment status for display
+const formatEnrollmentStatus = (status) => {
+  const statusMap = {
+    "PENDING": "Pending",
+    "ACTIVE": "Active",
+    "COMPLETED": "Completed",
+    "DROPPED": "Dropped",
+  };
+  return statusMap[String(status).toUpperCase()] || status || "—";
+};
+
 async function fetchWithToken(url, options = {}) {
   const token = getToken();
   const headers = {
@@ -391,7 +402,7 @@ const Profile = () => {
             )} */}
 
             <span className={`status-badge ${String(studentData.status).toLowerCase()}`}>
-              {studentData.status}
+              {formatEnrollmentStatus(studentData.status)}
             </span>
           </div>
 
