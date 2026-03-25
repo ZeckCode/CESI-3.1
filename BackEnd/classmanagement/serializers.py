@@ -9,16 +9,21 @@ class RoomSerializer(serializers.ModelSerializer):
 
 
 class SchoolYearSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+
     class Meta:
         model = SchoolYear
-        fields = ["id", "name", "start_date", "end_date", "is_active", "created_at"]
+        fields = ["id", "name", "start_date", "end_date", "is_active", "created_at", "status"]
+
+    def get_status(self, obj):
+        return obj.status
 
 
 class ScheduleReadSerializer(serializers.ModelSerializer):
     """Read-only schedule with nested human-readable names."""
     teacher_name = serializers.CharField(source="teacher.username", read_only=True)
-    subject_name = serializers.CharField(source="subject.name", read_only=True)
-    subject_code = serializers.CharField(source="subject.code", read_only=True)
+    subject_name = serializers.SerializerMethodField()
+    subject_code = serializers.CharField(source="subject.code", read_only=True, allow_null=True)
     section_name = serializers.CharField(source="section.name", read_only=True)
     grade_level = serializers.CharField(source="section.grade_level_display", read_only=True)
     room_code = serializers.CharField(source="room.code", read_only=True, allow_null=True)
@@ -35,6 +40,11 @@ class ScheduleReadSerializer(serializers.ModelSerializer):
             "school_year", "school_year_name",
         ]
 
+    def get_subject_name(self, obj):
+        if obj.subject:
+            return obj.subject.name
+        return "Free Period"  # Fallback for non-subject entries
+
 
 class ScheduleWriteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -43,8 +53,6 @@ class ScheduleWriteSerializer(serializers.ModelSerializer):
             "id", "teacher", "subject", "section",
             "day_of_week", "start_time", "end_time", "room", "school_year",
         ]
-        
-        
 
     def validate(self, data):
         start = data.get("start_time") or (self.instance and self.instance.start_time)
