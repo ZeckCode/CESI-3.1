@@ -4,15 +4,15 @@
    ============================================================ */
 
 :root {
-  --primary: #2563eb;
-  --primary-soft: #dbeafe;
-  --primary-light: #eff6ff;
+  --primary: #5ba3c7;
+  --primary-soft: #e0f2f9;
+  --primary-light: #e8f6fa;
 
-  --success: #16a34a;
-  --success-soft: #dcfce7;
-  --success-light: #f0fdf4;
+  --success: #10b981;
+  --success-soft: #d1fae5;
+  --success-light: #ecfdf5;
 
-  --warning: #d97706;
+  --warning: #f59e0b;
   --warning-soft: #fef3c7;
   --warning-light: #fffbeb;
 
@@ -20,19 +20,19 @@
   --info-soft: #cffafe;
   --info-light: #f0f9fa;
 
-  --danger: #dc2626;
+  --danger: #ef4444;
   --danger-soft: #fee2e2;
 
   --text: #1f2937;
   --text-secondary: #6b7280;
   --muted: #9ca3af;
-  --gray-dark: #111827;
+  --gray-dark: #1f2937;
   --gray-light: #f9fafb;
   --gray-lighter: #f3f4f6;
 
   --border: #e5e7eb;
   --bg: #ffffff;
-  --bg-subtle: #fafafa;
+  --bg-subtle: #f9fafb;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 10px 13px rgba(0, 0, 0, 0.05);
@@ -57,7 +57,7 @@ html, body {
 .tdb {
   min-height: 100vh;
   padding: 24px 28px;
-  background: var(--bg-subtle);
+  background: #ffffff;
   color: var(--text);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
