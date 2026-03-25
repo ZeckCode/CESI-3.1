@@ -265,14 +265,8 @@ const SPerformance = () => {
     <div className="sp">
       <header className="sp__header">
         <div className="sp__headerLeft">
-          <p className="sp__title">
-            Analysis Dashboard
-            {sections.map((sec) => (
-              <option key={sec.id} value={String(sec.id)}>
-                {GRADE_LABEL(sec.grade_level)} - {sec.name}
-              </option>
-            ))}
-          </p>
+          <h1 className="sp__title">Performance Analysis</h1>
+          <p className="sp__subtitle">Track student grades, attendance, and academic progress</p>
         </div>
 
         <div className="sp__headerControls">
@@ -312,9 +306,9 @@ const SPerformance = () => {
 
       <section className="sp__cards">
         <div className="spCard spCard--primary">
-          <div className="spCard__icon" aria-hidden="true">🧮</div>
+          <div className="spCard__icon" aria-hidden="true">📊</div>
           <div>
-            <div className="spCard__label">CLASS AVERAGE</div>
+            <div className="spCard__label">Class Average</div>
             <div className="spCard__value">
               {stats.classAvg !== null ? `${stats.classAvg.toFixed(1)}%` : "—"}
             </div>
@@ -322,9 +316,9 @@ const SPerformance = () => {
         </div>
 
         <div className="spCard spCard--success">
-          <div className="spCard__icon" aria-hidden="true">🏆</div>
+          <div className="spCard__icon" aria-hidden="true">⭐</div>
           <div>
-            <div className="spCard__label">TOP GRADE</div>
+            <div className="spCard__label">Top Grade</div>
             <div className="spCard__value">
               {stats.topGrade !== null ? `${stats.topGrade.toFixed(1)}%` : "—"}
             </div>
@@ -334,9 +328,9 @@ const SPerformance = () => {
         <div className="spCard spCard--danger">
           <div className="spCard__icon" aria-hidden="true">⚠️</div>
           <div>
-            <div className="spCard__label">AT RISK</div>
+            <div className="spCard__label">At Risk</div>
             <div className="spCard__value">
-              {stats.atRiskList.length}{" "}
+              {stats.atRiskList.length}
               <span className="spCard__valueSub">
                 {stats.atRiskList.length === 1 ? "Student" : "Students"}
               </span>
@@ -358,7 +352,7 @@ const SPerformance = () => {
         </div>
 
         <div className="spPanel">
-          <div className="spPanel__title">Passing Rate Status</div>
+          <div className="spPanel__title">Passing Rate Overview</div>
           <div className="spPanel__chart">
             {stats.total > 0 ? (
               <Doughnut data={doughnutData} options={commonOptions} />
@@ -371,7 +365,7 @@ const SPerformance = () => {
 
       <section className="spBlock">
         <div className="spBlock__head spBlock__head--dark">
-          <h6 className="spBlock__headTitle">Ranking Top Performers</h6>
+          <h6 className="spBlock__headTitle">🏆 Top Performers</h6>
           <span className="spPill spPill--primary">Top 5 Students</span>
         </div>
 
@@ -423,7 +417,7 @@ const SPerformance = () => {
 
       <section className="spBlock spBlock--mb">
         <div className="spBlock__head spBlock__head--danger">
-          <h6 className="spBlock__headTitle">Students At Risk / Underperforming</h6>
+          <h6 className="spBlock__headTitle">⚠️ Students Needing Support</h6>
           <span className="spPill spPill--lightDanger">Action Required</span>
         </div>
 

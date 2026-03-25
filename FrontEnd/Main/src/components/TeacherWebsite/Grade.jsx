@@ -621,27 +621,21 @@ const Grade = () => {
   return (
     <div className="ge">
       <header className="ge__header">
-        
-        <p className="ge__title">
+        <h1 className="ge__title">
           <span className="ge__subjectTag">{teacherSubject.subject_name}</span>
-          {" · "}
           <span className="ge__classTag">
             {currentSection
               ? `${gradeLabel(currentSection.grade_level)} - ${currentSection.name}`
               : "No section assigned"}
           </span>
-          {" · "}
-          <span className="ge__quarterTag">Quarter {quarter}</span>
+          <span className="ge__quarterTag">Q{quarter}</span>
           {schoolYear && (
-            <>
-              {" · "}
-              <span className="ge__syTag">
-                <Calendar size={12} style={{ marginRight: 4, verticalAlign: "middle" }} />
-                S.Y. {schoolYear.name || `${schoolYear.start_year}-${schoolYear.end_year}`}
-              </span>
-            </>
+            <span className="ge__syTag">
+              <Calendar size={12} style={{ verticalAlign: "middle" }} />
+              S.Y. {schoolYear.name || `${schoolYear.start_year}-${schoolYear.end_year}`}
+            </span>
           )}
-        </p>
+        </h1>
       </header>
 
       <div className="ge__toolbar">
@@ -775,21 +769,24 @@ const Grade = () => {
               <tr>
                 <th className="ge__th ge__th--left ge__th--sticky">Student Name</th>
                 {CATEGORIES.map(({ key, label }) =>
-                  itemsByCategory(key).map((item) => (
-                    <th
-                      key={item.id}
-                      className="ge__th ge__th--score"
-                      title={`${label}: ${item.title} (/${item.total_score})`}
-                    >
-                      <span className={`ge__thCat ge__thCat--${key.toLowerCase()}`}>
-                        {key[0]}
-                      </span>
-                      <span className="ge__thTitle">
-                        {item.title.length > 8 ? item.title.slice(0, 8) + "…" : item.title}
-                      </span>
-                      <span className="ge__thMax">/{item.total_score}</span>
-                    </th>
-                  ))
+                  itemsByCategory(key).map((item, idx) => {
+                    const abbr = key[0] + (idx + 1);
+                    return (
+                      <th
+                        key={item.id}
+                        className="ge__th ge__th--score"
+                        title={`${label}: ${item.title} (/${item.total_score})`}
+                      >
+                        <span className={`ge__thCat ge__thCat--${key.toLowerCase()}`}>
+                          {abbr}
+                        </span>
+                        <span className="ge__thTitle">
+                          {item.title.length > 8 ? item.title.slice(0, 8) + "…" : item.title}
+                        </span>
+                        <span className="ge__thMax">/{item.total_score}</span>
+                      </th>
+                    );
+                  })
                 )}
                 <th className="ge__th ge__th--score">CS</th>
                 <th className="ge__th">Quarter Grade</th>
@@ -899,7 +896,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div style={{ color: "#ef4444", marginBottom: "12px", fontSize: "14px", fontWeight: "500" }}>⚠️ {error}</div>}
+              {error && <div className="ge__error">⚠️ {error}</div>}
               <label>Title</label>
               <input
                 className="ge__input"
@@ -985,7 +982,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div style={{ color: "#ef4444", marginBottom: "12px", fontSize: "14px", fontWeight: "500" }}>⚠️ {error}</div>}
+              {error && <div className="ge__error">⚠️ {error}</div>}
               <label>Title</label>
               <input
                 className="ge__input"
@@ -1066,7 +1063,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div style={{ color: "#ef4444", marginBottom: "12px", fontSize: "14px", fontWeight: "500" }}>⚠️ {error}</div>}
+              {error && <div className="ge__error">⚠️ {error}</div>}
               <p className="ge__scoreInfo">
                 <strong>{scoreModal.student.student_name}</strong>
                 <br />
@@ -1111,7 +1108,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div style={{ color: "#ef4444", marginBottom: "12px", fontSize: "14px", fontWeight: "500" }}>⚠️ {error}</div>}
+              {error && <div className="ge__error">⚠️ {error}</div>}
               <p className="ge__scoreInfo">
                 <strong>{csModal.student.student_name}</strong>
                 <br />
@@ -1154,7 +1151,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div style={{ color: "#ef4444", marginBottom: "12px", fontSize: "14px", fontWeight: "500" }}>⚠️ {error}</div>}
+              {error && <div className="ge__error">⚠️ {error}</div>}
               <p className="ge__weightNote">
                 Adjust how much each category contributes to the quarter grade.
                 Total must equal 100%.

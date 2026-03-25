@@ -191,7 +191,6 @@ const OrganizationalChart = () => {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Role</th>
-                <th>Position</th>
               </tr>
             </thead>
             <tbody>
@@ -207,7 +206,6 @@ const OrganizationalChart = () => {
                   </td>
                   <td>{admin.email}</td>
                   <td><span className="org-role-badge admin">Administrator</span></td>
-                  <td>{admin.admin_profile?.permissions_level || '—'}</td>
                 </tr>
               ))}
               {teachers.map((teacher) => (
@@ -222,7 +220,6 @@ const OrganizationalChart = () => {
                   </td>
                   <td>{teacher.email}</td>
                   <td><span className="org-role-badge teacher">Faculty</span></td>
-                  <td>{teacher.teacher_profile?.subject?.name || '—'}</td>
                 </tr>
               ))}
             </tbody>

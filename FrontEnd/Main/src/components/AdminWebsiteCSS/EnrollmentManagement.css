@@ -107,92 +107,100 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 7px 10px;
+  padding: 6px 8px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   font-family: 'DM Sans', sans-serif;
   background: #4f6ef7;
   color: white;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  min-width: 28px;
+  min-height: 28px;
 }
-.btn-edit:hover { background: #3a57e8; }
+.btn-edit:hover { background: #3a57e8; transform: scale(1.05); }
 
 .btn-delete {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 7px 10px;
+  padding: 6px 8px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   font-family: 'DM Sans', sans-serif;
   background: #fee2e2;
   color: #dc2626;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  min-width: 28px;
+  min-height: 28px;
 }
-.btn-delete:hover { background: #fecaca; }
+.btn-delete:hover { background: #fecaca; transform: scale(1.05); }
 
 .btn-promote {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 7px 12px;
+  gap: 3px;
+  padding: 6px 9px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   font-family: 'DM Sans', sans-serif;
   background: #eff6ff;
   color: #1d4ed8;
-  transition: background 0.2s;
+  transition: all 0.2s;
   white-space: nowrap;
+  min-width: 28px;
+  min-height: 28px;
 }
-.btn-promote:hover { background: #dbeafe; }
+.btn-promote:hover { background: #dbeafe; transform: scale(1.05); }
 
 .btn-approve {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 7px 14px;
+  gap: 3px;
+  padding: 6px 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   font-family: 'DM Sans', sans-serif;
   background: #d1fae5;
-  color: #065f46;
-  transition: background 0.2s;
+  color: #047857;
+  transition: all 0.2s;
   white-space: nowrap;
+  min-height: 28px;
 }
-.btn-approve:hover { background: #a7f3d0; }
+.btn-approve:hover { background: #a7f3d0; transform: scale(1.05); }
 
 .btn-decline {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 7px 14px;
+  gap: 3px;
+  padding: 6px 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   font-family: 'DM Sans', sans-serif;
   background: #fee2e2;
   color: #991b1b;
-  transition: background 0.2s;
+  transition: all 0.2s;
   white-space: nowrap;
+  min-height: 28px;
 }
-.btn-decline:hover { background: #fecaca; }
+.btn-decline:hover { background: #fecaca; transform: scale(1.05); }
 
 /* ========== STATS (using unified StatCard component) ========== */
 .enrollment-management .unified-stats-grid {
@@ -252,98 +260,111 @@
 /* ========== TABLE ========== */
 .enrollments-container {
   background: white;
-  border-radius: 14px;
+  border-radius: 12px;
   border: 1px solid #e5e8f0;
   overflow-x: auto;
   overflow-y: visible;
   margin-bottom: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
 }
 
 .enrollments-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1100px;
+  min-width: 1000px;
 }
 
 .enrollments-table thead {
-  background: #f8f9fc;
-  border-bottom: 1px solid #e5e8f0;
+  background: linear-gradient(135deg, #f8f9fc 0%, #f0f3ff 100%);
+  border-bottom: 2px solid #e5e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .enrollments-table th {
-  padding: 13px 16px;
+  padding: 12px 14px;
   text-align: left;
-  font-size: 11px;
-  font-weight: 600;
-  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 700;
+  color: #475569;
   text-transform: uppercase;
-  letter-spacing: 0.7px;
+  letter-spacing: 0.5px;
   white-space: nowrap;
 }
 
 .enrollments-table tbody tr {
-  border-bottom: 1px solid #f3f4f8;
-  transition: background 0.15s;
+  border-bottom: 1px solid #f0f2f7;
+  transition: all 0.15s ease;
+  background: #ffffff;
 }
-.enrollments-table tbody tr:last-child { border-bottom: none; }
-.enrollments-table tbody tr:hover { background: #f8f9fc; }
+.enrollments-table tbody tr:last-child { border-bottom: 1px solid #e5e8f0; }
+.enrollments-table tbody tr:hover { 
+  background: linear-gradient(135deg, #f8f9fc 0%, #eff2ff 100%);
+  box-shadow: inset 0 1px 3px rgba(79,110,247,0.08);
+}
 
 .enrollments-table td {
-  padding: 14px 16px;
-  font-size: 13px;
-  color: #1f2937;
+  padding: 11px 14px;
+  font-size: 12px;
+  color: #374151;
   vertical-align: middle;
+  word-break: break-word;
 }
 
 /* ========== STATUS BADGES — FULLY SELF-CONTAINED ========== */
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 11px;
-  border-radius: 20px;
-  font-size: 11px;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   white-space: nowrap;
-  line-height: 1;
+  line-height: 1.2;
+  border: 1px solid transparent;
 }
 
-.status-badge.active    { background: #d1fae5; color: #065f46; }
-.status-badge.pending   { background: #fef3c7; color: #92400e; }
-.status-badge.dropped   { background: #fee2e2; color: #7f1d1d; }
-.status-badge.completed { background: #dbeafe; color: #1e40af; }
+.status-badge.active    { background: #d1fae5; color: #047857; border-color: #a7f3d0; }
+.status-badge.pending   { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.status-badge.dropped   { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.status-badge.completed { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
 
 .fee-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 11px;
-  border-radius: 20px;
-  font-size: 11px;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   white-space: nowrap;
-  line-height: 1;
+  line-height: 1.2;
+  border: 1px solid transparent;
 }
 
-.fee-badge.paid    { background: #d1fae5; color: #065f46; }
-.fee-badge.pending { background: #fef3c7; color: #92400e; }
-.fee-badge.overdue { background: #fee2e2; color: #7f1d1d; }
+.fee-badge.paid    { background: #d1fae5; color: #047857; border-color: #a7f3d0; }
+.fee-badge.pending { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.fee-badge.overdue { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
 
 /* ========== ACTION BUTTONS ========== */
 .approve-decline-group {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .action-buttons {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 /* ========== NO RESULTS ========== */
@@ -551,6 +572,13 @@
 }
 
 /* ========== RESPONSIVE ========== */
+@media (max-width: 1024px) {
+  .enrollments-table { min-width: 900px; }
+  .enrollments-table td { padding: 10px 12px; font-size: 11px; }
+  .enrollments-table th { padding: 11px 12px; font-size: 9px; }
+  .action-buttons { gap: 3px; }
+}
+
 @media (max-width: 768px) {
   .enrollment-management { padding: 14px; }
   .enrollment-stats-section { padding: 14px 16px 18px; }
@@ -559,17 +587,51 @@
   .enrollment-management .unified-stats-grid { grid-template-columns: repeat(2, 1fr); }
   .form-row { grid-template-columns: 1fr; }
   .enrollments-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .enrollments-table { min-width: 800px; }
+  .enrollments-table { min-width: 750px; }
+  .enrollments-table th { padding: 10px 11px; font-size: 8px; }
+  .enrollments-table td { padding: 9px 11px; font-size: 11px; }
   .header-actions { flex-wrap: wrap; justify-content: center; }
   .settings-panel__fields { grid-template-columns: 1fr; }
+  .action-buttons { gap: 2px; }
 }
 
 @media (max-width: 600px) {
   .enrollments-table { border: 0; min-width: 0; }
   .enrollments-table thead { display: none; }
-  .enrollments-table tbody tr { display: block; margin-bottom: 0.75rem; border: 1px solid rgba(15,23,42,0.04); border-radius: 8px; padding: 0.5rem; background: white; }
-  .enrollments-table tbody tr td { display: flex; justify-content: space-between; padding: 0.6rem 0.5rem; border-bottom: 1px dashed rgba(15,23,42,0.03); }
-  .enrollments-table tbody tr td:last-child { border-bottom: 0; }
+  .enrollments-table tbody tr { 
+    display: grid;
+    grid-template-columns: 1fr;
+    margin-bottom: 12px; 
+    border: 1px solid #e5e8f0; 
+    border-radius: 8px; 
+    padding: 0;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .enrollments-table tbody tr:hover {
+    background: #f8f9fc;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  .enrollments-table tbody tr td { 
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid #f0f2f7;
+    font-size: 12px;
+  }
+  .enrollments-table tbody tr td:before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #6b7280;
+    flex: 0 0 120px;
+  }
+  .enrollments-table tbody tr td:last-child { 
+    border-bottom: 0;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .action-buttons { flex-direction: row; gap: 3px; width: 100%; margin-top: 6px; }
 }
 
 @media (max-width: 480px) {
@@ -578,6 +640,8 @@
   .enrollment-stats-section { padding: 10px 12px 14px; }
   .modal-content { padding: 18px; }
   .btn-primary, .btn-secondary { width: 100%; justify-content: center; }
-  .approve-decline-group { flex-direction: column; width: 100%; }
-  .action-buttons { flex-direction: column; width: 100%; }
+  .approve-decline-group { flex-direction: column; width: 100%; gap: 4px; }
+  .action-buttons { flex-direction: column; width: 100%; gap: 4px; }
+  .enrollments-table th { padding: 8px 9px; }
+  .enrollments-table td { padding: 8px 9px; }
 }

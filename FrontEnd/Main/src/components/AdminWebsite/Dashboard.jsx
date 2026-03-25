@@ -30,6 +30,7 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  Key,
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
 import "../AdminWebsiteCSS/Dashboard.css";
@@ -46,7 +47,7 @@ const COLORS = [
 
 const PAYMENT_COLORS = ["#10b981", "#f59e0b", "#ef4444"];
 
-const Dashboard = () => {
+const Dashboard = ({ onNavigateToEnrollment }) => {
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState({
@@ -68,7 +69,8 @@ const Dashboard = () => {
   const [attendanceTrend, setAttendanceTrend] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [expandedAnnouncements, setExpandedAnnouncements] = useState(new Set());
-  const [scheduleToday, setScheduleToday] = useState([]);
+  const [activeAnnouncement, setActiveAnnouncement] = useState(null);
+  const [passwordResetRequests, setPasswordResetRequests] = useState([]);
   const [attendanceToday, setAttendanceToday] = useState([]);
   const [subjectDistribution, setSubjectDistribution] = useState([]);
   const [pendingApplications, setPendingApplications] = useState([]);
@@ -154,6 +156,22 @@ const Dashboard = () => {
     setExpandedAnnouncements(newExpanded);
   };
 
+  const getFirstImagePath = (a) => {
+    const firstImage = a?.media?.find((m) =>
+      /\.(jpg|jpeg|png|gif|webp)$/i.test(m?.file || m?.file_url || "")
+    );
+    return firstImage?.file_url || firstImage?.file || null;
+  };
+
+  const getFirstMedia = (a) => {
+    return Array.isArray(a?.media) ? a.media[0] : null;
+  };
+
+  const toAbsUrl = (path) => {
+    if (!path) return null;
+    return path.startsWith("http") ? path : path;
+  };
+
   async function loadDashboardData() {
     setLoading(true);
 
@@ -163,7 +181,7 @@ const Dashboard = () => {
         financeRes,
         financeStatsRes,
         attendRes,
-        schedRes,
+        passwordResetRes,
         annRes,
         subjectRes,
         sectionRes,
@@ -184,7 +202,7 @@ const Dashboard = () => {
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
 
-        apiFetch("/api/classmanagement/schedules/")
+        apiFetch("/api/accounts/admin/password-reset-requests/")
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
 
@@ -204,7 +222,7 @@ const Dashboard = () => {
       const enrollments = safeArray(enrollRes);
       const transactions = safeArray(financeRes);
       const attendRecords = safeArray(attendRes);
-      const schedules = safeArray(schedRes);
+      const passwordResetList = safeArray(passwordResetRes);
       const anns = safeArray(annRes);
       const subjects = safeArray(subjectRes);
       const sections = safeArray(sectionRes);
@@ -461,39 +479,24 @@ const Dashboard = () => {
       setAnnouncements(anns.slice(0, 10));
 
       // ─────────────────────────
-      // Today's schedule
+      // Password Reset Requests (pending)
       // ─────────────────────────
-      const dayNameToday = new Date().toLocaleDateString("en-US", {
-        weekday: "long",
-      });
-
-      const shortDayMap = {
-        Monday: "MON",
-        Tuesday: "TUE",
-        Wednesday: "WED",
-        Thursday: "THU",
-        Friday: "FRI",
-        Saturday: "SAT",
-        Sunday: "SUN",
-      };
-
-      const shortToday = shortDayMap[dayNameToday];
-
-      const todaySched = schedules
-        .filter((s) => {
-          const days = s.days || s.day || s.schedule_day || "";
-          if (Array.isArray(days)) {
-            return days.includes(dayNameToday) || days.includes(shortToday);
-          }
-          const text = String(days).toUpperCase();
-          return (
-            text.includes(dayNameToday.toUpperCase()) ||
-            text.includes(shortToday)
-          );
+      const pendingResets = passwordResetList
+        .filter((r) => {
+          const status = normalizeStatusUpper(r.status);
+          return status === "PENDING" || status === "LINK_SENT";
         })
-        .slice(0, 5);
+        .slice(0, 5)
+        .map((r) => ({
+          id: r.id,
+          email: r.email || "Unknown",
+          status: normalizeStatusUpper(r.status),
+          requestedAt: r.requested_at || "",
+          message: r.message || "",
+          userName: r.user?.username || r.user?.first_name || "Unknown User",
+        }));
 
-      setScheduleToday(todaySched);
+      setPasswordResetRequests(pendingResets);
 
       // ─────────────────────────
       // Attendance for Today (students list)
@@ -513,7 +516,10 @@ const Dashboard = () => {
       // ─────────────────────────
       const pendingAppsList = pendingEnrollments.map((e) => ({
         id: e.id,
-        studentName: e.student_name || e.student || "Unknown",
+        studentNumber: e.student_number || e.id,
+        studentName: e.student_name || `${e.first_name || ""} ${e.last_name || ""}`.trim() || e.student || "Unknown Student",
+        firstName: e.first_name,
+        lastName: e.last_name,
         grade: getEnrollmentGrade(e),
         appliedDate: e.created_at || e.date_applied || "",
       }));
@@ -548,7 +554,7 @@ const Dashboard = () => {
           </div>
           <div className="dash-stat-info">
             <span className="dash-stat-value">{stats.totalStudents}</span>
-            <span className="dash-stat-label">Enrolled Students</span>
+            <span className="dash-stat-label">Total of Enrolled Students</span>
           </div>
         </div>
 
@@ -736,7 +742,13 @@ const Dashboard = () => {
           {pendingApplications.length > 0 && (
             <div className="dash-pending-list">
               {pendingApplications.map((app) => (
-                <div key={app.id} className="dash-pending-item">
+                <div
+                  key={app.id}
+                  className="dash-pending-item"
+                  onClick={() => onNavigateToEnrollment && onNavigateToEnrollment()}
+                  style={{ cursor: "pointer" }}
+                  title="Click to view application details"
+                >
                   <div className="dash-pending-left">
                     <div className="dash-pending-badge">
                       <Clock size={14} />
@@ -759,44 +771,6 @@ const Dashboard = () => {
       </section>
 
       <section className="dash-row dash-row--2col">
-        <div className="dash-card dash-card--list">
-          <div className="dash-card-head">
-            <CheckCircle size={16} />
-            <h3 className="dash-card-title">Student Attendance Today</h3>
-          </div>
-          {attendanceToday.length === 0 && (
-            <div className="dash-empty-state">
-              <User size={24} className="dash-empty-icon" />
-              <p className="dash-empty">No attendance records yet</p>
-              <span className="dash-empty-sub">Attendance will be recorded once students are marked</span>
-            </div>
-          )}
-          {attendanceToday.map((record) => (
-            <div key={record.id} className="dash-attendance-item">
-              <div className="dash-attendance-left">
-                <div
-                  className={`dash-attendance-badge ${record.status}`}
-                >
-                  {record.status === "present" ? (
-                    <CheckCircle size={16} />
-                  ) : (
-                    <XCircle size={16} />
-                  )}
-                </div>
-                <div className="dash-list-content">
-                  <span className="dash-list-title">{record.studentName}</span>
-                  <span className="dash-list-sub">{record.grade}</span>
-                </div>
-              </div>
-              <span
-                className={`dash-status-label dash-status-${record.status}`}
-              >
-                {record.status === "present" ? "Present" : "Absent"}
-              </span>
-            </div>
-          ))}
-        </div>
-
         <div className="dash-card dash-card--list">
           <div className="dash-card-head">
             <Bell size={16} />
@@ -826,13 +800,25 @@ const Dashboard = () => {
                     </span>
                   </div>
                 </div>
-                <ChevronDown
-                  size={18}
-                  className={`dash-announcement-toggle ${
-                    expandedAnnouncements.has(a.id) ? "expanded" : ""
-                  }`}
-                  title="Click to expand announcement"
-                />
+                <div className="dash-announcement-actions">
+                  <button
+                    className="dash-announcement-btn dash-announcement-btn--view"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveAnnouncement(a);
+                    }}
+                    title="View full announcement"
+                  >
+                    View
+                  </button>
+                  <ChevronDown
+                    size={18}
+                    className={`dash-announcement-toggle ${
+                      expandedAnnouncements.has(a.id) ? "expanded" : ""
+                    }`}
+                    title="Click to expand announcement"
+                  />
+                </div>
               </div>
               {expandedAnnouncements.has(a.id) && (
                 <div className="dash-announcement-content">
@@ -845,34 +831,95 @@ const Dashboard = () => {
 
         <div className="dash-card dash-card--list">
           <div className="dash-card-head">
-            <Calendar size={16} />
-            <h3 className="dash-card-title">Today's Class Schedule</h3>
+            <Key size={16} />
+            <h3 className="dash-card-title">Password Reset Requests</h3>
           </div>
-          {scheduleToday.length === 0 && (
+          {passwordResetRequests.length === 0 && (
             <div className="dash-empty-state">
-              <Calendar size={24} className="dash-empty-icon" />
-              <p className="dash-empty">No classes scheduled for today</p>
-              <span className="dash-empty-sub">Use Class Management to add schedules for today's date</span>
+              <Key size={24} className="dash-empty-icon" />
+              <p className="dash-empty">No pending reset requests</p>
+              <span className="dash-empty-sub">Users can request password resets from their account settings</span>
             </div>
           )}
-          {scheduleToday.map((s, i) => (
+          {passwordResetRequests.map((req, i) => (
             <div key={i} className="dash-list-item">
               <span className="dash-sched-time">
-                {s.start_time || s.time_start || "--"}
+                {req.status || "PENDING"}
               </span>
               <div className="dash-list-content">
                 <span className="dash-list-title">
-                  {s.subject_name || s.section_name || s.title || "Class"}
+                  {req.userName || "User"}
                 </span>
                 <span className="dash-list-sub">
-                  {s.room_name || s.teacher_name || "Room not specified"}
+                  {req.email}
                 </span>
               </div>
             </div>
           ))}
         </div>
       </section>
-    </main>
+      {/* Announcement Detail Modal */}
+      {activeAnnouncement && (
+        <div 
+          className="dash-modal-overlay" 
+          onClick={() => setActiveAnnouncement(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setActiveAnnouncement(null);
+          }}
+        >
+          <div 
+            className="dash-modal-content" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="dash-modal-close"
+              onClick={() => setActiveAnnouncement(null)}
+              title="Close announcement"
+            >
+              ✕
+            </button>
+
+            {(() => {
+              const firstMedia = getFirstMedia(activeAnnouncement);
+              const firstUrl = toAbsUrl(firstMedia?.file_url || firstMedia?.file);
+              const isVideo = firstUrl && /\.(mp4|webm|ogg|mov)$/i.test(firstUrl);
+              const imgUrl = toAbsUrl(getFirstImagePath(activeAnnouncement));
+
+              return (
+                <>
+                  {firstUrl && isVideo ? (
+                    <video 
+                      src={firstUrl} 
+                      controls 
+                      className="dash-modal-media"
+                    />
+                  ) : (
+                    imgUrl && <img 
+                      src={imgUrl} 
+                      alt="" 
+                      className="dash-modal-media"
+                    />
+                  )}
+                </>
+              );
+            })()}
+
+            <h2 className="dash-modal-title">
+              {activeAnnouncement.title || "Untitled"}
+            </h2>
+
+            <div className="dash-modal-meta">
+              {activeAnnouncement.created_at
+                ? new Date(activeAnnouncement.created_at).toLocaleString()
+                : ""}
+            </div>
+
+            <p className="dash-modal-text">
+              {activeAnnouncement.content || "No content provided."}
+            </p>
+          </div>
+        </div>
+      )}    </main>
   );
 };
 

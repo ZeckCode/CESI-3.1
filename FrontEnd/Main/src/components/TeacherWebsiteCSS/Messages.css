@@ -11,49 +11,50 @@
 .chat-nav-sidebar {
   width: 240px;
   background: #ffffff;
-  border-right: 3px solid #000;
+  border-right: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
 }
 
 .chat-nav-header {
   padding: 1.5rem;
-  border-bottom: 2px solid #000;
-  background: #212529;
+  border-bottom: 1px solid #e5e7eb;
+  background: #1f2937;
   color: white;
-  font-weight: 900;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .chat-new-btn {
-  background: #28a745;
+  background: #5ba3c7;
   color: white;
   border: none;
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: 600;
-  transition: 0.2s;
-  font-size: 1.2rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  font-size: 1.1rem;
 }
 
 .chat-new-btn:hover {
-  background: #228a3a;
-  transform: scale(1.05);
+  background: #4a8ba8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(91, 163, 199, 0.3);
 }
 
 /* New Chat Form */
 .chat-new-form {
   padding: 1rem;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  background: #f9f9f9;
+  background: #f9fafb;
   max-height: 300px;
   overflow-y: auto;
 }
@@ -61,27 +62,35 @@
 .chat-new-form select,
 .chat-new-form input {
   padding: 0.6rem;
-  border: 2px solid #000;
-  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   font-weight: 500;
   outline: none;
+  background: #ffffff;
+  font-family: inherit;
+}
+
+.chat-new-form select:focus,
+.chat-new-form input:focus {
+  border-color: #5ba3c7;
+  box-shadow: 0 0 0 3px rgba(91, 163, 199, 0.1);
 }
 
 .chat-form-submit {
-  background: #24148a;
+  background: #5ba3c7;
   color: white;
-  border: 2px solid #000;
-  padding: 0.6rem 1rem;
-  border-radius: 6px;
-  font-weight: 900;
+  border: 1px solid #5ba3c7;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-weight: 700;
   cursor: pointer;
-  transition: 0.2s;
+  transition: all 0.2s ease;
 }
 
 .chat-form-submit:hover {
-  background: #FDEF3B;
-  color: #000;
+  background: #4a8ba8;
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(91, 163, 199, 0.3);
 }
 
 /* Chat List */

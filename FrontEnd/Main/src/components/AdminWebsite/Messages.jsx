@@ -232,25 +232,36 @@ const AdminMessages = () => {
 
   if (loading) {
     return (
-      <div style={{ textAlign: "center", padding: "20px" }}>Loading...</div>
+      <div className="admin-messages-layout">
+        <div style={{ padding: "48px", textAlign: "center", color: "var(--muted)" }}>
+          <div style={{ fontSize: "28px", marginBottom: "12px" }}>⏳</div>
+          <p>Loading moderation data...</p>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="admin-messages-layout">
+      {/* Header */}
+      <div className="admin-messages-header">
+        <h1>Chat Moderation</h1>
+        <p>Manage profanity filters, flagged messages, restrictions, and reports</p>
+      </div>
+
       {/* Tab Navigation */}
       <div className="admin-tabs">
         <button
           className={`admin-tab ${activeTab === "profanity" ? "active" : ""}`}
           onClick={() => setActiveTab("profanity")}
         >
-          🚫 Profanity Words ({profanityWords.length})
+          🚫 Profanity
         </button>
         <button
           className={`admin-tab ${activeTab === "flags" ? "active" : ""}`}
           onClick={() => setActiveTab("flags")}
         >
-          ⚠️ Flagged Messages ({pendingFlags.length})
+          ⚠️ Flagged ({pendingFlags.length})
         </button>
         <button
           className={`admin-tab ${activeTab === "restrictions" ? "active" : ""}`}
@@ -262,31 +273,33 @@ const AdminMessages = () => {
           className={`admin-tab ${activeTab === "reports" ? "active" : ""}`}
           onClick={() => setActiveTab("reports")}
         >
-          🚩 Message Reports ({activeMessageReports.length})
+          🚩 Reports ({activeMessageReports.length})
         </button>
       </div>
 
       {error && <div className="admin-error">{error}</div>}
 
-      <div style={{ display: "flex", gap: "20px", padding: "20px", flex: 1 }}>
+      <div className="admin-messages-content">
         {/* PROFANITY TAB */}
         {activeTab === "profanity" && (
           <>
-            <div style={{ flex: 1 }}>
-              <div style={{ marginBottom: "20px" }}>
-                <h3 style={{ marginTop: 0 }}>Add Profanity Word</h3>
-                <form onSubmit={handleAddProfanityWord} style={{ display: "flex", gap: "8px" }}>
+            <div className="admin-messages-list">
+              <div className="admin-filter-section">
+                <h3 style={{ margin: "0 0 12px 0", fontSize: "15px", fontWeight: 600 }}>Add Profanity Word</h3>
+                <form onSubmit={handleAddProfanityWord} style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   <input
                     type="text"
                     placeholder="Word to block..."
                     value={newWord}
                     onChange={(e) => setNewWord(e.target.value)}
-                    style={{ flex: 1, padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }}
+                    className="admin-filter-input"
+                    style={{ flex: 1, minWidth: "140px" }}
                   />
                   <select
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
-                    style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }}
+                    className="admin-filter-select"
+                    style={{ minWidth: "110px" }}
                   >
                     <option value="SWEAR">Swear</option>
                     <option value="INSULT">Insult</option>
@@ -295,26 +308,19 @@ const AdminMessages = () => {
                   </select>
                   <button
                     type="submit"
-                    style={{
-                      padding: "8px 16px",
-                      backgroundColor: "#24148a",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
+                    className="admin-btn admin-btn--primary"
                   >
                     Add
                   </button>
                 </form>
               </div>
 
-              <h3>Words ({filteredProfanityWords.length})</h3>
-              <div style={{ marginBottom: "10px" }}>
+              <div className="admin-filter-section">
+                <label className="admin-filter-label">Filter by Category</label>
                 <select
                   value={filterCategory}
                   onChange={(e) => setFilterCategory(e.target.value)}
-                  style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "4px", width: "100%" }}
+                  className="admin-filter-select"
                 >
                   <option value="">All Categories</option>
                   <option value="SWEAR">Swear</option>
@@ -324,27 +330,26 @@ const AdminMessages = () => {
                 </select>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "600px", overflowY: "auto" }}>
+              <div className="admin-list-header">
+                <h3 style={{ margin: 0 }}>Words</h3>
+                <div className="admin-list-count">{filteredProfanityWords.length}</div>
+              </div>
+
+              <div className="admin-list-container">
                 {filteredProfanityWords.length === 0 ? (
-                  <p style={{ color: "#999" }}>No words</p>
+                  <div className="admin-list-empty">
+                    <div className="admin-list-empty-icon">🔍</div>
+                    <p>No words found</p>
+                  </div>
                 ) : (
                   filteredProfanityWords.map((word) => (
                     <div
                       key={word.id}
+                      className={`admin-list-item ${selectedWordModal?.id === word.id ? "selected" : ""}`}
                       onClick={() => setSelectedWordModal(word)}
-                      style={{
-                        padding: "10px",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        backgroundColor: selectedWordModal?.id === word.id ? "#e8e8ff" : "#f9f9f9",
-                        transition: "all 0.2s",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e8e8e8")}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = selectedWordModal?.id === word.id ? "#e8e8ff" : "#f9f9f9")}
                     >
-                      <div style={{ fontWeight: "bold" }}>{word.word}</div>
-                      <div style={{ fontSize: "12px", color: "#666" }}>
+                      <div className="admin-list-item-title">{word.word}</div>
+                      <div className="admin-list-item-meta">
                         {word.category} • {word.is_active ? "🟢 Active" : "🔴 Inactive"}
                       </div>
                     </div>
@@ -355,77 +360,55 @@ const AdminMessages = () => {
 
             {/* Word Detail Modal */}
             {selectedWordModal && (
-              <div
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  backgroundColor: "rgba(0,0,0,0.45)",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  zIndex: 2100,
-                }}
-              >
-                <div
-                  style={{
-                    width: "100%",
-                    maxWidth: "400px",
-                    background: "#fff",
-                    borderRadius: "10px",
-                    padding: "20px",
-                  }}
-                >
-                  <h3 style={{ marginTop: 0 }}>Profanity Word Details</h3>
-                  <p>
-                    <strong>Word:</strong> {selectedWordModal.word}
-                  </p>
-                  <p>
-                    <strong>Category:</strong> {selectedWordModal.category}
-                  </p>
-                  <p>
-                    <strong>Status:</strong> {selectedWordModal.is_active ? "🟢 Active" : "🔴 Inactive"}
-                  </p>
-                  <div style={{ display: "flex", gap: "8px", marginTop: "20px" }}>
+              <div className="admin-modal-overlay" onClick={() => setSelectedWordModal(null)}>
+                <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="admin-modal-header">
+                    <h2 className="admin-modal-title">Word Details</h2>
+                    <button
+                      className="admin-modal-close"
+                      onClick={() => setSelectedWordModal(null)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="admin-modal-body">
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Word</div>
+                      <div className="admin-detail-value admin-detail-value--code">
+                        {selectedWordModal.word}
+                      </div>
+                    </div>
+
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Category</div>
+                      <div className="admin-detail-value">{selectedWordModal.category}</div>
+                    </div>
+
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Status</div>
+                      <div>
+                        <span className={`admin-pill ${selectedWordModal.is_active ? "admin-pill--success" : "admin-pill--danger"}`}>
+                          {selectedWordModal.is_active ? "🟢 Active" : "🔴 Inactive"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="admin-modal-footer">
                     <button
                       onClick={() => handleToggleProfanityWord(selectedWordModal)}
-                      style={{
-                        flex: 1,
-                        padding: "8px",
-                        backgroundColor: selectedWordModal.is_active ? "#ffcc00" : "#28a745",
-                        color: selectedWordModal.is_active ? "#000" : "#fff",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
+                      className={`admin-btn ${selectedWordModal.is_active ? "admin-btn--warning" : "admin-btn--success"}`}
+                      style={{ flex: 1 }}
                     >
                       {selectedWordModal.is_active ? "Disable" : "Enable"}
                     </button>
                     <button
                       onClick={() => handleDeleteProfanityWord(selectedWordModal.id)}
-                      style={{
-                        flex: 1,
-                        padding: "8px",
-                        backgroundColor: "#dc3545",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
+                      className="admin-btn admin-btn--danger"
+                      style={{ flex: 1 }}
                     >
                       Delete
-                    </button>
-                    <button
-                      onClick={() => setSelectedWordModal(null)}
-                      style={{
-                        flex: 1,
-                        padding: "8px",
-                        backgroundColor: "#ccc",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Close
                     </button>
                   </div>
                 </div>
@@ -437,36 +420,34 @@ const AdminMessages = () => {
         {/* FLAGGED MESSAGES TAB */}
         {activeTab === "flags" && (
           <>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ marginTop: 0 }}>Pending Flags ({pendingFlags.length})</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "600px", overflowY: "auto" }}>
+            <div className="admin-messages-list">
+              <div className="admin-list-header">
+                <h3 style={{ margin: 0 }}>Pending Flags</h3>
+                <div className="admin-list-count">{pendingFlags.length}</div>
+              </div>
+
+              <div className="admin-list-container">
                 {pendingFlags.length === 0 ? (
-                  <p style={{ color: "#999" }}>No pending flags</p>
+                  <div className="admin-list-empty">
+                    <div className="admin-list-empty-icon">✨</div>
+                    <p>No pending flags</p>
+                  </div>
                 ) : (
                   pendingFlags.map((flag) => (
                     <div
                       key={flag.id}
+                      className={`admin-list-item ${selectedFlagModal?.id === flag.id ? "selected" : ""}`}
                       onClick={() => setSelectedFlagModal(flag)}
-                      style={{
-                        padding: "10px",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        backgroundColor: selectedFlagModal?.id === flag.id ? "#fff3cd" : "#f9f9f9",
-                        transition: "all 0.2s",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5e6cc")}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = selectedFlagModal?.id === flag.id ? "#fff3cd" : "#f9f9f9")}
                     >
-                      <div style={{ fontWeight: "bold" }}>{getUserDisplayName(flag.message.sender)}</div>
-                      <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
+                      <div className="admin-list-item-title">{getUserDisplayName(flag.message.sender)}</div>
+                      <div className="admin-list-item-meta">
                         {new Date(flag.created_at).toLocaleDateString()}
                       </div>
-                      <div style={{ fontSize: "13px", marginBottom: "5px" }}>
+                      <div className="admin-list-item-preview">
                         "{flag.message.content.substring(0, 60)}..."
                       </div>
-                      <div style={{ fontSize: "12px", color: "#8a1414" }}>
-                        🚫 {flag.flagged_words}
+                      <div className="admin-list-item-flag">
+                        {flag.flagged_words}
                       </div>
                     </div>
                   ))
@@ -476,104 +457,97 @@ const AdminMessages = () => {
 
             {/* Flag Detail Modal */}
             {selectedFlagModal && (
-              <div
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  backgroundColor: "rgba(0,0,0,0.45)",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  zIndex: 2100,
-                }}
-              >
-                <div
-                  style={{
-                    width: "100%",
-                    maxWidth: "500px",
-                    background: "#fff",
-                    borderRadius: "10px",
-                    padding: "20px",
-                    maxHeight: "80vh",
-                    overflowY: "auto",
-                  }}
-                >
-                  <h3 style={{ marginTop: 0 }}>Flagged Message Details</h3>
-                  <p>
-                    <strong>Sender:</strong> {getUserDisplayName(selectedFlagModal.message.sender)}
-                  </p>
-                  <p>
-                    <strong>Chat:</strong> {selectedFlagModal.chat.name}
-                  </p>
-                  <p>
-                    <strong>Message:</strong> {selectedFlagModal.message.content}
-                  </p>
-                  <p>
-                    <strong>Flagged Words:</strong> {selectedFlagModal.flagged_words}
-                  </p>
-
-                  <h4 style={{ marginTop: "20px" }}>Take Action</h4>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "15px" }}>
+              <div className="admin-modal-overlay" onClick={() => setSelectedFlagModal(null)}>
+                <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="admin-modal-header">
+                    <h2 className="admin-modal-title">Flagged Message</h2>
                     <button
-                      onClick={() => handleTakeFlagAction("approve")}
-                      disabled={flagActionSubmitting}
-                      style={{
-                        padding: "8px",
-                        backgroundColor: "#28a745",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
+                      className="admin-modal-close"
+                      onClick={() => setSelectedFlagModal(null)}
                     >
-                      ✓ Approve
-                    </button>
-                    <button
-                      onClick={() => handleTakeFlagAction("dismiss")}
-                      disabled={flagActionSubmitting}
-                      style={{
-                        padding: "8px",
-                        backgroundColor: "#6c757d",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      ✕ Dismiss
-                    </button>
-                    <button
-                      onClick={() => handleTakeFlagAction("delete")}
-                      disabled={flagActionSubmitting}
-                      style={{
-                        padding: "8px",
-                        backgroundColor: "#dc3545",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        gridColumn: "1 / -1",
-                      }}
-                    >
-                      🗑️ Delete Message
+                      ✕
                     </button>
                   </div>
 
-                  <div style={{ borderTop: "1px solid #ddd", paddingTop: "15px" }}>
-                    <h5 style={{ marginTop: 0 }}>Restrict User</h5>
-                    <div style={{ marginBottom: "10px" }}>
+                  <div className="admin-modal-body">
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Sender</div>
+                      <div className="admin-detail-value">
+                        {getUserDisplayName(selectedFlagModal.message.sender)}
+                      </div>
+                    </div>
+
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Chat</div>
+                      <div className="admin-detail-value">{selectedFlagModal.chat.name}</div>
+                    </div>
+
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Message</div>
+                      <div className="admin-detail-value">{selectedFlagModal.message.content}</div>
+                    </div>
+
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Flagged Words</div>
+                      <div className="admin-detail-value">
+                        <span className="admin-pill admin-pill--danger">
+                          {selectedFlagModal.flagged_words}
+                        </span>
+                      </div>
+                    </div>
+
+                    <hr style={{ margin: "20px 0", border: "1px solid var(--border)" }} />
+
+                    <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "var(--dark)" }}>
+                      Take Action
+                    </h4>
+
+                    <div className="admin-btn-group">
+                      <button
+                        onClick={() => handleTakeFlagAction("approve")}
+                        disabled={flagActionSubmitting}
+                        className="admin-btn admin-btn--success"
+                      >
+                        ✓ Approve
+                      </button>
+                      <button
+                        onClick={() => handleTakeFlagAction("dismiss")}
+                        disabled={flagActionSubmitting}
+                        className="admin-btn admin-btn--secondary"
+                      >
+                        ✕ Dismiss
+                      </button>
+                      <button
+                        onClick={() => handleTakeFlagAction("delete")}
+                        disabled={flagActionSubmitting}
+                        className="admin-btn admin-btn--danger admin-btn-group full"
+                      >
+                        🗑️ Delete Message
+                      </button>
+                    </div>
+
+                    <hr style={{ margin: "20px 0", border: "1px solid var(--border)" }} />
+
+                    <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "var(--dark)" }}>
+                      Restrict User
+                    </h4>
+
+                    <div className="admin-form-group">
+                      <label className="admin-detail-label">Restriction Type</label>
                       <select
                         value={flagRestrictionType}
                         onChange={(e) => setFlagRestrictionType(e.target.value)}
                         disabled={flagActionSubmitting}
-                        style={{ width: "100%", padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }}
+                        className="admin-form-select"
                       >
                         <option value="TEMP_MUTE">Temporary Mute</option>
                         <option value="PERMANENT_REMOVE">Permanent Remove</option>
                       </select>
                     </div>
+
                     {flagRestrictionType === "TEMP_MUTE" && (
-                      <div style={{ marginBottom: "10px" }}>
+                      <div className="admin-form-group">
+                        <label className="admin-detail-label">Duration (Hours)</label>
                         <input
                           type="number"
                           min="1"
@@ -582,51 +556,31 @@ const AdminMessages = () => {
                           onChange={(e) => setFlagRestrictionDuration(parseInt(e.target.value))}
                           disabled={flagActionSubmitting}
                           placeholder="Duration (hours)"
-                          style={{ width: "100%", padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }}
+                          className="admin-form-input"
                         />
                       </div>
                     )}
-                    <div style={{ marginBottom: "10px" }}>
+
+                    <div className="admin-form-group">
+                      <label className="admin-detail-label">Admin Notes</label>
                       <textarea
                         value={flagAdminNotes}
                         onChange={(e) => setFlagAdminNotes(e.target.value)}
                         disabled={flagActionSubmitting}
-                        placeholder="Admin notes..."
-                        style={{ width: "100%", padding: "8px", border: "1px solid #ccc", borderRadius: "4px", minHeight: "60px", fontFamily: "Arial" }}
+                        placeholder="Add notes for the record..."
+                        className="admin-form-textarea"
                       />
                     </div>
+
                     <button
                       onClick={() => handleTakeFlagAction("restrict")}
                       disabled={flagActionSubmitting}
-                      style={{
-                        width: "100%",
-                        padding: "8px",
-                        backgroundColor: "#0056b3",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
+                      className="admin-btn admin-btn--primary"
+                      style={{ width: "100%" }}
                     >
                       🔒 Apply Restriction
                     </button>
                   </div>
-
-                  <button
-                    onClick={() => setSelectedFlagModal(null)}
-                    disabled={flagActionSubmitting}
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      marginTop: "15px",
-                      backgroundColor: "#ccc",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Close
-                  </button>
                 </div>
               </div>
             )}
@@ -636,33 +590,33 @@ const AdminMessages = () => {
         {/* RESTRICTIONS TAB */}
         {activeTab === "restrictions" && (
           <>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ marginTop: 0 }}>Active Restrictions ({restrictions.length})</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "600px", overflowY: "auto" }}>
+            <div className="admin-messages-list">
+              <div className="admin-list-header">
+                <h3 style={{ margin: 0 }}>Active Restrictions</h3>
+                <div className="admin-list-count">{restrictions.length}</div>
+              </div>
+
+              <div className="admin-list-container">
                 {restrictions.length === 0 ? (
-                  <p style={{ color: "#999" }}>No active restrictions</p>
+                  <div className="admin-list-empty">
+                    <div className="admin-list-empty-icon">🎉</div>
+                    <p>No active restrictions</p>
+                  </div>
                 ) : (
                   restrictions.map((restriction) => (
                     <div
                       key={restriction.id}
+                      className={`admin-list-item ${selectedRestrictionModal?.id === restriction.id ? "selected" : ""}`}
                       onClick={() => setSelectedRestrictionModal(restriction)}
-                      style={{
-                        padding: "10px",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        backgroundColor: selectedRestrictionModal?.id === restriction.id ? "#e8f0ff" : "#f9f9f9",
-                        transition: "all 0.2s",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e8e8e8")}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = selectedRestrictionModal?.id === restriction.id ? "#e8f0ff" : "#f9f9f9")}
                     >
-                      <div style={{ fontWeight: "bold" }}>{getUserDisplayName(restriction.user)}</div>
-                      <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
+                      <div className="admin-list-item-title">
+                        {getUserDisplayName(restriction.user)}
+                      </div>
+                      <div className="admin-list-item-meta">
                         {restriction.restriction_type === "TEMP_MUTE" ? "⏱️ Temp Mute" : "🔒 Permanent"}
                       </div>
-                      <div style={{ fontSize: "12px", color: "#666" }}>
-                        {restriction.is_global ? "🌍 Global (All Chats)" : restriction.chat_name}
+                      <div className="admin-list-item-preview">
+                        {restriction.chat.name}
                       </div>
                     </div>
                   ))
@@ -699,19 +653,15 @@ const AdminMessages = () => {
                   <p>
                     <strong>Type:</strong> {selectedRestrictionModal.restriction_type === "TEMP_MUTE" ? "⏱️ Temporary Mute" : "🔒 Permanent Remove"}
                   </p>
-                  {selectedRestrictionModal.chat_name && (
-                    <p>
-                      <strong>Chat:</strong> {selectedRestrictionModal.chat_name}
-                    </p>
-                  )}
                   <p>
-                    <strong>Expires:</strong> {formatRestrictionTime(selectedRestrictionModal.expires_at)}
+                    <strong>Chat:</strong> {selectedRestrictionModal.chat.name}
                   </p>
-                  {selectedRestrictionModal.created_at && (
-                    <p>
-                      <strong>Applied:</strong> {new Date(selectedRestrictionModal.created_at).toLocaleString()}
-                    </p>
-                  )}
+                  <p>
+                    <strong>Expires:</strong>{" "}
+                    {selectedRestrictionModal.expires_at
+                      ? new Date(selectedRestrictionModal.expires_at).toLocaleDateString()
+                      : "Never"}
+                  </p>
                   {selectedRestrictionModal.admin_notes && (
                     <p>
                       <strong>Notes:</strong> {selectedRestrictionModal.admin_notes}
@@ -720,30 +670,10 @@ const AdminMessages = () => {
                   <div style={{ display: "flex", gap: "8px", marginTop: "20px" }}>
                     <button
                       onClick={() => handleLiftRestriction(selectedRestrictionModal.id)}
-                      style={{
-                        flex: 1,
-                        padding: "8px",
-                        backgroundColor: "#28a745",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
+                      className="admin-btn admin-btn--success"
+                      style={{ flex: 1 }}
                     >
                       Lift Restriction
-                    </button>
-                    <button
-                      onClick={() => setSelectedRestrictionModal(null)}
-                      style={{
-                        flex: 1,
-                        padding: "8px",
-                        backgroundColor: "#ccc",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Close
                     </button>
                   </div>
                 </div>
@@ -755,35 +685,37 @@ const AdminMessages = () => {
         {/* REPORTS TAB */}
         {activeTab === "reports" && (
           <>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ marginTop: 0 }}>Pending Reports ({activeMessageReports.length})</h3>
-              <p style={{ fontSize: "12px", color: "#666", marginBottom: "15px" }}>
-                Approve = reviewed/no action • Dismiss = invalid report • Delete = enforce
+            <div className="admin-messages-list">
+              <div className="admin-list-header">
+                <h3 style={{ margin: 0 }}>Pending Reports</h3>
+                <div className="admin-list-count">{activeMessageReports.length}</div>
+              </div>
+
+              <p style={{ fontSize: "12px", color: "var(--muted)", padding: "0 12px", margin: "8px 0" }}>
+                Approve = reviewed • Dismiss = invalid • Delete = enforce
               </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "600px", overflowY: "auto" }}>
+
+              <div className="admin-list-container">
                 {activeMessageReports.length === 0 ? (
-                  <p style={{ color: "#999" }}>No pending reports</p>
+                  <div className="admin-list-empty">
+                    <div className="admin-list-empty-icon">✅</div>
+                    <p>No pending reports</p>
+                  </div>
                 ) : (
                   activeMessageReports.map((report) => (
                     <div
                       key={report.id}
+                      className={`admin-list-item ${selectedReportModal?.id === report.id ? "selected" : ""}`}
                       onClick={() => setSelectedReportModal(report)}
-                      style={{
-                        padding: "10px",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        backgroundColor: selectedReportModal?.id === report.id ? "#fff3cd" : "#f9f9f9",
-                        transition: "all 0.2s",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5e6cc")}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = selectedReportModal?.id === report.id ? "#fff3cd" : "#f9f9f9")}
                     >
-                      <div style={{ fontWeight: "bold", color: "#d9534f" }}>{report.reason}</div>
-                      <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
-                        By {getUserDisplayName(report.reporter)} • {new Date(report.created_at).toLocaleDateString()}
+                      <div className="admin-list-item-title" style={{ color: "var(--danger)" }}>
+                        {report.reason}
                       </div>
-                      <div style={{ fontSize: "13px" }}>
+                      <div className="admin-list-item-meta">
+                        By {getUserDisplayName(report.reporter)} •{" "}
+                        {new Date(report.created_at).toLocaleDateString()}
+                      </div>
+                      <div className="admin-list-item-preview">
                         "{report.message.content.substring(0, 60)}..."
                       </div>
                     </div>
@@ -794,131 +726,105 @@ const AdminMessages = () => {
 
             {/* Report Detail Modal */}
             {selectedReportModal && (
-              <div
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  backgroundColor: "rgba(0,0,0,0.45)",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  zIndex: 2100,
-                }}
-              >
-                <div
-                  style={{
-                    width: "100%",
-                    maxWidth: "500px",
-                    background: "#fff",
-                    borderRadius: "10px",
-                    padding: "20px",
-                    maxHeight: "80vh",
-                    overflowY: "auto",
-                  }}
-                >
-                  <h3 style={{ marginTop: 0 }}>Report Details</h3>
-                  <p>
-                    <strong>Reason:</strong> {selectedReportModal.reason}
-                  </p>
-                  <p>
-                    <strong>Reported by:</strong> {getUserDisplayName(selectedReportModal.reporter)}
-                  </p>
-                  <p>
-                    <strong>Message Author:</strong> {getUserDisplayName(selectedReportModal.message.sender)}
-                  </p>
-                  <p>
-                    <strong>Message:</strong> {selectedReportModal.message.content}
-                  </p>
-                  {selectedReportModal.description && (
-                    <p>
-                      <strong>Details:</strong> {selectedReportModal.description}
-                    </p>
-                  )}
+              <div className="admin-modal-overlay" onClick={() => setSelectedReportModal(null)}>
+                <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="admin-modal-header">
+                    <h2 className="admin-modal-title">Message Report</h2>
+                    <button
+                      className="admin-modal-close"
+                      onClick={() => setSelectedReportModal(null)}
+                    >
+                      ✕
+                    </button>
+                  </div>
 
-                  <div style={{ borderTop: "1px solid #ddd", paddingTop: "15px", marginTop: "15px" }}>
-                    <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>Admin Notes:</label>
-                    <textarea
-                      value={reportAdminNotes}
-                      onChange={(e) => setReportAdminNotes(e.target.value)}
-                      disabled={reportActionSubmitting}
-                      placeholder="Add notes for the record..."
-                      style={{
-                        width: "100%",
-                        padding: "8px",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        minHeight: "80px",
-                        fontFamily: "Arial",
-                        marginBottom: "15px",
-                      }}
-                    />
+                  <div className="admin-modal-body">
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Reason</div>
+                      <div>
+                        <span className="admin-pill admin-pill--danger">
+                          {selectedReportModal.reason}
+                        </span>
+                      </div>
+                    </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" }}>
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Reported By</div>
+                      <div className="admin-detail-value">
+                        {getUserDisplayName(selectedReportModal.reporter)}
+                      </div>
+                    </div>
+
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Message Author</div>
+                      <div className="admin-detail-value">
+                        {getUserDisplayName(selectedReportModal.message.sender)}
+                      </div>
+                    </div>
+
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Message Content</div>
+                      <div className="admin-detail-value">
+                        {selectedReportModal.message.content}
+                      </div>
+                    </div>
+
+                    {selectedReportModal.description && (
+                      <div className="admin-detail-row">
+                        <div className="admin-detail-label">Description</div>
+                        <div className="admin-detail-value">
+                          {selectedReportModal.description}
+                        </div>
+                      </div>
+                    )}
+
+                    <hr style={{ margin: "20px 0", border: "1px solid var(--border)" }} />
+
+                    <div className="admin-form-group">
+                      <label className="admin-detail-label">Admin Notes</label>
+                      <textarea
+                        value={reportAdminNotes}
+                        onChange={(e) => setReportAdminNotes(e.target.value)}
+                        disabled={reportActionSubmitting}
+                        placeholder="Add notes for the record..."
+                        className="admin-form-textarea"
+                      />
+                    </div>
+
+                    <div className="admin-btn-group">
                       <button
                         onClick={() => handleReviewReport("approve")}
                         disabled={reportActionSubmitting}
-                        style={{
-                          padding: "8px",
-                          backgroundColor: "#28a745",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
+                        className="admin-btn admin-btn--success"
                       >
                         ✓ Approve
                       </button>
                       <button
                         onClick={() => handleReviewReport("dismiss")}
                         disabled={reportActionSubmitting}
-                        style={{
-                          padding: "8px",
-                          backgroundColor: "#6c757d",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
+                        className="admin-btn admin-btn--secondary"
                       >
                         ✕ Dismiss
                       </button>
                       <button
                         onClick={() => handleReviewReport("delete")}
                         disabled={reportActionSubmitting}
-                        style={{
-                          padding: "8px",
-                          backgroundColor: "#dc3545",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                          gridColumn: "1 / -1",
-                        }}
+                        className="admin-btn admin-btn--danger admin-btn-group full"
                       >
                         🗑️ Delete Message
                       </button>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => setSelectedReportModal(null)}
-                    disabled={reportActionSubmitting}
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      backgroundColor: "#ccc",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Close
-                  </button>
                 </div>
               </div>
             )}
           </>
         )}
+
+        {/* DETAIL PANEL */}
+        <div className="admin-messages-detail">
+          {null}
+        </div>
       </div>
     </div>
   );

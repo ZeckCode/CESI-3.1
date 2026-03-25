@@ -1,26 +1,22 @@
 :root {
-  --yellow-main: #FDEF3B;
-  --yellow-soft: #FFFFDF;
-  --blue-sidebar: #98BCBE;
-
   --text: #1f2937;
   --muted: #6b7280;
   --gray-text: #6b7280;
 
   --card-bg: #ffffff;
   --border: #e5e7eb;
-  --shadow: 0 10px 25px rgba(0,0,0,.08);
+  --shadow: 0 2px 8px rgba(0,0,0,.06);
 
-  --dark: #111827;
-  --primary: #2563eb;
-  --primary-soft: #dbeafe;
-  --primary-light: #dbeafe;
+  --dark: #1f2937;
+  --primary: #5ba3c7;
+  --primary-soft: #e0f2f9;
+  --primary-light: #e0f2f9;
 
-  --success: #198754;
-  --success-soft: #d1e7dd;
+  --success: #10b981;
+  --success-soft: #d1fae5;
 
-  --warn: #ffc107;
-  --warn-soft: #fff3cd;
+  --warn: #f59e0b;
+  --warn-soft: #fef3c7;
 }
 
 * { box-sizing: border-box; }
@@ -63,9 +59,9 @@
 
 .tcs__title{
   margin: 0;
-  font-weight: 700;
-  font-size: 26px;
-  color: var(--primary);
+  font-weight: 800;
+  font-size: 28px;
+  color: var(--dark);
 }
 
 .tcs__subtitle{

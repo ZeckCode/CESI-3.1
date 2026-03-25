@@ -1,8 +1,9 @@
 /* Student Schedule Styles - Unified with Admin */
 .student-schedule-main {
-  padding: 20px;
-  background-color: #ffffff;
+  padding: 2.5rem;
+  background-color: #f8fafc;
   box-sizing: border-box;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
 }
 
 .ss-section {
@@ -13,37 +14,40 @@
 .ss-section-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.5rem;
+  align-items: center;
+  margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
 }
 
 .ss-section-title {
-  font-size: 1.5rem;
+  font-size: 2rem;
   font-weight: 700;
   color: #1e293b;
   margin: 0;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
 }
 
 .ss-section-subtitle {
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   color: #64748b;
-  margin-top: 0.25rem;
+  margin-top: 0.5rem;
+  text-transform: capitalize;
 }
 
 /* View Toggle */
 .ss-view-toggle {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
   background-color: white;
-  padding: 0.5rem;
+  padding: 0.65rem;
   border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .ss-toggle-btn {
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 1.75rem;
   border: 2px solid transparent;
   background-color: transparent;
   color: #64748b;
@@ -53,9 +57,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.625rem;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: capitalize;
 }
 
 .ss-toggle-btn:hover {
@@ -64,9 +69,10 @@
 }
 
 .ss-toggle-btn.active {
-  background: linear-gradient(135deg, #2196F3, #1976D2);
+  background: linear-gradient(135deg, #1976D2, #1565C0);
   color: white;
-  border-color: #2196F3;
+  border-color: #1976D2;
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
 }
 
 /* Loading & Error */
@@ -75,22 +81,26 @@
   text-align: center;
   color: #64748b;
   font-size: 1rem;
+  background: white;
+  border-radius: 0.75rem;
+  margin-bottom: 1.5rem;
 }
 
 .ss-error {
-  padding: 2rem;
+  padding: 1.5rem;
   text-align: center;
   color: #991b1b;
   background: #fee2e2;
   border-radius: 0.75rem;
   margin-bottom: 1.5rem;
+  border-left: 4px solid #ef4444;
 }
 
 /* Table Container */
 .ss-table-container {
   background-color: white;
   border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
 
@@ -98,99 +108,134 @@
 .ss-table {
   width: 100%;
   border-collapse: collapse;
+  background: white;
 }
 
 .ss-table thead {
-  background-color: #f8fafc;
+  background: linear-gradient(135deg, #1976D2, #1565C0);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .ss-table th {
-  padding: 1rem;
+  padding: 1.25rem 1.25rem;
   text-align: left;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #475569;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 2px solid #e2e8f0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-transform: capitalize;
+  letter-spacing: 0.5px;
+  border-bottom: none;
 }
 
 .ss-table tbody tr {
   border-bottom: 1px solid #e2e8f0;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .ss-table tbody tr:hover {
   background-color: #f8fafc;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
 }
 
 .ss-table td {
-  padding: 1rem;
-  font-size: 0.9rem;
+  padding: 1.5rem 1.25rem;
+  font-size: 0.95rem;
   color: #1e293b;
+  vertical-align: middle;
+}
+
+.ss-table td:nth-child(1) {
+  min-width: 220px;
+}
+
+.ss-table td:nth-child(2) {
+  min-width: 80px;
+}
+
+.ss-table td:nth-child(3) {
+  min-width: 180px;
+  font-weight: 600;
+}
+
+.ss-table td:nth-child(4) {
+  min-width: 100px;
+}
+
+.ss-table td:nth-child(5) {
+  min-width: 160px;
 }
 
 .ss-empty-cell {
   text-align: center;
   color: #94a3b8;
   padding: 3rem !important;
+  font-weight: 500;
 }
 
 /* Subject Info */
 .ss-subject-info {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.4rem;
 }
 
 .ss-subject-name {
-  font-weight: 600;
+  font-weight: 700;
   color: #1e293b;
+  text-transform: capitalize;
+  font-size: 0.95rem;
 }
 
 .ss-subject-code {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: #64748b;
   font-family: 'Courier New', monospace;
+  font-weight: 500;
 }
 
 /* Badges */
 .ss-day-badge {
   display: inline-block;
-  padding: 0.375rem 0.75rem;
-  background: linear-gradient(135deg, #2196F3, #1976D2);
+  padding: 0.5rem 0.875rem;
+  background: linear-gradient(135deg, #1976D2, #1565C0);
   color: white;
-  border-radius: 0.375rem;
+  border-radius: 0.4rem;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  text-transform: capitalize;
 }
 
 .ss-room-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
+  gap: 0.4rem;
+  padding: 0.5rem 0.875rem;
   background-color: #f1f5f9;
   color: #475569;
-  border-radius: 0.375rem;
+  border-radius: 0.4rem;
   font-weight: 500;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .ss-time-cell {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.5rem;
   font-family: 'Courier New', monospace;
   font-weight: 600;
-  color: #1e293b;
+  color: #1976D2;
+  font-size: 0.95rem;
 }
 
 .ss-teacher-name {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  color: #64748b;
+  gap: 0.4rem;
+  color: #475569;
+  text-transform: capitalize;
+  font-size: 0.95rem;
 }
 
 /* Calendar/Timeline View */
@@ -201,45 +246,51 @@
 
 .ss-calendar-grid {
   display: grid;
-  min-width: 800px;
+  min-width: 900px;
   border-left: 1px solid #e2e8f0;
   border-top: 1px solid #e2e8f0;
 }
 
 .ss-time-header,
 .ss-day-header {
-  background: linear-gradient(135deg, #2196F3, #1976D2);
+  background: linear-gradient(135deg, #1976D2, #1565C0);
   color: white;
-  padding: 1rem;
+  padding: 1rem 0.75rem;
   text-align: center;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 0.95rem;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+  min-height: 60px;
 }
 
 .ss-time-cell {
   background: #f8fafc;
-  padding: 1rem;
+  padding: 0.875rem 0.75rem;
   text-align: center;
   font-weight: 600;
-  color: #2196F3;
+  font-size: 0.85rem;
+  color: #1976D2;
   border-right: 1px solid #e2e8f0;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 80px;
 }
 
 .ss-grid-cell {
   min-height: 120px;
-  padding: 0.5rem;
+  padding: 0.75rem;
   background-color: white;
   border-right: 1px solid #e2e8f0;
   border-bottom: 1px solid #e2e8f0;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s ease;
 }
 
 .ss-grid-cell:hover {
@@ -251,6 +302,7 @@
   text-align: center;
   color: #94a3b8;
   background: #f8fafc;
+  font-weight: 500;
 }
 
 /* Event Cards */
@@ -258,28 +310,37 @@
   padding: 0.75rem;
   border-radius: 0.5rem;
   margin-bottom: 0.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   border-left: 3px solid;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.ss-event-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
 }
 
 .ss-event-subject {
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   margin-bottom: 0.25rem;
+  text-transform: capitalize;
+  color: #1e293b;
 }
 
 .ss-event-code {
   font-size: 0.7rem;
   color: #64748b;
   font-family: 'Courier New', monospace;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.375rem;
 }
 
 .ss-event-info {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.75rem;
+  gap: 0.2rem;
+  font-size: 0.7rem;
   color: #475569;
 }
 
@@ -292,7 +353,7 @@
 /* Event Colors */
 .cat-blue {
   background: linear-gradient(135deg, #dbeafe 0%, #ffffff 100%);
-  border-left-color: #2196F3;
+  border-left-color: #1976D2;
 }
 
 .cat-green {
@@ -302,7 +363,7 @@
 
 .cat-yellow {
   background: linear-gradient(135deg, #fef3c7 0%, #ffffff 100%);
-  border-left-color: #fbbf24;
+  border-left-color: #f59e0b;
 }
 
 .cat-purple {
@@ -321,9 +382,23 @@
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+  .student-schedule-main {
+    padding: 1.5rem;
+  }
+
+  .ss-table td {
+    padding: 1.25rem 1rem;
+  }
+
+  .ss-table th {
+    padding: 1rem 0.875rem;
+  }
+}
+
 @media (max-width: 768px) {
   .student-schedule-main {
-    padding: 1rem;
+    padding: 1.25rem;
   }
 
   .ss-section-header {
@@ -337,11 +412,34 @@
   .ss-toggle-btn {
     flex: 1;
     justify-content: center;
+    padding: 0.65rem 1rem;
+  }
+
+  .ss-table td {
+    padding: 1rem 0.875rem;
+    font-size: 0.9rem;
+  }
+
+  .ss-table th {
+    padding: 0.9rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .ss-table td:nth-child(1) {
+    min-width: 180px;
+  }
+
+  .ss-table td:nth-child(3) {
+    min-width: 150px;
   }
 }
 
 /* Mobile: convert table to stacked cards */
 @media (max-width: 600px) {
+  .student-schedule-main {
+    padding: 1rem;
+  }
+
   .ss-table {
     border: 0;
   }
@@ -352,20 +450,23 @@
 
   .ss-table tbody tr {
     display: block;
-    margin-bottom: 0.75rem;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-radius: 8px;
-    padding: 0.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 1rem;
     background: white;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .ss-table tbody tr:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    border-color: #1976D2;
   }
 
   .ss-table tbody tr td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.6rem 0.75rem;
-    border-bottom: 1px dashed rgba(15, 23, 42, 0.06);
+    display: block;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f1f5f9;
   }
 
   .ss-table tbody tr td:last-child {
@@ -373,31 +474,61 @@
   }
 
   .ss-table td::before {
+    display: block;
     content: attr(data-label);
-    font-weight: 600;
+    font-weight: 700;
     color: #475569;
-    text-transform: uppercase;
-    font-size: 0.7rem;
+    text-transform: capitalize;
+    font-size: 0.8rem;
+    letter-spacing: 0.3px;
+    margin-bottom: 0.375rem;
   }
 
   .ss-table td[data-label="Subject"] {
-    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
-    border-radius: 6px 6px 0 0;
+    padding: 1rem 0 0.75rem 0;
+    margin-bottom: 0.5rem;
     border-bottom: 2px solid #e2e8f0 !important;
   }
 
+  .ss-table td[data-label="Subject"]::before {
+    content: 'Subject';
+    margin-bottom: 0.5rem;
+  }
+
   .ss-subject-info {
-    text-align: right;
-  }
-}
-
-@media (max-width: 480px) {
-  .student-schedule-main {
-    padding: 0.75rem;
+    text-align: left;
+    gap: 0.5rem;
   }
 
-  .ss-toggle-btn {
-    padding: 0.5rem 0.75rem;
+  .ss-subject-name {
+    font-size: 1rem;
+  }
+
+  .ss-subject-code {
     font-size: 0.85rem;
+  }
+
+  .ss-day-badge {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .ss-time-cell {
+    font-size: 1rem;
+    gap: 0.5rem;
+  }
+
+  .ss-room-badge {
+    font-size: 0.95rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .ss-teacher-name {
+    font-size: 0.95rem;
+  }
+
+  /* Hide calendar view on mobile - only show table */
+  .ss-calendar-scroll {
+    display: none;
   }
 }

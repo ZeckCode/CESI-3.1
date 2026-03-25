@@ -391,11 +391,14 @@
   background: #f9fafb;
   border: 1px solid #f0f0f0;
   transition: all .15s;
+  cursor: pointer;
 }
 
 .dash-pending-item:hover {
   background: #f3f4f6;
-  border-color: #e5e7eb;
+  border-color: #6366f1;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+  transform: translateY(-1px);
 }
 
 .dash-pending-left {
@@ -456,6 +459,126 @@
   }
 }
 
+/* ─── Announcement Modal ─── */
+.dash-announcement-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dash-announcement-btn {
+  border: none;
+  background: transparent;
+  color: #6366f1;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all .2s ease;
+}
+
+.dash-announcement-btn--view:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+}
+
+.dash-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.dash-modal-content {
+  width: min(720px, 100%);
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.05);
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dash-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  cursor: pointer;
+  font-size: 24px;
+  color: #9ca3af;
+  background: transparent;
+  border: 0;
+  padding: 4px 8px;
+  transition: color .2s ease;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.dash-modal-close:hover {
+  color: #1f2937;
+  background: #f3f4f6;
+}
+
+.dash-modal-media {
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.dash-modal-title {
+  font-size: 20px;
+  font-weight: 900;
+  color: #1f2937;
+  margin: 0 0 8px 0;
+  line-height: 1.3;
+}
+
+.dash-modal-meta {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.dash-modal-text {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.6;
+  margin: 0;
+}
+
 @media (max-width: 480px) {
   .dashboard-main { padding: 10px; }
   .dash-stat-grid { grid-template-columns: 1fr; }
@@ -463,5 +586,11 @@
   .dash-status-label {
     font-size: 10px;
     padding: 3px 8px;
+  }
+  .dash-modal-content {
+    padding: 16px;
+  }
+  .dash-modal-title {
+    font-size: 18px;
   }
 }

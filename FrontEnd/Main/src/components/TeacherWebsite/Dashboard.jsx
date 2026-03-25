@@ -56,17 +56,17 @@ function TeacherAnnouncementsPanel() {
 
   return (
     <>
-      <div className="card__body card__body--flush">
+      <div className="tdbCard__body tdbCard__body--flush">
         {loading ? (
-          <div className="list__staticItem">Loading announcements…</div>
+          <div className="tdbCard__empty">Loading announcements…</div>
         ) : err ? (
-          <div className="list__staticItem" style={{ color: "crimson" }}>
+          <div className="tdbCard__empty" style={{ color: "crimson" }}>
             {err}
           </div>
         ) : announcements.length === 0 ? (
-          <div className="list__staticItem">No announcements yet.</div>
+          <div className="tdbCard__empty">No announcements yet.</div>
         ) : (
-          <div className="tann-list">
+          <div className="tdbAnnouncements">
             {latest.map((a) => {
               const img = toAbsUrl(getFirstImagePath(a));
               const isImg = img && /\.(jpg|jpeg|png|gif|webp)$/i.test(img);
@@ -74,37 +74,24 @@ function TeacherAnnouncementsPanel() {
               return (
                 <div
                   key={a.id}
-                  className="tann-card tann-card--noimg"
+                  className="tdbAnnouncement"
                   onClick={() => setActive(a)}
-                  style={{ cursor: "pointer" }}
+                  role="button"
+                  tabIndex={0}
                 >
-                  {/* {isImg && (
-                    <div className="tann-thumb">
-                      <img src={img} alt="" />
+                  <div className="tdbAnnouncement__top">
+                    <div className="tdbAnnouncement__title">{a.title || "Untitled"}</div>
+                    <div className="tdbAnnouncement__date">
+                      {a.publish_date || a.created_at
+                        ? new Date(a.publish_date || a.created_at).toLocaleDateString()
+                        : ""}
                     </div>
-                  )} */}
-
-                  <div className="tann-right">
-                    <div className="tann-top">
-                      <div className="tann-title">{a.title || "Untitled"}</div>
-
-                      <div className="tann-meta">
-                        <span hidden className="tann-role">
-                          {(a.target_role || "all").replace("_", " ")}
-                        </span>
-                        <span>
-                          {a.publish_date || a.created_at
-                            ? new Date(a.publish_date || a.created_at).toLocaleString()
-                            : ""}
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="tann-desc">
-                      {(a.content || "").slice(0, 120)}
-                      {(a.content || "").length > 120 ? "…" : ""}
-                    </p>
                   </div>
+
+                  <p className="tdbAnnouncement__desc">
+                    {(a.content || "").slice(0, 100)}
+                    {(a.content || "").length > 100 ? "…" : ""}
+                  </p>
                 </div>
               );
             })}
@@ -112,55 +99,46 @@ function TeacherAnnouncementsPanel() {
         )}
       </div>
 
-      <div className="card__footer">
+      <div className="tdbCard__footer">
         <button
           type="button"
-          className="link link--danger"
-          style={{ background: "transparent", border: 0, padding: 0 }}
+          className="tdbCard__link"
           onClick={() => setListOpen(true)}
           disabled={loading || announcements.length === 0}
         >
-          See All Updates
+          View All Announcements →
         </button>
       </div>
 
       {/* View All Modal */}
       {listOpen && (
-        <div className="tann-modal-overlay" onClick={() => setListOpen(false)}>
-          <div className="tann-modal" onClick={(e) => e.stopPropagation()}>
-            <span className="tann-modal-close" onClick={() => setListOpen(false)}>
+        <div className="tdbModal__overlay" onClick={() => setListOpen(false)}>
+          <div className="tdbModal" onClick={(e) => e.stopPropagation()}>
+            <span className="tdbModal__close" onClick={() => setListOpen(false)}>
               ✕
             </span>
 
-            <h3 className="tann-modal-title">Announcements</h3>
+            <h3 className="tdbModal__title">All Announcements</h3>
 
-            <div className="tann-modal-list">
+            <div className="tdbModal__list">
               {announcements.map((a) => {
                 const img = toAbsUrl(getFirstImagePath(a));
-                const isImg = img && /\.(jpg|jpeg|png|gif|webp)$/i.test(img);
 
                 return (
                   <button
                     key={a.id}
                     type="button"
-                    className="tann-modal-item"
+                    className="tdbModal__item"
                     onClick={() => {
                       setListOpen(false);
                       setActive(a);
                     }}
                   >
-                    {/* {isImg && (
-                      <div className="tann-modal-thumb">
-                        <img src={img} alt="" />
-                      </div>
-                    )} */}
-
-                    <div className="tann-modal-right">
-                      <div className="tann-modal-itemTitle">{a.title || "Untitled"}</div>
-                      <div className="tann-modal-itemMeta">
-                        {/* {(a.target_role || "all").replace("_", " ").toUpperCase()} •{" "} */}
+                    <div className="tdbModal__content">
+                      <div className="tdbModal__itemTitle">{a.title || "Untitled"}</div>
+                      <div className="tdbModal__itemMeta">
                         {a.publish_date || a.created_at
-                          ? new Date(a.publish_date || a.created_at).toLocaleString()
+                          ? new Date(a.publish_date || a.created_at).toLocaleDateString()
                           : ""}
                       </div>
                     </div>
@@ -185,26 +163,25 @@ function TeacherAnnouncementDetailModal({ a, onClose }) {
   const isVideo = firstUrl && /\.(mp4|webm|ogg|mov)$/i.test(firstUrl);
 
   return (
-    <div className="tann-modal-overlay" onClick={onClose}>
-      <div className="tann-modal" onClick={(e) => e.stopPropagation()}>
-        <span className="tann-modal-close" onClick={onClose}>✕</span>
+    <div className="tdbModal__overlay" onClick={onClose}>
+      <div className="tdbModal" onClick={(e) => e.stopPropagation()}>
+        <span className="tdbModal__close" onClick={onClose}>✕</span>
 
         {firstUrl && isVideo ? (
-          <video src={firstUrl} controls className="tann-modal-image" />
+          <video src={firstUrl} controls className="tdbModal__media" />
         ) : (
-          img && <img src={img} alt="" className="tann-modal-image" />
+          img && <img src={img} alt="" className="tdbModal__media" />
         )}
 
-        <h2 className="tann-modal-title">{a.title || "Untitled"}</h2>
+        <h2 className="tdbModal__title">{a.title || "Untitled"}</h2>
 
-        <div className="tann-modal-meta">
-          {/* {(a.target_role || "all").replace("_", " ").toUpperCase()} •{" "} */}
+        <div className="tdbModal__meta">
           {a.publish_date || a.created_at
             ? new Date(a.publish_date || a.created_at).toLocaleString()
             : ""}
         </div>
 
-        <p className="tann-modal-content">{a.content || ""}</p>
+        <p className="tdbModal__content">{a.content || ""}</p>
       </div>
     </div>
   );
@@ -235,6 +212,7 @@ const Dashboard = () => {
   const [sections, setSections] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expandedScheduleId, setExpandedScheduleId] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -270,85 +248,111 @@ const Dashboard = () => {
     teacherInfo?.teacher_profile?.subject?.name || "No subject assigned";
   const teacherName = teacherInfo?.username || "Teacher";
 
+  const toggleScheduleExpand = (id) => {
+    setExpandedScheduleId(expandedScheduleId === id ? null : id);
+  };
+
   return (
-    <div className="dash">
-      <header className="dash__header">
-        <div>
-          
-          <p className="dash__welcome">
-            Welcome back, <strong>{teacherName}</strong>
+    <div className="tdb">
+      {/* Header Section */}
+      <header className="tdb__header">
+        <div className="tdb__headerContent">
+          <h1 className="tdb__title">Dashboard</h1>
+          <p className="tdb__subtitle">
+            Welcome back, <strong>{loading ? "Teacher" : teacherName}</strong>
           </p>
         </div>
       </header>
 
-      {/* Stats Row */}
-      <div className="dash__statsRow">
-        <div className="dashStat dashStat--blue">
-          <span className="dashStat__icon" aria-hidden="true">🏫</span>
-          <div>
-            <div className="dashStat__label">SECTIONS</div>
-            <div className="dashStat__value">{loading ? "—" : sections.length}</div>
+      {/* Quick Stats */}
+      <div className="tdb__stats">
+        <div className="tdbStat tdbStat--primary">
+          <div className="tdbStat__icon">🏫</div>
+          <div className="tdbStat__content">
+            <div className="tdbStat__label">Sections</div>
+            <div className="tdbStat__value">{loading ? "—" : sections.length}</div>
           </div>
         </div>
 
-        <div className="dashStat dashStat--success">
-          <span className="dashStat__icon" aria-hidden="true">📚</span>
-          <div>
-            <div className="dashStat__label">SUBJECT</div>
-            <div className="dashStat__value dashStat__value--sm">
-              {loading ? "—" : subjectName}
-            </div>
+        <div className="tdbStat tdbStat--success">
+          <div className="tdbStat__icon">📚</div>
+          <div className="tdbStat__content">
+            <div className="tdbStat__label">Subject</div>
+            <div className="tdbStat__value--sm">{loading ? "—" : subjectName}</div>
           </div>
         </div>
 
-        <div className="dashStat dashStat--warn">
-          <span className="dashStat__icon" aria-hidden="true">📅</span>
-          <div>
-            <div className="dashStat__label">TODAY'S CLASSES</div>
-            <div className="dashStat__value">
-              {loading ? "—" : todaySchedule.length}
-            </div>
+        <div className="tdbStat tdbStat--warning">
+          <div className="tdbStat__icon">📅</div>
+          <div className="tdbStat__content">
+            <div className="tdbStat__label">Today's Classes</div>
+            <div className="tdbStat__value">{loading ? "—" : todaySchedule.length}</div>
           </div>
         </div>
       </div>
 
-      {/* Main grid: today's schedule + announcements */}
-      <div className="dash__grid">
-        {/* Today's Schedule */}
-        <section className="card">
-          <div className="card__header card__header--blue">
-            <h6 className="card__headerTitle">
-              <span className="icon icon--header" aria-hidden="true">📅</span>
-              Today's Schedule
-            </h6>
+      {/* Main Grid */}
+      <div className="tdb__grid">
+        {/* Today's Schedule Card */}
+        <section className="tdbCard">
+          <div className="tdbCard__header tdbCard__header--primary">
+            <h2 className="tdbCard__title">📅 Today's Schedule</h2>
           </div>
-
-          <div className="card__body card__body--flush">
+          <div className="tdbCard__body">
             {loading ? (
-              <div className="list__staticItem">Loading schedule…</div>
+              <div className="tdbCard__empty">Loading schedule…</div>
             ) : todaySchedule.length === 0 ? (
-              <div className="list__staticItem">No classes scheduled today.</div>
+              <div className="tdbCard__empty">No classes scheduled today.</div>
             ) : (
-              <div className="list">
+              <div className="tdbScheduleList">
                 {todaySchedule.map((s) => (
-                  <div className="list__item" key={s.id} style={{ cursor: "default" }}>
-                    <div className="list__row">
-                      <div className="list__left">
-                        <div className="iconBox iconBox--blue" aria-hidden="true">
-                          📘
-                        </div>
-                        <div>
-                          <div className="list__title">{s.subject_name}</div>
-                          <div className="list__meta">
+                  <div key={s.id} className="tdbScheduleItem">
+                    <button
+                      className="tdbScheduleRow"
+                      onClick={() => toggleScheduleExpand(s.id)}
+                      type="button"
+                    >
+                      <div className="tdbScheduleRow__left">
+                        <div className="tdbScheduleIcon">📘</div>
+                        <div className="tdbScheduleInfo">
+                          <div className="tdbScheduleSubject">{s.subject_name}</div>
+                          <div className="tdbScheduleMeta">
                             {GRADE_LBL(s.grade_level)} – {s.section_name}
-                            {s.room_code ? ` · Room ${s.room_code}` : ""}
                           </div>
                         </div>
                       </div>
-                      <div className="list__time list__time--primary">
-                        {FMT_TIME(s.start_time)} – {FMT_TIME(s.end_time)}
+                      <div className="tdbScheduleRow__right">
+                        <div className="tdbScheduleTime">
+                          {FMT_TIME(s.start_time)} – {FMT_TIME(s.end_time)}
+                        </div>
+                        <div className="tdbScheduleToggle">
+                          {expandedScheduleId === s.id ? "−" : "+"}
+                        </div>
                       </div>
-                    </div>
+                    </button>
+
+                    {expandedScheduleId === s.id && (
+                      <div className="tdbScheduleDetail">
+                        <div className="tdbScheduleDetail__grid">
+                          <div className="tdbScheduleDetail__item">
+                            <div className="tdbScheduleDetail__label">Grade Level</div>
+                            <div className="tdbScheduleDetail__value">
+                              {GRADE_LBL(s.grade_level)}
+                            </div>
+                          </div>
+                          <div className="tdbScheduleDetail__item">
+                            <div className="tdbScheduleDetail__label">Section</div>
+                            <div className="tdbScheduleDetail__value">{s.section_name}</div>
+                          </div>
+                          {s.room_code && (
+                            <div className="tdbScheduleDetail__item">
+                              <div className="tdbScheduleDetail__label">Room</div>
+                              <div className="tdbScheduleDetail__value">{s.room_code}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -357,44 +361,38 @@ const Dashboard = () => {
         </section>
 
         {/* Announcements */}
-        <section className="card">
-          <div className="card__header card__header--danger">
-            <h6 className="card__headerTitle">
-              <span className="icon icon--header" aria-hidden="true">📣</span>
-              Announcements
-            </h6>
+        <section className="tdbCard">
+          <div className="tdbCard__header tdbCard__header--info">
+            <h2 className="tdbCard__title">📣 Announcements</h2>
           </div>
           <TeacherAnnouncementsPanel />
         </section>
       </div>
 
       {/* ABOUT CESI */}
-      <section className="card card--roundedLg dash__section">
-        <div className="card__header card__header--blue">
-          <h6 className="card__headerTitle">
-            <span className="icon icon--header" aria-hidden="true">✨</span>
-            ABOUT CESI
-          </h6>
+      <section className="tdbCard tdb__fullWidth">
+        <div className="tdbCard__header tdbCard__header--primary">
+          <h2 className="tdbCard__title">✨ About CESI Portal</h2>
         </div>
-        <div className="card__body">
-          <div className="media">
-            <div className="media__imgWrap">
-              <img className="media__img" src="/port.png" alt="CESI Portal" />
+        <div className="tdbCard__body">
+          <div className="tdbMedia">
+            <div className="tdbMedia__img">
+              <img src="/port.png" alt="CESI Portal" />
             </div>
-            <div className="media__content">
-              <h5 className="media__title">What is CESI Portal</h5>
-              <p className="media__text">
+            <div className="tdbMedia__content">
+              <h3 className="tdbMedia__title">What is CESI Portal</h3>
+              <p className="tdbMedia__text">
                 The CESI Portal is your all-in-one academic command center. Designed for
                 efficiency and transparency, it allows teachers to seamlessly manage grades,
                 attendance, and student performance. Everything you need is organized into a
                 single, user-friendly digital hub.
               </p>
-              <div className="chips">
-                <span className="chip">💻 Real-time Data</span>
-                <span className="chip">🏫 Class Management</span>
-                <span className="chip">🛡️ Secure Access</span>
-                <span className="chip">📱 Mobile Ready</span>
-                <span className="chip">🕒 24/7 Availability</span>
+              <div className="tdbChips">
+                <span className="tdbChip">💻 Real-time Data</span>
+                <span className="tdbChip">🏫 Class Management</span>
+                <span className="tdbChip">🛡️ Secure Access</span>
+                <span className="tdbChip">📱 Mobile Ready</span>
+                <span className="tdbChip">🕒 24/7 Availability</span>
               </div>
             </div>
           </div>
@@ -402,21 +400,18 @@ const Dashboard = () => {
       </section>
 
       {/* Back to School */}
-      <section className="card card--roundedLg dash__section">
-        <div className="card__header card__header--blue">
-          <h6 className="card__headerTitle">
-            <span className="icon icon--header" aria-hidden="true">✨</span>
-            Back to School
-          </h6>
+      <section className="tdbCard tdb__fullWidth">
+        <div className="tdbCard__header tdbCard__header--success">
+          <h2 className="tdbCard__title">🎓 Back to School</h2>
         </div>
-        <div className="card__body">
-          <div className="media">
-            <div className="media__imgWrap">
-              <img className="media__img" src="/bsch.jpg" alt="Back to School" />
+        <div className="tdbCard__body">
+          <div className="tdbMedia">
+            <div className="tdbMedia__img">
+              <img src="/bsch.jpg" alt="Back to School" />
             </div>
-            <div className="media__content">
-              <h5 className="media__title media__title--plain">Back to School</h5>
-              <p className="media__text">
+            <div className="tdbMedia__content">
+              <h3 className="tdbMedia__title">Welcome Back</h3>
+              <p className="tdbMedia__text">
                 Welcome back! Get ready for another enriching year of teaching, guiding,
                 and inspiring your students.
               </p>

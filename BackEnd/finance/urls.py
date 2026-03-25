@@ -14,6 +14,10 @@ from .views import (
     TuitionConfigDetail,
     tuition_config_stats,
     tuition_config_by_grade,
+    ProofOfPaymentListCreate,
+    ProofOfPaymentDetail,
+    my_payment_proofs,
+    payment_proof_stats,
 )
 
 urlpatterns = [
@@ -36,4 +40,10 @@ urlpatterns = [
     path('student-tuition-overview/', student_tuition_overview, name='student-tuition-overview'),
     
     path('tuition-configs/by-grade/<str:grade_key>/', tuition_config_by_grade, name='tuition-config-by-grade'),
+
+    # PROOF OF PAYMENT ENDPOINTS
+    path('payment-proofs/', ProofOfPaymentListCreate.as_view(), name='payment-proof-list'),
+    path('payment-proofs/<int:pk>/', ProofOfPaymentDetail.as_view(), name='payment-proof-detail'),
+    path('my-payment-proofs/', my_payment_proofs, name='my-payment-proofs'),
+    path('payment-proofs/stats/', payment_proof_stats, name='payment-proof-stats'),
 ]
