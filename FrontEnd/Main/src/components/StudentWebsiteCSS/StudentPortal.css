@@ -1,21 +1,72 @@
 /* Student Portal - Main Styles */
-/* Extends AdminDashboard.css with student-specific overrides */
+/* Unified with Admin design system */
 
-/* Override root background to white */
+:root {
+  --primary: #1976D2;
+  --primary-dark: #1565C0;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --border: #e2e8f0;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Base Styles */
+* {
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+}
+
+/* Student Portal */
 .student-portal {
-  background-color: #ffffff;
+  background-color: var(--background);
 }
 
 .student-portal .admin-main {
-  background-color: #f8fafc;
+  background-color: var(--background);
 }
 
 /* Student-specific card styling */
 .student-portal .page-content {
-  padding: 1.5rem;
+  padding: 2.5rem;
 }
 
 /* Ensure unified styling with admin */
 .student-portal .admin-header {
-  background: linear-gradient(135deg, #24148a 0%, #3b2aa6 100%);
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+}
+
+/* Typography overrides */
+.student-portal h1,
+.student-portal h2,
+.student-portal h3,
+.student-portal h4,
+.student-portal h5,
+.student-portal h6 {
+  text-transform: capitalize;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* Button overrides */
+.student-portal button,
+.student-portal .btn {
+  text-transform: capitalize;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 600;
+}
+
+.student-portal button:hover,
+.student-portal .btn:hover {
+  transform: translateY(-2px);
 }

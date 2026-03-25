@@ -42,15 +42,15 @@
 
 .tab-btn {
   display: flex;
-  background: #e16b6b;
+  background: #ffffff;
   gap: 8px;
   padding: 12px 20px;
   border: 2px solid transparent;
-  background: transparent;
+  background: #ffffff;
   border-radius: 8px;
   cursor: pointer;
   font-size: 15px;
-  background: #c64f4f;
+  background: #ffffff;
   color: #6b7280;
   transition: all 0.3s ease;
   font-family: inherit;

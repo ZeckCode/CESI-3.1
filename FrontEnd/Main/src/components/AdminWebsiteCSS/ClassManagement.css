@@ -396,6 +396,14 @@
   flex-shrink: 0;
 }
 
+.filter-box svg {
+  display: none !important;
+}
+
+.admin-filter-box svg {
+  display: none !important;
+}
+
 .search-box:focus-within,
 .filter-box:focus-within {
   border-color: #5BA3C7;

@@ -17,6 +17,7 @@ import TuitionManagement from "./TuitionManagement";
 import AdminPasswordResetRequests from "./AdminPasswordResetRequests";
 import Messages from "./Messages";
 import OrganizationalChart from "./OrganizationalChart";
+import NotificationList from "./NotificationList";
 import { getToken } from "../Auth/auth";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 
@@ -34,6 +35,7 @@ function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [unreadReminders, setUnreadReminders] = useState(0);
+  const [showNotificationList, setShowNotificationList] = useState(false);
 
   const handleMenuClick = (menuId) => setActiveMenu(menuId);
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
@@ -181,7 +183,7 @@ function AdminDashboard() {
           onToggleCollapse={handleToggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
           showRemindersBell={true}
-          onOpenReminders={() => setActiveMenu("payment-reminders")}
+          onOpenReminders={() => setShowNotificationList(true)}
           unreadReminders={unreadReminders}
         />
 
@@ -189,6 +191,17 @@ function AdminDashboard() {
       </main>
 
       <FloatingMessages />
+
+      {showNotificationList && (
+        <NotificationList
+          onClose={() => setShowNotificationList(false)}
+          unreadCount={unreadReminders}
+          onNavigate={(menu, reminder) => {
+            setActiveMenu(menu);
+            setShowNotificationList(false);
+          }}
+        />
+      )}
     </div>
   );
 }

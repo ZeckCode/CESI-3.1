@@ -769,21 +769,24 @@ const Grade = () => {
               <tr>
                 <th className="ge__th ge__th--left ge__th--sticky">Student Name</th>
                 {CATEGORIES.map(({ key, label }) =>
-                  itemsByCategory(key).map((item) => (
-                    <th
-                      key={item.id}
-                      className="ge__th ge__th--score"
-                      title={`${label}: ${item.title} (/${item.total_score})`}
-                    >
-                      <span className={`ge__thCat ge__thCat--${key.toLowerCase()}`}>
-                        {key[0]}
-                      </span>
-                      <span className="ge__thTitle">
-                        {item.title.length > 8 ? item.title.slice(0, 8) + "…" : item.title}
-                      </span>
-                      <span className="ge__thMax">/{item.total_score}</span>
-                    </th>
-                  ))
+                  itemsByCategory(key).map((item, idx) => {
+                    const abbr = key[0] + (idx + 1);
+                    return (
+                      <th
+                        key={item.id}
+                        className="ge__th ge__th--score"
+                        title={`${label}: ${item.title} (/${item.total_score})`}
+                      >
+                        <span className={`ge__thCat ge__thCat--${key.toLowerCase()}`}>
+                          {abbr}
+                        </span>
+                        <span className="ge__thTitle">
+                          {item.title.length > 8 ? item.title.slice(0, 8) + "…" : item.title}
+                        </span>
+                        <span className="ge__thMax">/{item.total_score}</span>
+                      </th>
+                    );
+                  })
                 )}
                 <th className="ge__th ge__th--score">CS</th>
                 <th className="ge__th">Quarter Grade</th>

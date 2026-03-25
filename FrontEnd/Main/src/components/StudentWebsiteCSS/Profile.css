@@ -1,24 +1,25 @@
 /* Student Profile - Unified Admin Style */
 :root {
-  --primary1-blue: #24148a;
-  --blue-light: #e8f4fc;
-  --blue-soft: #B1D9EC;
-  --white: #ffffff;
-  --gray-50: #f8fafc;
-  --gray-100: #f1f5f9;
-  --gray-200: #e2e8f0;
-  --gray-600: #475569;
-  --gray-800: #1e293b;
-  --success: #22c55e;
+  --primary: #1976D2;
+  --primary-dark: #1565C0;
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --border: #e2e8f0;
+  --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.12);
 }
 
 /* Base Layout */
 .profile-content {
-  padding: 1.5rem;
-  background-color: var(--gray-50);
+  padding: 2.5rem;
+  background-color: var(--background);
   min-height: calc(100vh - 80px);
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
 }
 
 .loading-spinner,
@@ -27,7 +28,7 @@
   align-items: center;
   justify-content: center;
   min-height: 300px;
-  color: var(--gray-600);
+  color: var(--text-secondary);
   font-size: 1rem;
 }
 
@@ -89,10 +90,12 @@
 }
 
 .title-text {
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 700;
-  color: var(--gray-800);
+  color: var(--text-primary);
   margin: 0;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
 }
 
 .header-actions {
@@ -104,7 +107,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--primary1-blue);
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: white;
   border: none;
   padding: 0.625rem 1.25rem;
@@ -112,19 +115,20 @@
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: capitalize;
 }
 
 .edit-profile-btn:hover {
-  background: #1a0f66;
-  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+  transform: translateY(-2px);
 }
 
 .btn-save {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--success);
+  background: linear-gradient(135deg, var(--success), #059669);
   color: white;
   border: none;
   padding: 0.625rem 1.25rem;
@@ -132,15 +136,17 @@
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: capitalize;
 }
 
 .btn-save:hover:not(:disabled) {
-  background: #16a34a;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  transform: translateY(-2px);
 }
 
 .btn-save:disabled {
-  opacity: 0.7;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
@@ -148,19 +154,20 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--gray-200);
-  color: var(--gray-800);
+  background: var(--border);
+  color: var(--text-primary);
   border: none;
   padding: 0.625rem 1.25rem;
   border-radius: 0.5rem;
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: capitalize;
 }
 
 .btn-cancel:hover:not(:disabled) {
-  background: var(--gray-100);
+  background: var(--background);
 }
 
 /* Hero Card */
@@ -168,9 +175,9 @@
   background: white;
   border-radius: 1rem;
   padding: 2rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow);
   margin-bottom: 1.5rem;
-  border: 1px solid var(--gray-200);
+  border: none;
 }
 
 .hero-main-info {
@@ -187,7 +194,7 @@
   height: 120px;
   border-radius: 1rem;
   overflow: visible;
-  background: var(--gray-100);
+  background: var(--background);
 }
 
 .hero-avatar img {
@@ -195,6 +202,7 @@
   height: 100%;
   object-fit: cover;
   border-radius: 1rem;
+  box-shadow: var(--shadow);
 }
 
 .hero-avatar.editable {
@@ -207,8 +215,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--gray-200);
-  color: var(--gray-600);
+  background: var(--border);
+  color: var(--text-secondary);
+  font-size: 3rem;
+  font-weight: 700;
 }
 
 .avatar-overlay {
@@ -226,11 +236,13 @@
   opacity: 0;
   transition: opacity 0.2s;
   gap: 0.25rem;
+  border-radius: 1rem;
 }
 
 .avatar-overlay span {
   font-size: 0.75rem;
   font-weight: 600;
+  text-transform: capitalize;
 }
 
 .hero-avatar.editable:hover .avatar-overlay {
@@ -242,19 +254,20 @@
   bottom: -8px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 0.25rem 0.75rem;
+  padding: 0.375rem 0.875rem;
   border-radius: 50px;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: capitalize;
   white-space: nowrap;
   background: var(--success);
   color: white;
+  box-shadow: var(--shadow);
 }
 
 /* Status Badge Styles - All Enrollment Statuses */
 .status-badge.pending {
-  background: #f59e0b;
+  background: var(--warning);
   color: #ffffff;
 }
 
@@ -264,18 +277,17 @@
 }
 
 .status-badge.completed {
-  background: #2196F3;
+  background: var(--primary);
   color: #ffffff;
 }
 
 .status-badge.dropped {
   background: var(--danger);
   color: #ffffff;
-  border: 2px solid #7f1d1d;
 }
 
 .status-badge.inactive {
-  background: var(--gray-600);
+  background: var(--text-secondary);
 }
 
 .status-badge.suspended {
@@ -289,13 +301,15 @@
 
 .student-name {
   font-size: 1.75rem;
-  font-weight: 800;
-  color: var(--gray-800);
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--text-primary);
   margin: 0 0 0.25rem 0;
+  letter-spacing: 0.3px;
 }
 
 .student-lrn {
-  color: var(--gray-600);
+  color: var(--text-secondary);
   margin: 0 0 1rem 0;
   font-size: 0.9rem;
 }
@@ -313,15 +327,16 @@
   border-radius: 0.5rem;
   font-size: 0.8rem;
   font-weight: 600;
+  text-transform: capitalize;
 }
 
 .tag-pill.grade {
-  background: var(--blue-light);
-  color: var(--primary1-blue);
+  background: linear-gradient(135deg, #dbeafe, #ffffff);
+  color: var(--primary);
 }
 
 .tag-pill.year {
-  background: #fef3c7;
+  background: linear-gradient(135deg, #fef3c7, #ffffff);
   color: #92400e;
 }
 
@@ -336,28 +351,28 @@
   background: white;
   border-radius: 1rem;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow);
+  border: none;
 }
 
 .details-header {
-  background: var(--primary1-blue);
-  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  padding: 1.125rem 1.5rem;
   font-weight: 700;
   color: white;
   font-size: 0.875rem;
-  text-transform: uppercase;
+  text-transform: capitalize;
   letter-spacing: 0.5px;
   display: flex;
   align-items: center;
 }
 
 .details-header.guardian-header {
-  background: #059669;
+  background: linear-gradient(135deg, var(--success), #059669);
 }
 
 .details-body {
-  padding: 0.5rem 1.5rem;
+  padding: 1rem 1.5rem;
 }
 
 .info-entry {
@@ -371,13 +386,13 @@
 }
 
 .entry-border {
-  border-bottom: 1px solid var(--gray-200);
+  border-bottom: 1px solid var(--border);
 }
 
 .entry-label {
-  font-size: 0.7rem;
-  color: var(--gray-600);
-  text-transform: uppercase;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: capitalize;
   font-weight: 600;
   margin-bottom: 0.375rem;
   letter-spacing: 0.5px;
@@ -385,6 +400,7 @@
 
 .entry-value {
   font-weight: 600;
+  text-transform: capitalize;
   color: var(--gray-800);
   font-size: 0.95rem;
 }
@@ -392,23 +408,23 @@
 .entry-input {
   width: 100%;
   padding: 0.625rem 0.875rem;
-  border: 1px solid var(--gray-200);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
   font-size: 0.9rem;
-  color: var(--gray-800);
+  color: var(--text-primary);
   transition: border-color 0.2s, box-shadow 0.2s;
   font-family: inherit;
 }
 
 .entry-input:focus {
   outline: none;
-  border-color: var(--primary1-blue);
-  box-shadow: 0 0 0 3px rgba(36, 20, 138, 0.1);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
 }
 
 textarea.entry-input {
   resize: vertical;
-  min-height: 80px;
+  min-height: 100px;
 }
 
 /* Responsive */

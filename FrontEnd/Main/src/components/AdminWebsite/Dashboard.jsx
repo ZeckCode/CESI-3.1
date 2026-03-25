@@ -69,6 +69,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
   const [attendanceTrend, setAttendanceTrend] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [expandedAnnouncements, setExpandedAnnouncements] = useState(new Set());
+  const [activeAnnouncement, setActiveAnnouncement] = useState(null);
   const [passwordResetRequests, setPasswordResetRequests] = useState([]);
   const [attendanceToday, setAttendanceToday] = useState([]);
   const [subjectDistribution, setSubjectDistribution] = useState([]);
@@ -153,6 +154,22 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
       newExpanded.add(id);
     }
     setExpandedAnnouncements(newExpanded);
+  };
+
+  const getFirstImagePath = (a) => {
+    const firstImage = a?.media?.find((m) =>
+      /\.(jpg|jpeg|png|gif|webp)$/i.test(m?.file || m?.file_url || "")
+    );
+    return firstImage?.file_url || firstImage?.file || null;
+  };
+
+  const getFirstMedia = (a) => {
+    return Array.isArray(a?.media) ? a.media[0] : null;
+  };
+
+  const toAbsUrl = (path) => {
+    if (!path) return null;
+    return path.startsWith("http") ? path : path;
   };
 
   async function loadDashboardData() {
@@ -783,13 +800,25 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
                     </span>
                   </div>
                 </div>
-                <ChevronDown
-                  size={18}
-                  className={`dash-announcement-toggle ${
-                    expandedAnnouncements.has(a.id) ? "expanded" : ""
-                  }`}
-                  title="Click to expand announcement"
-                />
+                <div className="dash-announcement-actions">
+                  <button
+                    className="dash-announcement-btn dash-announcement-btn--view"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveAnnouncement(a);
+                    }}
+                    title="View full announcement"
+                  >
+                    View
+                  </button>
+                  <ChevronDown
+                    size={18}
+                    className={`dash-announcement-toggle ${
+                      expandedAnnouncements.has(a.id) ? "expanded" : ""
+                    }`}
+                    title="Click to expand announcement"
+                  />
+                </div>
               </div>
               {expandedAnnouncements.has(a.id) && (
                 <div className="dash-announcement-content">
@@ -829,7 +858,68 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
           ))}
         </div>
       </section>
-    </main>
+      {/* Announcement Detail Modal */}
+      {activeAnnouncement && (
+        <div 
+          className="dash-modal-overlay" 
+          onClick={() => setActiveAnnouncement(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setActiveAnnouncement(null);
+          }}
+        >
+          <div 
+            className="dash-modal-content" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="dash-modal-close"
+              onClick={() => setActiveAnnouncement(null)}
+              title="Close announcement"
+            >
+              ✕
+            </button>
+
+            {(() => {
+              const firstMedia = getFirstMedia(activeAnnouncement);
+              const firstUrl = toAbsUrl(firstMedia?.file_url || firstMedia?.file);
+              const isVideo = firstUrl && /\.(mp4|webm|ogg|mov)$/i.test(firstUrl);
+              const imgUrl = toAbsUrl(getFirstImagePath(activeAnnouncement));
+
+              return (
+                <>
+                  {firstUrl && isVideo ? (
+                    <video 
+                      src={firstUrl} 
+                      controls 
+                      className="dash-modal-media"
+                    />
+                  ) : (
+                    imgUrl && <img 
+                      src={imgUrl} 
+                      alt="" 
+                      className="dash-modal-media"
+                    />
+                  )}
+                </>
+              );
+            })()}
+
+            <h2 className="dash-modal-title">
+              {activeAnnouncement.title || "Untitled"}
+            </h2>
+
+            <div className="dash-modal-meta">
+              {activeAnnouncement.created_at
+                ? new Date(activeAnnouncement.created_at).toLocaleString()
+                : ""}
+            </div>
+
+            <p className="dash-modal-text">
+              {activeAnnouncement.content || "No content provided."}
+            </p>
+          </div>
+        </div>
+      )}    </main>
   );
 };
 
