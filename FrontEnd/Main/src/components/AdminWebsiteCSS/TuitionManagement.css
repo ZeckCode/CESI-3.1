@@ -506,6 +506,69 @@
   font-family: inherit;
 }
 
+/* Proof of Payment Upload Styles */
+.tm-proof-upload-area {
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #f8fafc;
+}
+
+.tm-proof-upload-area:hover {
+  border-color: #2196F3;
+  background-color: #f0f7ff;
+}
+
+.tm-proof-preview {
+  border: 2px solid #10b981;
+  border-radius: 8px;
+  padding: 16px;
+  background-color: #ecfdf5;
+  position: relative;
+}
+
+.tm-proof-image {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 6px;
+  display: block;
+  margin: 0 auto;
+}
+
+.tm-proof-pdf {
+  text-align: center;
+  padding: 20px;
+}
+
+.tm-proof-pdf-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #065f46;
+  margin-top: 8px;
+}
+
+.tm-proof-remove-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.2s ease;
+}
+
+.tm-proof-remove-btn:hover {
+  background: #b91c1c;
+}
+
 /* Modal Footer */
 .tm-modal-footer {
   display: flex;

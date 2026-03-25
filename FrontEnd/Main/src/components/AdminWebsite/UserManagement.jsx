@@ -8,6 +8,38 @@ import StatCard, { StatsGrid } from './StatCard';
 import Pagination from './Pagination';
 import '../AdminWebsiteCSS/UserManagement.css';
 
+/* ─────────────────────────────────────────────
+   EMAIL FORMATTING & VALIDATION HELPERS
+───────────────────────────────────────────── */
+const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
+
+const formatTeacherEmail = (firstName, lastName) => {
+  const first = (firstName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const last = (lastName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  return first && last ? `${first}.${last}@cesi.edu.ph` : '';
+};
+
+const formatStudentEmail = (lastName, firstName) => {
+  const last = (lastName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const first = (firstName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  return last && first ? `${last}.${first}@cesi.edu.ph` : '';
+};
+
+const isValidTeacherEmail = (email) => {
+  const normalized = normalizeEmail(email);
+  return /^[a-z0-9]+\.[a-z0-9]+@cesi\.edu\.ph$/.test(normalized);
+};
+
+const isValidStudentEmail = (email) => {
+  const normalized = normalizeEmail(email);
+  return /^[a-z0-9]+\.[a-z0-9]+@cesi\.edu\.ph$/.test(normalized);
+};
+
+const isValidAdminEmail = (email) => {
+  const normalized = normalizeEmail(email);
+  return normalized === 'cesi.admin@cesi.edu.ph' || /^admin|^cesi\.admin@cesi\.edu\.ph$/.test(normalized);
+};
+
 const UserManagement = () => {
   // ── data ──
   const [students, setStudents] = useState([]);
@@ -34,6 +66,7 @@ const UserManagement = () => {
     subject: '', section_teacher: '', employee_id: '',
   });
   const [createError, setCreateError] = useState('');
+  const [emailHint, setEmailHint] = useState('');
   const [creating, setCreating] = useState(false);
 
   // inline assignment editing (teachers)
@@ -278,8 +311,13 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
   // ── create teacher ──
   const handleCreateTeacher = async () => {
     setCreateError('');
+    setEmailHint('');
     if (!createForm.username || !createForm.email || !createForm.password) {
       setCreateError('Username, email and password are required.');
+      return;
+    }
+    if (!isValidTeacherEmail(createForm.email)) {
+      setCreateError('Email must follow teacher format: firstname.lastname@cesi.edu.ph');
       return;
     }
     setCreating(true);
@@ -495,8 +533,28 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
             <div className="form-group">
               <label>Email *</label>
               <input type="email" value={createForm.email}
-                onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                placeholder="teacher@school.edu" />
+                onChange={(e) => {
+                  const email = e.target.value;
+                  setCreateForm({ ...createForm, email });
+                  // Provide validation hint for teacher email format
+                  if (email.trim()) {
+                    if (isValidTeacherEmail(email)) {
+                      setEmailHint('✓ Valid teacher email format');
+                    } else {
+                      setEmailHint('Teacher emails should follow: firstname.lastname@cesi.edu.ph');
+                    }
+                  } else {
+                    setEmailHint('');
+                  }
+                }}
+                placeholder="firstname.lastname@cesi.edu.ph"
+                style={{ borderColor: emailHint.includes('✓') ? '#10b981' : createForm.email && !isValidTeacherEmail(createForm.email) ? '#ef4444' : '' }}
+              />
+              {emailHint && (
+                <span style={{ fontSize: 12, color: emailHint.includes('✓') ? '#10b981' : '#ef4444', marginTop: 6, display: 'block' }}>
+                  {emailHint}
+                </span>
+              )}
             </div>
             <div className="form-group">
               <label>Password *</label>
