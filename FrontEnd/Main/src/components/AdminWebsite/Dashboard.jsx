@@ -29,6 +29,7 @@ import {
   User,
   CheckCircle,
   XCircle,
+  AlertCircle,
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
 import "../AdminWebsiteCSS/Dashboard.css";
@@ -58,6 +59,7 @@ const Dashboard = () => {
     todayTotal: 0,
     totalSubjects: 0,
     pendingEnrollments: 0,
+    overduePayments: 0,
   });
 
   const [enrollmentByLevel, setEnrollmentByLevel] = useState([]);
@@ -69,6 +71,7 @@ const Dashboard = () => {
   const [scheduleToday, setScheduleToday] = useState([]);
   const [attendanceToday, setAttendanceToday] = useState([]);
   const [subjectDistribution, setSubjectDistribution] = useState([]);
+  const [pendingApplications, setPendingApplications] = useState([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -238,6 +241,11 @@ const Dashboard = () => {
       const totalRevenue =
         financeStatsRes?.totalRevenue ?? totalRevenueComputed;
 
+      // Calculate overdue payments
+      const overdue = transactions.filter(
+        (t) => getTransactionStatus(t) === "OVERDUE"
+      ).length;
+
       // ─────────────────────────
       // Attendance stats
       // ─────────────────────────
@@ -276,6 +284,7 @@ const Dashboard = () => {
         todayTotal: todayRecords.length,
         totalSubjects: subjects.length,
         pendingEnrollments: pendingEnrollments.length,
+        overduePayments: overdue,
       });
 
       // ─────────────────────────
@@ -320,10 +329,6 @@ const Dashboard = () => {
 
       const pending = transactions.filter(
         (t) => getTransactionStatus(t) === "PENDING"
-      ).length;
-
-      const overdue = transactions.filter(
-        (t) => getTransactionStatus(t) === "OVERDUE"
       ).length;
 
       const payData = [
@@ -502,6 +507,18 @@ const Dashboard = () => {
       }));
 
       setAttendanceToday(attendanceTodayData);
+
+      // ─────────────────────────
+      // Pending applications list
+      // ─────────────────────────
+      const pendingAppsList = pendingEnrollments.map((e) => ({
+        id: e.id,
+        studentName: e.student_name || e.student || "Unknown",
+        grade: getEnrollmentGrade(e),
+        appliedDate: e.created_at || e.date_applied || "",
+      }));
+
+      setPendingApplications(pendingAppsList);
     } catch (err) {
       console.error("Dashboard load error:", err);
     } finally {
@@ -531,7 +548,7 @@ const Dashboard = () => {
           </div>
           <div className="dash-stat-info">
             <span className="dash-stat-value">{stats.totalStudents}</span>
-            <span className="dash-stat-label">Total Students</span>
+            <span className="dash-stat-label">Enrolled Students</span>
           </div>
         </div>
 
@@ -543,17 +560,17 @@ const Dashboard = () => {
             <span className="dash-stat-value">
               {formatCurrency(stats.totalRevenue)}
             </span>
-            <span className="dash-stat-label">Total Revenue</span>
+            <span className="dash-stat-label">Total Collected</span>
           </div>
         </div>
 
         <div className="dash-stat-md dash-stat-md--teal">
           <div className="dash-stat-icon dash-stat-icon--teal">
-            <ClipboardCheck size={22} />
+            <AlertCircle size={22} />
           </div>
           <div className="dash-stat-info">
-            <span className="dash-stat-value">{stats.attendanceRate}%</span>
-            <span className="dash-stat-label">Attendance Rate</span>
+            <span className="dash-stat-value">{stats.overduePayments}</span>
+            <span className="dash-stat-label">Overdue Payments</span>
           </div>
         </div>
 
@@ -563,7 +580,7 @@ const Dashboard = () => {
           </div>
           <div className="dash-stat-info">
             <span className="dash-stat-value">{stats.pendingEnrollments}</span>
-            <span className="dash-stat-label">Pending Enrollments</span>
+            <span className="dash-stat-label">Pending Applications</span>
           </div>
         </div>
       </section>
@@ -704,36 +721,40 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </div>
 
-        <div className="dash-card dash-card--center">
-          <h3 className="dash-card-title">Attendance for Today</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <RadialBarChart
-              cx="50%"
-              cy="50%"
-              innerRadius="60%"
-              outerRadius="90%"
-              barSize={18}
-              data={[
-                {
-                  name: "Today",
-                  value: stats.todayAttendanceRate,
-                  fill: "#6366f1",
-                },
-              ]}
-              startAngle={210}
-              endAngle={-30}
-            >
-              <RadialBar
-                dataKey="value"
-                cornerRadius={10}
-                background={{ fill: "#f3f4f6" }}
-              />
-            </RadialBarChart>
-          </ResponsiveContainer>
-          <div className="dash-gauge-label">{stats.todayAttendanceRate}%</div>
-          <div className="dash-gauge-sub">
-            {stats.todayPresent} / {stats.todayTotal} present
+        <div className="dash-card dash-card--list">
+          <div className="dash-card-head">
+            <Clock size={16} />
+            <h3 className="dash-card-title">Pending Applications ({stats.pendingEnrollments})</h3>
           </div>
+          {pendingApplications.length === 0 && (
+            <div className="dash-empty-state">
+              <CheckCircle size={24} className="dash-empty-icon" />
+              <p className="dash-empty">No pending applications</p>
+              <span className="dash-empty-sub">All applications have been processed</span>
+            </div>
+          )}
+          {pendingApplications.length > 0 && (
+            <div className="dash-pending-list">
+              {pendingApplications.map((app) => (
+                <div key={app.id} className="dash-pending-item">
+                  <div className="dash-pending-left">
+                    <div className="dash-pending-badge">
+                      <Clock size={14} />
+                    </div>
+                    <div className="dash-list-content">
+                      <span className="dash-list-title">{app.studentName}</span>
+                      <span className="dash-list-sub">Grade: {app.grade}</span>
+                    </div>
+                  </div>
+                  <div className="dash-pending-right">
+                    <span className="dash-pending-date">
+                      {app.appliedDate ? new Date(app.appliedDate).toLocaleDateString() : "N/A"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -741,7 +762,7 @@ const Dashboard = () => {
         <div className="dash-card dash-card--list">
           <div className="dash-card-head">
             <CheckCircle size={16} />
-            <h3 className="dash-card-title">Attendance for Today</h3>
+            <h3 className="dash-card-title">Student Attendance Today</h3>
           </div>
           {attendanceToday.length === 0 && (
             <div className="dash-empty-state">
@@ -779,10 +800,14 @@ const Dashboard = () => {
         <div className="dash-card dash-card--list">
           <div className="dash-card-head">
             <Bell size={16} />
-            <h3 className="dash-card-title">Announcements</h3>
+            <h3 className="dash-card-title">Announcements & Updates</h3>
           </div>
           {announcements.length === 0 && (
-            <p className="dash-empty">No announcements yet.</p>
+            <div className="dash-empty-state">
+              <Bell size={24} className="dash-empty-icon" />
+              <p className="dash-empty">No announcements yet</p>
+              <span className="dash-empty-sub">Create announcements in the CMS module to display them here</span>
+            </div>
           )}
           {announcements.map((a) => (
             <div key={a.id} className="dash-announcement-item">
@@ -806,6 +831,7 @@ const Dashboard = () => {
                   className={`dash-announcement-toggle ${
                     expandedAnnouncements.has(a.id) ? "expanded" : ""
                   }`}
+                  title="Click to expand announcement"
                 />
               </div>
               {expandedAnnouncements.has(a.id) && (
@@ -820,13 +846,13 @@ const Dashboard = () => {
         <div className="dash-card dash-card--list">
           <div className="dash-card-head">
             <Calendar size={16} />
-            <h3 className="dash-card-title">Today's Schedule</h3>
+            <h3 className="dash-card-title">Today's Class Schedule</h3>
           </div>
           {scheduleToday.length === 0 && (
             <div className="dash-empty-state">
               <Calendar size={24} className="dash-empty-icon" />
-              <p className="dash-empty">No schedule yet</p>
-              <span className="dash-empty-sub">Schedule classes for today to see them here</span>
+              <p className="dash-empty">No classes scheduled for today</p>
+              <span className="dash-empty-sub">Use Class Management to add schedules for today's date</span>
             </div>
           )}
           {scheduleToday.map((s, i) => (
