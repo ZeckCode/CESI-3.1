@@ -32,6 +32,17 @@ const Grades = () => {
     })();
   }, []);
 
+  // Helper to determine current quarter based on current date
+  const getCurrentQuarter = () => {
+    const now = new Date();
+    const month = now.getMonth() + 1; // 1-12
+    
+    if (month <= 3) return 1;      // Jan-Mar: Q1
+    if (month <= 6) return 2;      // Apr-Jun: Q2
+    if (month <= 9) return 3;      // Jul-Sep: Q3
+    return 4;                       // Oct-Dec: Q4
+  };
+
   // Compute stats
   const validFinals = grades.filter((g) => g.final_grade !== null);
   const gwa = validFinals.length
@@ -48,6 +59,35 @@ const Grades = () => {
     if (grade >= 80) return 'sg-grade-good';
     if (grade >= 75) return 'sg-grade-fair';
     return 'sg-grade-needs-improvement';
+  };
+
+  // Helper to get quarter grade with pending label
+  const getQuarterGradeDisplay = (grade, quarter) => {
+    if (grade !== null) {
+      return grade.toFixed(1);
+    }
+    // Show "Pending" for current quarter, "—" for others
+    return getCurrentQuarter() === quarter ? 'Pending' : '—';
+  };
+
+  // Helper to get status badge for subject based on quarter grades
+  const getSubjectStatusBadge = (subject) => {
+    const currentQuarter = getCurrentQuarter();
+    const currentQuarterGrade = subject[`q${currentQuarter}`];
+    
+    // Show "Pending" badge if current quarter has no grade
+    if (currentQuarterGrade === null) {
+      return { status: 'pending', label: 'Pending' };
+    }
+    
+    // Show "Passed" or "Failed" based on final grade if available
+    if (subject.final_grade !== null) {
+      return subject.final_grade >= 75 
+        ? { status: 'passed', label: 'Passed' }
+        : { status: 'failed', label: 'Failed' };
+    }
+    
+    return null;
   };
 
   const handleExport = () => {
@@ -148,22 +188,22 @@ const Grades = () => {
                     </td>
                     <td data-label="1st Quarter">
                       <span className={`sg-grade ${getGradeColor(subj.q1)}`}>
-                        {subj.q1 !== null ? subj.q1.toFixed(1) : '—'}
+                        {getQuarterGradeDisplay(subj.q1, 1)}
                       </span>
                     </td>
                     <td data-label="2nd Quarter">
                       <span className={`sg-grade ${getGradeColor(subj.q2)}`}>
-                        {subj.q2 !== null ? subj.q2.toFixed(1) : '—'}
+                        {getQuarterGradeDisplay(subj.q2, 2)}
                       </span>
                     </td>
                     <td data-label="3rd Quarter">
                       <span className={`sg-grade ${getGradeColor(subj.q3)}`}>
-                        {subj.q3 !== null ? subj.q3.toFixed(1) : '—'}
+                        {getQuarterGradeDisplay(subj.q3, 3)}
                       </span>
                     </td>
                     <td data-label="4th Quarter">
                       <span className={`sg-grade ${getGradeColor(subj.q4)}`}>
-                        {subj.q4 !== null ? subj.q4.toFixed(1) : '—'}
+                        {getQuarterGradeDisplay(subj.q4, 4)}
                       </span>
                     </td>
                     <td data-label="Final Grade">
@@ -172,13 +212,24 @@ const Grades = () => {
                       </span>
                     </td>
                     <td data-label="Remarks">
-                      {subj.remarks ? (
-                        <span className={`sg-status-badge sg-status-${subj.remarks.toLowerCase()}`}>
-                          {subj.remarks}
-                        </span>
-                      ) : (
-                        <span className="sg-text-muted">—</span>
-                      )}
+                      {(() => {
+                        const statusBadge = getSubjectStatusBadge(subj);
+                        if (statusBadge) {
+                          return (
+                            <span className={`sg-status-badge sg-status-${statusBadge.status}`}>
+                              {statusBadge.label}
+                            </span>
+                          );
+                        }
+                        if (subj.remarks) {
+                          return (
+                            <span className={`sg-status-badge sg-status-${subj.remarks.toLowerCase()}`}>
+                              {subj.remarks}
+                            </span>
+                          );
+                        }
+                        return <span className="sg-text-muted">—</span>;
+                      })()}
                     </td>
                   </tr>
                 ))}

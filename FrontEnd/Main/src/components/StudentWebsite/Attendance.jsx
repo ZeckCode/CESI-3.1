@@ -230,6 +230,15 @@ const Attendance = () => {
 
           <div className="sa-stat-card sa-stat-purple">
             <div className="sa-stat-header">
+              <span className="sa-stat-label">Excused</span>
+              <AlertCircle size={24} className="sa-stat-icon" />
+            </div>
+            <div className="sa-stat-value">{stats.excused_count}</div>
+            <div className="sa-stat-change">Legitimate absences</div>
+          </div>
+
+          <div className="sa-stat-card sa-stat-purple">
+            <div className="sa-stat-header">
               <span className="sa-stat-label">Attendance Rate</span>
               <AlertCircle size={24} className="sa-stat-icon" />
             </div>
@@ -299,6 +308,7 @@ const Attendance = () => {
               <option value="late">Late</option>
               <option value="absent">Absent</option>
               <option value="partial">Partial</option>
+              <option value="excused">Excused</option>
             </select>
           </div>
           {(filterSubject !== 'all' || filterStatus !== 'all') && (
@@ -371,6 +381,7 @@ const Attendance = () => {
                   <th>Present</th>
                   <th>Late</th>
                   <th>Absent</th>
+                  <th>Excused</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -378,7 +389,7 @@ const Attendance = () => {
               <tbody>
                 {displayedCalendarData.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="sa-empty-cell">
+                    <td colSpan="7" className="sa-empty-cell">
                       No attendance records found for this month.
                     </td>
                   </tr>
@@ -394,6 +405,11 @@ const Attendance = () => {
                       </td>
                       <td data-label="Absent">
                         <span className="sa-count-badge sa-count-absent">{record.absent}</span>
+                      </td>
+                      <td data-label="Excused">
+                        <span className="sa-count-badge" style={{ backgroundColor: '#f3e8ff', color: '#7c3aed', fontWeight: '600' }}>
+                          {record.excused || 0}
+                        </span>
                       </td>
                       <td data-label="Status">
                         <span className={`sa-status-badge sa-badge-${record.overall_status}`}>
@@ -474,6 +490,12 @@ const Attendance = () => {
                     <span>Absent:</span>
                     <strong className="sa-text-absent">{dailyDetail.summary.absent}</strong>
                   </div>
+                  {dailyDetail.summary.excused > 0 && (
+                    <div className="sa-summary-row">
+                      <span>Excused:</span>
+                      <strong style={{ color: '#7c3aed' }}>{dailyDetail.summary.excused}</strong>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

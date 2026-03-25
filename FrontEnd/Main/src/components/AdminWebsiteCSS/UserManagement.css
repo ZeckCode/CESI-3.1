@@ -42,7 +42,7 @@
 
 .tab-btn {
   display: flex;
-  align-items: center;
+  background: #e16b6b;
   gap: 8px;
   padding: 12px 20px;
   border: 2px solid transparent;
@@ -50,7 +50,7 @@
   border-radius: 8px;
   cursor: pointer;
   font-size: 15px;
-  font-weight: 500;
+  background: #c64f4f;
   color: #6b7280;
   transition: all 0.3s ease;
   font-family: inherit;
@@ -62,8 +62,19 @@
 
 .tab-btn.active {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
   border-color: #667eea;
+}
+.btn-cancel-sm {
+  background: #e16b6b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-cancel-sm:hover {
+  background: #c64f4f;
 }
 
 .tab-btn svg {
