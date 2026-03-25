@@ -46,7 +46,7 @@ function App() {
                 setNotebookOpen(false); // close notebook automatically
               }}
             >
-              Apply Now
+              Enroll Now!
             </button>
 
             <button

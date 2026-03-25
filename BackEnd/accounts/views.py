@@ -1,3 +1,4 @@
+# accounts/views.py
 import token
 from urllib import request
 

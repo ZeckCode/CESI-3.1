@@ -1,3 +1,4 @@
+# enrollment/models.py
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -185,3 +186,29 @@ class EnrollmentSettings(models.Model):
     def get_solo(cls):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+    
+class EnrollmentDocument(models.Model):
+    DOCUMENT_TYPE_CHOICES = [
+            ("form_137", "Form 137-E"),
+            ("sf10", "School Form 10 (SF10)"),
+            ("birth_certificate", "Birth Certificate"),
+            ("good_moral", "Good Moral Certificate"),
+            ("report_card", "Report Card"),
+            ("other", "Other"),
+        ]
+
+    enrollment = models.ForeignKey(
+            Enrollment,
+            on_delete=models.CASCADE,
+            related_name="documents",
+        )
+    document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPE_CHOICES)
+    file = models.FileField(upload_to="enrollment_documents/")
+    label = models.CharField(max_length=100, blank=True, null=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["uploaded_at"]
+
+    def __str__(self):
+        return f"{self.enrollment} - {self.document_type}"

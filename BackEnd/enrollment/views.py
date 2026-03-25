@@ -9,22 +9,23 @@ from django.conf import settings
 from django.utils.text import slugify
 from django.utils import timezone
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Sum
 
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from accounts.models import User, UserProfile, Section
-from .models import EnrollmentSettings, Enrollment
+from .models import EnrollmentSettings, Enrollment, EnrollmentDocument, ParentInfo
 from .serializers import (
     EnrollmentSettingsSerializer,
     EnrollmentSerializer,
     EnrollmentDetailedSerializer,
     EnrollmentCreateSerializer,
+    OldStudentLookupSerializer,
 )
 
 from finance.models import Transaction, TuitionConfig
@@ -53,11 +54,13 @@ class EnrollmentSettingsView(APIView):
 class EnrollmentViewSet(viewsets.ModelViewSet):
     queryset = Enrollment.objects.select_related(
         "student", "section", "parent_info", "parent_user"
-    ).all()
+    ).prefetch_related("documents").all()
 
     def get_permissions(self):
-        if self.action == "create":
+        if self.action in ["create", "lookup_student"]:
             return [AllowAny()]
+        if self.action in ["submit_reenrollment"]:
+            return [IsAuthenticated()]
         return [IsAdminUser()]
 
     def get_throttles(self):
@@ -69,14 +72,245 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
             return EnrollmentCreateSerializer
-        if self.action in ["retrieve", "mark_completed", "mark_dropped", "mark_active"]:
+        if self.action in ["retrieve", "mark_completed", "mark_dropped", "mark_active", "submit_reenrollment"]:
             return EnrollmentDetailedSerializer
         return EnrollmentSerializer
+
+    @action(detail=False, methods=["post"], permission_classes=[AllowAny], url_path="lookup-student")
+    def lookup_student(self, request):
+        serializer = OldStudentLookupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        identifier = serializer.validated_data["identifier"].strip()
+        identifier_type = serializer.validated_data.get("identifier_type", "auto")
+
+        profiles = UserProfile.objects.select_related("user").filter(
+            user__role="PARENT_STUDENT",
+            user__is_active=True,
+        )
+
+        profile = None
+        match_type = None
+
+        if identifier_type in ["lrn", "auto"]:
+            profile = profiles.filter(lrn=identifier).first()
+            if profile:
+                match_type = "lrn"
+
+        if not profile and identifier_type in ["student_number", "auto"]:
+            profile = profiles.filter(student_number=identifier).first()
+            if profile:
+                match_type = "student_number"
+
+        if not profile:
+            return Response(
+                {
+                    "found": False,
+                    "message": "No existing student record found. You may proceed as New / Transferee.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        student_name = " ".join(
+            part for part in [
+                profile.student_first_name or "",
+                profile.student_middle_name or "",
+                profile.student_last_name or "",
+            ] if part
+        ).strip()
+
+        return Response(
+            {
+                "found": True,
+                "match_type": match_type,
+                "student_name": student_name,
+                "message": "Existing student record found. Please log in to continue re-enrollment.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated], url_path="submit-reenrollment")
+    def submit_reenrollment(self, request):
+        user = request.user
+
+        if str(getattr(user, "role", "")).upper() != "PARENT_STUDENT":
+            return Response(
+                {"detail": "Only Parent/Student accounts can submit re-enrollment."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        profile = UserProfile.objects.filter(user=user).first()
+        if not profile:
+            return Response(
+                {"detail": "Student profile not found."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        settings_obj = EnrollmentSettings.get_solo()
+        academic_year = (settings_obj.academic_year or "").strip()
+
+        if not academic_year:
+            return Response(
+                {"detail": "Enrollment academic year is not configured."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        outstanding_balance = self._outstanding_balance_for_parent(user)
+        if outstanding_balance > 0:
+            return Response(
+                {
+                    "detail": (
+                        f"You still have an outstanding balance of "
+                        f"₱{outstanding_balance:,.2f}. Please settle the remaining balance "
+                        f"before enrolling for the new school year."
+                    ),
+                    "outstanding_balance": f"{outstanding_balance:.2f}",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        existing_same_year = Enrollment.objects.filter(
+            parent_user=user,
+            academic_year=academic_year,
+            status__in=["PENDING", "ACTIVE"],
+        ).exists()
+
+        if existing_same_year:
+            return Response(
+                {"detail": "You already have an enrollment application for this school year."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        latest_enrollment = (
+            Enrollment.objects.filter(parent_user=user)
+            .select_related("parent_info")
+            .order_by("-created_at", "-id")
+            .first()
+        )
+
+        if not latest_enrollment:
+            return Response(
+                {"detail": "No previous enrollment record found for re-enrollment."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        grade_code = (profile.grade_level or latest_enrollment.grade_level or "").strip().lower()
+        if not grade_code:
+            return Response(
+                {"detail": "Grade level is missing from the current student record."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        payment_mode = (
+            request.data.get("payment_mode")
+            or profile.payment_mode
+            or latest_enrollment.payment_mode
+            or ""
+        ).strip().lower()
+
+        if payment_mode not in ["cash", "installment"]:
+            return Response(
+                {"detail": "Valid payment mode is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        student_first_name = (request.data.get("student_first_name") or profile.student_first_name or latest_enrollment.first_name or "").strip()
+        student_middle_name = (request.data.get("student_middle_name") or profile.student_middle_name or latest_enrollment.middle_name or "").strip()
+        student_last_name = (request.data.get("student_last_name") or profile.student_last_name or latest_enrollment.last_name or "").strip()
+
+        parent_first_name = (request.data.get("parent_first_name") or "").strip()
+        parent_middle_name = (request.data.get("parent_middle_name") or "").strip()
+        parent_last_name = (request.data.get("parent_last_name") or "").strip()
+
+        contact_number = (request.data.get("contact_number") or profile.contact_number or latest_enrollment.mobile_number or "").strip()
+        address = (request.data.get("address") or profile.address or latest_enrollment.address or "").strip()
+        remarks = (request.data.get("remarks") or "").strip()
+
+        if not student_first_name or not student_last_name:
+            return Response(
+                {"detail": "Student first name and last name are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not contact_number:
+            return Response(
+                {"detail": "Contact number is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not address:
+            return Response(
+                {"detail": "Address is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        latest_parent_info = getattr(latest_enrollment, "parent_info", None)
+
+        with transaction.atomic():
+            new_enrollment = Enrollment.objects.create(
+                student=user,
+                parent_user=user,
+                student_type="old",
+                status="PENDING",
+                education_level=self._education_level_from_grade(grade_code),
+                grade_level=grade_code,
+                academic_year=academic_year,
+                payment_mode=payment_mode,
+                lrn=profile.lrn or latest_enrollment.lrn,
+                student_number=None,
+                first_name=student_first_name,
+                middle_name=student_middle_name,
+                last_name=student_last_name,
+                birth_date=latest_enrollment.birth_date,
+                gender=latest_enrollment.gender,
+                email=user.email or latest_enrollment.email,
+                address=address,
+                religion=latest_enrollment.religion,
+                telephone_number=latest_enrollment.telephone_number,
+                mobile_number=contact_number,
+                parent_facebook=latest_enrollment.parent_facebook,
+                section=None,
+                remarks=(f"{remarks} | RE-ENROLLMENT APPLICATION").strip(" |"),
+            )
+
+            ParentInfo.objects.create(
+                enrollment=new_enrollment,
+                father_name=latest_parent_info.father_name if latest_parent_info else "",
+                father_contact=latest_parent_info.father_contact if latest_parent_info else "",
+                father_occupation=latest_parent_info.father_occupation if latest_parent_info else "",
+                mother_name=latest_parent_info.mother_name if latest_parent_info else "",
+                mother_contact=latest_parent_info.mother_contact if latest_parent_info else "",
+                mother_occupation=latest_parent_info.mother_occupation if latest_parent_info else "",
+                guardian_name=" ".join(
+                    p for p in [parent_first_name, parent_middle_name, parent_last_name] if p
+                ).strip() or (latest_parent_info.guardian_name if latest_parent_info else ""),
+                guardian_contact=contact_number or (latest_parent_info.guardian_contact if latest_parent_info else ""),
+                guardian_relationship=latest_parent_info.guardian_relationship if latest_parent_info else "",
+            )
+
+            previous_active = (
+                Enrollment.objects.filter(parent_user=user, status="ACTIVE")
+                .exclude(pk=new_enrollment.pk)
+                .order_by("-created_at", "-id")
+                .first()
+            )
+
+            if previous_active:
+                previous_active.status = "COMPLETED"
+                previous_active.completed_at = timezone.now()
+                previous_active.remarks = (
+                    f"{(previous_active.remarks or '').strip()} | "
+                    f"AUTO-COMPLETED AFTER RE-ENROLLMENT SUBMISSION"
+                ).strip(" |")
+                previous_active.save(update_fields=["status", "completed_at", "remarks", "updated_at"])
+
+        serializer = EnrollmentDetailedSerializer(new_enrollment, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def get_queryset(self):
         queryset = Enrollment.objects.select_related(
             "student", "section", "parent_info", "parent_user"
-        ).all()
+        ).prefetch_related("documents").all()
 
         student_id = self.request.query_params.get("student_id")
         if student_id:
@@ -101,6 +335,48 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         return queryset
 
     # ------------------- Helpers -------------------
+
+    def _outstanding_balance_for_parent(self, parent_user):
+        totals = Transaction.objects.filter(parent=parent_user).aggregate(
+            total_debit=Sum("debit"),
+            total_credit=Sum("credit"),
+        )
+
+        total_debit = Decimal(str(totals.get("total_debit") or 0))
+        total_credit = Decimal(str(totals.get("total_credit") or 0))
+
+        balance = total_debit - total_credit
+        return balance if balance > 0 else Decimal("0.00")
+
+    def _education_level_from_grade(self, grade_code):
+        grade_code = (grade_code or "").strip().lower()
+        if grade_code in {"prek", "kinder"}:
+            return "preschool"
+        return "elementary"
+
+    def _save_optional_documents(self, enrollment, files):
+        mapping = {
+            "form_137_file": ("form_137", "Form 137-E"),
+            "sf10_file": ("sf10", "School Form 10 (SF10)"),
+            "birth_certificate_file": ("birth_certificate", "Birth Certificate"),
+            "good_moral_file": ("good_moral", "Good Moral Certificate"),
+            "report_card_file": ("report_card", "Report Card"),
+            "other_document_file": ("other", "Other Document"),
+        }
+
+        for field_name, (doc_type, label) in mapping.items():
+            uploaded = files.get(field_name)
+            if uploaded:
+                EnrollmentDocument.objects.create(
+                    enrollment=enrollment,
+                    document_type=doc_type,
+                    file=uploaded,
+                    label=label,
+                )
+
+    def perform_create(self, serializer):
+        enrollment = serializer.save()
+        self._save_optional_documents(enrollment, self.request.FILES)
 
     def generate_student_number(self):
         year = timezone.now().year
@@ -435,14 +711,20 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             parent_user = User.objects.filter(email__iexact=parent_email).first()
 
             if not parent_user:
-                base_username = f"{(enrollment.first_name or '')}{(enrollment.last_name or '')}".lower()
-                base_username = slugify(base_username).replace("-", "") or "parent"
+                raw_last = (enrollment.last_name or "").strip().lower()
+                raw_first = (enrollment.first_name or "").strip().lower()
+
+                safe_last = slugify(raw_last).replace("-", "")
+                safe_first = slugify(raw_first).replace("-", "")
+
+                base_local = f"{safe_last}{safe_first}".strip() or "student"
+                base_username = f"{base_local}@cesi.edu.ph"
 
                 username = base_username
                 i = 1
                 while User.objects.filter(username=username).exists():
                     i += 1
-                    username = f"{base_username}{i}"
+                    username = f"{base_local}{i}@cesi.edu.ph"
 
                 parent_user = User.objects.create(
                     username=username,
@@ -567,14 +849,14 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             enrollment.id_image = uploaded_id_image
             enrollment.save(update_fields=["id_image", "updated_at"])
 
+        self._save_optional_documents(enrollment, self.request.FILES)
+
         self._sync_parent_user_and_profile(
             enrollment,
             create_if_missing=False,
             uploaded_id_image=uploaded_id_image,
         )
         self._sync_enrollment_to_profile(enrollment)
-
-    # ------------------- Custom Actions -------------------
 
     @action(detail=False, methods=["get"])
     def by_student(self, request):
@@ -730,11 +1012,22 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                         enrollment.section = auto_section
 
             if not enrollment.student_number:
-                while True:
-                    candidate = self.generate_student_number()
-                    if not Enrollment.objects.filter(student_number=candidate).exists():
-                        enrollment.student_number = candidate
-                        break
+                if (enrollment.student_type or "").strip().lower() == "old" and enrollment.parent_user:
+                    existing_profile = UserProfile.objects.filter(user=enrollment.parent_user).first()
+                    if existing_profile and existing_profile.student_number:
+                        enrollment.student_number = existing_profile.student_number
+                    else:
+                        while True:
+                            candidate = self.generate_student_number()
+                            if not Enrollment.objects.filter(student_number=candidate).exists():
+                                enrollment.student_number = candidate
+                                break
+                else:
+                    while True:
+                        candidate = self.generate_student_number()
+                        if not Enrollment.objects.filter(student_number=candidate).exists():
+                            enrollment.student_number = candidate
+                            break
 
             enrollment.status = "ACTIVE"
 

@@ -1,3 +1,4 @@
+# accounts/serializers.py
 from rest_framework import serializers
 from .models import User, UserProfile, TeacherProfile, AdminProfile, Section, Subject, PasswordResetRequest
 
