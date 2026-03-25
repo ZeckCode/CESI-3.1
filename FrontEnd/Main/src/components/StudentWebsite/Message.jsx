@@ -484,24 +484,46 @@ const StudentMessage = () => {
         </button>
       </div>
 
-      {/* Chat Request Notification Badge */}
+      {/* Chat Request Notification Badge - Card Based Layout */}
       {pendingRequests.length > 0 && (
-        <div style={{
-          padding: "12px 20px",
-          backgroundColor: "#fff3cd",
-          borderBottom: "1px solid #ffc107",
-          textAlign: "center",
-          fontWeight: "bold",
-          cursor: "pointer",
-          transition: "all 0.2s"
-        }}
-        onClick={() => {
-          setSelectedChatRequest(pendingRequests[0]);
-        }}
-        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#ffe082"}
-        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#fff3cd"}
-        >
-          📨 {pendingRequests.length} chat request{pendingRequests.length !== 1 ? 's' : ''} - Click to view
+        <div className="pending-requests-bar">
+          <div className="pending-requests-bar-header">
+            Pending Chat Requests ({pendingRequests.length})
+          </div>
+          {pendingRequests.map((req) => (
+            <div key={req.id} className="request-item">
+              <div className="request-header">
+                <div className="request-info">
+                  <span className="request-info-main">{getRequestSenderDisplayName(req)}</span>
+                  <span className="request-info-sub">{req.chat_type || "Chat Request"}</span>
+                </div>
+                <div className="request-time-badge">
+                  {req.created_at ? new Date(req.created_at).toLocaleDateString() : ""}
+                </div>
+              </div>
+              {req.initial_message && (
+                <div className="request-message">
+                  {req.initial_message}
+                </div>
+              )}
+              <div className="request-actions">
+                <button
+                  className="request-btn accept-btn"
+                  onClick={() => handleRespondToRequest(req.id, 'accept')}
+                  disabled={respondingToRequest === req.id}
+                >
+                  Accept
+                </button>
+                <button
+                  className="request-btn decline-btn"
+                  onClick={() => handleRespondToRequest(req.id, 'decline')}
+                  disabled={respondingToRequest === req.id}
+                >
+                  Decline
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

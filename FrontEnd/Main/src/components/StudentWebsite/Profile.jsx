@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { Camera, Edit3, X, Check, User } from "lucide-react";
+import { Camera, Edit3, X, Check, User, AlertCircle } from "lucide-react";
 import "../StudentWebsiteCSS/Profile.css";
 import { getToken } from "../Auth/auth";
 
@@ -52,6 +52,17 @@ const formatFullName = (...parts) =>
     .map((p) => String(p).trim())
     .filter(Boolean)
     .join(" ");
+
+// Format enrollment status for display
+const formatEnrollmentStatus = (status) => {
+  const statusMap = {
+    "PENDING": "Pending",
+    "ACTIVE": "Active",
+    "COMPLETED": "Completed",
+    "DROPPED": "Dropped",
+  };
+  return statusMap[String(status).toUpperCase()] || status || "—";
+};
 
 async function fetchWithToken(url, options = {}) {
   const token = getToken();
@@ -329,9 +340,37 @@ const Profile = () => {
 
   const displayAvatar = avatarPreview || studentData.avatar_url;
 
+  // Helper to get status-specific message
+  const getStatusMessage = () => {
+    const status = String(studentData.status).toUpperCase();
+    switch (status) {
+      case 'DROPPED':
+        return 'This enrollment has been marked as dropped. Please contact the school office for re-enrollment options.';
+      case 'PENDING':
+        return 'This enrollment is pending approval. Please wait for confirmation from the school.';
+      case 'COMPLETED':
+        return 'This enrollment period has been completed.';
+      default:
+        return null;
+    }
+  };
+
+  const statusMessage = getStatusMessage();
+  const isDropped = String(studentData.status).toUpperCase() === 'DROPPED';
+
   return (
     <div className="profile-content">
       {error ? <div className="error-message">{error}</div> : null}
+      
+      {statusMessage && (
+        <div className={`status-alert status-alert-${String(studentData.status).toLowerCase()}`}>
+          <AlertCircle size={20} style={{ marginRight: '12px' }} />
+          <div>
+            <strong>{formatEnrollmentStatus(studentData.status)} Status</strong>
+            <p>{statusMessage}</p>
+          </div>
+        </div>
+      )}
 
       <header className="profile-header-flex">
          
@@ -391,7 +430,7 @@ const Profile = () => {
             )} */}
 
             <span className={`status-badge ${String(studentData.status).toLowerCase()}`}>
-              {studentData.status}
+              {formatEnrollmentStatus(studentData.status)}
             </span>
           </div>
 

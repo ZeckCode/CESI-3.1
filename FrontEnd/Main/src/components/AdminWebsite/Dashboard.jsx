@@ -25,6 +25,12 @@ import {
   Bell,
   ClipboardCheck,
   Clock,
+  ChevronDown,
+  User,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Key,
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
 import "../AdminWebsiteCSS/Dashboard.css";
@@ -41,7 +47,7 @@ const COLORS = [
 
 const PAYMENT_COLORS = ["#10b981", "#f59e0b", "#ef4444"];
 
-const Dashboard = () => {
+const Dashboard = ({ onNavigateToEnrollment }) => {
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState({
@@ -54,6 +60,7 @@ const Dashboard = () => {
     todayTotal: 0,
     totalSubjects: 0,
     pendingEnrollments: 0,
+    overduePayments: 0,
   });
 
   const [enrollmentByLevel, setEnrollmentByLevel] = useState([]);
@@ -61,8 +68,11 @@ const Dashboard = () => {
   const [revenueMonthly, setRevenueMonthly] = useState([]);
   const [attendanceTrend, setAttendanceTrend] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  const [scheduleToday, setScheduleToday] = useState([]);
+  const [expandedAnnouncements, setExpandedAnnouncements] = useState(new Set());
+  const [passwordResetRequests, setPasswordResetRequests] = useState([]);
+  const [attendanceToday, setAttendanceToday] = useState([]);
   const [subjectDistribution, setSubjectDistribution] = useState([]);
+  const [pendingApplications, setPendingApplications] = useState([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -135,6 +145,16 @@ const Dashboard = () => {
 
   const getTransactionDate = (t) => t.date_created || t.due_date || null;
 
+  const toggleAnnouncementExpand = (id) => {
+    const newExpanded = new Set(expandedAnnouncements);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedAnnouncements(newExpanded);
+  };
+
   async function loadDashboardData() {
     setLoading(true);
 
@@ -144,7 +164,7 @@ const Dashboard = () => {
         financeRes,
         financeStatsRes,
         attendRes,
-        schedRes,
+        passwordResetRes,
         annRes,
         subjectRes,
         sectionRes,
@@ -165,7 +185,7 @@ const Dashboard = () => {
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
 
-        apiFetch("/api/classmanagement/schedules/")
+        apiFetch("/api/accounts/admin/password-reset-requests/")
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => []),
 
@@ -185,7 +205,7 @@ const Dashboard = () => {
       const enrollments = safeArray(enrollRes);
       const transactions = safeArray(financeRes);
       const attendRecords = safeArray(attendRes);
-      const schedules = safeArray(schedRes);
+      const passwordResetList = safeArray(passwordResetRes);
       const anns = safeArray(annRes);
       const subjects = safeArray(subjectRes);
       const sections = safeArray(sectionRes);
@@ -221,6 +241,11 @@ const Dashboard = () => {
 
       const totalRevenue =
         financeStatsRes?.totalRevenue ?? totalRevenueComputed;
+
+      // Calculate overdue payments
+      const overdue = transactions.filter(
+        (t) => getTransactionStatus(t) === "OVERDUE"
+      ).length;
 
       // ─────────────────────────
       // Attendance stats
@@ -260,6 +285,7 @@ const Dashboard = () => {
         todayTotal: todayRecords.length,
         totalSubjects: subjects.length,
         pendingEnrollments: pendingEnrollments.length,
+        overduePayments: overdue,
       });
 
       // ─────────────────────────
@@ -304,10 +330,6 @@ const Dashboard = () => {
 
       const pending = transactions.filter(
         (t) => getTransactionStatus(t) === "PENDING"
-      ).length;
-
-      const overdue = transactions.filter(
-        (t) => getTransactionStatus(t) === "OVERDUE"
       ).length;
 
       const payData = [
@@ -437,42 +459,55 @@ const Dashboard = () => {
       // ─────────────────────────
       // Announcements
       // ─────────────────────────
-      setAnnouncements(anns.slice(0, 5));
+      setAnnouncements(anns.slice(0, 10));
 
       // ─────────────────────────
-      // Today's schedule
+      // Password Reset Requests (pending)
       // ─────────────────────────
-      const dayNameToday = new Date().toLocaleDateString("en-US", {
-        weekday: "long",
-      });
-
-      const shortDayMap = {
-        Monday: "MON",
-        Tuesday: "TUE",
-        Wednesday: "WED",
-        Thursday: "THU",
-        Friday: "FRI",
-        Saturday: "SAT",
-        Sunday: "SUN",
-      };
-
-      const shortToday = shortDayMap[dayNameToday];
-
-      const todaySched = schedules
-        .filter((s) => {
-          const days = s.days || s.day || s.schedule_day || "";
-          if (Array.isArray(days)) {
-            return days.includes(dayNameToday) || days.includes(shortToday);
-          }
-          const text = String(days).toUpperCase();
-          return (
-            text.includes(dayNameToday.toUpperCase()) ||
-            text.includes(shortToday)
-          );
+      const pendingResets = passwordResetList
+        .filter((r) => {
+          const status = normalizeStatusUpper(r.status);
+          return status === "PENDING" || status === "LINK_SENT";
         })
-        .slice(0, 5);
+        .slice(0, 5)
+        .map((r) => ({
+          id: r.id,
+          email: r.email || "Unknown",
+          status: normalizeStatusUpper(r.status),
+          requestedAt: r.requested_at || "",
+          message: r.message || "",
+          userName: r.user?.username || r.user?.first_name || "Unknown User",
+        }));
 
-      setScheduleToday(todaySched);
+      setPasswordResetRequests(pendingResets);
+
+      // ─────────────────────────
+      // Attendance for Today (students list)
+      // ─────────────────────────
+      const attendanceTodayData = todayRecords.slice(0, 10).map((r) => ({
+        id: r.id,
+        studentName: r.student_name || r.name || "Unknown Student",
+        status: normalizeStatusLower(r.status),
+        time: r.time_marked || r.created_at || "",
+        grade: r.grade || r.section || "N/A",
+      }));
+
+      setAttendanceToday(attendanceTodayData);
+
+      // ─────────────────────────
+      // Pending applications list
+      // ─────────────────────────
+      const pendingAppsList = pendingEnrollments.map((e) => ({
+        id: e.id,
+        studentNumber: e.student_number || e.id,
+        studentName: e.student_name || `${e.first_name || ""} ${e.last_name || ""}`.trim() || e.student || "Unknown Student",
+        firstName: e.first_name,
+        lastName: e.last_name,
+        grade: getEnrollmentGrade(e),
+        appliedDate: e.created_at || e.date_applied || "",
+      }));
+
+      setPendingApplications(pendingAppsList);
     } catch (err) {
       console.error("Dashboard load error:", err);
     } finally {
@@ -502,7 +537,7 @@ const Dashboard = () => {
           </div>
           <div className="dash-stat-info">
             <span className="dash-stat-value">{stats.totalStudents}</span>
-            <span className="dash-stat-label">Total Students</span>
+            <span className="dash-stat-label">Total of Enrolled Students</span>
           </div>
         </div>
 
@@ -514,17 +549,17 @@ const Dashboard = () => {
             <span className="dash-stat-value">
               {formatCurrency(stats.totalRevenue)}
             </span>
-            <span className="dash-stat-label">Total Revenue</span>
+            <span className="dash-stat-label">Total Collected</span>
           </div>
         </div>
 
         <div className="dash-stat-md dash-stat-md--teal">
           <div className="dash-stat-icon dash-stat-icon--teal">
-            <ClipboardCheck size={22} />
+            <AlertCircle size={22} />
           </div>
           <div className="dash-stat-info">
-            <span className="dash-stat-value">{stats.attendanceRate}%</span>
-            <span className="dash-stat-label">Attendance Rate</span>
+            <span className="dash-stat-value">{stats.overduePayments}</span>
+            <span className="dash-stat-label">Overdue Payments</span>
           </div>
         </div>
 
@@ -534,7 +569,7 @@ const Dashboard = () => {
           </div>
           <div className="dash-stat-info">
             <span className="dash-stat-value">{stats.pendingEnrollments}</span>
-            <span className="dash-stat-label">Pending Enrollments</span>
+            <span className="dash-stat-label">Pending Applications</span>
           </div>
         </div>
       </section>
@@ -675,36 +710,46 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </div>
 
-        <div className="dash-card dash-card--center">
-          <h3 className="dash-card-title">Attendance for Today</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <RadialBarChart
-              cx="50%"
-              cy="50%"
-              innerRadius="60%"
-              outerRadius="90%"
-              barSize={18}
-              data={[
-                {
-                  name: "Today",
-                  value: stats.todayAttendanceRate,
-                  fill: "#6366f1",
-                },
-              ]}
-              startAngle={210}
-              endAngle={-30}
-            >
-              <RadialBar
-                dataKey="value"
-                cornerRadius={10}
-                background={{ fill: "#f3f4f6" }}
-              />
-            </RadialBarChart>
-          </ResponsiveContainer>
-          <div className="dash-gauge-label">{stats.todayAttendanceRate}%</div>
-          <div className="dash-gauge-sub">
-            {stats.todayPresent} / {stats.todayTotal} present
+        <div className="dash-card dash-card--list">
+          <div className="dash-card-head">
+            <Clock size={16} />
+            <h3 className="dash-card-title">Pending Applications ({stats.pendingEnrollments})</h3>
           </div>
+          {pendingApplications.length === 0 && (
+            <div className="dash-empty-state">
+              <CheckCircle size={24} className="dash-empty-icon" />
+              <p className="dash-empty">No pending applications</p>
+              <span className="dash-empty-sub">All applications have been processed</span>
+            </div>
+          )}
+          {pendingApplications.length > 0 && (
+            <div className="dash-pending-list">
+              {pendingApplications.map((app) => (
+                <div
+                  key={app.id}
+                  className="dash-pending-item"
+                  onClick={() => onNavigateToEnrollment && onNavigateToEnrollment()}
+                  style={{ cursor: "pointer" }}
+                  title="Click to view application details"
+                >
+                  <div className="dash-pending-left">
+                    <div className="dash-pending-badge">
+                      <Clock size={14} />
+                    </div>
+                    <div className="dash-list-content">
+                      <span className="dash-list-title">{app.studentName}</span>
+                      <span className="dash-list-sub">Grade: {app.grade}</span>
+                    </div>
+                  </div>
+                  <div className="dash-pending-right">
+                    <span className="dash-pending-date">
+                      {app.appliedDate ? new Date(app.appliedDate).toLocaleDateString() : "N/A"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -712,45 +757,72 @@ const Dashboard = () => {
         <div className="dash-card dash-card--list">
           <div className="dash-card-head">
             <Bell size={16} />
-            <h3 className="dash-card-title">Announcements</h3>
+            <h3 className="dash-card-title">Announcements & Updates</h3>
           </div>
           {announcements.length === 0 && (
-            <p className="dash-empty">No announcements yet.</p>
+            <div className="dash-empty-state">
+              <Bell size={24} className="dash-empty-icon" />
+              <p className="dash-empty">No announcements yet</p>
+              <span className="dash-empty-sub">Create announcements in the CMS module to display them here</span>
+            </div>
           )}
           {announcements.map((a) => (
-            <div key={a.id} className="dash-list-item">
-              <div className="dash-list-dot" />
-              <div className="dash-list-content">
-                <span className="dash-list-title">{a.title}</span>
-                <span className="dash-list-sub">
-                  {a.created_at
-                    ? new Date(a.created_at).toLocaleDateString()
-                    : ""}
-                </span>
+            <div key={a.id} className="dash-announcement-item">
+              <div
+                className="dash-announcement-header"
+                onClick={() => toggleAnnouncementExpand(a.id)}
+              >
+                <div className="dash-announcement-header-left">
+                  <div className="dash-list-dot" />
+                  <div className="dash-list-content">
+                    <span className="dash-list-title">{a.title}</span>
+                    <span className="dash-list-sub">
+                      {a.created_at
+                        ? new Date(a.created_at).toLocaleDateString()
+                        : ""}
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown
+                  size={18}
+                  className={`dash-announcement-toggle ${
+                    expandedAnnouncements.has(a.id) ? "expanded" : ""
+                  }`}
+                  title="Click to expand announcement"
+                />
               </div>
+              {expandedAnnouncements.has(a.id) && (
+                <div className="dash-announcement-content">
+                  <p>{a.content || "No content provided."}</p>
+                </div>
+              )}
             </div>
           ))}
         </div>
 
         <div className="dash-card dash-card--list">
           <div className="dash-card-head">
-            <Calendar size={16} />
-            <h3 className="dash-card-title">Today's Schedule</h3>
+            <Key size={16} />
+            <h3 className="dash-card-title">Password Reset Requests</h3>
           </div>
-          {scheduleToday.length === 0 && (
-            <p className="dash-empty">No classes scheduled today.</p>
+          {passwordResetRequests.length === 0 && (
+            <div className="dash-empty-state">
+              <Key size={24} className="dash-empty-icon" />
+              <p className="dash-empty">No pending reset requests</p>
+              <span className="dash-empty-sub">Users can request password resets from their account settings</span>
+            </div>
           )}
-          {scheduleToday.map((s, i) => (
+          {passwordResetRequests.map((req, i) => (
             <div key={i} className="dash-list-item">
               <span className="dash-sched-time">
-                {s.start_time || s.time_start || "--"}
+                {req.status || "PENDING"}
               </span>
               <div className="dash-list-content">
                 <span className="dash-list-title">
-                  {s.subject_name || s.section_name || s.title || "Class"}
+                  {req.userName || "User"}
                 </span>
                 <span className="dash-list-sub">
-                  {s.room_name || s.teacher_name || ""}
+                  {req.email}
                 </span>
               </div>
             </div>

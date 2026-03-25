@@ -16,6 +16,7 @@ import CMSModule from "./CMSModule";
 import TuitionManagement from "./TuitionManagement";
 import AdminPasswordResetRequests from "./AdminPasswordResetRequests";
 import Messages from "./Messages";
+import OrganizationalChart from "./OrganizationalChart";
 import { getToken } from "../Auth/auth";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 
@@ -38,6 +39,9 @@ function AdminDashboard() {
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
 
   useEffect(() => {
+    let isMounted = true;
+    let pollInterval = null;
+
     const loadUnreadReminders = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/reminders/?type=PAYMENT`, {
@@ -49,20 +53,38 @@ function AdminDashboard() {
 
         const data = await res.json();
         const reminders = Array.isArray(data) ? data : [];
-        setUnreadReminders(reminders.filter((r) => !r.is_read).length);
+        
+        // Only update state if component is still mounted to prevent duplication
+        if (isMounted) {
+          setUnreadReminders(reminders.filter((r) => !r.is_read).length);
+        }
       } catch (err) {
         console.error("Error loading unread payment reminders:", err);
-        setUnreadReminders(0);
+        if (isMounted) {
+          setUnreadReminders(0);
+        }
       }
     };
 
+    // Load reminders immediately on mount
     loadUnreadReminders();
+
+    // Then poll for updates every 30 seconds
+    pollInterval = setInterval(loadUnreadReminders, 30000);
+
+    // Cleanup function to prevent memory leaks and duplicate listeners
+    return () => {
+      isMounted = false;
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
   }, []);
 
   const renderContent = () => {
     switch (activeMenu) {
       case "dashboard":
-        return <Dashboard />;
+        return <Dashboard onNavigateToEnrollment={() => setActiveMenu("enrollment")} />;
       case "enrollment":
         return <EnrollmentManagement />;
       case "transaction-history":
@@ -73,6 +95,8 @@ function AdminDashboard() {
         return <Reports />;
       case "users":
         return <UserManagement />;
+      case "org-chart":
+        return <OrganizationalChart />;
       case "classes":
         return <ClassManagement />;
       case "subjects":
@@ -102,6 +126,7 @@ function AdminDashboard() {
       enrollment: "Enrollment Management",
       financial: "Financial Management",
       users: "User Management",
+      "org-chart": "Organizational Chart",
       classes: "Classes",
       subjects: "Subjects",
       "assign-teachers": "Assign Teachers",
@@ -128,6 +153,7 @@ function AdminDashboard() {
       "payment-reminders": "Send payment reminders to parents and guardians.",
       grades: "View and manage student grades and attendance records.",
       users: "Manage system users and access permissions.",
+      "org-chart": "View the school's administrative structure and staff hierarchy.",
       classes: "Organize and manage class sections.",
       subjects: "Configure subject offerings.",
       "assign-teachers": "Assign teachers to classes and subjects.",

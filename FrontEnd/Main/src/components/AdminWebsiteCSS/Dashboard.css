@@ -53,7 +53,7 @@
 }
 .dash-stat-md--blue  { background: linear-gradient(135deg, rgba(99,102,241,.06) 0%, rgba(99,102,241,.02) 100%); }
 .dash-stat-md--green { background: linear-gradient(135deg, rgba(16,185,129,.06) 0%, rgba(16,185,129,.02) 100%); }
-.dash-stat-md--teal  { background: linear-gradient(135deg, rgba(20,184,166,.06) 0%, rgba(20,184,166,.02) 100%); }
+.dash-stat-md--teal  { background: linear-gradient(135deg, rgba(239,68,68,.06) 0%, rgba(239,68,68,.02) 100%); }
 .dash-stat-md--amber { background: linear-gradient(135deg, rgba(245,158,11,.06) 0%, rgba(245,158,11,.02) 100%); }
 .dash-stat-icon {
   width: 44px;
@@ -209,6 +209,232 @@
   padding: 24px 0;
 }
 
+/* ─── Empty State with Icon ─── */
+.dash-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 0;
+}
+.dash-empty-icon {
+  color: #d1d5db;
+  width: 32px;
+  height: 32px;
+}
+.dash-empty-state .dash-empty {
+  padding: 0;
+  margin: 0;
+}
+.dash-empty-sub {
+  font-size: 11px;
+  color: #b4b9c4;
+}
+
+/* ─── Announcement Expand/Collapse ─── */
+.dash-announcement-item {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: background .15s;
+}
+.dash-announcement-item:hover {
+  background: #f9fafb;
+}
+.dash-announcement-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.dash-announcement-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.dash-announcement-toggle {
+  flex-shrink: 0;
+  color: #9ca3af;
+  transition: transform .2s ease;
+}
+.dash-announcement-toggle.expanded {
+  transform: rotate(180deg);
+}
+.dash-announcement-content {
+  padding: 12px 12px 12px 34px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #f9fafb;
+  border-radius: 6px;
+  margin: 8px 12px;
+  animation: slideDown .2s ease-out;
+}
+.dash-announcement-content p {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    max-height: 200px;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Attendance for Today ─── */
+.dash-attendance-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  transition: background .15s;
+}
+.dash-attendance-item:hover {
+  background: #f9fafb;
+}
+.dash-attendance-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.dash-attendance-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+.dash-attendance-badge.present {
+  background: #d1fae5;
+  color: #10b981;
+}
+.dash-attendance-badge.absent {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+/* ─── Status Label ─── */
+.dash-status-label {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+.dash-status-present {
+  background: #d1fae5;
+  color: #065f46;
+}
+.dash-status-absent {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+/* ─── Pending Applications List ─── */
+.dash-pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.dash-pending-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dash-pending-list::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 6px;
+}
+
+.dash-pending-list::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 6px;
+}
+
+.dash-pending-list::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.dash-pending-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f9fafb;
+  border: 1px solid #f0f0f0;
+  transition: all .15s;
+  cursor: pointer;
+}
+
+.dash-pending-item:hover {
+  background: #f3f4f6;
+  border-color: #6366f1;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+  transform: translateY(-1px);
+}
+
+.dash-pending-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.dash-pending-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #fef3c7;
+  color: #f59e0b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dash-pending-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.dash-pending-date {
+  font-size: 11px;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 1100px) {
   .dash-row--3col { grid-template-columns: 1fr 1fr; }
@@ -223,10 +449,22 @@
   .dash-row--2col,
   .dash-row--3col { grid-template-columns: 1fr; }
   .dash-row--3col > :last-child { grid-column: auto; }
+  .dash-announcement-content {
+    max-height: 150px;
+    padding: 10px;
+    margin: 6px;
+  }
+  .dash-attendance-item {
+    flex-wrap: wrap;
+  }
 }
 
 @media (max-width: 480px) {
   .dashboard-main { padding: 10px; }
   .dash-stat-grid { grid-template-columns: 1fr; }
   .dash-stat-md { padding: 14px 16px; }
+  .dash-status-label {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
 }
