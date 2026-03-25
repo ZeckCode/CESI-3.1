@@ -226,9 +226,6 @@ export default function CMSModule() {
   const { user } = useAuth();
   const canPost = useMemo(() => isAdmin(user), [user]);
 
-
-
-
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [targetRole, setTargetRole] = useState("all");
@@ -242,34 +239,51 @@ export default function CMSModule() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [audienceTab, setAudienceTab] = useState("all"); 
-    // all | public | teachers | parent_student
+  const [audienceTab, setAudienceTab] = useState("all");
+  
+  // New: Search/Filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  // New: Edit mode state
+  const [editingPostId, setEditingPostId] = useState(null);
+  
+  // New: Preview state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  
+  // New: Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const filteredPosts = useMemo(() => {
     const norm = (v) => String(v || "").toLowerCase();
+    let result = posts;
 
-    if (audienceTab === "all") return posts;
-
-    if (audienceTab === "public") {
-      return posts.filter((p) => norm(p.target_role) === "all");
-    }
-
-    if (audienceTab === "teachers") {
-      return posts.filter((p) => {
+    // Filter by audience tab
+    if (audienceTab === "all") {
+      result = posts;
+    } else if (audienceTab === "public") {
+      result = posts.filter((p) => norm(p.target_role) === "all");
+    } else if (audienceTab === "teachers") {
+      result = posts.filter((p) => {
         const t = norm(p.target_role);
-        return t === "teachers" ; // teachers also see public
+        return t === "teachers";
+      });
+    } else if (audienceTab === "parent_student") {
+      result = posts.filter((p) => {
+        const t = norm(p.target_role);
+        return t === "parent_student";
       });
     }
 
-    if (audienceTab === "parent_student") {
-      return posts.filter((p) => {
-        const t = norm(p.target_role);
-        return t === "parent_student" ; // parent/student also see public
-      });
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = norm(searchQuery);
+      result = result.filter((p) => 
+        norm(p.title).includes(query) || norm(p.content).includes(query)
+      );
     }
 
-    return posts;
-  }, [posts, audienceTab]);
+    return result;
+  }, [posts, audienceTab, searchQuery]);
 
   const [cmsPage, setCmsPage] = useState(1);
   const CMS_PER_PAGE = 6;
@@ -392,17 +406,28 @@ export default function CMSModule() {
     files.forEach((f) => form.append("files", f));
 
     try {
-      const res = await fetch(`${API_BASE}/api/announcements/`, {
-        method: "POST",
+      const url = editingPostId
+        ? `${API_BASE}/api/announcements/${editingPostId}/`
+        : `${API_BASE}/api/announcements/`;
+
+      const res = await fetch(url, {
+        method: editingPostId ? "PUT" : "POST",
         headers: authHeader(token),
         body: form,
       });
 
       if (!res.ok) throw new Error(await readError(res));
 
-      const created = await res.json();
+      const resultPost = await res.json();
 
-      setPosts((prev) => [created, ...prev]);
+      if (editingPostId) {
+        // Update existing post
+        setPosts((prev) => prev.map((p) => (p.id === editingPostId ? resultPost : p)));
+        setEditingPostId(null);
+      } else {
+        // Add new post
+        setPosts((prev) => [resultPost, ...prev]);
+      }
 
       // reset form
       setTitle("");
@@ -444,10 +469,64 @@ export default function CMSModule() {
     }
   };
 
+  // Edit post
+  const handleEditPost = (post) => {
+    setTitle(post.title);
+    setContent(post.content);
+    setTargetRole(post.target_role);
+    setPublishDate(post.publish_date ? new Date(post.publish_date).toISOString().slice(0, 16) : toLocalDatetimeInputValue());
+    setEditingPostId(post.id);
+    setFiles([]);
+    setImagePreviews([]);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Cancel edit
+  const handleCancelEdit = () => {
+    setEditingPostId(null);
+    setTitle("");
+    setContent("");
+    setTargetRole("all");
+    setPublishDate(toLocalDatetimeInputValue());
+    setFiles([]);
+    imagePreviews.forEach((u) => URL.revokeObjectURL(u));
+    setImagePreviews([]);
+  };
+
+  // Delete post with confirmation
+  const handleDeletePost = async (postId) => {
+    const token = getToken();
+    if (!token) {
+      setError("No token found.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/announcements/${postId}/`, {
+        method: "DELETE",
+        headers: authHeader(token),
+      });
+
+      if (!res.ok) throw new Error(await readError(res));
+
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setDeleteConfirm(null);
+    } catch (e) {
+      setError(e.message || "Failed to delete announcement");
+    }
+  };
+
   return (
     <div className="cms-container">
       <div className="cms-header">
-        <h2>CMS Module (CESI Website Control)</h2>
+        <div>
+          <h2>CMS Module (CESI Website Control)</h2>
+          {editingPostId && (
+            <p style={{ margin: "8px 0 0 0", fontSize: "14px", color: "#3b82f6", fontWeight: "600" }}>
+              ✏️ Editing post #{editingPostId}
+            </p>
+          )}
+        </div>
         <button className="cms-refresh" onClick={load} disabled={loading}>
           {loading ? "Refreshing..." : "Refresh"}
         </button>
@@ -493,7 +572,12 @@ export default function CMSModule() {
             </div>
 
             <div className="cms-field cms-field-full">
-              <label>Content</label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label>Content</label>
+                <span style={{ fontSize: "12px", color: "#666", fontWeight: "500" }}>
+                  {content.length} characters
+                </span>
+              </div>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
@@ -530,8 +614,20 @@ export default function CMSModule() {
             </div>
 
             <div className="cms-actions">
+              {editingPostId && (
+                <button
+                  className="cms-publish"
+                  onClick={handleCancelEdit}
+                  style={{
+                    background: "#94a3b8",
+                    marginRight: "12px",
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
               <button className="cms-publish" onClick={handlePost}>
-                Publish
+                {editingPostId ? "Update Post" : "Publish"}
               </button>
             </div>
           </div>
@@ -540,6 +636,46 @@ export default function CMSModule() {
 
       <div className="cms-posts">
         <h3>Posted Announcements</h3>
+        
+        {/* Search Box */}
+        <div style={{
+          marginBottom: "20px",
+          display: "flex",
+          gap: "12px",
+        }}>
+          <input
+            type="text"
+            placeholder="🔍 Search announcements by title or content..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              flex: 1,
+              padding: "12px 16px",
+              border: "2px solid #e2e8f0",
+              borderRadius: "12px",
+              fontSize: "14px",
+              outline: "none",
+            }}
+            onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
+            onBlur={(e) => e.target.style.borderColor = "#e2e8f0"}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              style={{
+                padding: "10px 16px",
+                background: "#f3f4f6",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontSize: "13px",
+                fontWeight: "600",
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
          <div className="cms-tabs">
             <button
               className={`cms-tab ${audienceTab === "all" ? "active" : ""}`}
@@ -622,6 +758,52 @@ export default function CMSModule() {
                       <span>
                         {post.publish_date ? new Date(post.publish_date).toLocaleString() : ""}
                       </span>
+                      {canPost && (
+                        <div style={{ display: "flex", gap: "8px", marginLeft: "auto" }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditPost(post);
+                            }}
+                            style={{
+                              padding: "6px 12px",
+                              background: "#3b82f6",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              fontSize: "12px",
+                              fontWeight: "600",
+                              cursor: "pointer",
+                              transition: "background 0.2s",
+                            }}
+                            onMouseEnter={(e) => e.target.style.background = "#2563eb"}
+                            onMouseLeave={(e) => e.target.style.background = "#3b82f6"}
+                          >
+                            ✎ Edit
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteConfirm(post.id);
+                            }}
+                            style={{
+                              padding: "6px 12px",
+                              background: "#ef4444",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              fontSize: "12px",
+                              fontWeight: "600",
+                              cursor: "pointer",
+                              transition: "background 0.2s",
+                            }}
+                            onMouseEnter={(e) => e.target.style.background = "#dc2626"}
+                            onMouseLeave={(e) => e.target.style.background = "#ef4444"}
+                          >
+                            🗑 Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -661,6 +843,72 @@ export default function CMSModule() {
         onNext={handleNextImage}
         onPrev={handlePrevImage}
       />
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+          onClick={() => setDeleteConfirm(null)}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "16px",
+              padding: "32px",
+              maxWidth: "400px",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 12px", fontSize: "20px", fontWeight: "700", color: "#1f2937" }}>
+              Delete Announcement?
+            </h3>
+            <p style={{ margin: "0 0 24px", color: "#6b7280", fontSize: "14px", lineHeight: "1.6" }}>
+              Are you sure you want to delete this announcement? This action cannot be undone.
+            </p>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                style={{
+                  padding: "10px 20px",
+                  background: "#f3f4f6",
+                  color: "#1f2937",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeletePost(deleteConfirm)}
+                style={{
+                  padding: "10px 20px",
+                  background: "#ef4444",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

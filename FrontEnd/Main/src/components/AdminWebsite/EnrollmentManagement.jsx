@@ -446,6 +446,8 @@ export default function EnrollmentManagement() {
   const [approvePendingId, setApprovePendingId] = useState(null);
   const [approvingImage, setApprovingImage] = useState(false);
 
+  const [selectedIds, setSelectedIds] = useState(new Set());
+
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((title, message, type = "warning") => {
@@ -815,6 +817,24 @@ export default function EnrollmentManagement() {
     } catch {
       addToast("Delete Failed", "Could not delete enrollment.", "error");
     }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === paginatedEnrollments.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(paginatedEnrollments.map((e) => e.id)));
+    }
+  };
+
+  const handleSelectOne = (id) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
   };
 
   const filteredEnrollments = useMemo(() => {
@@ -1474,6 +1494,15 @@ export default function EnrollmentManagement() {
           <table className="enrollments-table">
             <thead>
               <tr>
+                <th style={{ width: 40, textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === paginatedEnrollments.length && paginatedEnrollments.length > 0}
+                    onChange={handleSelectAll}
+                    title="Select all on this page"
+                    style={{ cursor: "pointer", width: 18, height: 18 }}
+                  />
+                </th>
                 <th>Student Name</th>
                 <th>Grade Level</th>
                 <th>Section</th>
@@ -1489,6 +1518,14 @@ export default function EnrollmentManagement() {
             <tbody>
               {paginatedEnrollments.map((row) => (
                 <tr key={row.id} style={row.expired ? { background: "#fdf4ff" } : {}}>
+                  <td style={{ textAlign: "center", width: 40 }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(row.id)}
+                      onChange={() => handleSelectOne(row.id)}
+                      style={{ cursor: "pointer", width: 18, height: 18 }}
+                    />
+                  </td>
                   <td style={{ fontWeight: 500 }}>
                     {row.studentName}
                     {row.expired && (
@@ -1534,8 +1571,9 @@ export default function EnrollmentManagement() {
                       <button
                         className="btn-edit"
                         title={row.expired ? "Editing blocked — enrollment expired" : "Edit"}
-                        onClick={() => openModal(row, "edit")}
-                        style={row.expired ? { opacity: 0.35, cursor: "not-allowed" } : {}}
+                        onClick={() => !row.expired && openModal(row, "edit")}
+                        disabled={row.expired}
+                        style={row.expired ? { opacity: 0.35, cursor: "not-allowed", pointerEvents: "none" } : {}}
                       >
                         <Edit2 size={14} />
                       </button>

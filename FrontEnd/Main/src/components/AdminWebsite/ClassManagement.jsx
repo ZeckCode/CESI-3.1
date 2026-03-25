@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Edit2, Trash2, Filter, Clock, Users, BookOpen,
-  Calendar, Save, X, UserCheck, Zap,
+  Calendar, Save, X, UserCheck, Zap, Download,
   Home, AlertTriangle, Settings, AlertCircle, RefreshCw,
 } from 'lucide-react';
 import StatCard, { StatsGrid } from './StatCard';
@@ -100,6 +100,19 @@ const gradeLabel = (lvl) => {
 };
 
 const dayShort = (code) => DAYS.find((d) => d.value === code)?.short ?? code;
+
+/* Helper: determine if a class is Ongoing (has active students) or Expired (no active students) */
+const getClassStatus = (section, enrollments) => {
+  const gradeCode = normalizeGradeCode(section.grade_level);
+  const activeForGrade = enrollments.filter(
+    (e) => normalizeGradeCode(e.grade_level) === gradeCode && e.status === 'ACTIVE'
+  );
+  const assignedToSection = activeForGrade.filter(
+    (e) => Number(e.section) === Number(section.id)
+  );
+  // Ongoing if has active students; Expired if no active students
+  return assignedToSection.length > 0 ? 'ONGOING' : 'EXPIRED';
+};
 
 /* Subject color palette - more distinct and readable */
 const COLORS = [
@@ -427,8 +440,17 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
   };
 
   const handleSave = async () => {
-    if (!form.name || form.grade_level === '') {
-      setError('Name and grade level are required.');
+    if (!form.name) {
+      setError('Section name is required.');
+      return;
+    }
+    if (form.grade_level === '' || !form.grade_level) {
+      setError('Grade level is required. Please select a valid grade level from the dropdown.');
+      return;
+    }
+    const validGradeLevels = GRADE_LEVELS.map((g) => String(g.value));
+    if (!validGradeLevels.includes(String(form.grade_level))) {
+      setError('Invalid grade level selected. Please choose from the available options.');
       return;
     }
     setSaving(true);
@@ -544,15 +566,60 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
     <>
       <div className="admin-section-header" style={{ marginBottom: 16 }}>
         <h2>Sections &amp; Homeroom Teachers</h2>
-        <button className="admin-btn-primary" onClick={openNew}>
-          <Plus size={18} /> Add Section
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button className="admin-btn-primary" onClick={openNew}>
+            <Plus size={18} /> Add Section
+          </button>
+          <button
+            className="admin-btn-primary"
+            onClick={() => {
+              const csv = ['Section,Grade Level,Homeroom Teacher,Room,Active Students,Status'];
+              sections.forEach((sec) => {
+                const gradeCode = normalizeGradeCode(sec.grade_level);
+                const activeForGrade = enrollments.filter(
+                  (e) => normalizeGradeCode(e.grade_level) === gradeCode && e.status === 'ACTIVE'
+                );
+                const assignedToSection = activeForGrade.filter(
+                  (e) => Number(e.section) === Number(sec.id)
+                );
+                const status = getClassStatus(sec, enrollments);
+                const row = [
+                  `"${sec.name}"`,
+                  `"${gradeLabel(sec.grade_level)}"`,
+                  `"${sec.adviser_name || 'Unassigned'}"`,
+                  `"${sec.room_code || 'Unassigned'}"`,
+                  assignedToSection.length,
+                  status
+                ].join(',');
+                csv.push(row);
+              });
+              const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `sections-${new Date().toISOString().split('T')[0]}.csv`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }}
+            style={{ background: '#10b981' }}
+            title="Export all sections to CSV"
+          >
+            <Download size={18} /> Export
+          </button>
+        </div>
       </div>
 
       {showForm && (
         <div className="admin-modal-overlay">
           <div className="admin-modal-content">
-            <h2>{editId ? 'Edit Section' : 'Add Section'}</h2>
+            <div className="admin-modal-header">
+              <h2>{editId ? 'Edit Section' : 'Add Section'}</h2>
+              <button className="admin-modal-close-btn" onClick={() => setShowForm(false)} title="Close" type="button">
+                <X size={20} />
+              </button>
+            </div>
             {error && <div style={{ color: '#ef4444', marginBottom: 8 }}>{error}</div>}
 
             <div className="admin-form-group">
@@ -671,13 +738,15 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
                   <button className="admin-btn-edit" onClick={() => openEdit(sec)} title="Edit">
                     <Edit2 size={16} />
                   </button>
-                  <button
-                    className="admin-btn-delete"
-                    onClick={() => handleDelete(sec.id)}
-                    title="Delete"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {getClassStatus(sec, enrollments) === 'EXPIRED' && (
+                    <button
+                      className="admin-btn-delete"
+                      onClick={() => handleDelete(sec.id)}
+                      title="Delete - Only available for expired classes"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -730,11 +799,16 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
             onClick={(e) => e.stopPropagation()}
             style={{ maxWidth: 760 }}
           >
-            <h2>
-              Manage Students: {gradeLabel(selectedSection.grade_level)} - {selectedSection.name}
-            </h2>
+            <div className="admin-modal-header">
+              <h2>
+                Manage Students: {gradeLabel(selectedSection.grade_level)} - {selectedSection.name}
+              </h2>
+              <button className="admin-modal-close-btn" onClick={closeStudentsModal} title="Close" type="button">
+                <X size={20} />
+              </button>
+            </div>
 
-            <p style={{ color: '#64748b', marginTop: -6, marginBottom: 14 }}>
+            <p style={{ color: '#64748b', marginTop: 0, marginBottom: 14 }}>
               Approved enrollments for this grade can be assigned to this class. This automatically
               syncs with attendance lists.
             </p>
@@ -1162,7 +1236,12 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
       {showForm && (
         <div className="admin-modal-overlay">
           <div className="admin-modal-content" style={{ maxWidth: 620 }}>
-            <h2>{editId ? 'Edit Schedule Entry' : 'New Schedule Entry'}</h2>
+            <div className="admin-modal-header">
+              <h2>{editId ? 'Edit Schedule Entry' : 'New Schedule Entry'}</h2>
+              <button className="admin-modal-close-btn" onClick={() => setShowForm(false)} title="Close" type="button">
+                <X size={20} />
+              </button>
+            </div>
 
             {error && (
               <div className="admin-error-box">
@@ -1300,7 +1379,12 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
       {showBulkEdit && (
         <div className="admin-modal-overlay">
           <div className="admin-modal-content" style={{ maxWidth: 620 }}>
-            <h2>Bulk Edit — {selected.size} Entries</h2>
+            <div className="admin-modal-header">
+              <h2>Bulk Edit — {selected.size} Entries</h2>
+              <button className="admin-modal-close-btn" onClick={() => setShowBulkEdit(false)} title="Close" type="button">
+                <X size={20} />
+              </button>
+            </div>
             <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 12 }}>
               Only fields you fill in will be changed. Leave blank to keep current values.
             </p>
@@ -1717,7 +1801,12 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
       {showForm && (
         <div className="admin-modal-overlay" onClick={() => setShowForm(false)}>
           <div className="admin-modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Add Subject</h2>
+            <div className="admin-modal-header">
+              <h2>Add Subject</h2>
+              <button className="admin-modal-close-btn" onClick={() => setShowForm(false)} title="Close" type="button">
+                <X size={20} />
+              </button>
+            </div>
             {formError && <div style={{ color: '#ef4444', marginBottom: 8 }}>{formError}</div>}
 
             <div className="admin-form-group">
@@ -1772,7 +1861,6 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
           <table className="admin-schedule-table enhanced-table">
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Subject Name</th>
                 <th>Code</th>
                 <th>Assigned Teacher</th>
@@ -1786,7 +1874,6 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
 
                 return (
                   <tr key={s.id}>
-                    <td>{s.id}</td>
                     <td>
                       {isEditing ? (
                         <input
@@ -1970,7 +2057,12 @@ function RoomsTab({ rooms, schedules, onRefresh }) {
       {showForm && (
         <div className="admin-modal-overlay">
           <div className="admin-modal-content">
-            <h2>{editId ? 'Edit Room' : 'Add Room'}</h2>
+            <div className="admin-modal-header">
+              <h2>{editId ? 'Edit Room' : 'Add Room'}</h2>
+              <button className="admin-modal-close-btn" onClick={() => setShowForm(false)} title="Close" type="button">
+                <X size={20} />
+              </button>
+            </div>
             {error && (
               <div className="admin-error-box">
                 <AlertCircle size={18} />
@@ -2224,7 +2316,12 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
       {showForm && (
         <div className="admin-modal-overlay">
           <div className="admin-modal-content">
-            <h2>{editId ? 'Edit School Year' : 'Add School Year'}</h2>
+            <div className="admin-modal-header">
+              <h2>{editId ? 'Edit School Year' : 'Add School Year'}</h2>
+              <button className="admin-modal-close-btn" onClick={() => setShowForm(false)} title="Close" type="button">
+                <X size={20} />
+              </button>
+            </div>
             {error && (
               <div className="admin-error-box">
                 <AlertCircle size={18} />

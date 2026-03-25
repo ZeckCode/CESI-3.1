@@ -31,6 +31,9 @@ function TeacherDashboard() {
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
 
   useEffect(() => {
+    let isMounted = true;
+    let pollInterval = null;
+
     const loadUnreadReminders = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/reminders/?type=PERFORMANCE`, {
@@ -42,14 +45,32 @@ function TeacherDashboard() {
 
         const data = await res.json();
         const reminders = Array.isArray(data) ? data : [];
-        setUnreadReminders(reminders.filter((r) => !r.is_read).length);
+        
+        // Only update state if component is still mounted to prevent duplication
+        if (isMounted) {
+          setUnreadReminders(reminders.filter((r) => !r.is_read).length);
+        }
       } catch (err) {
         console.error("Error loading unread reminders:", err);
-        setUnreadReminders(0);
+        if (isMounted) {
+          setUnreadReminders(0);
+        }
       }
     };
 
+    // Load reminders immediately on mount
     loadUnreadReminders();
+
+    // Then poll for updates every 30 seconds
+    pollInterval = setInterval(loadUnreadReminders, 30000);
+
+    // Cleanup function to prevent memory leaks and duplicate listeners
+    return () => {
+      isMounted = false;
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
   }, []);
 
   const renderContent = () => {
