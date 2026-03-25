@@ -1620,6 +1620,22 @@
   font-weight: 700;
 }
 
+.sy-status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+}
+
+.sy-status-badge.ongoing {
+  background: #3b82f6;
+}
+
+.sy-status-badge.expired {
+  background: #ef4444;
+}
+
 .sy-card-body {
   padding: 16px 20px;
 }

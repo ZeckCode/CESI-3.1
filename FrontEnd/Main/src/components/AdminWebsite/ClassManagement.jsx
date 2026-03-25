@@ -10,13 +10,14 @@ import '../AdminWebsiteCSS/AdminClassManagement.css';
 
 /* ───────────────────────── helpers ───────────────────────── */
 const GRADE_LEVELS = [
-  { value: 0, label: 'Kinder' },
-  { value: 1, label: 'Grade 1' },
-  { value: 2, label: 'Grade 2' },
-  { value: 3, label: 'Grade 3' },
-  { value: 4, label: 'Grade 4' },
-  { value: 5, label: 'Grade 5' },
-  { value: 6, label: 'Grade 6' },
+  { value: 0, label: 'Pre-Kinder' },
+  { value: 1, label: 'Kinder' },
+  { value: 2, label: 'Grade 1' },
+  { value: 3, label: 'Grade 2' },
+  { value: 4, label: 'Grade 3' },
+  { value: 5, label: 'Grade 4' },
+  { value: 6, label: 'Grade 5' },
+  { value: 7, label: 'Grade 6' },
 ];
 
 const DAYS = [
@@ -900,9 +901,7 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
             )}
 
             <div className="admin-form-actions" style={{ marginTop: 14 }}>
-              <button className="admin-btn-secondary" onClick={closeStudentsModal}>
-                Close
-              </button>
+
             </div>
           </div>
         </div>
@@ -949,6 +948,19 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
     room: '',
   });
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [showAutofillModal, setShowAutofillModal] = useState(false);
+  const [autofillDays, setAutofillDays] = useState(new Set(['MON', 'TUE', 'WED', 'THU', 'FRI']));
+  const [autofillGenerating, setAutofillGenerating] = useState(false);
+
+  const toggleAutofillDay = (day) => {
+    const newDays = new Set(autofillDays);
+    if (newDays.has(day)) {
+      newDays.delete(day);
+    } else {
+      newDays.add(day);
+    }
+    setAutofillDays(newDays);
+  };
 
   const filtered = filterSection
     ? schedules.filter((s) => String(s.section) === filterSection)
@@ -1077,8 +1089,9 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
   };
 
   const handleSave = async () => {
-    if (!form.teacher || !form.subject || !form.section || !form.day_of_week || !form.start_time || !form.end_time) {
-      setError('All fields except Room are required.');
+    // Subject is now optional (for non-subject entries like breaks, extension periods)
+    if (!form.teacher || !form.section || !form.day_of_week || !form.start_time || !form.end_time) {
+      setError('Teacher, Section, Day, Start Time, and End Time are required.');
       return;
     }
 
@@ -1089,7 +1102,7 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
     try {
       const payload = {
         teacher: Number(form.teacher),
-        subject: Number(form.subject),
+        subject: form.subject ? Number(form.subject) : null,
         section: Number(form.section),
         day_of_week: form.day_of_week,
         start_time: form.start_time + ':00',
@@ -1140,20 +1153,38 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
   };
 
   const handleAutoGenerate = async () => {
+    // Open the autofill modal instead of immediately generating
+    setAutofillDays(new Set(['MON', 'TUE', 'WED', 'THU', 'FRI']));
+    setShowAutofillModal(true);
+  };
+
+  const handleAutofillSubmit = async () => {
+    if (autofillDays.size === 0) {
+      alert('Please select at least one day.');
+      return;
+    }
+
     const sec = sections.find((s) => String(s.id) === filterSection);
     const secName = sec ? `${gradeLabel(sec.grade_level)} — ${sec.name}` : 'selected section';
+    const selectedDaysList = ['MON', 'TUE', 'WED', 'THU', 'FRI']
+      .filter((d) => autofillDays.has(d))
+      .map((d) => DAYS.find((x) => x.value === d)?.short)
+      .join(', ');
 
     if (
       !window.confirm(
-        `Auto-generate schedules for ${secName}?\n\nThis will fill empty slots based on CESI schedule template (with recess and lunch breaks).`
+        `Auto-generate schedules for ${secName}?\n\nDays: ${selectedDaysList}\n\nThis will create time slots with breaks (7:30-9:30 AM recess, 12:00-12:40 PM lunch).`
       )
     ) {
       return;
     }
 
-    setGenerating(true);
+    setAutofillGenerating(true);
     try {
-      const payload = { section: Number(filterSection) };
+      const payload = {
+        section: Number(filterSection),
+        days: Array.from(autofillDays),
+      };
       const r = await apiFetch('/api/classmanagement/schedules/auto-generate/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1162,11 +1193,12 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
       const data = await r.json();
       if (!r.ok) throw new Error(data.detail || 'Failed');
       alert(`Created ${data.created_count} schedule entries.`);
+      setShowAutofillModal(false);
       await onRefresh();
     } catch (e) {
       alert(e.message);
     } finally {
-      setGenerating(false);
+      setAutofillGenerating(false);
     }
   };
 
@@ -1283,15 +1315,15 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
               </div>
 
               <div className="admin-form-group">
-                <label>Subject *</label>
+                <label>Subject <span style={{ color: '#94a3b8', fontSize: '12px' }}>(Optional)</span></label>
                 <select
                   value={form.subject}
                   onChange={(e) => setForm({ ...form, subject: e.target.value })}
                 >
-                  <option value="">Select…</option>
+                  <option value="">— None (e.g., Extension, Free Period) —</option>
                   {subjects.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} ({s.code})
+                      {s.name}
                     </option>
                   ))}
                 </select>
@@ -1414,7 +1446,7 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
                   <option value="">— Keep current —</option>
                   {subjects.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} ({s.code})
+                      {s.name}
                     </option>
                   ))}
                 </select>
@@ -1498,6 +1530,81 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
                 style={{ background: '#f59e0b' }}
               >
                 {bulkSaving ? 'Updating…' : `Update ${selected.size} Entries`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAutofillModal && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-content" style={{ maxWidth: 500 }}>
+            <div className="admin-modal-header">
+              <h2>Auto-fill Schedule</h2>
+              <button className="admin-modal-close-btn" onClick={() => setShowAutofillModal(false)} title="Close" type="button">
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ color: '#64748b', marginBottom: 16, fontSize: 14 }}>
+              Select which days to generate schedules for. Breaks will be automatically included:
+              <br />• <strong>7:30–9:30 AM</strong> class start + recess
+              <br />• <strong>12:00–12:40 PM</strong> lunch break
+            </p>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', marginBottom: 10, fontWeight: 600, fontSize: 14 }}>
+                School Days
+              </label>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(5, 1fr)',
+                  gap: 8,
+                }}
+              >
+                {DAYS.map((day) => (
+                  <label
+                    key={day.value}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '8px 12px',
+                      border: `2px solid ${autofillDays.has(day.value) ? '#3b82f6' : '#e5e7eb'}`,
+                      borderRadius: '8px',
+                      backgroundColor: autofillDays.has(day.value) ? '#eff6ff' : 'white',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={autofillDays.has(day.value)}
+                      onChange={() => toggleAutofillDay(day.value)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <span>{day.short}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="admin-form-actions">
+              <button
+                className="admin-btn-secondary"
+                onClick={() => setShowAutofillModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="admin-btn-primary"
+                onClick={handleAutofillSubmit}
+                disabled={autofillGenerating || autofillDays.size === 0}
+                style={{ background: '#8b5cf6' }}
+              >
+                {autofillGenerating ? 'Generating…' : 'Generate Schedule'}
               </button>
             </div>
           </div>
@@ -2378,46 +2485,76 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
             <p>No school years yet. Add one to get started.</p>
           </div>
         ) : (
-          schoolYears.map((sy) => (
-            <div key={sy.id} className={`admin-school-year-card ${sy.is_active ? 'active' : ''}`}>
-              <div className="sy-card-header">
-                <div className="sy-name">{sy.name}</div>
-                {sy.is_active && <span className="sy-active-badge">ACTIVE</span>}
-              </div>
+          schoolYears.map((sy) => {
+            const isExpired = sy.status === 'EXPIRED';
+            const isOngoing = sy.status === 'ONGOING';
+            const canEdit = !isExpired && !sy.is_active;
+            const canDelete = isExpired;
 
-              <div className="sy-card-body">
-                <div className="sy-dates">
-                  <Calendar size={14} />
-                  <span>
-                    {formatDate(sy.start_date)} – {formatDate(sy.end_date)}
-                  </span>
+            return (
+              <div key={sy.id} className={`admin-school-year-card ${sy.is_active ? 'active' : ''}`}>
+                <div className="sy-card-header">
+                  <div className="sy-name">{sy.name}</div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {sy.is_active && <span className="sy-active-badge">ACTIVE</span>}
+                    <span
+                      className={`sy-status-badge ${isExpired ? 'expired' : 'ongoing'}`}
+                      title={isExpired ? 'Past end date' : 'Within school year dates'}
+                    >
+                      {isExpired ? 'EXPIRED' : 'ONGOING'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="sy-card-body">
+                  <div className="sy-dates">
+                    <Calendar size={14} />
+                    <span>
+                      {formatDate(sy.start_date)} – {formatDate(sy.end_date)}
+                    </span>
+                  </div>
+                  {isExpired && (
+                    <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '8px' }}>
+                      This school year has expired. Only deletion is allowed.
+                    </div>
+                  )}
+                </div>
+
+                <div className="sy-card-actions">
+                  {!sy.is_active && isOngoing && (
+                    <button
+                      className="admin-btn-primary"
+                      onClick={() => handleActivate(sy.id)}
+                      style={{ background: '#10b981' }}
+                    >
+                      <Zap size={16} /> Activate
+                    </button>
+                  )}
+                  <button
+                    className="admin-btn-edit"
+                    onClick={() => openEdit(sy)}
+                    title="Edit"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                  <button
+                    className="admin-btn-delete"
+                    onClick={() => handleDelete(sy.id)}
+                    disabled={!canDelete}
+                    title={
+                      sy.is_active
+                        ? 'Cannot delete active year'
+                        : isExpired
+                        ? 'Delete'
+                        : 'Cannot delete ongoing year'
+                    }
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
-
-              <div className="sy-card-actions">
-                {!sy.is_active && (
-                  <button
-                    className="admin-btn-primary"
-                    onClick={() => handleActivate(sy.id)}
-                    style={{ background: '#10b981' }}
-                  >
-                    <Zap size={16} /> Activate
-                  </button>
-                )}
-                <button className="admin-btn-edit" onClick={() => openEdit(sy)}>
-                  <Edit2 size={16} />
-                </button>
-                <button
-                  className="admin-btn-delete"
-                  onClick={() => handleDelete(sy.id)}
-                  disabled={sy.is_active}
-                  title={sy.is_active ? 'Cannot delete active year' : 'Delete'}
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </>

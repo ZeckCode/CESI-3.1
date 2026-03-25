@@ -1,5 +1,7 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
+from datetime import date
 
 
 class Room(models.Model):
@@ -38,6 +40,18 @@ class SchoolYear(models.Model):
         status = " (Active)" if self.is_active else ""
         return f"{self.name}{status}"
 
+    @property
+    def status(self):
+        """
+        Return status based on current date:
+        - 'ONGOING': today is within [start_date, end_date]
+        - 'EXPIRED': today is after end_date
+        """
+        today = date.today()
+        if today > self.end_date:
+            return 'EXPIRED'
+        return 'ONGOING'
+
     def save(self, *args, **kwargs):
         # If this year is being activated, deactivate all others
         if self.is_active:
@@ -68,6 +82,8 @@ class Schedule(models.Model):
         "accounts.Subject",
         on_delete=models.CASCADE,
         related_name="schedules",
+        null=True,
+        blank=True,
     )
     section = models.ForeignKey(
         "accounts.Section",

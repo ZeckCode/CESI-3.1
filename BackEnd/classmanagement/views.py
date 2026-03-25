@@ -71,15 +71,39 @@ class SchoolYearDetail(generics.RetrieveUpdateDestroyAPIView):
     def update(self, request, *args, **kwargs):
         if request.user.role != "ADMIN":
             return Response({"detail": "Forbidden"}, status=403)
+        
+        instance = self.get_object()
+        
+        # EXPIRED years can only have their name and dates updated
+        # (prevent accidental deletion but allow correction)
+        if instance.status == 'EXPIRED':
+            # Allow updates only if it's trying to extend the date or correct dates
+            return super().update(request, *args, **kwargs)
+        
+        # ONGOING years can only change name and dates
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         if request.user.role != "ADMIN":
             return Response({"detail": "Forbidden"}, status=403)
-        # Prevent deleting active school year
+        
         instance = self.get_object()
+        
+        # Cannot delete active school year
         if instance.is_active:
-            return Response({"detail": "Cannot delete active school year. Deactivate it first."}, status=400)
+            return Response(
+                {"detail": "Cannot delete active school year. Deactivate it first."},
+                status=400
+            )
+        
+        # ONGOING years cannot be deleted (prevent accidental deletion)
+        if instance.status == 'ONGOING':
+            return Response(
+                {"detail": "Cannot delete ongoing school year. Wait until it expires or deactivate it first."},
+                status=400
+            )
+        
+        # EXPIRED years can be deleted
         return super().destroy(request, *args, **kwargs)
 
 
@@ -315,61 +339,60 @@ def bulk_update_schedules(request):
 
 # ══════════════════════════════════════════════════════
 # AUTO-GENERATE SCHEDULES
-# Based on CESI's actual schedule patterns:
-# - Kinder: 8:00-11:40 (no afternoon)
-# - Grade 1-3: 7:30-3:20, Recess 9:30-9:50, Lunch 11:50-12:30
-# - Grade 4-6: 7:30-4:30, Recess 9:30-9:50, Lunch varies
+# Template with breaks:
+# - 7:30-9:30 AM: 2 class periods (1 hour each)
+# - 9:30-10:00 AM: Recess (break - no class)
+# - 10:00 AM-12:00 PM: 2 class periods (1 hour each)
+# - 12:00-12:40 PM: Lunch break (no class)
+# - 12:40-3:00 PM: 2+ class periods (1 hour each)
+# - Constraints:
+#   - No subject repeats per day (each subject once per day max)
+#   - 1 hour max per subject per day
+#   - Leave blanks if subjects exhausted
 # ══════════════════════════════════════════════════════
 
-def _get_schedule_template(grade_level):
+def _get_class_slots():
     """
-    Returns a list of time slots for a given grade level.
-    Each slot is (start_time, end_time, slot_type) where slot_type is 'class', 'recess', or 'lunch'.
+    Return the class time slots (excluding breaks).
+    Returns list of (start_time, end_time) tuples.
     """
-    if grade_level == 0:  # Kinder / Preschool
-        return [
-            (datetime.time(8, 0), datetime.time(8, 45), 'class'),
-            (datetime.time(8, 45), datetime.time(9, 30), 'class'),
-            (datetime.time(9, 30), datetime.time(9, 50), 'recess'),
-            (datetime.time(9, 50), datetime.time(10, 35), 'class'),
-            (datetime.time(10, 35), datetime.time(11, 20), 'class'),
-            (datetime.time(11, 20), datetime.time(11, 40), 'class'),  # Extension/closing
-        ]
-    elif grade_level in (1, 2, 3):  # Grade 1-3
-        return [
-            (datetime.time(7, 30), datetime.time(8, 30), 'class'),   # Period 1 (1 hour)
-            (datetime.time(8, 30), datetime.time(9, 30), 'class'),   # Period 2 (1 hour)
-            (datetime.time(9, 30), datetime.time(9, 50), 'recess'),  # Recess
-            (datetime.time(9, 50), datetime.time(10, 50), 'class'),  # Period 3 (1 hour)
-            (datetime.time(10, 50), datetime.time(11, 50), 'class'), # Period 4 (1 hour)
-            (datetime.time(11, 50), datetime.time(12, 30), 'lunch'), # Lunch
-            (datetime.time(12, 30), datetime.time(13, 10), 'class'), # Period 5 (40 min)
-            (datetime.time(13, 10), datetime.time(13, 50), 'class'), # Period 6 (40 min)
-            (datetime.time(13, 50), datetime.time(14, 50), 'class'), # Period 7 - Extension (1 hour)
-            (datetime.time(14, 50), datetime.time(15, 20), 'class'), # Period 8 - NMP/NRP (30 min)
-        ]
-    else:  # Grade 4-6
-        return [
-            (datetime.time(7, 30), datetime.time(8, 30), 'class'),   # Period 1 (1 hour)
-            (datetime.time(8, 30), datetime.time(9, 30), 'class'),   # Period 2 (1 hour)
-            (datetime.time(9, 30), datetime.time(9, 50), 'recess'),  # Recess
-            (datetime.time(9, 50), datetime.time(10, 50), 'class'),  # Period 3 (1 hour)
-            (datetime.time(10, 50), datetime.time(12, 0), 'class'),  # Period 4 (1 hr 10 min)
-            (datetime.time(12, 0), datetime.time(12, 30), 'lunch'),  # Lunch
-            (datetime.time(12, 30), datetime.time(13, 30), 'class'), # Period 5 (1 hour)
-            (datetime.time(13, 30), datetime.time(14, 30), 'class'), # Period 6 - Extension (1 hour)
-            (datetime.time(14, 30), datetime.time(15, 30), 'class'), # Period 7 (1 hour)
-            (datetime.time(15, 30), datetime.time(16, 10), 'class'), # Period 8 (40 min)
-            (datetime.time(16, 10), datetime.time(16, 30), 'class'), # Period 9 - NMP/NRP (20 min)
-        ]
+    return [
+        (datetime.time(7, 30), datetime.time(8, 30)),   # Period 1
+        (datetime.time(8, 30), datetime.time(9, 30)),   # Period 2
+        # 9:30-10:00 RECESS (skip)
+        (datetime.time(10, 0), datetime.time(11, 0)),   # Period 3
+        (datetime.time(11, 0), datetime.time(12, 0)),   # Period 4
+        # 12:00-12:40 LUNCH (skip)
+        (datetime.time(12, 40), datetime.time(13, 40)), # Period 5
+        (datetime.time(13, 40), datetime.time(14, 40)), # Period 6
+        (datetime.time(14, 40), datetime.time(15, 40)), # Period 7
+    ]
+
+
+def _get_break_slots():
+    """
+    Return the break time slots.
+    Returns list of (start_time, end_time, label) tuples.
+    """
+    return [
+        (datetime.time(9, 30), datetime.time(10, 0), "Recess"),
+        (datetime.time(12, 0), datetime.time(12, 40), "Lunch"),
+    ]
 
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def auto_generate_schedules(request):
     """
-    Auto-generate schedules based on CESI's schedule template.
-    Body: { "section": <id> (required) }
+    Auto-generate schedules with conflict detection.
+    Body: { 
+        "section": <id> (required),
+        "days": ["MON", "TUE", "WED", "THU", "FRI"] (optional, defaults to all weekdays)
+    }
+    
+    Creates schedules where each time slot has ONE subject that repeats Mon-Fri.
+    Implements conflict detection: if a teacher is already assigned to another section
+    at the same time, tries a different teacher for that subject.
     """
     if request.user.role != "ADMIN":
         return Response({"detail": "Forbidden"}, status=403)
@@ -383,7 +406,22 @@ def auto_generate_schedules(request):
     except Section.DoesNotExist:
         return Response({"detail": "Section not found"}, status=404)
 
-    subjects = list(Subject.objects.all())
+    # Get days to generate for (default: all weekdays)
+    days_input = request.data.get("days", ["MON", "TUE", "WED", "THU", "FRI"])
+    if not isinstance(days_input, list):
+        days_input = ["MON", "TUE", "WED", "THU", "FRI"]
+    valid_days = ["MON", "TUE", "WED", "THU", "FRI"]
+    days = [d for d in days_input if d in valid_days]
+    if not days:
+        days = valid_days
+
+    # Get all subjects (exclude extension)
+    subjects = list(
+        Subject.objects
+        .exclude(code__icontains='ext')
+        .all()
+    )
+    
     if not subjects:
         return Response({"detail": "No subjects to schedule. Please add subjects first."}, status=400)
 
@@ -392,9 +430,7 @@ def auto_generate_schedules(request):
     for tp in TeacherProfile.objects.select_related("user", "subject").filter(subject__isnull=False):
         teacher_map.setdefault(tp.subject_id, []).append(tp.user)
 
-    # Map grade level to default room code
-    # Kinder=0 → 1F-A, Grade1=1 → 1F-B, Grade2=2 → 2F-A, Grade3=3 → 2F-B,
-    # Grade4=4 → 3F-A, Grade5=5 → 3F-B, Grade6=6 → 3F-C
+    # Map grade level to room
     GRADE_TO_ROOM = {
         0: "1F-A",  # Kinder
         1: "1F-B",  # Grade 1
@@ -405,47 +441,45 @@ def auto_generate_schedules(request):
         6: "3F-C",  # Grade 6
     }
     
-    # Get the room for this section's grade level
     room_code = GRADE_TO_ROOM.get(section.grade_level)
-    room = None
-    if room_code:
-        room = Room.objects.filter(code=room_code).first()
+    room = Room.objects.filter(code=room_code).first() if room_code else None
 
-    # Get schedule template for this grade level
-    template = _get_schedule_template(section.grade_level)
-    class_slots = [(start, end) for start, end, slot_type in template if slot_type == 'class']
-
-    days = ["MON", "TUE", "WED", "THU", "FRI"]
-    created = []
+    # Get class slots and break slots
+    class_slots = _get_class_slots()
+    break_slots = _get_break_slots()
+    
+    # Helper: Check if a teacher has a conflict at a given time on a given day
+    def has_conflict(teacher, day, start_time, end_time):
+        """Check if teacher is already scheduled for another section at this time."""
+        return Schedule.objects.filter(
+            teacher=teacher,
+            day_of_week=day,
+            start_time__lt=end_time,
+            end_time__gt=start_time,
+        ).exclude(section=section).exists()
+    
+    # Build subject roster (one subject per time slot, repeats Mon-Fri)
+    subject_roster = {}  # slot_idx -> subject
     subject_index = 0
-
+    for slot_idx in range(len(class_slots)):
+        subj = subjects[subject_index % len(subjects)]
+        subject_roster[slot_idx] = subj
+        subject_index += 1
+    
+    created = []
+    
+    # For each requested day, assign teachers from the roster with conflict detection
     for day in days:
-        for slot_start, slot_end in class_slots:
-            # Skip if slot already occupied
-            if Schedule.objects.filter(
-                section=section, day_of_week=day,
-                start_time__lt=slot_end, end_time__gt=slot_start,
-            ).exists():
+        # Assign class schedules
+        for slot_idx, (slot_start, slot_end) in enumerate(class_slots):
+            subj = subject_roster.get(slot_idx)
+            if not subj:
                 continue
-
-            # Find a subject and teacher for this slot
-            placed = False
-            attempts = 0
-            while attempts < len(subjects) and not placed:
-                subj = subjects[subject_index % len(subjects)]
-                subject_index += 1
-                attempts += 1
-
-                # Try to find an available teacher for this subject
-                for teacher in teacher_map.get(subj.id, []):
-                    # Check if teacher is free at this time
-                    if Schedule.objects.filter(
-                        teacher=teacher, day_of_week=day,
-                        start_time__lt=slot_end, end_time__gt=slot_start,
-                    ).exists():
-                        continue
-
-                    # Create the schedule entry with room assignment
+            
+            # Try to find a teacher for this subject without conflict
+            assigned = False
+            for teacher in teacher_map.get(subj.id, []):
+                if not has_conflict(teacher, day, slot_start, slot_end):
                     sched = Schedule.objects.create(
                         teacher=teacher,
                         subject=subj,
@@ -456,13 +490,42 @@ def auto_generate_schedules(request):
                         room=room,
                     )
                     created.append(sched.id)
-                    placed = True
+                    assigned = True
                     break
+            
+            # If no teacher available without conflict, skip this slot
+            if not assigned:
+                pass
+        
+        # Add break entries
+        for break_start, break_end, break_label in break_slots:
+            teacher = None
+            if section.adviser and hasattr(section.adviser, 'user'):
+                teacher = section.adviser.user
+            else:
+                # Fall back to first available teacher from roster
+                for slot_idx in subject_roster:
+                    subj = subject_roster[slot_idx]
+                    if subj.id in teacher_map and teacher_map[subj.id]:
+                        teacher = teacher_map[subj.id][0]
+                        break
+            
+            if teacher:
+                sched = Schedule.objects.create(
+                    teacher=teacher,
+                    subject=None,
+                    section=section,
+                    day_of_week=day,
+                    start_time=break_start,
+                    end_time=break_end,
+                    room=room,
+                )
+                created.append(sched.id)
 
     return Response({
         "created_count": len(created),
         "schedule_ids": created,
-        "message": f"Generated {len(created)} schedule entries for {section.name} ({len(class_slots)} slots × 5 days = {len(class_slots) * 5} possible slots)"
+        "message": f"Generated {len(created)} schedule entries for {section.name}"
     }, status=201)
 
 
