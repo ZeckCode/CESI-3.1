@@ -6,8 +6,8 @@ import "../AuthCSS/Login.css";
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
@@ -60,34 +60,32 @@ export default function Login() {
             onChange={(e) => setUsername(e.target.value)}
             placeholder="Email or Username"
           />
-          <div style={{ position: "relative", marginTop: "10px" }}>
+          <div style={{ position: "relative", width: "100%" }}>
             <input
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
-              style={{ paddingRight: "40px", width: "100%" }}
+              style={{ width: "100%", paddingRight: "40px", boxSizing: "border-box" }}
             />
-            <div
+            <span
               onClick={() => setShowPassword(!showPassword)}
               style={{
                 position: "absolute",
-                right: "12px",
+                right: "10px",
                 top: "50%",
                 transform: "translateY(-50%)",
                 cursor: "pointer",
                 fontSize: "18px",
-                padding: "5px",
-                color: "#666",
                 userSelect: "none",
               }}
             >
               {showPassword ? "👁️" : "👁️‍🗨️"}
-            </div>
+            </span>
           </div>
           <button type="submit">Login</button>
-          <div style={{ textAlign: "right", marginTop: "16px" }}>
-              <a href="/forgot-password" style={{ color: "red", fontWeight: 600, textDecoration: "none" }}>
+          <div style={{ textAlign: "right", marginTop: "12px" }}>
+              <a href="/forgot-password" style={{ color: "red", fontWeight: 600 }}>
                 Forgot Password?
               </a>
             </div>
