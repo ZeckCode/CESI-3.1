@@ -63,6 +63,11 @@ if (-not $pyExe) {
     exit 1
 }
 $pyVersion = & python --version 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Err "Python failed to run. Reinstall or fix PATH."
+    Read-Host "Press Enter to exit"
+    exit 1
+}
 Write-Ok "$pyVersion"
 
 # Check Node
@@ -74,6 +79,11 @@ if (-not $nodeExe) {
     exit 1
 }
 $nodeVersion = & node --version 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Err "Node.js failed to run. Reinstall Node.js or fix PATH."
+    Read-Host "Press Enter to exit"
+    exit 1
+}
 Write-Ok "Node $nodeVersion"
 
 # Check npm
@@ -83,6 +93,13 @@ if (-not $npmExe) {
     Read-Host "Press Enter to exit"
     exit 1
 }
+$npmVersion = & npm --version 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Err "npm failed to run. Reinstall Node.js or fix PATH."
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+Write-Ok "npm $npmVersion"
 
 # =============================================
 #  BACKEND SETUP
@@ -139,6 +156,13 @@ try {
 
 # Install / update Python deps
 Write-Step "Installing/updating Python packages..."
+Write-Step "Updating pip..."
+& "$VenvPython" -m pip install --upgrade pip --quiet --disable-pip-version-check 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Warn "pip upgrade had warnings - trying again with output..."
+    & "$VenvPython" -m pip install --upgrade pip
+}
+Write-Ok "pip is up to date"
 & "$VenvPip" install -r "$ReqFile" --quiet --disable-pip-version-check 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Warn "pip install had warnings - trying again with output..."

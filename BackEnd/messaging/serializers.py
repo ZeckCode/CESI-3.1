@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.utils import timezone
 from .models import (
     ProfanityWord, Chat, ChatMember, Message, ChatRestriction, MessageFlag,
     ChatRequest, MessageReport, decrypt_message
@@ -124,25 +125,76 @@ class ChatDetailSerializer(serializers.ModelSerializer):
     participant_two = UserMinimalSerializer(read_only=True, allow_null=True)
     members = ChatMemberSerializer(many=True, read_only=True)
     messages = MessageSerializer(many=True, read_only=True)
+    current_user_restriction = serializers.SerializerMethodField()
 
     class Meta:
         model = Chat
         fields = [
             'id', 'name', 'chat_type', 'section_name', 'subject_name',
             'creator', 'participant_two', 'members', 'messages',
-            'is_active', 'created_at', 'updated_at', 'school_year'
+            'current_user_restriction', 'is_active', 'created_at', 'updated_at', 'school_year'
         ]
         read_only_fields = ['creator', 'created_at', 'updated_at']
+
+    def get_current_user_restriction(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return None
+
+        # Check for global restriction first (applies to all chats)
+        global_restriction = user.chat_restrictions.filter(
+            chat=None
+        ).order_by('-created_at').first()
+        
+        if global_restriction and global_restriction.is_active:
+            return {
+                'id': global_restriction.id,
+                'restriction_type': global_restriction.restriction_type,
+                'expires_at': global_restriction.expires_at,
+                'reason': global_restriction.reason,
+                'created_at': global_restriction.created_at,
+                'is_global': True,
+            }
+
+        # Check for chat-specific restriction
+        restriction = obj.restrictions.filter(user=user).order_by('-created_at').first()
+        if not restriction:
+            return None
+
+        if not restriction.is_active:
+            return None
+
+        return {
+            'id': restriction.id,
+            'restriction_type': restriction.restriction_type,
+            'expires_at': restriction.expires_at,
+            'reason': restriction.reason,
+            'created_at': restriction.created_at,
+            'is_global': False,
+        }
 
 
 class ChatRestrictionSerializer(serializers.ModelSerializer):
     user = UserMinimalSerializer(read_only=True)
     restricted_by = UserMinimalSerializer(read_only=True)
+    chat_name = serializers.SerializerMethodField()
+    is_global = serializers.SerializerMethodField()
 
     class Meta:
         model = ChatRestriction
-        fields = ['id', 'chat', 'user', 'restriction_type', 'reason', 'expires_at', 'restricted_by', 'created_at']
+        fields = ['id', 'chat', 'chat_name', 'user', 'restriction_type', 'reason', 'expires_at', 'restricted_by', 'created_at', 'is_global']
         read_only_fields = ['id', 'created_at']
+
+    def get_chat_name(self, obj):
+        """Return chat name or label for global restrictions."""
+        if obj.chat is None:
+            return "🌍 Global (All Chats)"
+        return obj.chat.name or f"Chat #{obj.chat.id}"
+
+    def get_is_global(self, obj):
+        """Return whether this is a global restriction."""
+        return obj.chat is None
 
 
 class MessageFlagSerializer(serializers.ModelSerializer):

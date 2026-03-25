@@ -160,6 +160,11 @@ const Messages = () => {
     e.preventDefault();
     if ((!input.trim() && !image) || !selectedChat) return;
 
+    if (selectedChat?.current_user_restriction) {
+      setError(getRestrictionNotice(selectedChat.current_user_restriction));
+      return;
+    }
+
     setIsSending(true);
     try {
       const messageData = await sendMessage(selectedChat.id, input, image);
@@ -415,6 +420,13 @@ const Messages = () => {
       return;
     }
 
+    // Check if user is globally muted
+    if (selectedChat?.current_user_restriction?.is_global) {
+      setError("You cannot report messages while muted.");
+      setReportingMessageId(null);
+      return;
+    }
+
     setReportSubmitting(true);
     try {
       await createMessageReport(reportingMessageId, reportReason, reportDescription);
@@ -494,9 +506,24 @@ const Messages = () => {
     return "User";
   };
 
+  const getRestrictionNotice = (restriction) => {
+    if (!restriction) return "";
+    if (restriction.restriction_type === "TEMP_MUTE") {
+      if (restriction.expires_at) {
+        const until = new Date(restriction.expires_at).toLocaleString();
+        return `You are temporarily muted until ${until}.`;
+      }
+      return "You are temporarily muted.";
+    }
+    return "You have been removed from this chat.";
+  };
+
   const filteredChats = chats.filter((chat) =>
     getChatDisplayName(chat).toLowerCase().includes(searchQuery.toLowerCase())
   );
+  const activeRestriction = selectedChat?.current_user_restriction || null;
+  const isRestricted = Boolean(activeRestriction);
+  const restrictionNotice = getRestrictionNotice(activeRestriction);
   const filteredGroupChats = filteredChats.filter((chat) => chat.chat_type !== "INDIVIDUAL");
   const filteredDirectChats = filteredChats.filter((chat) => chat.chat_type === "INDIVIDUAL");
 
@@ -859,9 +886,11 @@ const Messages = () => {
                                 onClick={() => {
                                   handleReportMessageMenu(msg.id);
                                 }}
-                                style={{width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent", cursor: "pointer", textAlign: "left", fontSize: "14px", borderRadius: "4px"}}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f0f0f0"}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                                disabled={selectedChat?.current_user_restriction?.is_global}
+                                style={{width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent", cursor: selectedChat?.current_user_restriction?.is_global ? "not-allowed" : "pointer", textAlign: "left", fontSize: "14px", borderRadius: "4px", opacity: selectedChat?.current_user_restriction?.is_global ? 0.5 : 1}}
+                                onMouseEnter={(e) => !selectedChat?.current_user_restriction?.is_global && (e.currentTarget.style.backgroundColor = "#f0f0f0")}
+                                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                                title={selectedChat?.current_user_restriction?.is_global ? "Cannot report while muted" : "Report message"}
                               >
                                 🚩 Report
                               </button>
@@ -887,21 +916,28 @@ const Messages = () => {
                 <input
                   className="chatInput__field"
                   type="text"
-                  placeholder="Type a message..."
+                  placeholder={isRestricted ? "Messaging is disabled while you are muted." : "Type a message..."}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleSendMessage(e)}
+                  onKeyPress={(e) => !isRestricted && e.key === "Enter" && handleSendMessage(e)}
+                  readOnly={isRestricted}
+                  aria-disabled={isRestricted}
                 />
                 <button
                   className="chatInput__send"
                   type="button"
                   aria-label="Send"
                   onClick={handleSendMessage}
-                  disabled={isSending}
+                  disabled={isSending || isRestricted}
                 >
                   ✈️
                 </button>
               </div>
+              {isRestricted && (
+                <div style={{ padding: "6px 2px 0", color: "#8a1414", fontSize: "12px" }}>
+                  {restrictionNotice}
+                </div>
+              )}
 
               {showEditModal && selectedChat?.chat_type !== "INDIVIDUAL" && (
                 <div style={{position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 2100}}>

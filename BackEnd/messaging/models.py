@@ -266,7 +266,8 @@ class Message(models.Model):
 
 class ChatRestriction(models.Model):
     """
-    Admin restriction on a user in a specific chat.
+    Admin restriction on a user in a specific chat or globally.
+    If chat=None, restriction applies to ALL chats.
     Can be temporary (time-based) or permanent (removal).
     """
     RESTRICTION_TYPE_CHOICES = [
@@ -274,7 +275,7 @@ class ChatRestriction(models.Model):
         ('PERMANENT_REMOVE', 'Permanent Removal'),
     ]
 
-    chat = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name='restrictions')
+    chat = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name='restrictions', null=True, blank=True, help_text="Leave blank for global restriction (all chats)")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_restrictions')
     restriction_type = models.CharField(max_length=20, choices=RESTRICTION_TYPE_CHOICES)
     
@@ -294,7 +295,6 @@ class ChatRestriction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('chat', 'user')
         ordering = ['-created_at']
 
     def __str__(self):

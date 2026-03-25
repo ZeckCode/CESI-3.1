@@ -46,7 +46,14 @@ const AdminMessages = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+    // Auto-refresh restrictions tab every 2 seconds when viewing it
+    const interval = setInterval(() => {
+      if (activeTab === 'restrictions') {
+        loadRestrictions();
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
 
   const loadData = async () => {
     try {
@@ -69,6 +76,15 @@ const AdminMessages = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRestrictions = async () => {
+    try {
+      const restrictionsRes = await listChatRestrictions();
+      setRestrictions(restrictionsRes || []);
+    } catch (err) {
+      console.error("Failed to refresh restrictions", err);
     }
   };
 
@@ -135,6 +151,10 @@ const AdminMessages = () => {
       setFlaggedMessages((prev) =>
         prev.filter((f) => f.id !== selectedFlagModal.id)
       );
+      // Refresh restrictions if we just applied a restriction
+      if (action === "restrict") {
+        await loadRestrictions();
+      }
       setSelectedFlagModal(null);
       setFlagAdminNotes("");
       setFlagRestrictionDuration(24);
@@ -157,6 +177,25 @@ const AdminMessages = () => {
     } catch (err) {
       setError("Failed to lift restriction");
     }
+  };
+
+  const formatRestrictionTime = (expiresAt) => {
+    if (!expiresAt) {
+      return "Never (Permanent)";
+    }
+    const date = new Date(expiresAt);
+    const now = new Date();
+    const diffMs = date - now;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (diffHours <= 0 && diffMins <= 0) {
+      return "Expired";
+    }
+    if (diffHours > 0) {
+      return `${diffHours}h ${diffMins}m remaining`;
+    }
+    return `${diffMins}m remaining`;
   };
 
   // Message Report Management
@@ -623,7 +662,7 @@ const AdminMessages = () => {
                         {restriction.restriction_type === "TEMP_MUTE" ? "⏱️ Temp Mute" : "🔒 Permanent"}
                       </div>
                       <div style={{ fontSize: "12px", color: "#666" }}>
-                        {restriction.chat.name}
+                        {restriction.is_global ? "🌍 Global (All Chats)" : restriction.chat_name}
                       </div>
                     </div>
                   ))
@@ -660,15 +699,19 @@ const AdminMessages = () => {
                   <p>
                     <strong>Type:</strong> {selectedRestrictionModal.restriction_type === "TEMP_MUTE" ? "⏱️ Temporary Mute" : "🔒 Permanent Remove"}
                   </p>
+                  {selectedRestrictionModal.chat_name && (
+                    <p>
+                      <strong>Chat:</strong> {selectedRestrictionModal.chat_name}
+                    </p>
+                  )}
                   <p>
-                    <strong>Chat:</strong> {selectedRestrictionModal.chat.name}
+                    <strong>Expires:</strong> {formatRestrictionTime(selectedRestrictionModal.expires_at)}
                   </p>
-                  <p>
-                    <strong>Expires:</strong>{" "}
-                    {selectedRestrictionModal.expires_at
-                      ? new Date(selectedRestrictionModal.expires_at).toLocaleDateString()
-                      : "Never"}
-                  </p>
+                  {selectedRestrictionModal.created_at && (
+                    <p>
+                      <strong>Applied:</strong> {new Date(selectedRestrictionModal.created_at).toLocaleString()}
+                    </p>
+                  )}
                   {selectedRestrictionModal.admin_notes && (
                     <p>
                       <strong>Notes:</strong> {selectedRestrictionModal.admin_notes}

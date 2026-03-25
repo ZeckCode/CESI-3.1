@@ -103,11 +103,35 @@ class ChatViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        """Filter chats user is member of."""
+        """Filter chats user is member of and not restricted from."""
         user = self.request.user
-        return Chat.objects.filter(
+        
+        # Get all chats user is member of
+        user_chats = Chat.objects.filter(
             (Q(members__user=user) | Q(creator=user)) & Q(is_active=True)
-        ).distinct().prefetch_related('members__user', 'messages__sender')
+        ).distinct()
+
+        # Check if user has a global permanent restriction
+        has_global_permanent = ChatRestriction.objects.filter(
+            user=user,
+            chat=None,
+            restriction_type='PERMANENT_REMOVE'
+        ).exists()
+
+        # If globally restricted, return no chats
+        if has_global_permanent:
+            return Chat.objects.none()
+
+        # Filter out chats where user has permanent restriction
+        restricted_chat_ids = ChatRestriction.objects.filter(
+            user=user,
+            restriction_type='PERMANENT_REMOVE',
+            chat__isnull=False
+        ).values_list('chat_id', flat=True)
+
+        return user_chats.exclude(id__in=restricted_chat_ids).prefetch_related(
+            'members__user', 'messages__sender'
+        )
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -425,24 +449,32 @@ class MessageViewSet(viewsets.ModelViewSet):
         if is_creator and not is_member:
             ChatMember.objects.get_or_create(chat=chat, user=request.user)
 
-        # Check if user is restricted
-        restriction = ChatRestriction.objects.filter(
-            chat=chat,
+        # Check for global or chat-specific permanent removal
+        permanent_restriction = ChatRestriction.objects.filter(
             user=request.user,
             restriction_type='PERMANENT_REMOVE'
+        ).filter(
+            Q(chat=None) | Q(chat=chat)  # Global or this specific chat
         ).first()
-        if restriction:
-            return Response(
-                {'detail': 'You have been removed from this chat.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        if permanent_restriction:
+            if permanent_restriction.chat:
+                return Response(
+                    {'detail': 'You have been removed from this chat.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            else:
+                return Response(
+                    {'detail': 'You have been permanently restricted from all chats.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
-        # Check temp mute
+        # Check for global or chat-specific temp mute
         temp_restriction = ChatRestriction.objects.filter(
-            chat=chat,
             user=request.user,
             restriction_type='TEMP_MUTE',
             expires_at__gt=timezone.now()
+        ).filter(
+            Q(chat=None) | Q(chat=chat)  # Global or this specific chat
         ).first()
         if temp_restriction:
             return Response(
@@ -558,11 +590,11 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
             flag.status = 'DELETED'
 
         elif action_type == 'restrict':
-            # Restrict user (temp or permanent)
+            # Restrict user globally (across all chats) - temp or permanent
             is_permanent = request.data.get('is_permanent', False)
             
             restriction, created = ChatRestriction.objects.get_or_create(
-                chat=flag.chat,
+                chat=None,  # Global restriction - applies to ALL chats
                 user=flag.message.sender,
                 defaults={
                     'restriction_type': 'PERMANENT_REMOVE' if is_permanent else 'TEMP_MUTE',
@@ -653,7 +685,9 @@ class ChatRequestViewSet(viewsets.ModelViewSet):
 
         # For pending items, show only requests that the current user can act on.
         if status_filter and status_filter.upper() == 'PENDING':
-            queryset = queryset.filter(recipient=self.request.user)
+            queryset = queryset.filter(recipient=self.request.user, status='PENDING')
+        elif status_filter:
+            queryset = queryset.filter(status=status_filter.upper())
 
         return queryset
 
@@ -750,6 +784,10 @@ class ChatRequestViewSet(viewsets.ModelViewSet):
             chat_request.responded_at = timezone.now()
             chat_request.save()
 
+            # Ensure chat is active for both users
+            chat_request.chat.is_active = True
+            chat_request.chat.save(update_fields=['is_active'])
+
             return Response(
                 ChatRequestSerializer(chat_request).data,
                 status=status.HTTP_200_OK
@@ -799,6 +837,17 @@ class MessageReportViewSet(viewsets.ModelViewSet):
         message_id = request.data.get('message')
         reason = request.data.get('reason')
         description = request.data.get('description', '')
+
+        # Check if user has a global mute restriction
+        global_restriction = ChatRestriction.objects.filter(
+            user=request.user,
+            chat=None
+        ).first()
+        if global_restriction and global_restriction.is_active:
+            return Response(
+                {'detail': 'You cannot report messages while muted.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         try:
             message = Message.objects.get(id=message_id)
