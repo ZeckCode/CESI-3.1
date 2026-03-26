@@ -80,6 +80,43 @@ const EMPTY_FORM = {
 
 const formatCurrency = (value) => `₱${Number(value || 0).toLocaleString()}`;
 
+const formatStudentType = (value) => {
+  const v = String(value || '').trim().toLowerCase();
+  if (!v) return '—';
+
+  if (['old', 'old_student', 'returning', 'returning_student'].includes(v)) {
+    return 'Old Student';
+  }
+
+  if (['new', 'new_student', 'new enrollee', 'new_enrollee'].includes(v)) {
+    return 'New Student';
+  }
+
+  return value;
+};
+
+const formatPaymentMode = (value) => {
+  const v = String(value || '').trim();
+  if (!v) return '—';
+
+  const map = {
+    CASH: 'Cash',
+    INSTALLMENT: 'Installment',
+  };
+
+  return map[v.toUpperCase()] || v;
+};
+
+const buildLedgerGroupTitle = (group) => {
+  return [
+    `SY ${group.school_year || '—'}`,
+    group.grade_level || '—',
+    formatStudentType(group.student_type),
+    formatPaymentMode(group.payment_mode),
+  ].join(' • ');
+};
+
+
 const statusPriority = {
   OVERDUE: 1,
   PARTIAL: 2,
@@ -417,35 +454,41 @@ const TransactionHistory = () => {
   const handleExportData = () => {
     try {
       // Prepare summary data
-      const summaryData = groupedTransactions.map((group) => ({
-        'Date': group.latest_date || '—',
-        'Student Number': group.student_number,
-        'Student Name': group.student_name,
-        'Grade Level': group.grade_level || '—',
-        'Payment Mode': group.payment_mode || '—',
-        'Total Debit': Number(group.total_debit || 0),
-        'Total Credit': Number(group.total_credit || 0),
-        'Balance': Number(group.balance || 0),
-        'Status': group.account_status,
-      }));
+    const summaryData = groupedTransactions.map((group) => ({
+      'Date': group.latest_date || '—',
+      'Enrollment ID': group.enrollment_id || '—',
+      'Student Number': group.student_number,
+      'Student Name': group.student_name,
+      'School Year': group.school_year || '—',
+      'Semester': group.semester || '—',
+      'Grade Level': group.grade_level || '—',
+      'Student Type': formatStudentType(group.student_type),
+      'Payment Mode': formatPaymentMode(group.payment_mode),
+      'Total Debit': Number(group.total_debit || 0),
+      'Total Credit': Number(group.total_credit || 0),
+      'Balance': Number(group.balance || 0),
+      'Status': group.account_status,
+    }));
 
       // Prepare detailed ledger data
       const detailData = [];
       groupedTransactions.forEach((group) => {
         group.rows.forEach((tx) => {
-          detailData.push({
-            'Student Number': group.student_number,
-            'Student Name': group.student_name,
-            'Date': tx.transaction_date || '—',
-            'Reference': tx.reference_number || '—',
-            'Entry Type': entryLabel(tx.entry_type),
-            'Item': itemLabel(tx.item),
-            'Debit': Number(tx.debit || 0),
-            'Credit': Number(tx.credit || 0),
-            'Balance': Number(tx.balance || 0),
-            'Status': tx.status,
-            'Description': tx.description || '',
-          });
+         detailData.push({
+          'Enrollment ID': group.enrollment_id || '—',
+          'Ledger Group': buildLedgerGroupTitle(group),
+          'Student Number': group.student_number,
+          'Student Name': group.student_name,
+          'Date': tx.transaction_date || '—',
+          'Reference': tx.reference_number || '—',
+          'Entry Type': entryLabel(tx.entry_type),
+          'Item': itemLabel(tx.item),
+          'Debit': Number(tx.debit || 0),
+          'Credit': Number(tx.credit || 0),
+          'Balance': Number(tx._runningBalance || 0),
+          'Status': tx.status,
+          'Description': tx.description || '',
+        });
         });
       });
 
@@ -505,20 +548,33 @@ const TransactionHistory = () => {
     return String(s).toLowerCase();
   };
 
-  const groupedTransactions = useMemo(() => {
+ const groupedTransactions = useMemo(() => {
     const map = new Map();
 
     transactions.forEach((tx) => {
-      const key = tx.student_number || `parent-${tx.parent}`;
+      const enrollmentKey =
+        tx.enrollment_id != null && tx.enrollment_id !== ''
+          ? `enrollment-${tx.enrollment_id}`
+          : [
+              tx.student_number || `parent-${tx.parent}`,
+              tx.school_year || 'no-sy',
+              tx.grade_level || 'no-grade',
+              tx.student_type || 'no-type',
+              tx.payment_mode || 'no-mode',
+            ].join('|');
 
-      if (!map.has(key)) {
-        map.set(key, {
-          key,
+      if (!map.has(enrollmentKey)) {
+        map.set(enrollmentKey, {
+          key: enrollmentKey,
+          enrollment_id: tx.enrollment_id || null,
           parent: tx.parent,
           student_number: tx.student_number || '—',
           student_name: tx.student_name || '—',
+          school_year: tx.school_year || '—',
+          semester: tx.semester || '—',
           grade_level: tx.grade_level || '—',
           payment_mode: tx.payment_mode || '—',
+          student_type: tx.student_type || '—',
           latest_date: tx.transaction_date || '',
           total_debit: 0,
           total_credit: 0,
@@ -528,11 +584,10 @@ const TransactionHistory = () => {
         });
       }
 
-      const group = map.get(key);
+      const group = map.get(enrollmentKey);
       group.rows.push(tx);
       group.total_debit += Number(tx.debit || 0);
       group.total_credit += Number(tx.credit || 0);
-      group.balance = Number(tx.balance || 0);
 
       if ((tx.transaction_date || '') > group.latest_date) {
         group.latest_date = tx.transaction_date || '';
@@ -545,7 +600,35 @@ const TransactionHistory = () => {
       }
     });
 
-    return Array.from(map.values()).sort((a, b) =>
+    const result = Array.from(map.values()).map((group) => {
+      const sortedRows = group.rows
+        .slice()
+        .sort((a, b) => {
+          const dateCompare = String(a.transaction_date || '').localeCompare(String(b.transaction_date || ''));
+          if (dateCompare !== 0) return dateCompare;
+          return Number(a.id || 0) - Number(b.id || 0);
+        });
+
+      let runningBalance = 0;
+      const normalizedRows = sortedRows.map((tx) => {
+        const debit = Number(tx.debit || 0);
+        const credit = Number(tx.credit || 0);
+        runningBalance += debit - credit;
+
+        return {
+          ...tx,
+          _runningBalance: runningBalance,
+        };
+      });
+
+      return {
+        ...group,
+        rows: normalizedRows,
+        balance: runningBalance,
+      };
+    });
+
+    return result.sort((a, b) =>
       String(b.latest_date || '').localeCompare(String(a.latest_date || ''))
     );
   }, [transactions]);
@@ -605,7 +688,7 @@ const TransactionHistory = () => {
         <div className="th-section-header">
           <div>
             <h2 className="th-section-title">Transaction History</h2>
-            <p className="th-section-subtitle">One summary row per student number</p>
+          <p className="th-section-subtitle">One summary row per approved enrollment ledger</p>
           </div>
           <div className="th-header-actions">
             <button className="th-btn-success" onClick={openModal}>
@@ -673,10 +756,9 @@ const TransactionHistory = () => {
             <thead>
               <tr>
                 <th>Date</th>
+                {/* <th>Ledger Group</th> */}
                 <th>Student No.</th>
                 <th>Student Name</th>
-                <th>Grade Level</th>
-                <th>Payment Mode</th>
                 <th>Total Debit</th>
                 <th>Total Credit</th>
                 <th>Balance</th>
@@ -688,7 +770,7 @@ const TransactionHistory = () => {
             <tbody>
               {groupedTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan="10" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                  <td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                     No transactions found.
                   </td>
                 </tr>
@@ -696,20 +778,26 @@ const TransactionHistory = () => {
                 paginatedTransactions.map((group) => (
                   <React.Fragment key={group.key}>
                     <tr>
-                      <td>{group.latest_date || '—'}</td>
-                      <td>{group.student_number}</td>
-                      <td className="th-student-name-cell">{group.student_name}</td>
-                      <td>{group.grade_level || '—'}</td>
-                      <td style={{ textTransform: 'capitalize' }}>{group.payment_mode || '—'}</td>
-                      <td className="th-amount-cell">{formatCurrency(group.total_debit)}</td>
-                      <td className="th-amount-cell">{formatCurrency(group.total_credit)}</td>
-                      <td className="th-amount-cell">{formatCurrency(group.balance)}</td>
-                      <td>
-                        <span className={`th-status-badge th-status-${statusClass(group.account_status)}`}>
-                          {group.account_status}
-                        </span>
-                      </td>
-                      <td className="th-actions-cell">
+                        <td>{group.latest_date || '—'}</td>
+                          {/* <td> */}
+                            {/* <div style={{ fontWeight: 700, color: '#1e293b' }}> */}
+                              {/* {buildLedgerGroupTitle(group)} */}
+                            {/* </div> */}
+                            {/* <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+                              {group.enrollment_id ? `Enrollment #${group.enrollment_id}` : 'Legacy ledger record'}
+                            </div> */}
+                          {/* </td> */}
+                          <td>{group.student_number}</td>
+                          <td className="th-student-name-cell">{group.student_name}</td>
+                          <td className="th-amount-cell">{formatCurrency(group.total_debit)}</td>
+                          <td className="th-amount-cell">{formatCurrency(group.total_credit)}</td>
+                          <td className="th-amount-cell">{formatCurrency(group.balance)}</td>
+                          <td>
+                            <span className={`th-status-badge th-status-${statusClass(group.account_status)}`}>
+                              {group.account_status}
+                            </span>
+                          </td>
+                          <td className="th-actions-cell">
                         {isReminderEligible(group) && (
                           <button
                             className="th-action-btn th-reminder-btn"
@@ -733,16 +821,17 @@ const TransactionHistory = () => {
 
                     {expandedRow === group.key && (
                       <tr className="th-expanded-row">
-                        <td colSpan="10">
+                        <td colSpan="9">
                           <div className="th-student-detail-panel">
                             <h4 className="th-detail-title">
-                              {group.student_name} — {group.student_number}
+                              {buildLedgerGroupTitle(group)}
                             </h4>
 
                             <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
-                              Grade: <strong>{group.grade_level || '—'}</strong> | Payment Mode:{' '}
-                              <strong style={{ textTransform: 'capitalize' }}>{group.payment_mode || '—'}</strong> | Balance:{' '}
-                              <strong>{formatCurrency(group.balance)}</strong>
+                              Student: <strong>{group.student_name}</strong> ({group.student_number}) | Semester:{' '}
+                              <strong>{group.semester || '—'}</strong> | Balance:{' '}
+                              <strong>{formatCurrency(group.balance)}</strong> | Ref:{' '}
+                              <strong>{group.enrollment_id ? `Enrollment #${group.enrollment_id}` : 'Legacy ledger record'}</strong>
                             </div>
 
                             <div className="th-table-container" style={{ marginTop: '0.75rem' }}>
@@ -778,7 +867,7 @@ const TransactionHistory = () => {
                                         <td className="th-amount-cell">
                                           {Number(tx.credit || 0) > 0 ? formatCurrency(tx.credit) : '—'}
                                         </td>
-                                        <td className="th-amount-cell">{formatCurrency(tx.balance)}</td>
+                                        <td className="th-amount-cell">{formatCurrency(tx._runningBalance)}</td>
                                         <td>
                                           <span className={`th-status-badge th-status-${statusClass(tx.status)}`}>
                                             {tx.status}

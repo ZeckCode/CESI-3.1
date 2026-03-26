@@ -144,7 +144,8 @@ class TransactionListCreate(generics.ListCreateAPIView):
         status_filter = self.request.query_params.get('status', '').strip().upper()
         entry_type = self.request.query_params.get('entry_type', '').strip().upper()
         school_year = self.request.query_params.get('school_year', '').strip()
-
+        enrollment_id = self.request.query_params.get('enrollment_id', '').strip()
+        
         if search:
             qs = qs.filter(
                 Q(student_name__icontains=search)
@@ -154,6 +155,9 @@ class TransactionListCreate(generics.ListCreateAPIView):
                 | Q(parent__profile__student_number__icontains=search)
                 | Q(item__icontains=search)
             ).distinct()
+            
+        if enrollment_id:
+            qs = qs.filter(enrollment_id=enrollment_id)
 
         if status_filter and status_filter in ['PAID', 'PARTIAL', 'PENDING', 'OVERDUE', 'POSTED']:
             qs = qs.filter(status=status_filter)
