@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "../StudentWebsiteCSS/Profile.css";
 import { getToken } from "../Auth/auth";
+import Toast from "../Global/Toast";
 
 const API_BASE = "";
 
@@ -9,6 +10,19 @@ const PROFILE_ENDPOINTS = [
   "/api/accounts/me-detail/",
   "/api/accounts/me/detail/",
 ];
+
+const LEDGER_SUMMARY_ENDPOINT = "/api/finance/my-ledger-summary/";
+
+const NEXT_GRADE_MAP = {
+  prek: "Kinder",
+  kinder: "Grade 1",
+  grade1: "Grade 2",
+  grade2: "Grade 3",
+  grade3: "Grade 4",
+  grade4: "Grade 5",
+  grade5: "Grade 6",
+  grade6: null,
+};
 
 async function fetchWithToken(url, options = {}) {
   const token = getToken();
@@ -25,20 +39,22 @@ async function fetchWithToken(url, options = {}) {
   return res;
 }
 
+async function parseJsonSafe(res) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return { detail: text };
+  }
+}
+
 async function tryProfileEndpoints() {
   let lastError = null;
 
   for (const endpoint of PROFILE_ENDPOINTS) {
     try {
       const res = await fetchWithToken(endpoint, { method: "GET" });
-      const text = await res.text();
-
-      let json = null;
-      try {
-        json = text ? JSON.parse(text) : null;
-      } catch {
-        json = { detail: text };
-      }
+      const json = await parseJsonSafe(res);
 
       if (res.ok) {
         return { data: json, endpoint };
@@ -53,6 +69,21 @@ async function tryProfileEndpoints() {
   }
 
   throw lastError || new Error("Unable to load profile.");
+}
+
+async function loadLedgerSummary() {
+  try {
+    const res = await fetchWithToken(LEDGER_SUMMARY_ENDPOINT, { method: "GET" });
+    const json = await parseJsonSafe(res);
+
+    if (!res.ok) {
+      throw new Error(json?.detail || "Failed to load ledger summary.");
+    }
+
+    return json || {};
+  } catch (err) {
+    throw err;
+  }
 }
 
 const gradeLabelFromProfile = (raw) => {
@@ -74,8 +105,10 @@ const gradeLabelFromProfile = (raw) => {
   return v;
 };
 
-
-
+const normalizeGradeCode = (raw) => {
+  if (!raw) return "";
+  return String(raw).trim().toLowerCase();
+};
 
 const formatFullName = (...parts) =>
   parts
@@ -92,6 +125,7 @@ export default function StudentReenrollment() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [data, setData] = useState(null);
+  const [ledgerSummary, setLedgerSummary] = useState(null);
 
   const [studentFirstName, setStudentFirstName] = useState("");
   const [studentMiddleName, setStudentMiddleName] = useState("");
@@ -106,7 +140,6 @@ export default function StudentReenrollment() {
   const [paymentMode, setPaymentMode] = useState("");
   const [remarks, setRemarks] = useState("");
 
-
   const [form137File, setForm137File] = useState(null);
   const [sf10File, setSf10File] = useState(null);
   const [birthCertificateFile, setBirthCertificateFile] = useState(null);
@@ -114,19 +147,52 @@ export default function StudentReenrollment() {
   const [reportCardFile, setReportCardFile] = useState(null);
   const [otherDocumentFile, setOtherDocumentFile] = useState(null);
 
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   useEffect(() => {
-    const loadProfile = async () => {
+    const loadData = async () => {
       try {
         setLoading(true);
         setError("");
         setSuccess("");
 
-        const result = await tryProfileEndpoints();
-        const json = result.data;
+        const [profileResult, summaryResult] = await Promise.allSettled([
+          tryProfileEndpoints(),
+          loadLedgerSummary(),
+        ]);
+
+        if (profileResult.status !== "fulfilled") {
+          throw profileResult.reason;
+        }
+
+        const json = profileResult.value.data;
         const p = json?.profile || {};
         const e = json?.enrollment || {};
 
         setData(json);
+
+        if (summaryResult.status === "fulfilled") {
+          setLedgerSummary(summaryResult.value || {});
+        } else {
+          setLedgerSummary(null);
+          addToast(
+            "Ledger Warning",
+            summaryResult.reason?.message || "Could not load ledger summary. Eligibility may be incomplete.",
+            "warning"
+          );
+        }
 
         setStudentFirstName(p.student_first_name || e.first_name || "");
         setStudentMiddleName(p.student_middle_name || e.middle_name || "");
@@ -142,15 +208,17 @@ export default function StudentReenrollment() {
         setAddress(p.address || e.address || "");
         setPaymentMode(p.payment_mode || e.payment_mode || "");
       } catch (e) {
-        setError(e.message || "Failed to load profile.");
+        const msg = e.message || "Failed to load profile.";
+        setError(msg);
         setData(null);
+        addToast("Load Failed", msg, "error");
       } finally {
         setLoading(false);
       }
     };
 
-    loadProfile();
-  }, []);
+    loadData();
+  }, [addToast]);
 
   const studentInfo = useMemo(() => {
     const u = data || {};
@@ -165,6 +233,7 @@ export default function StudentReenrollment() {
       lrn: p.lrn || e.lrn || "—",
       studentNumber: p.student_number || e.student_number || "—",
       gradeLevel: gradeLabelFromProfile(p.grade_level || e.grade_level),
+      gradeCode: normalizeGradeCode(p.grade_level || e.grade_level),
       sectionName:
         p.section?.name || e.section_details?.name || e.section_name || "—",
       academicYear: e.academic_year || "—",
@@ -178,33 +247,120 @@ export default function StudentReenrollment() {
     [parentFirstName, parentMiddleName, parentLastName]
   );
 
+  const outstandingBalance = useMemo(() => {
+    // Prefer live finance summary from ledger page endpoint
+    const summaryBalance = ledgerSummary?.balance;
+    if (summaryBalance !== undefined && summaryBalance !== null) {
+      return Number(summaryBalance || 0);
+    }
+
+    // Fallback to profile response only if available
+    return Number(
+      data?.outstanding_balance ??
+        data?.profile?.outstanding_balance ??
+        data?.enrollment?.outstanding_balance ??
+        0
+    );
+  }, [ledgerSummary, data]);
+
+  const eligibility = useMemo(() => {
+    const currentGradeCode = studentInfo.gradeCode;
+    const nextGrade = NEXT_GRADE_MAP[currentGradeCode] || null;
+    const hasBalance = outstandingBalance > 0;
+
+    if (currentGradeCode === "grade6") {
+      return {
+        eligible: false,
+        badge: "Completed",
+        color: "#7c2d12",
+        bg: "#ffedd5",
+        border: "#fdba74",
+        nextGrade: null,
+        financeNote: "Clearing balance is no longer the blocker here.",
+        academicNote: "Grade 6 completed.",
+        message:
+          "Congratulations! You already completed Grade 6. No further re-enrollment is needed.",
+      };
+    }
+
+    if (hasBalance) {
+      return {
+        eligible: false,
+        badge: "Not Eligible",
+        color: "#991b1b",
+        bg: "#fef2f2",
+        border: "#fecaca",
+        nextGrade,
+        financeNote: "With outstanding balance",
+        academicNote: "Grade progression ready",
+        message: `You still have an outstanding balance of ₱${outstandingBalance.toLocaleString(
+          undefined,
+          {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }
+        )}. Please settle it before re-enrollment.`,
+      };
+    }
+
+    return {
+      eligible: true,
+      badge: "Eligible",
+      color: "#065f46",
+      bg: "#ecfdf5",
+      border: "#a7f3d0",
+      nextGrade,
+      financeNote: "No existing balance",
+      academicNote: "No failing-grade check yet",
+      message: nextGrade
+        ? `You are eligible to re-enroll for ${nextGrade}.`
+        : "You are eligible to re-enroll.",
+    };
+  }, [studentInfo.gradeCode, outstandingBalance]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
+    if (!eligibility.eligible) {
+      setError(eligibility.message);
+      addToast("Not Eligible", eligibility.message, "warning");
+      return;
+    }
+
     if (!studentFirstName.trim() || !studentLastName.trim()) {
-      setError("Student first name and last name are required.");
+      const msg = "Student first name and last name are required.";
+      setError(msg);
+      addToast("Missing Information", msg, "warning");
       return;
     }
 
     if (!parentFirstName.trim() || !parentLastName.trim()) {
-      setError("Parent first name and last name are required.");
+      const msg = "Parent first name and last name are required.";
+      setError(msg);
+      addToast("Missing Information", msg, "warning");
       return;
     }
 
     if (!contactNumber.trim()) {
-      setError("Contact number is required.");
+      const msg = "Contact number is required.";
+      setError(msg);
+      addToast("Missing Information", msg, "warning");
       return;
     }
 
     if (!address.trim()) {
-      setError("Address is required.");
+      const msg = "Address is required.";
+      setError(msg);
+      addToast("Missing Information", msg, "warning");
       return;
     }
 
     if (!paymentMode.trim()) {
-      setError("Please select a payment mode.");
+      const msg = "Please select a payment mode.";
+      setError(msg);
+      addToast("Missing Information", msg, "warning");
       return;
     }
 
@@ -225,31 +381,34 @@ export default function StudentReenrollment() {
 
       if (form137File) form.append("form_137_file", form137File);
       if (sf10File) form.append("sf10_file", sf10File);
-      if (birthCertificateFile) form.append("birth_certificate_file", birthCertificateFile);
+      if (birthCertificateFile)
+        form.append("birth_certificate_file", birthCertificateFile);
       if (goodMoralFile) form.append("good_moral_file", goodMoralFile);
       if (reportCardFile) form.append("report_card_file", reportCardFile);
       if (otherDocumentFile) form.append("other_document_file", otherDocumentFile);
 
       const token = getToken();
-      const res = await fetch(`${API_BASE}/api/enrollments/submit-reenrollment/`, {
-        method: "POST",
-        headers: token ? { Authorization: `Token ${token}` } : {},
-        body: form,
-      });
+      const res = await fetch(
+        `${API_BASE}/api/enrollments/submit-reenrollment/`,
+        {
+          method: "POST",
+          headers: token ? { Authorization: `Token ${token}` } : {},
+          body: form,
+        }
+      );
 
-      const text = await res.text();
-      let json = null;
-      try {
-        json = text ? JSON.parse(text) : null;
-      } catch {
-        json = { detail: text };
-      }
+      const json = await parseJsonSafe(res);
 
       if (!res.ok) {
-        throw new Error(json?.detail || json?.message || "Failed to submit re-enrollment.");
+        throw new Error(
+          json?.detail || json?.message || "Failed to submit re-enrollment."
+        );
       }
 
-      setSuccess("Re-enrollment application submitted successfully. Please wait for admin review.");
+      const msg =
+        "Re-enrollment application submitted successfully. Please wait for admin review.";
+      setSuccess(msg);
+      addToast("Submitted", msg, "success");
 
       setForm137File(null);
       setSf10File(null);
@@ -258,7 +417,9 @@ export default function StudentReenrollment() {
       setReportCardFile(null);
       setOtherDocumentFile(null);
     } catch (err) {
-      setError(err.message || "Failed to submit re-enrollment.");
+      const msg = err.message || "Failed to submit re-enrollment.";
+      setError(msg);
+      addToast("Submission Failed", msg, "error");
     } finally {
       setSaving(false);
     }
@@ -267,6 +428,7 @@ export default function StudentReenrollment() {
   if (loading) {
     return (
       <div className="profile-content">
+        <Toast toasts={toasts} onDismiss={dismissToast} />
         <div className="loading-spinner">Loading reenrollment details...</div>
       </div>
     );
@@ -275,7 +437,10 @@ export default function StudentReenrollment() {
   if (error && !data) {
     return (
       <div className="profile-content">
-        <div className="error-message">{error || "Unable to load reenrollment page."}</div>
+        <Toast toasts={toasts} onDismiss={dismissToast} />
+        <div className="error-message">
+          {error || "Unable to load reenrollment page."}
+        </div>
         <button type="button" onClick={() => navigate("/student")}>
           Back to Portal
         </button>
@@ -285,12 +450,95 @@ export default function StudentReenrollment() {
 
   return (
     <div className="profile-content">
+      <Toast toasts={toasts} onDismiss={dismissToast} />
+
       <div className="profile-hero-card">
         <div className="hero-text">
           <h1 className="student-name">Student Re-enrollment</h1>
           <p className="student-lrn">
-            Review and update your information before submitting your re-enrollment application.
+            Review and update your information before submitting your
+            re-enrollment application.
           </p>
+        </div>
+      </div>
+
+      <div
+        style={{
+          marginTop: "18px",
+          marginBottom: "18px",
+          padding: "16px 18px",
+          borderRadius: "14px",
+          background: eligibility.bg,
+          border: `1px solid ${eligibility.border}`,
+          color: eligibility.color,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "12px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: "13px",
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              Re-enrollment Eligibility
+            </div>
+            <div style={{ marginTop: "6px", fontSize: "14px", fontWeight: 600 }}>
+              {eligibility.message}
+            </div>
+          </div>
+
+          <div
+            style={{
+              alignSelf: "flex-start",
+              padding: "6px 12px",
+              borderRadius: "999px",
+              background: "#ffffffaa",
+              fontSize: "12px",
+              fontWeight: 800,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {eligibility.badge}
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: "12px",
+            display: "grid",
+            gap: "6px",
+            fontSize: "13px",
+          }}
+        >
+          <div>
+            <strong>Current Grade:</strong> {studentInfo.gradeLevel}
+          </div>
+          <div>
+            <strong>Next Grade:</strong> {eligibility.nextGrade || "—"}
+          </div>
+          <div>
+            <strong>Outstanding Balance:</strong> ₱
+            {outstandingBalance.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </div>
+          <div>
+            <strong>Finance Check:</strong> {eligibility.financeNote}
+          </div>
+          <div>
+            <strong>Academic Check:</strong> {eligibility.academicNote}
+          </div>
         </div>
       </div>
 
@@ -301,6 +549,7 @@ export default function StudentReenrollment() {
             <InfoRow label="LRN" value={studentInfo.lrn} />
             <InfoRow label="Student Number" value={studentInfo.studentNumber} />
             <InfoRow label="Grade Level" value={studentInfo.gradeLevel} />
+            <InfoRow label="Next Grade" value={eligibility.nextGrade || "—"} />
             <InfoRow label="Section" value={studentInfo.sectionName} />
             <InfoRow label="Academic Year" value={studentInfo.academicYear} />
             <InfoRow label="Current Status" value={studentInfo.status} isLast />
@@ -308,18 +557,29 @@ export default function StudentReenrollment() {
         </section>
 
         <section className="details-card">
-          <div className="details-header">Personal Information</div>
+          <div className="details-header">Eligibility Overview</div>
           <div className="details-body">
             <InfoRow label="Student Name" value={studentInfo.fullName} />
             <InfoRow label="Parent / Guardian" value={parentName} />
-            <InfoRow label="Contact Number" value={contactNumber || "—"} />
-            <InfoRow label="Address" value={address || "—"} />
-            <InfoRow label="Payment Mode" value={paymentMode || "—"} isLast />
+            <InfoRow
+              label="Outstanding Balance"
+              value={`₱${outstandingBalance.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`}
+            />
+            <InfoRow label="Finance Check" value={eligibility.financeNote} />
+            <InfoRow label="Academic Check" value={eligibility.academicNote} />
+            <InfoRow label="Eligibility" value={eligibility.badge} isLast />
           </div>
         </section>
       </div>
 
-      <form className="details-card" onSubmit={handleSubmit} style={{ marginTop: "20px" }}>
+      <form
+        className="details-card"
+        onSubmit={handleSubmit}
+        style={{ marginTop: "20px" }}
+      >
         <div className="details-header">Editable Re-enrollment Details</div>
         <div className="details-body">
           {error && (
@@ -349,6 +609,7 @@ export default function StudentReenrollment() {
               className="entry-input"
               value={studentFirstName}
               onChange={(e) => setStudentFirstName(e.target.value)}
+              disabled={!eligibility.eligible}
             />
           </div>
 
@@ -358,6 +619,7 @@ export default function StudentReenrollment() {
               className="entry-input"
               value={studentMiddleName}
               onChange={(e) => setStudentMiddleName(e.target.value)}
+              disabled={!eligibility.eligible}
             />
           </div>
 
@@ -367,6 +629,7 @@ export default function StudentReenrollment() {
               className="entry-input"
               value={studentLastName}
               onChange={(e) => setStudentLastName(e.target.value)}
+              disabled={!eligibility.eligible}
             />
           </div>
 
@@ -376,6 +639,7 @@ export default function StudentReenrollment() {
               className="entry-input"
               value={parentFirstName}
               onChange={(e) => setParentFirstName(e.target.value)}
+              disabled={!eligibility.eligible}
             />
           </div>
 
@@ -385,6 +649,7 @@ export default function StudentReenrollment() {
               className="entry-input"
               value={parentMiddleName}
               onChange={(e) => setParentMiddleName(e.target.value)}
+              disabled={!eligibility.eligible}
             />
           </div>
 
@@ -394,6 +659,7 @@ export default function StudentReenrollment() {
               className="entry-input"
               value={parentLastName}
               onChange={(e) => setParentLastName(e.target.value)}
+              disabled={!eligibility.eligible}
             />
           </div>
 
@@ -404,6 +670,7 @@ export default function StudentReenrollment() {
               value={contactNumber}
               onChange={(e) => setContactNumber(e.target.value)}
               placeholder="09XXXXXXXXX"
+              disabled={!eligibility.eligible}
             />
           </div>
 
@@ -415,6 +682,7 @@ export default function StudentReenrollment() {
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Complete home address"
+              disabled={!eligibility.eligible}
             />
           </div>
 
@@ -424,6 +692,7 @@ export default function StudentReenrollment() {
               className="entry-input"
               value={paymentMode}
               onChange={(e) => setPaymentMode(e.target.value)}
+              disabled={!eligibility.eligible}
             >
               <option value="">Select payment mode</option>
               <option value="cash">Cash</option>
@@ -439,45 +708,78 @@ export default function StudentReenrollment() {
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               placeholder="Optional notes for re-enrollment"
+              disabled={!eligibility.eligible}
             />
           </div>
-          
+
           <div className="details-header" style={{ marginTop: "18px" }}>
             Re-enrollment Documents
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Form 137-E</span>
-            <input type="file" className="entry-input" onChange={(e) => setForm137File(e.target.files?.[0] || null)} />
+            <input
+              type="file"
+              className="entry-input"
+              onChange={(e) => setForm137File(e.target.files?.[0] || null)}
+              disabled={!eligibility.eligible}
+            />
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">School Form 10 (SF10)</span>
-            <input type="file" className="entry-input" onChange={(e) => setSf10File(e.target.files?.[0] || null)} />
+            <input
+              type="file"
+              className="entry-input"
+              onChange={(e) => setSf10File(e.target.files?.[0] || null)}
+              disabled={!eligibility.eligible}
+            />
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Birth Certificate</span>
-            <input type="file" className="entry-input" onChange={(e) => setBirthCertificateFile(e.target.files?.[0] || null)} />
+            <input
+              type="file"
+              className="entry-input"
+              onChange={(e) =>
+                setBirthCertificateFile(e.target.files?.[0] || null)
+              }
+              disabled={!eligibility.eligible}
+            />
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Good Moral Certificate</span>
-            <input type="file" className="entry-input" onChange={(e) => setGoodMoralFile(e.target.files?.[0] || null)} />
+            <input
+              type="file"
+              className="entry-input"
+              onChange={(e) => setGoodMoralFile(e.target.files?.[0] || null)}
+              disabled={!eligibility.eligible}
+            />
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Report Card</span>
-            <input type="file" className="entry-input" onChange={(e) => setReportCardFile(e.target.files?.[0] || null)} />
+            <input
+              type="file"
+              className="entry-input"
+              onChange={(e) => setReportCardFile(e.target.files?.[0] || null)}
+              disabled={!eligibility.eligible}
+            />
           </div>
 
           <div className="info-entry edit-mode">
             <span className="entry-label">Other Document</span>
-            <input type="file" className="entry-input" onChange={(e) => setOtherDocumentFile(e.target.files?.[0] || null)} />
+            <input
+              type="file"
+              className="entry-input"
+              onChange={(e) => setOtherDocumentFile(e.target.files?.[0] || null)}
+              disabled={!eligibility.eligible}
+            />
           </div>
 
           <div className="form-actions" style={{ marginTop: "16px" }}>
-            <button type="submit" disabled={saving}>
+            <button type="submit" disabled={saving || !eligibility.eligible}>
               {saving ? "Submitting..." : "Submit Re-enrollment"}
             </button>
             <button
