@@ -39,18 +39,18 @@
 
 .title-text {
   font-weight: 900;
-  color: var(--text-main);
+  color: #000000;
   text-transform: uppercase;
   margin: 0;
 }
 
 .sy-badge {
-  background: var(--white);
+  background: transparent;
   padding: 0.4rem 1rem;
   border-radius: 2rem;
   font-weight: 800;
-  color: var(--blue-dark);
-  border: 2px solid var(--blue-soft);
+  color: #000000;
+  border: 2px solid #cccccc;
 }
 
 .header-actions {
@@ -69,23 +69,23 @@
   transition: 0.2s;
 }
 
-.btn-print { background: white; color: #0056b3; }
-.btn-download { background: #0056b3; color: white; }
+.btn-print { background: transparent; color: #000000; }
+.btn-download { background: transparent; color: #000000; }
 
 /* ── Ledger Summary Cards ─────────────────────── */
 .ledger-summary-row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-bottom: 2rem;
 }
 
 @media (max-width: 1100px) {
-  .ledger-summary-row { grid-template-columns: repeat(3, 1fr); }
+  .ledger-summary-row { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 700px) {
-  .ledger-summary-row { grid-template-columns: 1fr 1fr; }
+  .ledger-summary-row { grid-template-columns: 1fr; }
 }
 
 .ledger-sumCard {
@@ -155,10 +155,11 @@
   font-weight: 800;
   text-transform: uppercase;
   font-size: 0.95rem;
+  color: #000000;
 }
 
-.blue-header { background: var(--blue-soft); color: var(--blue-dark); }
-.dark-header { background: #2c3e50; color: white; }
+.blue-header { background: transparent; color: #000000; }
+.dark-header { background: transparent; color: #000000; }
 
 /* Table Grid & Column Lines */
 .ledger-table {
@@ -167,11 +168,11 @@
 }
 
 .ledger-table thead th {
-  background: #f8f9fa;
+  background: transparent;
   padding: 1rem;
   font-size: 0.75rem;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: #000000;
   border-bottom: 2px solid var(--border-color);
   border-right: 1px solid var(--border-color); /* Column Line */
   text-align: center;
@@ -182,7 +183,7 @@
   border-bottom: 1px solid var(--border-color);
   border-right: 1px solid var(--border-color); /* Column Line */
   font-size: 0.95rem;
-  color: var(--text-main);
+  color: #000000;
   text-align: center;
 }
 
@@ -199,7 +200,7 @@
 
 .history-title {
   font-weight: 800;
-  color: var(--text-muted);
+  color: #000000;
   text-transform: uppercase;
   font-size: 1.1rem;
   margin-bottom: 1rem;
@@ -215,41 +216,46 @@
   background: white;
   padding: 1.5rem;
   border-radius: 1rem;
-  border: 2px solid var(--blue-soft);
+  border: 1px solid #cccccc;
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.history-year { font-weight: 900; font-size: 1.2rem; }
+.history-year { font-weight: 900; font-size: 1.2rem; color: #000000; }
 .history-status { 
-  background: #d4edda; 
-  color: #155724; 
+  background: transparent; 
+  color: #000000; 
   padding: 0.2rem 0.5rem; 
   font-size: 0.7rem; 
   border-radius: 4px;
   font-weight: bold;
+  border: 1px solid #cccccc;
+  display: inline-block;
 }
 
 .btn-view-history {
   background: transparent;
-  border: 2px solid var(--blue-dark);
-  color: var(--blue-dark);
+  border: 2px solid #000000;
+  color: #000000;
   padding: 0.5rem;
   border-radius: 0.5rem;
   font-weight: 700;
   cursor: pointer;
 }
+  font-weight: 700;
+  cursor: pointer;
+}
 
 /* Utilities */
-.item-badge { background: var(--yellow-bg); padding: 0.3rem 0.6rem; border-radius: 0.5rem; font-weight: 700; border: 1px solid #e5e22e; }
-.text-debit { color: #e74c3c; font-weight: 700; }
-.text-credit { color: #27ae60; font-weight: 700; }
-.status-pill { padding: 0.4rem 1rem; border-radius: 50px; font-size: 0.75rem; font-weight: 800; }
-.status-pill.paid { background: #d4edda; color: #155724; }
-.status-pill.pending { background: #fff3cd; color: #856404; }
-.status-pill.overdue { background: #fee2e2; color: #991b1b; }
-.status-pill.unpaid-balance { background: #fee2e2; color: #991b1b; font-weight: 900; }
+.item-badge { background: transparent; padding: 0.3rem 0.6rem; border-radius: 0.5rem; font-weight: 700; border: 1px solid #cccccc; color: #000000; }
+.text-debit { color: #000000; font-weight: 700; }
+.text-credit { color: #000000; font-weight: 700; }
+.status-pill { padding: 0.4rem 1rem; border-radius: 50px; font-size: 0.75rem; font-weight: 800; background: transparent; color: #000000; border: 1px solid #cccccc; }
+.status-pill.paid { background: transparent; color: #000000; }
+.status-pill.pending { background: transparent; color: #000000; }
+.status-pill.overdue { background: transparent; color: #000000; }
+.status-pill.unpaid-balance { background: transparent; color: #000000; font-weight: 900; }
 
 /* Accounting Ledger Table */
 .ledger-accounting th,
@@ -272,21 +278,22 @@
 .ledger-accounting tfoot td {
   padding: 1rem !important;
   font-weight: 700;
-  background: #f1f5f9;
+  background: transparent;
+  color: #000000;
 }
 
 /* Balance Column Highlight */
 .ledger-table tbody td[data-label="Balance"] {
-  background-color: #eff6ff;
-  color: #0284c7 !important;
+  background-color: transparent;
+  color: #000000 !important;
   font-weight: 700 !important;
-  border-left: 2px solid #0284c7;
+  border-left: 2px solid #cccccc;
 }
 
 .ledger-table tfoot td[data-label="Balance"] {
-  background-color: #dbeafe;
-  color: #0c2d48 !important;
-  border-left: 2px solid #0284c7;
+  background-color: transparent;
+  color: #000000 !important;
+  border-left: 2px solid #cccccc;
 }
 
 /* Ledger Info Box */
@@ -307,7 +314,7 @@
   .ledger-table td::before {
     content: attr(data-label);
     font-weight: 800;
-    color: var(--blue-dark);
+    color: #000000;
     font-size: 0.7rem;
   }
 
@@ -322,21 +329,41 @@
 @media print {
   body {
     background: white;
+    color: #000000 !important;
+  }
+
+  body * {
+    color: #000000 !important;
   }
 
   .ledger-content {
-    padding: 0;
+    padding: 1rem;
     background: white;
+    color: #000000 !important;
   }
 
   .ledger-header-flex {
-    margin-bottom: 1.5rem;
-    border-bottom: 2px solid #000;
-    padding-bottom: 1rem;
+    display: none !important;
   }
 
   .btn-action,
   .header-actions {
+    display: none !important;
+  }
+
+  /* Hide tabs */
+  .ledger-tabs {
+    display: none !important;
+  }
+
+  /* Hide summary cards */
+  .ledger-summary-row {
+    display: none !important;
+  }
+
+  /* Hide pagination */
+  nav[role="navigation"],
+  .pagination {
     display: none !important;
   }
 
@@ -351,31 +378,89 @@
   }
 
   .ledger-table thead th {
-    background: #f0f0f0;
+    background: transparent;
     border: 1px solid #999;
+    color: #000000 !important;
+    font-weight: 700;
   }
 
   .ledger-table tbody td,
   .ledger-table tfoot td {
     border: 1px solid #ddd;
+    color: #000000 !important;
   }
 
-  .ledger-table tbody td[data-label="Balance"] {
-    background-color: #f5f5f5;
-    font-weight: bold;
+  /* Print important details only */
+  .ledger-info {
+    display: none !important;
   }
 
-  .ledger-summary-row {
+  /* Hide summary cards entirely or remove colors */
+  .ledger-sumCard {
+    background: #fff !important;
+    border: 1px solid #ccc !important;
+    border-left: 1px solid #ccc !important;
+    color: #000000 !important;
+  }
+
+  .ledger-sumCard--blue,
+  .ledger-sumCard--success,
+  .ledger-sumCard--warn,
+  .ledger-sumCard--danger,
+  .ledger-sumCard--neutral,
+  .ledger-sumCard--balanceOwed,
+  .ledger-sumCard--balanceClear {
+    background: #fff !important;
+    border: 1px solid #ccc !important;
+    border-left: 1px solid #ccc !important;
+    box-shadow: none !important;
+    color: #000000 !important;
+  }
+
+  .ledger-sumCard__label,
+  .ledger-sumCard__value,
+  .ledger-sumCard__sub {
+    color: #000000 !important;
+  }
+
+  /* Compact spacing for print */
+  .ledger-section {
     margin-bottom: 1.5rem;
-    page-break-inside: avoid;
   }
 
-  .ledger-tabs {
-    display: none;
+  /* Print friendly table */
+  .ledger-accounting th,
+  .ledger-accounting td {
+    text-align: center;
+    color: #000000 !important;
+  }
+
+  .ledger-accounting th:first-child,
+  .ledger-accounting td:first-child {
+    text-align: left;
+  }
+
+  .ledger-table tfoot tr {
+    border-top: 2px solid #000 !important;
+    font-weight: 700;
+    color: #000000 !important;
+  }
+
+  .status-pill,
+  .status-pill * {
+    color: #000000 !important;
+    background: transparent !important;
+    border: 1px solid #000 !important;
+  }
+
+  .section-header,
+  h3, h4, h5, h6 {
+    color: #000000 !important;
   }
 
   @page {
     margin: 0.5in;
+    size: A4;
   }
 }
 .ledger-tabs {
@@ -389,7 +474,7 @@
   background: none;
   border: none;
   border-bottom: 3px solid transparent;
-  color: var(--text-muted);
+  color: #000000;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -397,13 +482,13 @@
 }
 
 .ledger-tab:hover {
-  color: var(--blue-dark);
-  background-color: rgba(13, 110, 253, 0.05);
+  color: #333333;
+  background-color: transparent;
 }
 
 .ledger-tab.active {
-  color: var(--blue-dark);
-  border-bottom-color: var(--blue-dark);
+  color: #000000;
+  border-bottom-color: #000000;
 }
 
 .ledger-tab i {
@@ -423,7 +508,7 @@
   .ledger-table td::before {
     content: attr(data-label);
     font-weight: 800;
-    color: var(--blue-dark);
+    color: #000000;
     font-size: 0.7rem;
   }
 }

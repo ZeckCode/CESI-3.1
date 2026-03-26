@@ -15,6 +15,7 @@ import {
   Users,
   XCircle,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import Pagination from './Pagination';
 import { apiFetchData } from '../api/apiFetch';
 import '../AdminWebsiteCSS/GradesRecords.css';
@@ -356,67 +357,101 @@ const GradesRecords = () => {
   const paginatedRows = activeRows.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   const exportCurrentView = () => {
-    if (activeTab === 'grades') {
-      downloadCsv(
-        [
-          ['Student Number', 'Student', 'Grade Level', 'Section', 'Graded Subjects', 'Average Grade', 'Status', 'Academic History Count'],
-          ...filteredStudents.map((row) => [
-            row.student_number || '—',
-            row.student_name,
-            toGradeLabel(row.grade_level_label || row.grade_level),
-            row.section_name,
-            `${row.graded_subjects}/${row.total_subjects}`,
-            row.average_grade ?? '—',
-            row.status,
-            row.history_count,
-          ]),
-        ],
-        `admin-current-grades-q${quarter}.csv`
-      );
-      return;
-    }
+    try {
+      const wb = XLSX.utils.book_new();
+      const timestamp = new Date().toISOString().slice(0, 10);
+      let filename = '';
 
-    if (activeTab === 'history') {
-      downloadCsv(
-        [
-          ['School Year', 'Student', 'Student Number', 'Grade Level', 'Section', 'Subject', 'Subject Code', 'Final Grade', 'Remarks', 'Teacher'],
-          ...filteredHistory.map((row) => [
-            row.school_year,
-            row.student_name,
-            row.student_number || '—',
-            toGradeLabel(row.grade_level),
-            row.section_name || '—',
-            row.subject_name,
-            row.subject_code || '—',
-            row.final_grade ?? '—',
-            row.remarks || '—',
-            row.teacher_name || '—',
-          ]),
-        ],
-        'admin-academic-history.csv'
-      );
-      return;
-    }
+      if (activeTab === 'grades') {
+        const gradesData = filteredStudents.map((row) => ({
+          'Student Number': row.student_number || '—',
+          'Student Name': row.student_name,
+          'Grade Level': toGradeLabel(row.grade_level_label || row.grade_level),
+          'Section': row.section_name,
+          'Graded Subjects': `${row.graded_subjects}/${row.total_subjects}`,
+          'Average Grade': row.average_grade ?? '—',
+          'Status': row.status,
+          'History Count': row.history_count,
+        }));
+        const sheet = XLSX.utils.json_to_sheet(gradesData);
+        sheet['!cols'] = [
+          { wch: 15 },
+          { wch: 20 },
+          { wch: 15 },
+          { wch: 15 },
+          { wch: 15 },
+          { wch: 12 },
+          { wch: 12 },
+          { wch: 12 },
+        ];
+        XLSX.utils.book_append_sheet(wb, sheet, 'Current Grades');
+        filename = `admin-current-grades-q${quarter}-${timestamp}.xlsx`;
+      } else if (activeTab === 'history') {
+        const historyData = filteredHistory.map((row) => ({
+          'School Year': row.school_year,
+          'Student Name': row.student_name,
+          'Student Number': row.student_number || '—',
+          'Grade Level': toGradeLabel(row.grade_level),
+          'Section': row.section_name || '—',
+          'Subject': row.subject_name,
+          'Subject Code': row.subject_code || '—',
+          'Final Grade': row.final_grade ?? '—',
+          'Remarks': row.remarks || '—',
+          'Teacher': row.teacher_name || '—',
+        }));
+        const sheet = XLSX.utils.json_to_sheet(historyData);
+        sheet['!cols'] = [
+          { wch: 15 },
+          { wch: 20 },
+          { wch: 15 },
+          { wch: 15 },
+          { wch: 15 },
+          { wch: 20 },
+          { wch: 12 },
+          { wch: 12 },
+          { wch: 15 },
+          { wch: 15 },
+        ];
+        XLSX.utils.book_append_sheet(wb, sheet, 'Academic History');
+        filename = `admin-academic-history-${timestamp}.xlsx`;
+      } else if (activeTab === 'attendance') {
+        const attendanceData = filteredAttendanceStudents.map((row) => ({
+          'Date': selectedDate,
+          'Student Number': row.student_number || '—',
+          'Student Name': row.student_name,
+          'Grade Level': toGradeLabel(row.grade_level),
+          'Section': row.section_name || '—',
+          'Overall Status': row.overall_status,
+          'Present': row.present,
+          'Late': row.late,
+          'Excused': row.excused,
+          'Absent': row.absent,
+          'Subject Details': row.subjects.map((s) => `${s.subject_name} (${s.status})`).join('; '),
+        }));
+        const sheet = XLSX.utils.json_to_sheet(attendanceData);
+        sheet['!cols'] = [
+          { wch: 15 },
+          { wch: 15 },
+          { wch: 20 },
+          { wch: 15 },
+          { wch: 15 },
+          { wch: 15 },
+          { wch: 10 },
+          { wch: 10 },
+          { wch: 10 },
+          { wch: 10 },
+          { wch: 30 },
+        ];
+        XLSX.utils.book_append_sheet(wb, sheet, 'Attendance');
+        filename = `admin-attendance-${selectedDate}-${timestamp}.xlsx`;
+      }
 
-    downloadCsv(
-      [
-        ['Date', 'Student Number', 'Student', 'Grade Level', 'Section', 'Overall Status', 'Present', 'Late', 'Excused', 'Absent', 'Subject Status Details'],
-        ...filteredAttendanceStudents.map((row) => [
-          selectedDate,
-          row.student_number || '—',
-          row.student_name,
-          toGradeLabel(row.grade_level),
-          row.section_name || '—',
-          row.overall_status,
-          row.present,
-          row.late,
-          row.excused,
-          row.absent,
-          row.subjects.map((s) => `${s.subject_name} (${s.status})`).join('; '),
-        ]),
-      ],
-      `admin-attendance-${selectedDate}.csv`
-    );
+      XLSX.writeFile(wb, filename);
+      alert(`✓ Export successful! File: ${filename}`);
+    } catch (err) {
+      console.error('Error exporting data:', err);
+      alert('Failed to export data. Please try again.');
+    }
   };
 
   const renderStats = () => {

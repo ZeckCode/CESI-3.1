@@ -9,13 +9,15 @@ const Grades = () => {
   const [grades, setGrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [schoolYear, setSchoolYear] = useState("");
+  const [studentName, setStudentName] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const [gradesRes, syRes] = await Promise.all([
+        const [gradesRes, syRes, profileRes] = await Promise.all([
           apiFetch("/api/grades/my-grades/"),
           apiFetch("/api/classmanagement/school-years/active/"),
+          apiFetch("/api/accounts/profile/"),
         ]);
         if (gradesRes.ok) {
           setGrades(await gradesRes.json());
@@ -23,6 +25,11 @@ const Grades = () => {
         if (syRes.ok) {
           const syData = await syRes.json();
           setSchoolYear(syData.name || "");
+        }
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          const name = profileData.user?.get_full_name || profileData.user?.username || "";
+          setStudentName(name);
         }
       } catch (e) {
         console.error(e);
@@ -32,18 +39,14 @@ const Grades = () => {
     })();
   }, []);
 
-  // Helper to determine current quarter based on current date
   const getCurrentQuarter = () => {
-    const now = new Date();
-    const month = now.getMonth() + 1; // 1-12
-    
-    if (month <= 3) return 1;      // Jan-Mar: Q1
-    if (month <= 6) return 2;      // Apr-Jun: Q2
-    if (month <= 9) return 3;      // Jul-Sep: Q3
-    return 4;                       // Oct-Dec: Q4
+    const month = new Date().getMonth() + 1;
+    if (month <= 3) return 1;
+    if (month <= 6) return 2;
+    if (month <= 9) return 3;
+    return 4;
   };
 
-  // Compute stats
   const validFinals = grades.filter((g) => g.final_grade !== null);
   const gwa = validFinals.length
     ? (validFinals.reduce((s, g) => s + g.final_grade, 0) / validFinals.length).toFixed(2)
@@ -52,7 +55,6 @@ const Grades = () => {
   const passedSubjects = validFinals.filter(g => g.final_grade >= 75).length;
   const pendingSubjects = grades.filter(g => g.final_grade === null).length;
 
-  // Grade color helper
   const getGradeColor = (grade) => {
     if (grade === null) return 'sg-grade-pending';
     if (grade >= 90) return 'sg-grade-excellent';
@@ -61,32 +63,20 @@ const Grades = () => {
     return 'sg-grade-needs-improvement';
   };
 
-  // Helper to get quarter grade with pending label
   const getQuarterGradeDisplay = (grade, quarter) => {
-    if (grade !== null) {
-      return grade.toFixed(1);
-    }
-    // Show "Pending" for current quarter, "—" for others
+    if (grade !== null) return grade.toFixed(1);
     return getCurrentQuarter() === quarter ? 'Pending' : '—';
   };
 
-  // Helper to get status badge for subject based on quarter grades
   const getSubjectStatusBadge = (subject) => {
     const currentQuarter = getCurrentQuarter();
     const currentQuarterGrade = subject[`q${currentQuarter}`];
-    
-    // Show "Pending" badge if current quarter has no grade
-    if (currentQuarterGrade === null) {
-      return { status: 'pending', label: 'Pending' };
-    }
-    
-    // Show "Passed" or "Failed" based on final grade if available
+    if (currentQuarterGrade === null) return { status: 'pending', label: 'Pending' };
     if (subject.final_grade !== null) {
       return subject.final_grade >= 75 
         ? { status: 'passed', label: 'Passed' }
         : { status: 'failed', label: 'Failed' };
     }
-    
     return null;
   };
 
@@ -96,8 +86,8 @@ const Grades = () => {
 
   return (
     <main className="student-grades-main">
-      {/* Stats Overview */}
-      <section className="sg-section">
+      {/* Stats Overview - HIDDEN ON PRINT */}
+      <section className="sg-section sg-no-print">
         <div className="sg-stats-grid">
           <div className="sg-stat-card sg-stat-blue">
             <div className="sg-stat-header">
@@ -143,14 +133,14 @@ const Grades = () => {
         </div>
       </section>
 
-      {/* Main Content */}
-      <section className="sg-section">
+      {/* Main Content - PRINT AREA */}
+      <section className="sg-section sg-print-area">
         <div className="sg-section-header">
           <div>
-            
+            <h2 className="sg-section-title">{studentName ? `${studentName} Grades` : "Grades"}</h2>
             <p className="sg-section-subtitle">S.Y. {schoolYear || "—"}</p>
           </div>
-          <div className="sg-header-actions">
+          <div className="sg-header-actions sg-no-print">
             <button className="sg-btn-primary" onClick={handleExport}>
               <Download size={18} />
               Export Report
@@ -158,7 +148,6 @@ const Grades = () => {
           </div>
         </div>
 
-        {/* Table */}
         <div className="sg-table-container">
           {loading ? (
             <div className="sg-loading">Loading grades…</div>
@@ -169,11 +158,11 @@ const Grades = () => {
               <thead>
                 <tr>
                   <th>Subject</th>
-                  <th>1st Quarter</th>
-                  <th>2nd Quarter</th>
-                  <th>3rd Quarter</th>
-                  <th>4th Quarter</th>
-                  <th>Final Grade</th>
+                  <th>1st Qtr</th>
+                  <th>2nd Qtr</th>
+                  <th>3rd Qtr</th>
+                  <th>4th Qtr</th>
+                  <th>Final</th>
                   <th>Remarks</th>
                 </tr>
               </thead>
@@ -218,13 +207,6 @@ const Grades = () => {
                           return (
                             <span className={`sg-status-badge sg-status-${statusBadge.status}`}>
                               {statusBadge.label}
-                            </span>
-                          );
-                        }
-                        if (subj.remarks) {
-                          return (
-                            <span className={`sg-status-badge sg-status-${subj.remarks.toLowerCase()}`}>
-                              {subj.remarks}
                             </span>
                           );
                         }
