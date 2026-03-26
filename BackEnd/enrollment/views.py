@@ -155,19 +155,9 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        outstanding_balance = self._outstanding_balance_for_parent(user)
-        if outstanding_balance > 0:
-            return Response(
-                {
-                    "detail": (
-                        f"You still have an outstanding balance of "
-                        f"₱{outstanding_balance:,.2f}. Please settle the remaining balance "
-                        f"before enrolling for the new school year."
-                    ),
-                    "outstanding_balance": f"{outstanding_balance:.2f}",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        balance_block = self._ensure_old_student_has_no_balance(user)
+        if balance_block:
+            return balance_block
 
         existing_same_year = Enrollment.objects.filter(
             parent_user=user,
@@ -347,6 +337,33 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         balance = total_debit - total_credit
         return balance if balance > 0 else Decimal("0.00")
+
+    def _current_outstanding_balance_for_parent(self, parent_user):
+        totals = Transaction.objects.filter(parent=parent_user).aggregate(
+            total_debit=Sum("debit"),
+            total_credit=Sum("credit"),
+        )
+
+        total_debit = Decimal(str(totals.get("total_debit") or 0))
+        total_credit = Decimal(str(totals.get("total_credit") or 0))
+
+        balance = total_debit - total_credit
+        return balance if balance > 0 else Decimal("0.00")
+
+    def _ensure_old_student_has_no_balance(self, parent_user):
+        balance = self._current_outstanding_balance_for_parent(parent_user)
+        if balance > 0:
+            return Response(
+                {
+                    "detail": (
+                        f"Cannot continue re-enrollment. Outstanding balance: "
+                        f"₱{balance:,.2f}. Please settle the previous balance first."
+                    ),
+                    "outstanding_balance": f"{balance:.2f}",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return None
 
     def _education_level_from_grade(self, grade_code):
         grade_code = (grade_code or "").strip().lower()
@@ -932,6 +949,11 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def mark_active(self, request, pk=None):
         enrollment = self.get_object()
+
+        if (enrollment.student_type or "").strip().lower() == "old" and enrollment.parent_user:
+            balance_block = self._ensure_old_student_has_no_balance(enrollment.parent_user)
+            if balance_block:
+                return balance_block
 
         grade_code = (enrollment.grade_level or "").strip()
         valid_grades = {
