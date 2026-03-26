@@ -419,7 +419,7 @@ const Ledgers = () => {
                       <td className="text-center" style={{ color: "#000000" }}>
                         {formatCurrency(summary?.total_paid || 0)}
                       </td>
-                      <td className="text-right" style={{ color: "#000000" }}>
+                      <td className="text-right" style={{ color: "#dc2626" }}>
                         {formatCurrency(summary?.balance || 0)}
                       </td>
                       <td className="text-right" style={{ color: "#000000" }}>
