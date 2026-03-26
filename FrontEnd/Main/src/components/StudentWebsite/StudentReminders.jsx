@@ -108,12 +108,7 @@ export default function StudentReminders() {
           >
             Payment
           </button>
-          <button
-            className={activeFilter === "GENERAL" ? "sr-filter active" : "sr-filter"}
-            onClick={() => setActiveFilter("GENERAL")}
-          >
-            General
-          </button>
+          
           <button
             className={activeFilter === "PERFORMANCE" ? "sr-filter active" : "sr-filter"}
             onClick={() => setActiveFilter("PERFORMANCE")}
