@@ -526,7 +526,7 @@ const EnrollmentForm = ({ onClose }) => {
                   })
                 }
               >
-                Login to Re-enroll
+                Login to Old Student Enrollment
               </button>
 
               <button type="button" className="secondary" onClick={onClose}>

@@ -91,7 +91,7 @@ function App() {
 
         )}
       </main>
-
+        
 
       {/* Footer - Full width */}
       <footer className="footer">
@@ -117,5 +117,6 @@ function App() {
     </div>
   );
 }
+
 
 export default App;

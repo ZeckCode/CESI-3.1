@@ -11,7 +11,7 @@ import Schedule from "./Schedule";
 import Attendance from "./Attendance";
 import Message from "./Message";
 import StudentReminders from "./StudentReminders";
-import StudentReenrollment from "./StudentReenrollment";
+import StudentEnrollment from "./StudentEnrollment";
 import { getToken } from "../Auth/auth";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 import "../StudentWebsiteCSS/StudentPortal.css";
@@ -61,11 +61,11 @@ export default function StudentMain() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [unreadReminders, setUnreadReminders] = useState(0);
 
-  const [reenrollmentOpen, setReenrollmentOpen] = useState(false);
-  const [reenrollmentWindow, setReenrollmentWindow] = useState(null);
+  const [enrollmentOpen, setEnrollmentOpen] = useState(false);
+  const [enrollmentWindow, setEnrollmentWindow] = useState(null);
 
   const handleMenuClick = (menuId) => {
-    if (menuId === "reenrollment" && !reenrollmentOpen) {
+    if (menuId === "enrollment" && !enrollmentOpen) {
       setActiveMenu("dashboard");
       return;
     }
@@ -123,13 +123,13 @@ export default function StudentMain() {
         if (!isMounted) return;
 
         const windowInfo = computeEnrollmentWindow(data);
-        setReenrollmentWindow(windowInfo);
-        setReenrollmentOpen(windowInfo.isOpen);
+        setEnrollmentWindow(windowInfo);
+        setEnrollmentOpen(windowInfo.isOpen);
       } catch (err) {
         console.error("Failed to load enrollment settings:", err);
         if (isMounted) {
-          setReenrollmentWindow(null);
-          setReenrollmentOpen(false);
+          setEnrollmentWindow(null);
+          setEnrollmentOpen(false);
         }
       }
     };
@@ -142,10 +142,10 @@ export default function StudentMain() {
   }, []);
 
   useEffect(() => {
-    if (activeMenu === "reenrollment" && !reenrollmentOpen) {
+    if (activeMenu === "enrollment" && !enrollmentOpen) {
       setActiveMenu("dashboard");
     }
-  }, [activeMenu, reenrollmentOpen]);
+  }, [activeMenu, enrollmentOpen]);
 
   const renderContent = () => {
     switch (activeMenu) {
@@ -167,9 +167,9 @@ export default function StudentMain() {
         return <Message />;
       case "reminders":
         return <StudentReminders />;
-      case "reenrollment":
-        return reenrollmentOpen ? (
-          <StudentReenrollment enrollmentWindow={reenrollmentWindow} />
+      case "enrollment":
+        return enrollmentOpen ? (
+          <StudentEnrollment enrollmentWindow={enrollmentWindow} />
         ) : (
           <Dashboard />
         );
@@ -189,7 +189,7 @@ export default function StudentMain() {
       attendance: "Attendance",
       messages: "Messages",
       reminders: "Notifications",
-      reenrollment: "Re-enrollment",
+      enrollment: "Enrollment",
     };
     return titles[activeMenu] || "Dashboard";
   };
@@ -205,9 +205,9 @@ export default function StudentMain() {
       attendance: "View attendance records.",
       messages: "View and send messages.",
       reminders: "View payment reminders and important updates.",
-      reenrollment: reenrollmentOpen
-        ? "Review and submit your re-enrollment details."
-        : "Re-enrollment is currently unavailable.",
+      enrollment: enrollmentOpen
+        ? "The Enrollment Period is Open."
+        : "Enrollment is currently unavailable.",
     };
     return subtitles[activeMenu] || "Welcome back!";
   };
@@ -219,7 +219,7 @@ export default function StudentMain() {
         onMenuClick={handleMenuClick}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
-        reenrollmentOpen={reenrollmentOpen}
+        enrollmentOpen={enrollmentOpen}
       />
 
       <main className={`admin-main ${sidebarCollapsed ? "collapsed" : ""}`}>

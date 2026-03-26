@@ -1,17 +1,17 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import "../StudentWebsiteCSS/Profile.css";
+import "../StudentWebsiteCSS/StudentEnroll.css";
 import { getToken } from "../Auth/auth";
 import Toast from "../Global/Toast";
 
 const API_BASE = "";
 
 const PROFILE_ENDPOINTS = [
-  "/api/accounts/me-detail/",
   "/api/accounts/me/detail/",
 ];
 
 const LEDGER_SUMMARY_ENDPOINT = "/api/finance/my-ledger-summary/";
+const MY_GRADES_ENDPOINT = "/api/grades/my-grades/";
 
 const NEXT_GRADE_MAP = {
   prek: "Kinder",
@@ -24,6 +24,15 @@ const NEXT_GRADE_MAP = {
   grade6: null,
 };
 
+const NAME_REGEX = /^[a-zA-ZÀ-ÿ.'\-\s]+$/;
+const ALLOWED_FILE_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+];
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
 async function fetchWithToken(url, options = {}) {
   const token = getToken();
   const headers = {
@@ -31,12 +40,10 @@ async function fetchWithToken(url, options = {}) {
     ...(token ? { Authorization: `Token ${token}` } : {}),
   };
 
-  const res = await fetch(`${API_BASE}${url}`, {
+  return fetch(`${API_BASE}${url}`, {
     ...options,
     headers,
   });
-
-  return res;
 }
 
 async function parseJsonSafe(res) {
@@ -72,18 +79,25 @@ async function tryProfileEndpoints() {
 }
 
 async function loadLedgerSummary() {
-  try {
-    const res = await fetchWithToken(LEDGER_SUMMARY_ENDPOINT, { method: "GET" });
-    const json = await parseJsonSafe(res);
+  const res = await fetchWithToken(LEDGER_SUMMARY_ENDPOINT, { method: "GET" });
+  const json = await parseJsonSafe(res);
 
-    if (!res.ok) {
-      throw new Error(json?.detail || "Failed to load ledger summary.");
-    }
-
-    return json || {};
-  } catch (err) {
-    throw err;
+  if (!res.ok) {
+    throw new Error(json?.detail || "Failed to load ledger summary.");
   }
+
+  return json || {};
+}
+
+async function loadMyGrades() {
+  const res = await fetchWithToken(MY_GRADES_ENDPOINT, { method: "GET" });
+  const json = await parseJsonSafe(res);
+
+  if (!res.ok) {
+    throw new Error(json?.detail || "Failed to load grades.");
+  }
+
+  return Array.isArray(json) ? json : [];
 }
 
 const gradeLabelFromProfile = (raw) => {
@@ -101,8 +115,7 @@ const gradeLabelFromProfile = (raw) => {
     grade6: "Grade 6",
   };
 
-  if (map[v.toLowerCase()]) return map[v.toLowerCase()];
-  return v;
+  return map[v.toLowerCase()] || v;
 };
 
 const normalizeGradeCode = (raw) => {
@@ -117,6 +130,50 @@ const formatFullName = (...parts) =>
     .filter(Boolean)
     .join(" ");
 
+const normalizePhone = (value) => String(value || "").replace(/[^\d+]/g, "");
+
+const isValidPHMobile = (value) => {
+  const v = normalizePhone(value);
+  return /^09\d{9}$/.test(v) || /^\+639\d{9}$/.test(v);
+};
+
+const isValidName = (value) => {
+  const v = String(value || "").trim();
+  return !!v && NAME_REGEX.test(v);
+};
+
+const validateUploadFile = (file, label) => {
+  if (!file) return null;
+
+  if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+    return `${label} must be PDF, JPG, or PNG only.`;
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    return `${label} must be 5MB or smaller.`;
+  }
+
+  return null;
+};
+
+const splitAddress = (address = "") => {
+  const parts = String(address).split(",").map((p) => p.trim());
+  return {
+    street: parts[0] || "",
+    barangay: parts[1] || "",
+    city: parts[2] || "",
+    province: parts[3] || "",
+    region: parts[4] || "",
+    zip_code: parts[5] || "",
+  };
+};
+
+const buildAddress = ({ street, barangay, city, province, region, zipCode }) =>
+  [street, barangay, city, province, region, zipCode]
+    .map((p) => String(p || "").trim())
+    .filter(Boolean)
+    .join(", ");
+
 export default function StudentReenrollment() {
   const navigate = useNavigate();
 
@@ -124,8 +181,10 @@ export default function StudentReenrollment() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
   const [data, setData] = useState(null);
   const [ledgerSummary, setLedgerSummary] = useState(null);
+  const [grades, setGrades] = useState([]);
 
   const [studentFirstName, setStudentFirstName] = useState("");
   const [studentMiddleName, setStudentMiddleName] = useState("");
@@ -136,9 +195,15 @@ export default function StudentReenrollment() {
   const [parentLastName, setParentLastName] = useState("");
 
   const [contactNumber, setContactNumber] = useState("");
-  const [address, setAddress] = useState("");
   const [paymentMode, setPaymentMode] = useState("");
   const [remarks, setRemarks] = useState("");
+
+  const [street, setStreet] = useState("");
+  const [barangay, setBarangay] = useState("");
+  const [city, setCity] = useState("");
+  const [province, setProvince] = useState("");
+  const [region, setRegion] = useState("");
+  const [zipCode, setZipCode] = useState("");
 
   const [form137File, setForm137File] = useState(null);
   const [sf10File, setSf10File] = useState(null);
@@ -168,9 +233,10 @@ export default function StudentReenrollment() {
         setError("");
         setSuccess("");
 
-        const [profileResult, summaryResult] = await Promise.allSettled([
+        const [profileResult, summaryResult, gradesResult] = await Promise.allSettled([
           tryProfileEndpoints(),
           loadLedgerSummary(),
+          loadMyGrades(),
         ]);
 
         if (profileResult.status !== "fulfilled") {
@@ -189,7 +255,20 @@ export default function StudentReenrollment() {
           setLedgerSummary(null);
           addToast(
             "Ledger Warning",
-            summaryResult.reason?.message || "Could not load ledger summary. Eligibility may be incomplete.",
+            summaryResult.reason?.message ||
+              "Could not load ledger summary. Finance eligibility may be incomplete.",
+            "warning"
+          );
+        }
+
+        if (gradesResult.status === "fulfilled") {
+          setGrades(gradesResult.value || []);
+        } else {
+          setGrades([]);
+          addToast(
+            "Grades Warning",
+            gradesResult.reason?.message ||
+              "Could not load grades. Academic eligibility may be incomplete.",
             "warning"
           );
         }
@@ -205,10 +284,17 @@ export default function StudentReenrollment() {
         setContactNumber(
           p.contact_number || e.mobile_number || e.telephone_number || ""
         );
-        setAddress(p.address || e.address || "");
         setPaymentMode(p.payment_mode || e.payment_mode || "");
+
+        const parsedAddress = splitAddress(p.address || e.address || "");
+        setStreet(parsedAddress.street);
+        setBarangay(parsedAddress.barangay);
+        setCity(parsedAddress.city);
+        setProvince(parsedAddress.province);
+        setRegion(parsedAddress.region);
+        setZipCode(parsedAddress.zip_code);
       } catch (e) {
-        const msg = e.message || "Failed to load profile.";
+        const msg = e.message || "Failed to load reenrollment data.";
         setError(msg);
         setData(null);
         addToast("Load Failed", msg, "error");
@@ -248,13 +334,11 @@ export default function StudentReenrollment() {
   );
 
   const outstandingBalance = useMemo(() => {
-    // Prefer live finance summary from ledger page endpoint
     const summaryBalance = ledgerSummary?.balance;
     if (summaryBalance !== undefined && summaryBalance !== null) {
       return Number(summaryBalance || 0);
     }
 
-    // Fallback to profile response only if available
     return Number(
       data?.outstanding_balance ??
         data?.profile?.outstanding_balance ??
@@ -263,10 +347,32 @@ export default function StudentReenrollment() {
     );
   }, [ledgerSummary, data]);
 
+  const gradeSummary = useMemo(() => {
+    const totalSubjects = grades.length;
+    const incompleteSubjects = grades.filter((g) => g.final_grade === null).length;
+    const completedSubjects = totalSubjects - incompleteSubjects;
+    const failedSubjects = grades.filter(
+      (g) => g.final_grade !== null && Number(g.final_grade) < 75
+    ).length;
+    const passedSubjects = grades.filter(
+      (g) => g.final_grade !== null && Number(g.final_grade) >= 75
+    ).length;
+
+    return {
+      totalSubjects,
+      completedSubjects,
+      incompleteSubjects,
+      failedSubjects,
+      passedSubjects,
+    };
+  }, [grades]);
+
   const eligibility = useMemo(() => {
     const currentGradeCode = studentInfo.gradeCode;
     const nextGrade = NEXT_GRADE_MAP[currentGradeCode] || null;
     const hasBalance = outstandingBalance > 0;
+    const hasIncompleteGrades = gradeSummary.incompleteSubjects > 0;
+    const hasFailingGrades = gradeSummary.failedSubjects > 0;
 
     if (currentGradeCode === "grade6") {
       return {
@@ -275,11 +381,11 @@ export default function StudentReenrollment() {
         color: "#7c2d12",
         bg: "#ffedd5",
         border: "#fdba74",
-        nextGrade: null,
-        financeNote: "Clearing balance is no longer the blocker here.",
+        nextGrade: "Grade 7 (High School)",
+        financeNote: "No existing balance",
         academicNote: "Grade 6 completed.",
         message:
-          "Congratulations! You already completed Grade 6. No further re-enrollment is needed.",
+          "Congratulations! You already completed Grade 6.",
       };
     }
 
@@ -292,14 +398,44 @@ export default function StudentReenrollment() {
         border: "#fecaca",
         nextGrade,
         financeNote: "With outstanding balance",
-        academicNote: "Grade progression ready",
+        academicNote: "Academic check pending",
         message: `You still have an outstanding balance of ₱${outstandingBalance.toLocaleString(
           undefined,
           {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           }
-        )}. Please settle it before re-enrollment.`,
+        )}. Please settle it before enrolling.`,
+      };
+    }
+
+    if (hasIncompleteGrades) {
+      return {
+        eligible: false,
+        badge: "Not Eligible",
+        color: "#92400e",
+        bg: "#fffbeb",
+        border: "#fcd34d",
+        nextGrade,
+        financeNote: "No existing balance",
+        academicNote: "Incomplete grades detected",
+        message:
+          "You have incomplete grades. Please wait until all subjects have final grades before enrolling.",
+      };
+    }
+
+    if (hasFailingGrades) {
+      return {
+        eligible: false,
+        badge: "Not Eligible",
+        color: "#991b1b",
+        bg: "#fef2f2",
+        border: "#fecaca",
+        nextGrade,
+        financeNote: "No existing balance",
+        academicNote: "Failing grades detected",
+        message:
+          "You have failing grades. Please coordinate with the school before enrolling.",
       };
     }
 
@@ -311,12 +447,107 @@ export default function StudentReenrollment() {
       border: "#a7f3d0",
       nextGrade,
       financeNote: "No existing balance",
-      academicNote: "No failing-grade check yet",
+      academicNote: "No incomplete or failing grades",
       message: nextGrade
-        ? `You are eligible to re-enroll for ${nextGrade}.`
-        : "You are eligible to re-enroll.",
+        ? `You are eligible to enroll for ${nextGrade}.`
+        : "You are eligible to enroll.",
     };
-  }, [studentInfo.gradeCode, outstandingBalance]);
+  }, [studentInfo.gradeCode, outstandingBalance, gradeSummary]);
+
+  const formValidation = useMemo(() => {
+    const errors = [];
+
+    if (!studentFirstName.trim()) errors.push("Student first name is required.");
+    else if (!isValidName(studentFirstName)) {
+      errors.push("Student first name contains invalid characters.");
+    }
+
+    if (studentMiddleName.trim() && !isValidName(studentMiddleName)) {
+      errors.push("Student middle name contains invalid characters.");
+    }
+
+    if (!studentLastName.trim()) errors.push("Student last name is required.");
+    else if (!isValidName(studentLastName)) {
+      errors.push("Student last name contains invalid characters.");
+    }
+
+    if (!parentFirstName.trim()) errors.push("Parent first name is required.");
+    else if (!isValidName(parentFirstName)) {
+      errors.push("Parent first name contains invalid characters.");
+    }
+
+    if (parentMiddleName.trim() && !isValidName(parentMiddleName)) {
+      errors.push("Parent middle name contains invalid characters.");
+    }
+
+    if (!parentLastName.trim()) errors.push("Parent last name is required.");
+    else if (!isValidName(parentLastName)) {
+      errors.push("Parent last name contains invalid characters.");
+    }
+
+    if (!contactNumber.trim()) {
+      errors.push("Contact number is required.");
+    } else if (!isValidPHMobile(contactNumber)) {
+      errors.push("Contact number must be 09XXXXXXXXX or +639XXXXXXXXX.");
+    }
+
+    if (!street.trim()) errors.push("House No. / Street is required.");
+    if (!barangay.trim()) errors.push("Barangay is required.");
+    if (!city.trim()) errors.push("City / Municipality is required.");
+    if (!province.trim()) errors.push("Province is required.");
+    if (!region.trim()) errors.push("Region is required.");
+    if (!zipCode.trim()) {
+      errors.push("ZIP Code is required.");
+    } else if (!/^\d{4}$/.test(zipCode.trim())) {
+      errors.push("ZIP Code must be exactly 4 digits.");
+    }
+
+    if (!paymentMode.trim()) {
+      errors.push("Please select a payment mode.");
+    }
+
+    if (remarks.trim().length > 500) {
+      errors.push("Remarks must not exceed 500 characters.");
+    }
+
+    const fileChecks = [
+      validateUploadFile(form137File, "Form 137-E"),
+      validateUploadFile(sf10File, "School Form 10"),
+      validateUploadFile(birthCertificateFile, "Birth Certificate"),
+      validateUploadFile(goodMoralFile, "Good Moral Certificate"),
+      validateUploadFile(reportCardFile, "Report Card"),
+      validateUploadFile(otherDocumentFile, "Other Document"),
+    ].filter(Boolean);
+
+    errors.push(...fileChecks);
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  }, [
+    studentFirstName,
+    studentMiddleName,
+    studentLastName,
+    parentFirstName,
+    parentMiddleName,
+    parentLastName,
+    contactNumber,
+    street,
+    barangay,
+    city,
+    province,
+    region,
+    zipCode,
+    paymentMode,
+    remarks,
+    form137File,
+    sf10File,
+    birthCertificateFile,
+    goodMoralFile,
+    reportCardFile,
+    otherDocumentFile,
+  ]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -329,38 +560,10 @@ export default function StudentReenrollment() {
       return;
     }
 
-    if (!studentFirstName.trim() || !studentLastName.trim()) {
-      const msg = "Student first name and last name are required.";
+    if (!formValidation.valid) {
+      const msg = formValidation.errors[0];
       setError(msg);
-      addToast("Missing Information", msg, "warning");
-      return;
-    }
-
-    if (!parentFirstName.trim() || !parentLastName.trim()) {
-      const msg = "Parent first name and last name are required.";
-      setError(msg);
-      addToast("Missing Information", msg, "warning");
-      return;
-    }
-
-    if (!contactNumber.trim()) {
-      const msg = "Contact number is required.";
-      setError(msg);
-      addToast("Missing Information", msg, "warning");
-      return;
-    }
-
-    if (!address.trim()) {
-      const msg = "Address is required.";
-      setError(msg);
-      addToast("Missing Information", msg, "warning");
-      return;
-    }
-
-    if (!paymentMode.trim()) {
-      const msg = "Please select a payment mode.";
-      setError(msg);
-      addToast("Missing Information", msg, "warning");
+      addToast("Validation Error", msg, "warning");
       return;
     }
 
@@ -374,39 +577,45 @@ export default function StudentReenrollment() {
       form.append("parent_first_name", parentFirstName.trim());
       form.append("parent_middle_name", parentMiddleName.trim());
       form.append("parent_last_name", parentLastName.trim());
-      form.append("contact_number", contactNumber.trim());
-      form.append("address", address.trim());
+      form.append("contact_number", normalizePhone(contactNumber.trim()));
+      form.append(
+        "address",
+        buildAddress({
+          street,
+          barangay,
+          city,
+          province,
+          region,
+          zipCode,
+        })
+      );
       form.append("payment_mode", paymentMode);
       form.append("remarks", remarks.trim());
 
       if (form137File) form.append("form_137_file", form137File);
       if (sf10File) form.append("sf10_file", sf10File);
-      if (birthCertificateFile)
-        form.append("birth_certificate_file", birthCertificateFile);
+      if (birthCertificateFile) form.append("birth_certificate_file", birthCertificateFile);
       if (goodMoralFile) form.append("good_moral_file", goodMoralFile);
       if (reportCardFile) form.append("report_card_file", reportCardFile);
       if (otherDocumentFile) form.append("other_document_file", otherDocumentFile);
 
       const token = getToken();
-      const res = await fetch(
-        `${API_BASE}/api/enrollments/submit-reenrollment/`,
-        {
-          method: "POST",
-          headers: token ? { Authorization: `Token ${token}` } : {},
-          body: form,
-        }
-      );
+      const res = await fetch(`${API_BASE}/api/enrollments/submit-reenrollment/`, {
+        method: "POST",
+        headers: token ? { Authorization: `Token ${token}` } : {},
+        body: form,
+      });
 
       const json = await parseJsonSafe(res);
 
       if (!res.ok) {
         throw new Error(
-          json?.detail || json?.message || "Failed to submit re-enrollment."
+          json?.detail || json?.message || "Failed to submit enrollment."
         );
       }
 
       const msg =
-        "Re-enrollment application submitted successfully. Please wait for admin review.";
+        "Enrollment application submitted successfully. Please wait for admin review.";
       setSuccess(msg);
       addToast("Submitted", msg, "success");
 
@@ -416,8 +625,9 @@ export default function StudentReenrollment() {
       setGoodMoralFile(null);
       setReportCardFile(null);
       setOtherDocumentFile(null);
+      setRemarks("");
     } catch (err) {
-      const msg = err.message || "Failed to submit re-enrollment.";
+      const msg = err.message || "Failed to submit enrollment.";
       setError(msg);
       addToast("Submission Failed", msg, "error");
     } finally {
@@ -454,10 +664,10 @@ export default function StudentReenrollment() {
 
       <div className="profile-hero-card">
         <div className="hero-text">
-          <h1 className="student-name">Student Re-enrollment</h1>
+          <h1 className="student-name">Student enrollment</h1>
           <p className="student-lrn">
             Review and update your information before submitting your
-            re-enrollment application.
+            enrollment application.
           </p>
         </div>
       </div>
@@ -490,7 +700,7 @@ export default function StudentReenrollment() {
                 letterSpacing: "0.5px",
               }}
             >
-              Re-enrollment Eligibility
+              enrollment Eligibility
             </div>
             <div style={{ marginTop: "6px", fontSize: "14px", fontWeight: 600 }}>
               {eligibility.message}
@@ -562,14 +772,30 @@ export default function StudentReenrollment() {
             <InfoRow label="Student Name" value={studentInfo.fullName} />
             <InfoRow label="Parent / Guardian" value={parentName} />
             <InfoRow
+              label="Address"
+              value={
+                buildAddress({ street, barangay, city, province, region, zipCode }) || "—"
+              }
+            />
+            <InfoRow
               label="Outstanding Balance"
               value={`₱${outstandingBalance.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}`}
             />
-            <InfoRow label="Finance Check" value={eligibility.financeNote} />
-            <InfoRow label="Academic Check" value={eligibility.academicNote} />
+            <InfoRow
+              label="Completed Subjects"
+              value={`${gradeSummary.completedSubjects}/${gradeSummary.totalSubjects}`}
+            />
+            <InfoRow
+              label="Incomplete Subjects"
+              value={String(gradeSummary.incompleteSubjects)}
+            />
+            <InfoRow
+              label="Failed Subjects"
+              value={String(gradeSummary.failedSubjects)}
+            />
             <InfoRow label="Eligibility" value={eligibility.badge} isLast />
           </div>
         </section>
@@ -580,7 +806,7 @@ export default function StudentReenrollment() {
         onSubmit={handleSubmit}
         style={{ marginTop: "20px" }}
       >
-        <div className="details-header">Editable Re-enrollment Details</div>
+        <div className="details-header">Editable enrollment Details</div>
         <div className="details-body">
           {error && (
             <div className="error-message" style={{ marginBottom: "12px" }}>
@@ -674,16 +900,110 @@ export default function StudentReenrollment() {
             />
           </div>
 
-          <div className="info-entry entry-border edit-mode">
-            <span className="entry-label">Address</span>
-            <textarea
-              className="entry-input"
-              rows={3}
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Complete home address"
-              disabled={!eligibility.eligible}
-            />
+          <div className="details-header" style={{ marginTop: "18px" }}>
+            Address
+          </div>
+
+          <div className="form-grid">
+            <div className="form-group form-group--full">
+              <label>
+                House No. / Street<span className="required">*</span>
+              </label>
+              <input
+                value={street}
+                onChange={(e) => setStreet(e.target.value)}
+                placeholder="e.g. 123 Rizal St."
+                disabled={!eligibility.eligible}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>
+                Barangay<span className="required">*</span>
+              </label>
+              <input
+                value={barangay}
+                onChange={(e) => setBarangay(e.target.value)}
+                placeholder="e.g. Brgy. Santo Niño"
+                disabled={!eligibility.eligible}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>
+                City / Municipality<span className="required">*</span>
+              </label>
+              <input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="e.g. Caloocan City"
+                disabled={!eligibility.eligible}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>
+                Province<span className="required">*</span>
+              </label>
+              <input
+                value={province}
+                onChange={(e) => setProvince(e.target.value)}
+                placeholder="e.g. Metro Manila"
+                disabled={!eligibility.eligible}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>
+                Region<span className="required">*</span>
+              </label>
+              <select
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+                disabled={!eligibility.eligible}
+                required
+              >
+                <option value="">Select Region</option>
+                <option value="NCR">NCR – National Capital Region</option>
+                <option value="Region I">Region I – Ilocos Region</option>
+                <option value="Region II">Region II – Cagayan Valley</option>
+                <option value="Region III">Region III – Central Luzon</option>
+                <option value="Region IV-A">Region IV-A – CALABARZON</option>
+                <option value="Region IV-B">Region IV-B – MIMAROPA</option>
+                <option value="Region V">Region V – Bicol Region</option>
+                <option value="Region VI">Region VI – Western Visayas</option>
+                <option value="Region VII">Region VII – Central Visayas</option>
+                <option value="Region VIII">Region VIII – Eastern Visayas</option>
+                <option value="Region IX">Region IX – Zamboanga Peninsula</option>
+                <option value="Region X">Region X – Northern Mindanao</option>
+                <option value="Region XI">Region XI – Davao Region</option>
+                <option value="Region XII">Region XII – SOCCSKSARGEN</option>
+                <option value="Region XIII">Region XIII – Caraga</option>
+                <option value="CAR">CAR – Cordillera Administrative Region</option>
+                <option value="BARMM">BARMM – Bangsamoro</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>
+                ZIP Code<span className="required">*</span>
+              </label>
+              <input
+                value={zipCode}
+                onChange={(e) =>
+                  setZipCode(e.target.value.replace(/\D/g, "").slice(0, 4))
+                }
+                placeholder="e.g. 1400"
+                maxLength={4}
+                inputMode="numeric"
+                disabled={!eligibility.eligible}
+                required
+              />
+            </div>
           </div>
 
           <div className="info-entry entry-border edit-mode">
@@ -702,24 +1022,25 @@ export default function StudentReenrollment() {
 
           <div className="info-entry edit-mode">
             <span className="entry-label">Remarks</span>
-            <textarea
+            <textareapush
               className="entry-input"
               rows={4}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Optional notes for re-enrollment"
+              placeholder="Optional notes for enrollment"
               disabled={!eligibility.eligible}
             />
           </div>
 
           <div className="details-header" style={{ marginTop: "18px" }}>
-            Re-enrollment Documents
+            enrollment Documents
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Form 137-E</span>
             <input
               type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
               className="entry-input"
               onChange={(e) => setForm137File(e.target.files?.[0] || null)}
               disabled={!eligibility.eligible}
@@ -730,6 +1051,7 @@ export default function StudentReenrollment() {
             <span className="entry-label">School Form 10 (SF10)</span>
             <input
               type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
               className="entry-input"
               onChange={(e) => setSf10File(e.target.files?.[0] || null)}
               disabled={!eligibility.eligible}
@@ -740,6 +1062,7 @@ export default function StudentReenrollment() {
             <span className="entry-label">Birth Certificate</span>
             <input
               type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
               className="entry-input"
               onChange={(e) =>
                 setBirthCertificateFile(e.target.files?.[0] || null)
@@ -752,6 +1075,7 @@ export default function StudentReenrollment() {
             <span className="entry-label">Good Moral Certificate</span>
             <input
               type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
               className="entry-input"
               onChange={(e) => setGoodMoralFile(e.target.files?.[0] || null)}
               disabled={!eligibility.eligible}
@@ -762,6 +1086,7 @@ export default function StudentReenrollment() {
             <span className="entry-label">Report Card</span>
             <input
               type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
               className="entry-input"
               onChange={(e) => setReportCardFile(e.target.files?.[0] || null)}
               disabled={!eligibility.eligible}
@@ -772,15 +1097,33 @@ export default function StudentReenrollment() {
             <span className="entry-label">Other Document</span>
             <input
               type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
               className="entry-input"
               onChange={(e) => setOtherDocumentFile(e.target.files?.[0] || null)}
               disabled={!eligibility.eligible}
             />
           </div>
 
+          {!formValidation.valid && (
+            <div
+              style={{
+                marginTop: "14px",
+                marginBottom: "10px",
+                padding: "10px 12px",
+                borderRadius: "10px",
+                background: "#fff7ed",
+                color: "#9a3412",
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+            >
+              {formValidation.errors[0]}
+            </div>
+          )}
+
           <div className="form-actions" style={{ marginTop: "16px" }}>
             <button type="submit" disabled={saving || !eligibility.eligible}>
-              {saving ? "Submitting..." : "Submit Re-enrollment"}
+              {saving ? "Submitting..." : "Submit enrollment"}
             </button>
             <button
               type="button"

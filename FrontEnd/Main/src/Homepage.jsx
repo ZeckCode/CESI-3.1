@@ -14,7 +14,7 @@ import AdminDashboard from "./components/AdminWebsite/AdminDashboard";
 import TeacherDashboard from "./components/TeacherWebsite/TeacherIndex";
 import StudentMain from "./components/StudentWebsite/StudentMain";
 
-import StudentReenrollment from "./components/StudentWebsite/StudentReenrollment";
+import StudentReenrollment from "./components/StudentWebsite/StudentEnrollment";
 
 
 import { useAuth } from "./components/Auth/useAuth";

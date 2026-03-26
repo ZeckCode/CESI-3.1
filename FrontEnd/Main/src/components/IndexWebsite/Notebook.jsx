@@ -293,7 +293,7 @@ const Notebook = ({ onClose, openEnrollment }) => {
                 content[activeTab].content
               )}
             </div>
-
+              
             <div className="page-footer">
               <div className="page-number">CESI Elementary</div>
               <div className="page-date">Student Edition</div>

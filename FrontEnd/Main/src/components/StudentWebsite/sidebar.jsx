@@ -40,7 +40,7 @@ export default function Sidebar({
   onMenuClick,
   isCollapsed,
   onToggleCollapse,
-  reenrollmentOpen = false,
+  enrollmentOpen = false,
 }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -65,8 +65,8 @@ export default function Sidebar({
           { id: "academic-history", label: "Academic History", icon: History },
           { id: "attendance", label: "Attendance", icon: ClipboardCheck },
           { id: "schedule", label: "Schedule", icon: CalendarDays },
-          ...(reenrollmentOpen
-            ? [{ id: "reenrollment", label: "Re-enrollment", icon: RefreshCw }]
+          ...(enrollmentOpen
+            ? [{ id: "enrollment", label: "Student Enrollment", icon: RefreshCw }]
             : []),
         ],
       },
@@ -84,7 +84,7 @@ export default function Sidebar({
         ],
       },
     ],
-    [reenrollmentOpen]
+    [enrollmentOpen]
   );
 
   useEffect(() => {
