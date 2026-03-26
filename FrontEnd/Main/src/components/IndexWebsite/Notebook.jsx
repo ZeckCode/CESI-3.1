@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../IndexWebsiteCSS/Notebook.css";
 import "../IndexWebsiteCSS/AnnouncementCard.css";
+import OrganizationalChart from "../AdminWebsite/OrganizationalChart";
 
 const API_BASE = ""; // use Vite proxy
 
@@ -215,6 +216,11 @@ const Notebook = ({ onClose, openEnrollment }) => {
           <p>Facebook: @cesicaloocan</p>
         </>
       ),
+    },
+
+    "org-chart": {
+      title: "Organizational Chart",
+      content: <OrganizationalChart />,
     },
   };
 

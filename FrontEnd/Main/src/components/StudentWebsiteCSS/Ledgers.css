@@ -9,6 +9,11 @@
   --border-color: #dee2e6; /* Defined for visible grid lines */
 }
 
+.ledger-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
 .ledger-wrapper {
   display: flex;
   min-height: 100vh;
