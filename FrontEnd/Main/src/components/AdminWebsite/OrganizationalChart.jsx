@@ -112,7 +112,6 @@ const OrganizationalChart = () => {
     <div className="org-chart-container">
       <div className="org-chart-header">
         <div>
-          <h2 className="org-chart-title">Organizational Chart</h2>
           <p className="org-chart-subtitle">School Administration & Staff Structure</p>
         </div>
         <button
