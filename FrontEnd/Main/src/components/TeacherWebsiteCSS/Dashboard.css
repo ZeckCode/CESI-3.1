@@ -231,6 +231,7 @@ html, body {
 
 .tdb__fullWidth {
   grid-column: 1 / -1;
+  margin-top: 20px;
 }
 
 /* ── Card Component ────────────────────────────────────── */
@@ -262,15 +263,15 @@ html, body {
 }
 
 .tdbCard__header--primary {
-  background: linear-gradient(135deg, var(--primary-light), rgba(37, 99, 235, 0.05));
-  color: var(--primary);
-  border-bottom-color: rgba(37, 99, 235, 0.2);
+  background: linear-gradient(135deg, var(--primary), #1565C0);
+  color: white;
+  border-bottom-color: rgba(255, 255, 255, 0.2);
 }
 
 .tdbCard__header--success {
-  background: linear-gradient(135deg, var(--success-light), rgba(22, 163, 74, 0.05));
-  color: var(--success);
-  border-bottom-color: rgba(22, 163, 74, 0.2);
+  background: linear-gradient(135deg, var(--primary), #1565C0);
+  color: white;
+  border-bottom-color: rgba(255, 255, 255, 0.2);
 }
 
 .tdbCard__header--info {
@@ -281,14 +282,15 @@ html, body {
 
 .tdbCard__title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 800;
+  font-size: 1.1rem;
+  font-weight: 700;
   letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   gap: 10px;
   color: inherit;
   flex: 1;
+  text-transform: capitalize;
 }
 
 .tdbCard__body {
@@ -706,22 +708,25 @@ html, body {
 /* ── Media Block ───────────────────────────────────────── */
 
 .tdbMedia {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 16px;
+  display: flex;
+  gap: 2rem;
   align-items: center;
 }
 
 @media (max-width: 768px) {
   .tdbMedia {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    text-align: center;
   }
 }
 
 .tdbMedia__img {
-  border-radius: 12px;
+  border-radius: 1rem;
   overflow: hidden;
   box-shadow: var(--shadow);
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 300px;
 }
 
 .tdbMedia__img img {
@@ -732,22 +737,23 @@ html, body {
 
 .tdbMedia__content {
   min-width: 0;
+  flex: 1;
 }
 
 .tdbMedia__title {
-  margin: 0 0 12px 0;
-  font-weight: 900;
-  font-size: 18px;
+  margin: 0 0 1rem 0;
+  font-weight: 700;
+  font-size: 1rem;
   color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  text-transform: capitalize;
+  letter-spacing: 0;
 }
 
 .tdbMedia__text {
-  margin: 0 0 12px 0;
+  margin: 0 0 1rem 0;
   color: var(--text-secondary);
   line-height: 1.6;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 /* ── Chips ─────────────────────────────────────────────── */
@@ -755,20 +761,22 @@ html, body {
 .tdbChips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0.5rem;
+  margin-top: 1rem;
 }
 
 .tdbChip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--primary-soft);
-  color: var(--primary);
-  font-size: 12px;
-  font-weight: 800;
-  border: 1px solid rgba(37, 99, 235, 0.2);
+  padding: 0.375rem 0.875rem;
+  border-radius: 50px;
+  background: var(--gray-light);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  text-transform: capitalize;
 }
 
 /* ── Scrollbar ─────────────────────────────────────────── */

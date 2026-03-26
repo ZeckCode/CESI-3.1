@@ -31,6 +31,7 @@ import {
   XCircle,
   AlertCircle,
   Key,
+  Send,
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
 import "../AdminWebsiteCSS/Dashboard.css";
@@ -71,6 +72,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
   const [expandedAnnouncements, setExpandedAnnouncements] = useState(new Set());
   const [activeAnnouncement, setActiveAnnouncement] = useState(null);
   const [passwordResetRequests, setPasswordResetRequests] = useState([]);
+  const [sendingResetId, setSendingResetId] = useState(null);
   const [attendanceToday, setAttendanceToday] = useState([]);
   const [subjectDistribution, setSubjectDistribution] = useState([]);
   const [pendingApplications, setPendingApplications] = useState([]);
@@ -145,6 +147,30 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
     String(t.status || "").trim().toUpperCase();
 
   const getTransactionDate = (t) => t.date_created || t.due_date || null;
+
+  const handleSendResetLink = async (resetId) => {
+    try {
+      setSendingResetId(resetId);
+      const res = await apiFetch(
+        `/api/accounts/admin/password-reset-requests/${resetId}/send-link/`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        console.error("Failed to send reset link:", data.detail || "Unknown error");
+      } else {
+        // Refresh the dashboard data to update the display
+        loadDashboardData();
+      }
+    } catch (err) {
+      console.error("Error sending reset link:", err);
+    } finally {
+      setSendingResetId(null);
+    }
+  };
 
   const toggleAnnouncementExpand = (id) => {
     const newExpanded = new Set(expandedAnnouncements);
@@ -854,6 +880,15 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
                   {req.email}
                 </span>
               </div>
+              <button
+                className="dash-send-btn"
+                onClick={() => handleSendResetLink(req.id)}
+                disabled={sendingResetId === req.id}
+                title="Send reset link"
+              >
+                <Send size={16} />
+                {sendingResetId === req.id ? "Sending..." : "Send"}
+              </button>
             </div>
           ))}
         </div>

@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Bell,
+  RefreshCw,
 } from "lucide-react";
 import "../AdminWebsiteCSS/Sidebar.css";
 import { useAuth } from "../Auth/useAuth";
@@ -34,7 +35,13 @@ function roleLabel(role) {
   return role;
 }
 
-export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggleCollapse }) {
+export default function Sidebar({
+  activeMenu,
+  onMenuClick,
+  isCollapsed,
+  onToggleCollapse,
+  enrollmentOpen = false,
+}) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
@@ -58,7 +65,9 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
           { id: "academic-history", label: "Academic History", icon: History },
           { id: "attendance", label: "Attendance", icon: ClipboardCheck },
           { id: "schedule", label: "Schedule", icon: CalendarDays },
-          
+          ...(enrollmentOpen
+            ? [{ id: "enrollment", label: "Student Enrollment", icon: RefreshCw }]
+            : []),
         ],
       },
       {
@@ -75,7 +84,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
         ],
       },
     ],
-    []
+    [enrollmentOpen]
   );
 
   useEffect(() => {
@@ -116,7 +125,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
   const handleLogout = async () => {
     try {
       await apiFetch("/api/accounts/logout/", { method: "POST" });
-    } catch {;}
+    } catch {}
 
     logout();
     window.location.href = "/";
@@ -142,7 +151,9 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
         </header>
       )}
 
-      {isMobile && drawerOpen && <div className="as-backdrop" onClick={() => setDrawerOpen(false)} />}
+      {isMobile && drawerOpen && (
+        <div className="as-backdrop" onClick={() => setDrawerOpen(false)} />
+      )}
 
       <aside
         ref={sidebarRef}
@@ -156,7 +167,9 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
         <div className="as-top-section">
           {user && showLabels && (
             <div className="as-usercard">
-              <div className="as-avatar">{getInitials(user?.full_name || user?.username || user?.email)}</div>
+              <div className="as-avatar">
+                {getInitials(user?.full_name || user?.username || user?.email)}
+              </div>
               <div className="as-usermeta">
                 <div className="as-userrow">
                   <div className="as-username">Student Portal</div>
@@ -170,7 +183,9 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
 
           {user && isCollapsed && !isMobile && (
             <div className="as-usercard-collapsed">
-              <div className="as-avatar">{getInitials(user?.full_name || user?.username || user?.email)}</div>
+              <div className="as-avatar">
+                {getInitials(user?.full_name || user?.username || user?.email)}
+              </div>
             </div>
           )}
         </div>
@@ -178,9 +193,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
         <nav className="as-nav">
           {menuSections.map((section, sIdx) => (
             <div key={section.label} className="as-section">
-              {showLabels && (
-                <div className="as-section-label">{section.label}</div>
-              )}
+              {showLabels && <div className="as-section-label">{section.label}</div>}
               {!showLabels && sIdx > 0 && <div className="as-section-dot" />}
 
               {section.items.map((item) => {
@@ -195,9 +208,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
                       title={isCollapsed && !isMobile ? item.label : undefined}
                     >
                       <item.icon size={20} className="as-ico" />
-                      {showLabels && (
-                        <span className="as-label">{item.label}</span>
-                      )}
+                      {showLabels && <span className="as-label">{item.label}</span>}
                     </button>
                   </div>
                 );

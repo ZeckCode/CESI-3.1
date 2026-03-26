@@ -11,6 +11,7 @@ import Schedule from "./Schedule";
 import Attendance from "./Attendance";
 import Message from "./Message";
 import StudentReminders from "./StudentReminders";
+import StudentEnrollment from "./StudentEnrollment";
 import { getToken } from "../Auth/auth";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 import "../StudentWebsiteCSS/StudentPortal.css";
@@ -25,12 +26,52 @@ const authHeaders = (extra = {}) => {
   };
 };
 
+const computeEnrollmentWindow = (settings) => {
+  const autoOpen = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const startYear = today.getMonth() >= 5 ? year : year - 1;
+    return new Date(startYear, 5, 1); // June 1
+  };
+
+  const openDate = settings?.open_date
+    ? new Date(settings.open_date + "T00:00:00")
+    : autoOpen();
+
+  const days = Math.max(1, parseInt(settings?.window_days ?? 7, 10));
+  const closeDate = new Date(openDate);
+  closeDate.setDate(openDate.getDate() + days - 1);
+  closeDate.setHours(23, 59, 59, 999);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const isOpen = today >= openDate && today <= closeDate;
+
+  return {
+    isOpen,
+    openDate,
+    closeDate,
+    academicYear: settings?.academic_year || "",
+  };
+};
+
 export default function StudentMain() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [unreadReminders, setUnreadReminders] = useState(0);
 
-  const handleMenuClick = (menuId) => setActiveMenu(menuId);
+  const [enrollmentOpen, setEnrollmentOpen] = useState(false);
+  const [enrollmentWindow, setEnrollmentWindow] = useState(null);
+
+  const handleMenuClick = (menuId) => {
+    if (menuId === "enrollment" && !enrollmentOpen) {
+      setActiveMenu("dashboard");
+      return;
+    }
+    setActiveMenu(menuId);
+  };
+
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
 
   useEffect(() => {
@@ -48,8 +89,7 @@ export default function StudentMain() {
 
         const data = await res.json();
         const reminders = Array.isArray(data) ? data : [];
-        
-        // Only update state if component is still mounted to prevent duplication
+
         if (isMounted) {
           setUnreadReminders(reminders.filter((r) => !r.is_read).length);
         }
@@ -61,13 +101,9 @@ export default function StudentMain() {
       }
     };
 
-    // Load reminders immediately on mount
     loadUnreadReminders();
-
-    // Then poll for updates every 30 seconds
     pollInterval = setInterval(loadUnreadReminders, 30000);
 
-    // Cleanup function to prevent memory leaks and duplicate listeners
     return () => {
       isMounted = false;
       if (pollInterval) {
@@ -76,18 +112,69 @@ export default function StudentMain() {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadEnrollmentSettings = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/enrollment-settings/`);
+        const data = await res.json().catch(() => null);
+
+        if (!isMounted) return;
+
+        const windowInfo = computeEnrollmentWindow(data);
+        setEnrollmentWindow(windowInfo);
+        setEnrollmentOpen(windowInfo.isOpen);
+      } catch (err) {
+        console.error("Failed to load enrollment settings:", err);
+        if (isMounted) {
+          setEnrollmentWindow(null);
+          setEnrollmentOpen(false);
+        }
+      }
+    };
+
+    loadEnrollmentSettings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeMenu === "enrollment" && !enrollmentOpen) {
+      setActiveMenu("dashboard");
+    }
+  }, [activeMenu, enrollmentOpen]);
+
   const renderContent = () => {
     switch (activeMenu) {
-      case "dashboard": return <Dashboard />;
-      case "profile": return <Profile />;
-      case "ledgers": return <Ledgers />;
-      case "grades": return <Grades />;
-      case "academic-history": return <AcademicHistory />;
-      case "schedule": return <Schedule />;
-      case "attendance": return <Attendance />;
-      case "messages": return <Message />;
-      case "reminders": return <StudentReminders />;
-      default: return <Dashboard />;
+      case "dashboard":
+        return <Dashboard />;
+      case "profile":
+        return <Profile />;
+      case "ledgers":
+        return <Ledgers />;
+      case "grades":
+        return <Grades />;
+      case "academic-history":
+        return <AcademicHistory />;
+      case "schedule":
+        return <Schedule />;
+      case "attendance":
+        return <Attendance />;
+      case "messages":
+        return <Message />;
+      case "reminders":
+        return <StudentReminders />;
+      case "enrollment":
+        return enrollmentOpen ? (
+          <StudentEnrollment enrollmentWindow={enrollmentWindow} />
+        ) : (
+          <Dashboard />
+        );
+      default:
+        return <Dashboard />;
     }
   };
 
@@ -102,6 +189,7 @@ export default function StudentMain() {
       attendance: "Attendance",
       messages: "Messages",
       reminders: "Notifications",
+      enrollment: "Enrollment",
     };
     return titles[activeMenu] || "Dashboard";
   };
@@ -117,6 +205,9 @@ export default function StudentMain() {
       attendance: "View attendance records.",
       messages: "View and send messages.",
       reminders: "View payment reminders and important updates.",
+      enrollment: enrollmentOpen
+        ? "The Enrollment Period is Open."
+        : "Enrollment is currently unavailable.",
     };
     return subtitles[activeMenu] || "Welcome back!";
   };
@@ -128,6 +219,7 @@ export default function StudentMain() {
         onMenuClick={handleMenuClick}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
+        enrollmentOpen={enrollmentOpen}
       />
 
       <main className={`admin-main ${sidebarCollapsed ? "collapsed" : ""}`}>

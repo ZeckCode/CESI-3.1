@@ -2,36 +2,25 @@ from rest_framework import serializers
 from django.utils import timezone
 import re
 
-from .models import Enrollment, ParentInfo
+from .models import Enrollment, ParentInfo, EnrollmentDocument
 from accounts.models import User
 from accounts.serializers import UserSerializer
 from enrollment.models import EnrollmentSettings
-# -------------------- Helpers --------------------
+
 PRESCHOOL = {"prek", "kinder"}
 ELEMENTARY = {"grade1", "grade2", "grade3", "grade4", "grade5", "grade6"}
 
-# Allow digits + basic symbols for telephone; we will do strict PH for mobile below
 PHONE_RE = re.compile(r"^[0-9+\-\s()]{7,20}$")
-
-# Strict PH mobile:
-# - 09XXXXXXXXX (11 digits) OR
-# - +639XXXXXXXXX (13 chars)
 PH_MOBILE_RE = re.compile(r"^(09\d{9}|\+639\d{9})$")
 
 
-def normalize_ph_mobile(value: str | None):
-    """
-    Accept:
-      - 09xxxxxxxxx -> +639xxxxxxxxx
-      - +639xxxxxxxxx -> keep
-    Return normalized +639... or None if invalid/empty.
-    """
+def normalize_ph_mobile(value):
     if not value:
         return None
     cleaned = re.sub(r"\s+", "", str(value))
 
     if re.fullmatch(r"09\d{9}", cleaned):
-        return "+63" + cleaned[1:]  # 09xxxxxxxxx -> +639xxxxxxxxx
+        return "+63" + cleaned[1:]
 
     if re.fullmatch(r"\+639\d{9}", cleaned):
         return cleaned
@@ -39,21 +28,40 @@ def normalize_ph_mobile(value: str | None):
     return None
 
 
-# -------------------- Serializers --------------------
 class ParentInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParentInfo
         fields = [
-            "father_name", "father_contact", "father_occupation",
-            "mother_name", "mother_contact", "mother_occupation",
-            "guardian_name", "guardian_contact", "guardian_relationship",
+            "father_name",
+            "father_contact",
+            "father_occupation",
+            "mother_name",
+            "mother_contact",
+            "mother_occupation",
+            "guardian_name",
+            "guardian_contact",
+            "guardian_relationship",
         ]
+
+
+class EnrollmentDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnrollmentDocument
+        fields = [
+            "id",
+            "document_type",
+            "file",
+            "label",
+            "uploaded_at",
+        ]
+        read_only_fields = ["id", "uploaded_at"]
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):
     student_username = serializers.CharField(source="student.username", read_only=True)
     section_name = serializers.CharField(source="section.name", read_only=True)
     parent_info = ParentInfoSerializer(read_only=True)
+    documents = EnrollmentDocumentSerializer(many=True, read_only=True)
 
     class Meta:
         model = Enrollment
@@ -64,6 +72,7 @@ class EnrollmentDetailedSerializer(serializers.ModelSerializer):
     student = UserSerializer(read_only=True)
     section_details = serializers.SerializerMethodField()
     parent_info = ParentInfoSerializer(read_only=True)
+    documents = EnrollmentDocumentSerializer(many=True, read_only=True)
 
     class Meta:
         model = Enrollment
@@ -77,11 +86,23 @@ class EnrollmentDetailedSerializer(serializers.ModelSerializer):
         }
 
 
-class EnrollmentCreateSerializer(serializers.ModelSerializer):
-    # accept nested parent_info on POST/PATCH
-    parent_info = ParentInfoSerializer(required=False)
+class OldStudentLookupSerializer(serializers.Serializer):
+    identifier = serializers.CharField(required=True)
+    identifier_type = serializers.ChoiceField(
+        choices=["auto", "lrn", "student_number"],
+        required=False,
+        default="auto",
+    )
 
-    # honeypot (NOT a model field)
+    def validate_identifier(self, value):
+        value = (value or "").strip()
+        if not value:
+            raise serializers.ValidationError("Identifier is required.")
+        return value
+
+
+class EnrollmentCreateSerializer(serializers.ModelSerializer):
+    parent_info = ParentInfoSerializer(required=False)
     website = serializers.CharField(required=False, allow_blank=True, write_only=True)
 
     class Meta:
@@ -93,7 +114,6 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             "status": {"required": False},
         }
 
-    # -------------------- Validations --------------------
     def validate(self, attrs):
         is_create = self.instance is None
 
@@ -104,14 +124,11 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
                 return getattr(self.instance, field, None)
             return None
 
-        # 1) Honeypot bot check
         if attrs.get("website"):
             raise serializers.ValidationError("Invalid submission.")
 
-        # ✅ remove honeypot so it never reaches model create/update
         attrs.pop("website", None)
 
-        # 2) Required core fields (create only)
         if is_create:
             required = [
                 "first_name",
@@ -125,60 +142,66 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             if errors:
                 raise serializers.ValidationError(errors)
 
-        # 3) Birth date validation (past + age range)
         bd = merged_value("birth_date")
         if bd:
             today = timezone.localdate()
 
             if bd >= today:
-                raise serializers.ValidationError({"birth_date": "Birth date must be in the past."})
+                raise serializers.ValidationError({
+                    "birth_date": "Birth date must be in the past."
+                })
 
-            # accurate age calc
             age = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
 
-            # Adjust these limits to your school policy
             if age < 3:
-                raise serializers.ValidationError({"birth_date": "Student must be at least 3 years old."})
+                raise serializers.ValidationError({
+                    "birth_date": "Student must be at least 3 years old."
+                })
             if age > 18:
-                raise serializers.ValidationError({"birth_date": "Student age exceeds allowed school range."})
+                raise serializers.ValidationError({
+                    "birth_date": "Student age exceeds allowed school range."
+                })
 
-        # 4) Grade must match education level
         edu = merged_value("education_level")
         grade = merged_value("grade_level")
 
         if edu == "preschool" and grade and grade not in PRESCHOOL:
-            raise serializers.ValidationError({"grade_level": "For Preschool, grade must be Pre-Kinder or Kinder."})
-        if edu == "elementary" and grade and grade not in ELEMENTARY:
-            raise serializers.ValidationError({"grade_level": "For Elementary, grade must be Grade 1–6."})
+            raise serializers.ValidationError({
+                "grade_level": "For Preschool, grade must be Pre-Kinder or Kinder."
+            })
 
-        # 5) At least one student contact method
-        # Enforced on create, and on update only when contact fields are edited.
+        if edu == "elementary" and grade and grade not in ELEMENTARY:
+            raise serializers.ValidationError({
+                "grade_level": "For Elementary, grade must be Grade 1–6."
+            })
+
         contact_fields = {"mobile_number", "telephone_number", "email"}
         contacts_touched = any(f in attrs for f in contact_fields)
+
         if is_create or contacts_touched:
             mobile = merged_value("mobile_number")
             tel = merged_value("telephone_number")
             email = merged_value("email")
-            if not (mobile or tel or email):
-                raise serializers.ValidationError(
-                    {"contact": "Provide at least one contact: mobile number, telephone number, or email."}
-                )
 
-        # 6) Mobile PH validation + normalize to +639...
+            if not (mobile or tel or email):
+                raise serializers.ValidationError({
+                    "contact": "Provide at least one contact: mobile number, telephone number, or email."
+                })
+
         if "mobile_number" in attrs and attrs.get("mobile_number"):
             normalized = normalize_ph_mobile(attrs.get("mobile_number"))
             if not normalized:
-                raise serializers.ValidationError(
-                    {"mobile_number": "Invalid PH mobile. Use 09XXXXXXXXX or +639XXXXXXXXX."}
-                )
+                raise serializers.ValidationError({
+                    "mobile_number": "Invalid PH mobile. Use 09XXXXXXXXX or +639XXXXXXXXX."
+                })
             attrs["mobile_number"] = normalized
 
-        # 7) Telephone format validation (if provided)
         tel = attrs.get("telephone_number") if "telephone_number" in attrs else None
         if tel and not PHONE_RE.match(tel):
-            raise serializers.ValidationError({"telephone_number": "Invalid phone format."})
+            raise serializers.ValidationError({
+                "telephone_number": "Invalid phone format."
+            })
 
-        # 8) Parent/Guardian: if parent_info exists, require at least one contact
         parent_info = attrs.get("parent_info", None)
         if parent_info is not None:
             has_parent_contact = any([
@@ -186,25 +209,27 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
                 parent_info.get("mother_contact"),
                 parent_info.get("guardian_contact"),
             ])
-            if not has_parent_contact:
-                raise serializers.ValidationError(
-                    {"parent_info": "Provide at least one parent/guardian contact number."}
-                )
 
-            # Optional: validate parent/guardian contact formats
+            if not has_parent_contact:
+                raise serializers.ValidationError({
+                    "parent_info": "Provide at least one parent/guardian contact number."
+                })
+
             for field in ["father_contact", "mother_contact", "guardian_contact"]:
                 val = parent_info.get(field)
                 if val and not PHONE_RE.match(val):
-                    raise serializers.ValidationError({"parent_info": {field: "Invalid phone format."}})
+                    raise serializers.ValidationError({
+                        "parent_info": {
+                            field: "Invalid phone format."
+                        }
+                    })
 
         return attrs
 
-    # -------------------- Create / Update --------------------
     def create(self, validated_data):
         validated_data.pop("website", None)
         parent_data = validated_data.pop("parent_info", None)
 
-        # Temporary placeholder student user for public enrollment submissions
         public_user, created = User.objects.get_or_create(
             username="public_user",
             defaults={
@@ -215,14 +240,16 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             },
         )
 
-        # Safety: if public_user already exists but has no usable email/role, keep it valid
         updated_fields = []
+
         if not public_user.email:
             public_user.email = "public@school.com"
             updated_fields.append("email")
+
         if public_user.role not in ["ADMIN", "TEACHER", "PARENT_STUDENT"]:
             public_user.role = "PARENT_STUDENT"
             updated_fields.append("role")
+
         if updated_fields:
             public_user.save(update_fields=updated_fields)
 
@@ -238,7 +265,9 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
 
         if possible_duplicate:
             existing_remarks = validated_data.get("remarks", "") or ""
-            validated_data["remarks"] = (existing_remarks + " | POSSIBLE DUPLICATE ENROLLMENT").strip(" |")
+            validated_data["remarks"] = (
+                existing_remarks + " | POSSIBLE DUPLICATE ENROLLMENT"
+            ).strip(" |")
 
         enrollment = super().create(validated_data)
 
@@ -246,11 +275,9 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             ParentInfo.objects.create(enrollment=enrollment, **parent_data)
 
         return enrollment
-    
-    def update(self, instance, validated_data):
-        # ✅ final safety
-        validated_data.pop("website", None)
 
+    def update(self, instance, validated_data):
+        validated_data.pop("website", None)
         parent_data = validated_data.pop("parent_info", None)
 
         instance = super().update(instance, validated_data)
@@ -262,13 +289,10 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             )
 
         return instance
-    
-    
-from .models import EnrollmentSettings  # ← already imported via models
 
 
 class EnrollmentSettingsSerializer(serializers.ModelSerializer):
     class Meta:
-        model  = EnrollmentSettings
+        model = EnrollmentSettings
         fields = ["open_date", "window_days", "academic_year", "updated_at"]
         read_only_fields = ["updated_at"]

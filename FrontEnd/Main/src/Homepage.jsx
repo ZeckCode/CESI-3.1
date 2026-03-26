@@ -9,9 +9,13 @@ import ForgotPassword from "./components/Auth/ForgotPassword";
 import ResetPassword from "./components/Auth/ResetPassword";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 
+
 import AdminDashboard from "./components/AdminWebsite/AdminDashboard";
 import TeacherDashboard from "./components/TeacherWebsite/TeacherIndex";
 import StudentMain from "./components/StudentWebsite/StudentMain";
+
+import StudentReenrollment from "./components/StudentWebsite/StudentEnrollment";
+
 
 import { useAuth } from "./components/Auth/useAuth";
 import { getToken } from "./components/Auth/auth";
@@ -88,6 +92,14 @@ export default function Homepage() {
         element={
           <ProtectedRoute role="PARENT_STUDENT">
             <StudentMain />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/reenrollment"
+        element={
+          <ProtectedRoute role="PARENT_STUDENT">
+            <StudentReenrollment />
           </ProtectedRoute>
         }
       />

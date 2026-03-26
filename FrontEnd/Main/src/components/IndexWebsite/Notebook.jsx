@@ -162,10 +162,10 @@ const Notebook = ({ onClose, openEnrollment }) => {
       ),
     },
 
-    "enrollment-form": {
-      title: "Enrollment Form",
-      content: null,
-    },
+    // "enrollment-form": {
+    //   title: "Enrollment Form",
+    //   content: null,
+    // },
 
     contact: {
       title: "Contact & Inquiry",
@@ -249,7 +249,7 @@ const Notebook = ({ onClose, openEnrollment }) => {
 
               {activeTab === "enrollment-form" ? (
                 <div>
-                  <p>Click the button below to fill out the enrollment form:</p>
+                  {/* <p>Click the button below to fill out the enrollment form:</p>
                   <button
                     className="apply-btn"
                     onClick={() => {
@@ -257,14 +257,14 @@ const Notebook = ({ onClose, openEnrollment }) => {
                       onClose();
                     }}
                   >
-                    Apply Now
-                  </button>
+                    Enroll Now
+                  </button> */}
                 </div>
               ) : (
                 content[activeTab].content
               )}
             </div>
-
+              
             <div className="page-footer">
               <div className="page-number">CESI Elementary</div>
               <div className="page-date">Student Edition</div>

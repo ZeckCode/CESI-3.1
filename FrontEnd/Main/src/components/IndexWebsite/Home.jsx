@@ -46,7 +46,7 @@ function App() {
                 setNotebookOpen(false); // close notebook automatically
               }}
             >
-              Apply Now
+              Enroll Now!
             </button>
 
             <button
@@ -91,7 +91,7 @@ function App() {
 
         )}
       </main>
-
+        
 
       {/* Footer - Full width */}
       <footer className="footer">
@@ -117,5 +117,6 @@ function App() {
     </div>
   );
 }
+
 
 export default App;

@@ -61,6 +61,7 @@ const Ledgers = () => {
   const [txPage, setTxPage] = useState(1);
   const [installmentPage, setInstallmentPage] = useState(1);
   const [viewMode, setViewMode] = useState("transactions");
+  const [isPrinting, setIsPrinting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -146,14 +147,22 @@ const Ledgers = () => {
           <button
             type="button"
             className="btn-action btn-print"
-            onClick={() => window.print()}
+            onClick={() => {
+              setIsPrinting(true);
+              setViewMode("installments");
+              setTimeout(() => {
+                window.print();
+                setIsPrinting(false);
+              }, 100);
+            }}
           >
             <i className="bi bi-printer-fill me-2"></i>Print
           </button>
         </div>
       </header>
 
-      <div className="ledger-summary-row">
+      {!isPrinting && (
+        <div className="ledger-summary-row">
         <div className="ledger-sumCard ledger-sumCard--blue">
           <div className="ledger-sumCard__label">💰 TOTAL BILLED</div>
           <div className="ledger-sumCard__value">
@@ -208,7 +217,9 @@ const Ledgers = () => {
           </div>
         </div>
       </div>
+      )}
 
+      {!isPrinting && (
       <div className="ledger-tabs" style={{ marginBottom: "1.5rem" }}>
         <button
           className={`ledger-tab ${viewMode === "transactions" ? "active" : ""}`}
@@ -229,6 +240,7 @@ const Ledgers = () => {
           <i className="bi bi-calendar2-month me-2"></i>Tuition Installments
         </button>
       </div>
+      )}
 
       {loading && (
         <div style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
@@ -251,7 +263,7 @@ const Ledgers = () => {
         </div>
       )}
 
-      {!loading && !error && viewMode === "transactions" && (
+      {!loading && !error && viewMode === "transactions" && !isPrinting && (
         <section className="ledger-section">
           <div className="section-header blue-header">
             <i className="bi bi-book-fill me-2"></i>Account Ledger
@@ -309,14 +321,6 @@ const Ledgers = () => {
                       return (
                         <tr
                           key={tx.id}
-                          style={{
-                            backgroundColor: isCharge
-                              ? "rgba(206, 17, 38, 0.03)"
-                              : "rgba(34, 197, 94, 0.03)",
-                            borderLeftColor: isCharge ? "#ce1126" : "#22c55e",
-                            borderLeftWidth: "3px",
-                            borderLeftStyle: "solid",
-                          }}
                         >
                           <td data-label="Date" style={{ fontWeight: 500 }}>
                             {tx.transaction_date || "—"}
@@ -334,22 +338,22 @@ const Ledgers = () => {
                                 gap: "0.25rem",
                               }}
                             >
-                              <span style={{ fontWeight: 700, color: "#1e293b" }}>
+                              <span style={{ fontWeight: 700, color: "#000000" }}>
                                 {ITEM_LABELS[tx.item] || tx.item || "Entry"}
                               </span>
 
-                              <span style={{ fontSize: "0.8rem", color: "#475569" }}>
+                              <span style={{ fontSize: "0.8rem", color: "#000000" }}>
                                 {TYPE_LABELS[tx.transaction_type] || tx.transaction_type}
                                 {" • "}
                                 {ENTRY_LABELS[tx.entry_type] || tx.entry_type}
                               </span>
 
-                              <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
+                              <span style={{ fontSize: "0.75rem", color: "#000000" }}>
                                 {tx.due_date ? `Due: ${tx.due_date}` : "No due date"}
                               </span>
 
                               {tx.description ? (
-                                <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                <span style={{ fontSize: "0.75rem", color: "#000000" }}>
                                   {tx.description}
                                 </span>
                               ) : null}
@@ -359,7 +363,7 @@ const Ledgers = () => {
                           <td
                             data-label="Debit"
                             className="text-center"
-                            style={{ color: "#991b1b", fontWeight: 700 }}
+                            style={{ color: "#000000", fontWeight: 700 }}
                           >
                             {debit > 0 ? formatCurrency(debit) : "—"}
                           </td>
@@ -367,7 +371,7 @@ const Ledgers = () => {
                           <td
                             data-label="Credit"
                             className="text-center"
-                            style={{ color: "#16a34a", fontWeight: 700 }}
+                            style={{ color: "#000000", fontWeight: 700 }}
                           >
                             {credit > 0 ? formatCurrency(credit) : "—"}
                           </td>
@@ -375,7 +379,7 @@ const Ledgers = () => {
                           <td
                             data-label="Balance"
                             className="text-right"
-                            style={{ fontWeight: 700, color: "#0284c7" }}
+                            style={{ fontWeight: 700, color: "#000000" }}
                           >
                             {formatCurrency(tx.balance)}
                           </td>
@@ -383,7 +387,7 @@ const Ledgers = () => {
                           <td
                             data-label="Total"
                             className="text-center"
-                            style={{ fontWeight: 700, color: "#334155" }}
+                            style={{ fontWeight: 700, color: "#000000" }}
                           >
                             {formatCurrency(total)}
                           </td>
@@ -409,16 +413,16 @@ const Ledgers = () => {
                       <td colSpan="3" style={{ textAlign: "right" }}>
                         TOTALS:
                       </td>
-                      <td className="text-center" style={{ color: "#991b1b" }}>
+                      <td className="text-center" style={{ color: "#000000" }}>
                         {formatCurrency(summary?.total_billed || 0)}
                       </td>
-                      <td className="text-center" style={{ color: "#16a34a" }}>
+                      <td className="text-center" style={{ color: "#000000" }}>
                         {formatCurrency(summary?.total_paid || 0)}
                       </td>
-                      <td className="text-right" style={{ color: "#0284c7" }}>
+                      <td className="text-right" style={{ color: "#dc2626" }}>
                         {formatCurrency(summary?.balance || 0)}
                       </td>
-                      <td className="text-center" style={{ color: "#334155" }}>
+                      <td className="text-right" style={{ color: "#000000" }}>
                         {formatCurrency(
                           (Number(summary?.total_billed || 0) +
                             Number(summary?.total_paid || 0))
@@ -448,53 +452,35 @@ const Ledgers = () => {
             <i className="bi bi-calendar2-month me-2"></i>Tuition Installment Schedule
           </div>
 
-          <div
-            className="ledger-info"
-            style={{
-              background: "#f0f9ff",
-              padding: "1rem",
-              borderRadius: "0.5rem",
-              marginBottom: "1.5rem",
-              fontSize: "0.875rem",
-              color: "#64748b",
-              borderLeft: "4px solid #0284c7",
-            }}
-          >
-            <strong style={{ color: "#0284c7" }}>📋 How to Read this Schedule:</strong>
-            <br />
-            Paid installments are already covered by your ledger credits. Unpaid
-            installments remain part of your outstanding balance of{" "}
-            <strong style={{ color: "#0284c7" }}>
-              {summary ? formatCurrency(summary.balance) : "—"}
-            </strong>
-            .
-          </div>
-
           {tuitionInstallments.length === 0 ? (
             <div style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}>
               No tuition installment information available.
             </div>
           ) : (
             <>
-              {paginatedInstallments.map((student) => (
+              {paginatedInstallments.map((student, idx) => (
                 <div key={student.student_id} style={{ marginBottom: "2.5rem" }}>
                   <div
                     style={{
                       background: "#f1f5f9",
-                      padding: "1rem",
+                      padding: "1.5rem",
                       borderRadius: "0.5rem",
-                      marginBottom: "1rem",
+                      marginBottom: "1.5rem",
                       borderLeft: "4px solid #3b82f6",
                     }}
                   >
-                    <h4 style={{ margin: "0 0 0.5rem 0", color: "#1e293b" }}>
-                      📚 {student.student_name}
-                    </h4>
-                    <p style={{ margin: "0.25rem 0", color: "#64748b", fontSize: "0.875rem" }}>
-                      Grade Level: <strong>{student.grade_level}</strong> | Payment Mode:{" "}
-                      <strong>{paymentModeLabel(student.payment_mode)}</strong> | Overall Status:{" "}
-                      <strong>{student.overall_status || "PENDING"}</strong>
-                    </p>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "2rem" }}>
+                      <div>
+                        <h4 style={{ margin: "0 0 0.5rem 0", color: "#1e293b", fontSize: "1.1rem" }}>
+                          📚 {student.student_name}
+                        </h4>
+                      </div>
+                      <div style={{ fontSize: "0.85rem", color: "#64748b", textAlign: "right" }}>
+                        <div>Grade: <strong>{student.grade_level}</strong></div>
+                        <div>Mode: <strong>{paymentModeLabel(student.payment_mode)}</strong></div>
+                        <div>Status: <strong style={{ color: student.overall_status === "PENDING" ? "#d97706" : "#16a34a" }}>{student.overall_status || "PENDING"}</strong></div>
+                      </div>
+                    </div>
                   </div>
 
                   <div
@@ -593,20 +579,6 @@ const Ledgers = () => {
                             return (
                               <tr
                                 key={idx}
-                                style={{
-                                  backgroundColor: isPaid
-                                    ? "rgba(34, 197, 94, 0.05)"
-                                    : isOverdue
-                                    ? "rgba(220, 38, 38, 0.06)"
-                                    : "rgba(245, 158, 11, 0.06)",
-                                  borderLeftColor: isPaid
-                                    ? "#22c55e"
-                                    : isOverdue
-                                    ? "#dc2626"
-                                    : "#f59e0b",
-                                  borderLeftWidth: "4px",
-                                  borderLeftStyle: "solid",
-                                }}
                               >
                                 <td data-label="Installment" style={{ fontWeight: 600 }}>
                                   {inst.type}
@@ -624,6 +596,22 @@ const Ledgers = () => {
                             );
                           })}
                         </tbody>
+                        <tfoot>
+                          <tr style={{ background: "#f1f5f9", fontWeight: 700 }}>
+                            <td colSpan="3" style={{ textAlign: "right", paddingRight: "2rem" }}>
+                              <span>TOTAL:</span>
+                              <span style={{ marginLeft: "1rem" }}>
+                                {formatCurrency(
+                                  student.installments.reduce(
+                                    (sum, inst) => sum + Number(inst.amount || 0),
+                                    0
+                                  )
+                                )}
+                              </span>
+                            </td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </div>
                   ) : (

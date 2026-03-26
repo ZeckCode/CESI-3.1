@@ -22,7 +22,8 @@
     "react-pageflip": "^2.0.3",
     "react-quill-new": "^3.8.3",
     "react-router-dom": "^7.13.0",
-    "recharts": "^3.6.0"
+    "recharts": "^3.6.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

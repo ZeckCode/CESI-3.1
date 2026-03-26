@@ -3,7 +3,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
+
 from django.db.models import Count, Max, Q, Sum
+
 from decimal import Decimal
 
 from .models import GradeWeight, GradeItem, StudentScore, ClassStanding, AcademicRecord
@@ -17,6 +19,8 @@ from .serializers import (
 from accounts.models import User, UserProfile, Subject
 from classmanagement.models import Schedule
 from enrollment.models import Enrollment
+
+from finance.models import Transaction
 
 
 def normalize_grade_level(value):
@@ -877,3 +881,116 @@ class AcademicRecordDetail(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         serializer.save(recorded_by=self.request.user)
+        
+  
+  
+  
+# ══════════════════════════════════════════════════════
+# Student  —  re-enrollment eligibility check
+# ══════════════════════════════════════════════════════       
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_reenrollment_eligibility(request):
+    user = request.user
+    if user.role != "PARENT_STUDENT":
+        return Response({"detail": "Forbidden"}, status=403)
+
+    profile = getattr(user, "profile", None)
+
+    current_grade = None
+    if profile and profile.grade_level:
+        current_grade = str(profile.grade_level).strip().lower()
+    else:
+        latest_enrollment = (
+            Enrollment.objects.filter(parent_user=user)
+            .order_by("-created_at", "-id")
+            .first()
+        )
+        if latest_enrollment and latest_enrollment.grade_level:
+            current_grade = str(latest_enrollment.grade_level).strip().lower()
+
+    next_grade_map = {
+        "prek": "kinder",
+        "kinder": "grade1",
+        "grade1": "grade2",
+        "grade2": "grade3",
+        "grade3": "grade4",
+        "grade4": "grade5",
+        "grade5": "grade6",
+        "grade6": None,
+    }
+    next_grade = next_grade_map.get(current_grade)
+
+    totals = Transaction.objects.filter(parent=user).aggregate(
+        total_debit=Sum("debit"),
+        total_credit=Sum("credit"),
+    )
+    total_debit = Decimal(str(totals.get("total_debit") or 0))
+    total_credit = Decimal(str(totals.get("total_credit") or 0))
+    outstanding_balance = total_debit - total_credit
+    if outstanding_balance < 0:
+        outstanding_balance = Decimal("0.00")
+
+    grades = my_grades(request).data
+    grades = grades if isinstance(grades, list) else []
+
+    total_subjects = len(grades)
+    incomplete_subjects = 0
+    failed_subjects = 0
+    passed_subjects = 0
+
+    for row in grades:
+        final_grade = row.get("final_grade")
+        if final_grade is None:
+            incomplete_subjects += 1
+        elif float(final_grade) < 75:
+            failed_subjects += 1
+        else:
+            passed_subjects += 1
+
+    completed_subjects = total_subjects - incomplete_subjects
+
+    grade6_completed = current_grade == "grade6"
+    has_balance = outstanding_balance > 0
+    has_incomplete_grades = incomplete_subjects > 0
+    has_failing_grades = failed_subjects > 0
+
+    eligible = not (
+        has_balance
+        or has_incomplete_grades
+        or has_failing_grades
+        or grade6_completed
+    )
+
+    if grade6_completed:
+        message = "Congratulations! You already completed Grade 6. No further re-enrollment is needed."
+    elif has_balance:
+        message = f"You still have an outstanding balance of ₱{outstanding_balance:,.2f}."
+    elif has_incomplete_grades:
+        message = "You have incomplete grades. Please wait until all subjects have final grades."
+    elif has_failing_grades:
+        message = "You have failing grades. Please coordinate with the school before re-enrollment."
+    elif next_grade:
+        message = f"You are eligible to re-enroll for {grade_level_label(normalize_grade_level(next_grade))}."
+    else:
+        message = "You are eligible to re-enroll."
+
+    return Response({
+        "eligible": eligible,
+        "current_grade": current_grade,
+        "next_grade": next_grade,
+        "outstanding_balance": float(outstanding_balance),
+        "has_balance": has_balance,
+        "has_incomplete_grades": has_incomplete_grades,
+        "has_failing_grades": has_failing_grades,
+        "grade6_completed": grade6_completed,
+        "message": message,
+        "grade_summary": {
+            "total_subjects": total_subjects,
+            "completed_subjects": completed_subjects,
+            "incomplete_subjects": incomplete_subjects,
+            "failed_subjects": failed_subjects,
+            "passed_subjects": passed_subjects,
+        },
+    })
