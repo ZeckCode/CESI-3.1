@@ -5,6 +5,7 @@ import {
   Plus, X, ChevronDown, ChevronUp, Edit2, Trash2,
   Bell, Receipt
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import '../AdminWebsiteCSS/TransactionHistory.css';
 import Pagination from './Pagination';
 import { getToken } from '../Auth/auth';
@@ -414,7 +415,86 @@ const TransactionHistory = () => {
   };
 
   const handleExportData = () => {
-    alert('Exporting transaction data to Excel...');
+    try {
+      // Prepare summary data
+      const summaryData = groupedTransactions.map((group) => ({
+        'Date': group.latest_date || '—',
+        'Student Number': group.student_number,
+        'Student Name': group.student_name,
+        'Grade Level': group.grade_level || '—',
+        'Payment Mode': group.payment_mode || '—',
+        'Total Debit': Number(group.total_debit || 0),
+        'Total Credit': Number(group.total_credit || 0),
+        'Balance': Number(group.balance || 0),
+        'Status': group.account_status,
+      }));
+
+      // Prepare detailed ledger data
+      const detailData = [];
+      groupedTransactions.forEach((group) => {
+        group.rows.forEach((tx) => {
+          detailData.push({
+            'Student Number': group.student_number,
+            'Student Name': group.student_name,
+            'Date': tx.transaction_date || '—',
+            'Reference': tx.reference_number || '—',
+            'Entry Type': entryLabel(tx.entry_type),
+            'Item': itemLabel(tx.item),
+            'Debit': Number(tx.debit || 0),
+            'Credit': Number(tx.credit || 0),
+            'Balance': Number(tx.balance || 0),
+            'Status': tx.status,
+            'Description': tx.description || '',
+          });
+        });
+      });
+
+      // Create workbook with two sheets
+      const wb = XLSX.utils.book_new();
+      
+      // Summary sheet
+      const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+      summarySheet['!cols'] = [
+        { wch: 15 }, // Date
+        { wch: 15 }, // Student Number
+        { wch: 20 }, // Student Name
+        { wch: 12 }, // Grade Level
+        { wch: 15 }, // Payment Mode
+        { wch: 15 }, // Total Debit
+        { wch: 15 }, // Total Credit
+        { wch: 15 }, // Balance
+        { wch: 12 }, // Status
+      ];
+      XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+
+      // Detailed ledger sheet
+      const detailSheet = XLSX.utils.json_to_sheet(detailData);
+      detailSheet['!cols'] = [
+        { wch: 15 }, // Student Number
+        { wch: 20 }, // Student Name
+        { wch: 15 }, // Date
+        { wch: 15 }, // Reference
+        { wch: 15 }, // Entry Type
+        { wch: 15 }, // Item
+        { wch: 12 }, // Debit
+        { wch: 12 }, // Credit
+        { wch: 12 }, // Balance
+        { wch: 12 }, // Status
+        { wch: 25 }, // Description
+      ];
+      XLSX.utils.book_append_sheet(wb, detailSheet, 'Ledger Details');
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const filename = `Transaction_History_${timestamp}.xlsx`;
+
+      // Save the file
+      XLSX.writeFile(wb, filename);
+      alert(`✓ Export successful! File: ${filename}`);
+    } catch (err) {
+      console.error('Error exporting data:', err);
+      alert('Failed to export data. Please try again.');
+    }
   };
 
   const itemLabel = (val) => ITEM_OPTIONS.find((i) => i.value === val)?.label || val;

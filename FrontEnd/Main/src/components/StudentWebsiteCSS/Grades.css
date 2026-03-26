@@ -379,3 +379,70 @@
     font-size: 1.5rem;
   }
 }
+
+/* Print Styles - Show only table for export */
+@media print {
+  /* Hide everything marked as no-print */
+  .sg-no-print, 
+  nav, 
+  footer, 
+  .sidebar { 
+    display: none !important; 
+  }
+
+  /* Reset the body and main container to start at the top */
+  html, body {
+    height: auto;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .student-grades-main {
+    padding: 0 !important;
+    margin: 0 !important;
+    background-color: white !important;
+    display: block !important;
+  }
+
+  /* Ensure the print area takes the full page immediately */
+  .sg-print-area {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .sg-section-header {
+    display: block !important;
+    margin-bottom: 20px !important;
+  }
+
+  /* Force table colors and borders to appear in PDF */
+  .sg-table-container {
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+
+  .sg-table {
+    width: 100% !important;
+    border: 1px solid #000 !important; /* Add thin border for professional look */
+    border-collapse: collapse !important;
+  }
+
+  .sg-table th, .sg-table td {
+    border: 1px solid #e2e8f0 !important;
+    -webkit-print-color-adjust: exact; /* Keeps background colors */
+    print-color-adjust: exact;
+  }
+
+  /* Prevent row splitting across pages */
+  .sg-table tbody tr {
+    page-break-inside: avoid !important;
+  }
+
+  @page {
+    margin: 0.5in;
+    size: portrait;
+  }
+}
