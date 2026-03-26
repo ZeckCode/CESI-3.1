@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Edit2, Trash2, Search, Filter,
   CheckCircle, Clock, AlertCircle, XCircle, Eye, RefreshCw,
   AlertTriangle, ArrowUpCircle, Settings, Calendar, X,
-  Users, UserCheck, UserMinus, UserX,
+  Users, UserCheck, UserMinus, UserX, Paperclip, ExternalLink,
 } from "lucide-react";
-import StatCard, { StatsGrid } from './StatCard';
-import Pagination from './Pagination';
+import StatCard, { StatsGrid } from "./StatCard";
+import Pagination from "./Pagination";
 import "../AdminWebsiteCSS/EnrollmentManagement.css";
 import { getToken } from "../Auth/auth";
 
@@ -21,22 +21,27 @@ function authHeaders(json = true) {
 }
 
 /* ─────────────────────────────────────────────
-   GRADE LABELS
+   LABELS / HELPERS
 ───────────────────────────────────────────── */
 const gradeLabel = (code) => ({
-  prek: "Pre-Kinder", kinder: "Kindergarten",
-  grade1: "Grade 1", grade2: "Grade 2", grade3: "Grade 3",
-  grade4: "Grade 4", grade5: "Grade 5", grade6: "Grade 6",
+  prek: "Pre-Kinder",
+  kinder: "Kindergarten",
+  grade1: "Grade 1",
+  grade2: "Grade 2",
+  grade3: "Grade 3",
+  grade4: "Grade 4",
+  grade5: "Grade 5",
+  grade6: "Grade 6",
 }[code] || code || "");
 
 const statusLabel = (s) => ({
-  ACTIVE: "Active", PENDING: "Pending", DROPPED: "Dropped",
-  COMPLETED: "Completed", EXPIRED: "Expired",
+  ACTIVE: "Active",
+  PENDING: "Pending",
+  DROPPED: "Dropped",
+  COMPLETED: "Completed",
+  EXPIRED: "Expired",
 }[s] || s || "");
 
-/* ─────────────────────────────────────────────
-   FILTER OPTIONS
-───────────────────────────────────────────── */
 const FILTER_OPTIONS = [
   { value: "All", label: "All Status" },
   { value: "Active", label: "Enrolled" },
@@ -46,15 +51,21 @@ const FILTER_OPTIONS = [
   { value: "Expired", label: "Expired" },
 ];
 
+const DOCUMENT_TYPE_OPTIONS = [
+  { value: "form_137", label: "Form 137-E" },
+  { value: "sf10", label: "School Form 10 (SF10)" },
+  { value: "birth_certificate", label: "Birth Certificate" },
+  { value: "good_moral", label: "Good Moral Certificate" },
+  { value: "report_card", label: "Report Card" },
+  { value: "other", label: "Other Document" },
+];
+
 const matchesStatusFilter = (filterStatus, statusText, isExpired) => {
   if (filterStatus === "Expired") return isExpired;
   if (filterStatus === "All") return !isExpired;
   return !isExpired && statusText === filterStatus;
 };
 
-/* ─────────────────────────────────────────────
-   AGE VALIDATION
-───────────────────────────────────────────── */
 const GRADE_AGE_RULES = {
   prek: { min: 3, max: 5, label: "Pre-Kinder" },
   kinder: { min: 4, max: 6, label: "Kindergarten" },
@@ -66,9 +77,6 @@ const GRADE_AGE_RULES = {
   grade6: { min: 10, max: 12, label: "Grade 6" },
 };
 
-/* ─────────────────────────────────────────────
-   GRADE PROGRESSION
-───────────────────────────────────────────── */
 const GRADE_PROGRESSION = {
   prek: { next: "kinder", nextEdu: "preschool" },
   kinder: { next: "grade1", nextEdu: "elementary" },
@@ -80,7 +88,8 @@ const GRADE_PROGRESSION = {
   grade6: { next: null, nextEdu: null },
 };
 
-const getNextGrade = (gradeCode) => GRADE_PROGRESSION[gradeCode] || { next: null, nextEdu: null };
+const getNextGrade = (gradeCode) =>
+  GRADE_PROGRESSION[gradeCode] || { next: null, nextEdu: null };
 
 const advanceAcademicYear = (academicYear) => {
   if (!academicYear) return getCurrentAcademicYear();
@@ -105,9 +114,6 @@ const validateAgeForGrade = (birthDate, gradeCode) => {
   return true;
 };
 
-/* ─────────────────────────────────────────────
-   ENROLLMENT EXPIRY
-───────────────────────────────────────────── */
 const getAcademicYearExpiry = (academicYear) => {
   if (!academicYear) return null;
   const parts = String(academicYear).split("-");
@@ -125,17 +131,22 @@ const isEnrollmentExpired = (academicYear) => {
 const formatExpiryDate = (academicYear) => {
   const expiry = getAcademicYearExpiry(academicYear);
   if (!expiry) return "—";
-  return expiry.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" });
+  return expiry.toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 };
 
 const fmtDate = (date) =>
   date instanceof Date
-    ? date.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })
+    ? date.toLocaleDateString("en-PH", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
     : "—";
 
-/* ─────────────────────────────────────────────
-   ENROLLMENT WINDOW HELPERS
-───────────────────────────────────────────── */
 const computeEnrollmentWindow = (settings) => {
   const autoOpen = () => {
     const today = new Date();
@@ -165,19 +176,14 @@ const computeEnrollmentWindow = (settings) => {
   };
 
   const academicYear = settings?.academic_year || autoAY();
-
   return { isOpen, openDate, closeDate, daysLeft, academicYear };
 };
 
-/* ─────────────────────────────────────────────
-   HELPERS FOR MATCHING ENROLLMENT FORM
-───────────────────────────────────────────── */
 const splitFullName = (fullName = "") => {
   const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { first: "", middle: "", last: "" };
   if (parts.length === 1) return { first: parts[0], middle: "", last: "" };
   if (parts.length === 2) return { first: parts[0], middle: "", last: parts[1] };
-
   return {
     first: parts[0],
     middle: parts.slice(1, -1).join(" "),
@@ -186,7 +192,10 @@ const splitFullName = (fullName = "") => {
 };
 
 const buildName = (first, middle, last) =>
-  [first, middle, last].map((p) => String(p || "").trim()).filter(Boolean).join(" ");
+  [first, middle, last]
+    .map((p) => String(p || "").trim())
+    .filter(Boolean)
+    .join(" ");
 
 const splitAddress = (address = "") => {
   const parts = String(address).split(",").map((p) => p.trim());
@@ -206,9 +215,6 @@ const buildAddress = ({ street, barangay, city, province, region, zip_code }) =>
     .filter(Boolean)
     .join(", ");
 
-/* ─────────────────────────────────────────────
-   EMPTY FORM / HELPERS
-───────────────────────────────────────────── */
 const emptyForm = () => ({
   first_name: "",
   last_name: "",
@@ -216,7 +222,6 @@ const emptyForm = () => ({
   birth_date: "",
   gender: "",
   lrn: "",
-
   education_level: "",
   grade_level: "",
   student_type: "",
@@ -224,35 +229,29 @@ const emptyForm = () => ({
   status: "PENDING",
   payment_mode: "",
   section: "",
-
   email: "",
   religion: "",
   telephone_number: "",
   mobile_number: "",
   parent_facebook: "",
-
   street: "",
   barangay: "",
   city: "",
   province: "",
   region: "",
   zip_code: "",
-
   remarks: "",
-
   parent_info: {
     father_first: "",
     father_middle: "",
     father_last: "",
     father_contact: "",
     father_occupation: "",
-
     mother_first: "",
     mother_middle: "",
     mother_last: "",
     mother_contact: "",
     mother_occupation: "",
-
     guardian_first: "",
     guardian_middle: "",
     guardian_last: "",
@@ -301,7 +300,6 @@ const normalizePHMobile = (number) => {
 
 const normalizeSectionGrade = (value) => {
   const v = String(value ?? "").trim().toLowerCase();
-
   if (v === "0" || v === "k" || v === "kinder" || v === "kindergarten") return "kinder";
   if (v === "prek" || v === "pre-k" || v === "pre kinder" || v === "pre-kinder") return "prek";
   if (v === "1" || v === "grade1" || v === "grade 1") return "grade1";
@@ -310,13 +308,9 @@ const normalizeSectionGrade = (value) => {
   if (v === "4" || v === "grade4" || v === "grade 4") return "grade4";
   if (v === "5" || v === "grade5" || v === "grade 5") return "grade5";
   if (v === "6" || v === "grade6" || v === "grade 6") return "grade6";
-
   return v;
 };
 
-/* ─────────────────────────────────────────────
-   BADGE STYLES
-───────────────────────────────────────────── */
 const STATUS_STYLES = {
   ACTIVE: { background: "#d1fae5", color: "#065f46" },
   PENDING: { background: "#fef3c7", color: "#92400e" },
@@ -348,33 +342,66 @@ const badgeStyle = (map, key) => ({
 });
 
 const StatusBadge = ({ code, expired }) => {
-  const displayCode = expired && code !== "DROPPED" && code !== "COMPLETED" ? "EXPIRED" : code;
+  const displayCode =
+    expired && code !== "DROPPED" && code !== "COMPLETED" ? "EXPIRED" : code;
   const icon =
-    displayCode === "EXPIRED" ? <AlertTriangle size={12} /> :
-    displayCode === "ACTIVE" || displayCode === "COMPLETED" ? <CheckCircle size={12} /> :
-    displayCode === "DROPPED" ? <XCircle size={12} /> :
-    <Clock size={12} />;
-  return <span style={badgeStyle(STATUS_STYLES, displayCode)}>{icon}{statusLabel(displayCode)}</span>;
+    displayCode === "EXPIRED" ? (
+      <AlertTriangle size={12} />
+    ) : displayCode === "ACTIVE" || displayCode === "COMPLETED" ? (
+      <CheckCircle size={12} />
+    ) : displayCode === "DROPPED" ? (
+      <XCircle size={12} />
+    ) : (
+      <Clock size={12} />
+    );
+  return (
+    <span style={badgeStyle(STATUS_STYLES, displayCode)}>
+      {icon}
+      {statusLabel(displayCode)}
+    </span>
+  );
 };
 
 const FeeBadge = ({ fee }) => {
   const icon =
-    fee === "cash" || fee === "Paid" ? <CheckCircle size={12} /> :
-    fee === "installment" || fee === "Pending" ? <Clock size={12} /> :
-    <AlertCircle size={12} />;
-  return <span style={badgeStyle(FEE_STYLES, fee)}>{icon}{String(fee).toUpperCase()}</span>;
+    fee === "cash" || fee === "Paid" ? (
+      <CheckCircle size={12} />
+    ) : fee === "installment" || fee === "Pending" ? (
+      <Clock size={12} />
+    ) : (
+      <AlertCircle size={12} />
+    );
+  return (
+    <span style={badgeStyle(FEE_STYLES, fee)}>
+      {icon}
+      {String(fee).toUpperCase()}
+    </span>
+  );
 };
 
-/* ─────────────────────────────────────────────
-   TOAST
-───────────────────────────────────────────── */
 const Toast = ({ toasts, onDismiss }) => (
-  <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", gap: 10, maxWidth: 380 }}>
+  <div
+    style={{
+      position: "fixed",
+      top: 20,
+      right: 20,
+      zIndex: 9999,
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      maxWidth: 380,
+    }}
+  >
     {toasts.map((t) => (
       <div
         key={t.id}
         style={{
-          background: t.type === "error" ? "#1c0a0a" : t.type === "success" ? "#052e16" : "#1a1d2e",
+          background:
+            t.type === "error"
+              ? "#1c0a0a"
+              : t.type === "success"
+                ? "#052e16"
+                : "#1a1d2e",
           color: "white",
           padding: "14px 18px",
           borderRadius: 12,
@@ -382,7 +409,13 @@ const Toast = ({ toasts, onDismiss }) => (
           display: "flex",
           alignItems: "flex-start",
           gap: 10,
-          borderLeft: `4px solid ${t.type === "error" ? "#ef4444" : t.type === "success" ? "#22c55e" : "#f59e0b"}`,
+          borderLeft: `4px solid ${
+            t.type === "error"
+              ? "#ef4444"
+              : t.type === "success"
+                ? "#22c55e"
+                : "#f59e0b"
+          }`,
         }}
       >
         <AlertTriangle
@@ -390,7 +423,12 @@ const Toast = ({ toasts, onDismiss }) => (
           style={{
             flexShrink: 0,
             marginTop: 1,
-            color: t.type === "error" ? "#f87171" : t.type === "success" ? "#4ade80" : "#fbbf24",
+            color:
+              t.type === "error"
+                ? "#f87171"
+                : t.type === "success"
+                  ? "#4ade80"
+                  : "#fbbf24",
           }}
         />
         <div style={{ flex: 1, fontSize: 13, lineHeight: 1.5 }}>
@@ -399,7 +437,16 @@ const Toast = ({ toasts, onDismiss }) => (
         </div>
         <button
           onClick={() => onDismiss(t.id)}
-          style={{ background: "none", border: "none", color: "white", cursor: "pointer", padding: 0, fontSize: 16, opacity: 0.6, flexShrink: 0 }}
+          style={{
+            background: "none",
+            border: "none",
+            color: "white",
+            cursor: "pointer",
+            padding: 0,
+            fontSize: 16,
+            opacity: 0.6,
+            flexShrink: 0,
+          }}
         >
           ✕
         </button>
@@ -408,9 +455,41 @@ const Toast = ({ toasts, onDismiss }) => (
   </div>
 );
 
-/* ═══════════════════════════════════════════════
-   MAIN COMPONENT
-═══════════════════════════════════════════════ */
+const EnrollmentSection = ({ title, icon, full = false, children }) => (
+  <section
+    className={`enrollment-details-section ${
+      full ? "enrollment-details-section--full" : ""
+    }`}
+  >
+    <div className="enrollment-details-section__header">
+      <span>{icon}</span>
+      <span className="enrollment-details-section__title">{title}</span>
+    </div>
+    <div className="enrollment-details-section__body">{children}</div>
+  </section>
+);
+
+const StudentCell = ({ row }) => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    <div style={{ fontWeight: 700, color: "#111827" }}>{row.studentName}</div>
+    <div style={{ fontSize: 11, color: "#64748b" }}>
+      AY {row.academicYear || "—"} · {row.sectionName || "No section"}
+    </div>
+    {row.expired && (
+      <div style={{ fontSize: 11, color: "#7e22ce", fontWeight: 700 }}>
+        Expired · {formatExpiryDate(row.academicYear)}
+      </div>
+    )}
+  </div>
+);
+
+const ParentCell = ({ row }) => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    <div style={{ fontWeight: 600 }}>{row.parentName}</div>
+    <div style={{ fontSize: 11, color: "#64748b" }}>{row.phone}</div>
+  </div>
+);
+
 export default function EnrollmentManagement() {
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -440,30 +519,37 @@ export default function EnrollmentManagement() {
     academic_year: "",
   });
 
-  const [approveImageOpen, setApproveImageOpen] = useState(false);
-  const [approveImageFile, setApproveImageFile] = useState(null);
-  const [approveImagePreview, setApproveImagePreview] = useState(null);
-  const [approvePendingId, setApprovePendingId] = useState(null);
-  const [approvingImage, setApprovingImage] = useState(false);
-
   const [selectedIds, setSelectedIds] = useState(new Set());
-
   const [toasts, setToasts] = useState([]);
 
+  const [docUploadFile, setDocUploadFile] = useState(null);
+  const [docUploadType, setDocUploadType] = useState("other");
+  const [docUploadLabel, setDocUploadLabel] = useState("");
+  const [docSaving, setDocSaving] = useState(false);
+
+  const [editingDocId, setEditingDocId] = useState(null);
+  const [editingDocLabel, setEditingDocLabel] = useState("");
+  const [editingDocType, setEditingDocType] = useState("other");
+  const [editingDocFile, setEditingDocFile] = useState(null);
+
+  const [idUploadOpen, setIdUploadOpen] = useState(false);
+  const [idUploadEnrollmentId, setIdUploadEnrollmentId] = useState(null);
+  const [idUploadFile, setIdUploadFile] = useState(null);
+  const [idUploadPreview, setIdUploadPreview] = useState(null);
+  const [idUploading, setIdUploading] = useState(false);
+
   const addToast = useCallback((title, message, type = "warning") => {
-  const id = Date.now() + Math.random();
-
-  setToasts((prev) => {
-    const exists = prev.some(
-      (t) => t.title === title && t.message === message && t.type === type
-    );
-    if (exists) return prev;
-    return [...prev, { id, title, message, type }];
-  });
-
-  setTimeout(() => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, 6000);
+    const id = Date.now() + Math.random();
+    setToasts((prev) => {
+      const exists = prev.some(
+        (t) => t.title === title && t.message === message && t.type === type
+      );
+      if (exists) return prev;
+      return [...prev, { id, title, message, type }];
+    });
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
   }, []);
 
   const dismissToast = useCallback((id) => {
@@ -486,11 +572,17 @@ export default function EnrollmentManagement() {
       setEnrollments(list);
 
       const expiredList = list.filter(
-        (e) => isEnrollmentExpired(e.academic_year) && e.status !== "DROPPED" && e.status !== "COMPLETED"
+        (e) =>
+          isEnrollmentExpired(e.academic_year) &&
+          e.status !== "DROPPED" &&
+          e.status !== "COMPLETED"
       );
 
       if (expiredList.length > 0) {
-        const names = expiredList.slice(0, 3).map((e) => `${e.first_name} ${e.last_name}`).join(", ");
+        const names = expiredList
+          .slice(0, 3)
+          .map((e) => `${e.first_name} ${e.last_name}`)
+          .join(", ");
         const more = expiredList.length > 3 ? ` and ${expiredList.length - 3} more` : "";
         addToast(
           `${expiredList.length} Expired Enrollment${expiredList.length > 1 ? "s" : ""}`,
@@ -567,7 +659,11 @@ export default function EnrollmentManagement() {
         return;
       }
       setSettings(data);
-      addToast("Settings Saved", "Enrollment window has been updated successfully.", "success");
+      addToast(
+        "Settings Saved",
+        "Enrollment window has been updated successfully.",
+        "success"
+      );
     } catch {
       addToast("Save Failed", "Failed to save settings.", "error");
     } finally {
@@ -576,7 +672,13 @@ export default function EnrollmentManagement() {
   };
 
   const handleResetSettings = async () => {
-    if (!window.confirm("Reset to auto-calculated defaults? This will clear the manual open date and academic year.")) return;
+    if (
+      !window.confirm(
+        "Reset to auto-calculated defaults? This will clear the manual open date and academic year."
+      )
+    )
+      return;
+
     setDraft({ open_date: "", window_days: 7, academic_year: "" });
     setSettingsSaving(true);
     try {
@@ -618,52 +720,51 @@ export default function EnrollmentManagement() {
     return data;
   };
 
-  const openApproveImageModal = (id) => {
-    setApprovePendingId(id);
-    setApproveImageFile(null);
-    setApproveImagePreview(null);
-    setApproveImageOpen(true);
-  };
-
-  const normalized = useMemo(() => enrollments.map((e) => {
-    const statusCode = String(e.status || "PENDING").toUpperCase();
-    const expired = isEnrollmentExpired(e.academic_year) && statusCode !== "DROPPED" && statusCode !== "COMPLETED";
-    return {
-      id: e.id,
-      raw: e,
-      studentName: `${e.first_name || ""} ${e.last_name || ""}`.trim(),
-      gradeLevel: gradeLabel(e.grade_level),
-      sectionName:
-        e?.section_name ||
-        e?.section_details?.name ||
-        e?.section?.name ||
-        sections.find((s) => String(s.id) === String(e.section))?.name ||
-        "—",
-      enrollmentDate: e.enrolled_at || e.created_at || null,
-      statusCode,
-      statusText: statusLabel(statusCode),
-      expired,
-      academicYear: e.academic_year || "",
-      fee: e.payment_mode || "Pending",
-      parentName:
-        e?.parent_info?.guardian_name ||
-        e?.parent_info?.mother_name ||
-        e?.parent_info?.father_name ||
-        "(not set)",
-      phone:
-        e?.parent_info?.guardian_contact ||
-        e?.parent_info?.mother_contact ||
-        e?.parent_info?.father_contact ||
-        e?.mobile_number ||
-        e?.telephone_number ||
-        "(not set)",
-    };
-  }), [enrollments, sections]);
+  const normalized = useMemo(
+    () =>
+      enrollments.map((e) => {
+        const statusCode = String(e.status || "PENDING").toUpperCase();
+        const expired =
+          isEnrollmentExpired(e.academic_year) &&
+          statusCode !== "DROPPED" &&
+          statusCode !== "COMPLETED";
+        return {
+          id: e.id,
+          raw: e,
+          studentName: `${e.first_name || ""} ${e.last_name || ""}`.trim(),
+          gradeLevel: gradeLabel(e.grade_level),
+          sectionName:
+            e?.section_name ||
+            e?.section_details?.name ||
+            e?.section?.name ||
+            sections.find((s) => String(s.id) === String(e.section))?.name ||
+            "—",
+          enrollmentDate: e.enrolled_at || e.created_at || null,
+          statusCode,
+          statusText: statusLabel(statusCode),
+          expired,
+          academicYear: e.academic_year || "",
+          fee: e.payment_mode || "Pending",
+          parentName:
+            e?.parent_info?.guardian_name ||
+            e?.parent_info?.mother_name ||
+            e?.parent_info?.father_name ||
+            "(not set)",
+          phone:
+            e?.parent_info?.guardian_contact ||
+            e?.parent_info?.mother_contact ||
+            e?.parent_info?.father_contact ||
+            e?.mobile_number ||
+            e?.telephone_number ||
+            "(not set)",
+        };
+      }),
+    [enrollments, sections]
+  );
 
   const getMissingFieldsForApproval = useCallback((row) => {
     const e = row?.raw || {};
     const missing = [];
-
     if (!e.first_name?.trim()) missing.push("First Name");
     if (!e.last_name?.trim()) missing.push("Last Name");
     if (!e.birth_date) missing.push("Birth Date");
@@ -672,19 +773,24 @@ export default function EnrollmentManagement() {
     if (!e.student_type) missing.push("Student Type");
     if (!e.academic_year) missing.push("Academic Year");
     if (!e.payment_mode) missing.push("Payment Mode");
-    if (!e.section) missing.push("Section / Room");
     if (!e.parent_facebook?.trim()) missing.push("Parent Facebook");
 
     const hasStudentContact =
-      e.email?.trim() ||
-      e.mobile_number?.trim() ||
-      e.telephone_number?.trim();
+      e.email?.trim() || e.mobile_number?.trim() || e.telephone_number?.trim();
 
     if (!hasStudentContact) {
       missing.push("At least one contact (Email, Mobile, or Telephone)");
     }
 
-    const lrnRequiredGrades = ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"];
+    const lrnRequiredGrades = [
+      "kinder",
+      "grade1",
+      "grade2",
+      "grade3",
+      "grade4",
+      "grade5",
+      "grade6",
+    ];
     if (lrnRequiredGrades.includes(e.grade_level)) {
       if (!e.lrn?.trim()) {
         missing.push("LRN");
@@ -701,63 +807,355 @@ export default function EnrollmentManagement() {
     return missing;
   }, []);
 
-  const validateBeforeApprove = useCallback((row) => {
-    const missing = getMissingFieldsForApproval(row);
+  const validateBeforeApprove = useCallback(
+    (row) => {
+      const missing = getMissingFieldsForApproval(row);
+      if (missing.length > 0) {
+        addToast(
+          "Cannot Approve Yet",
+          `Please complete/fix: ${missing.join(", ")}`,
+          "error"
+        );
+        return false;
+      }
+      return true;
+    },
+    [getMissingFieldsForApproval, addToast]
+  );
 
-    if (missing.length > 0) {
+  const filteredEnrollments = useMemo(() => {
+    const s = searchTerm.toLowerCase().trim();
+    return normalized.filter((row) => {
+      const matchesSearch =
+        !s ||
+        row.studentName.toLowerCase().includes(s) ||
+        row.parentName.toLowerCase().includes(s) ||
+        String(row.phone).toLowerCase().includes(s) ||
+        String(row.sectionName).toLowerCase().includes(s);
+
+      const matchesStatus = matchesStatusFilter(
+        filterStatus,
+        row.statusText,
+        row.expired
+      );
+      return matchesSearch && matchesStatus;
+    });
+  }, [normalized, searchTerm, filterStatus]);
+
+  const enrollTotalPages = Math.ceil(filteredEnrollments.length / ITEMS_PER_PAGE);
+  const paginatedEnrollments = filteredEnrollments.slice(
+    (enrollPage - 1) * ITEMS_PER_PAGE,
+    enrollPage * ITEMS_PER_PAGE
+  );
+
+  useEffect(() => {
+    setEnrollPage(1);
+  }, [searchTerm, filterStatus]);
+
+  const stats = useMemo(
+    () => ({
+      total: normalized.length,
+      active: normalized.filter((e) => e.statusCode === "ACTIVE" && !e.expired).length,
+      pending: normalized.filter((e) => e.statusCode === "PENDING" && !e.expired).length,
+      dropped: normalized.filter((e) => e.statusCode === "DROPPED").length,
+      expired: normalized.filter((e) => e.expired).length,
+    }),
+    [normalized]
+  );
+
+  const gradeOptions = useMemo(() => {
+    if (formData.education_level === "preschool") {
+      return [
+        { value: "prek", label: "Pre-Kinder" },
+        { value: "kinder", label: "Kindergarten" },
+      ];
+    }
+    if (formData.education_level === "elementary") {
+      return ["grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].map((v) => ({
+        value: v,
+        label: gradeLabel(v),
+      }));
+    }
+    return [];
+  }, [formData.education_level]);
+
+  const filteredSections = useMemo(() => {
+    if (!formData.grade_level) return sections;
+    const selectedGrade = normalizeSectionGrade(formData.grade_level);
+
+    return sections.filter((s) => {
+      const rawSectionGrade = s.grade_level ?? s.grade ?? s.year_level ?? s.level ?? "";
+      const sectionGrade = normalizeSectionGrade(rawSectionGrade);
+      return !sectionGrade || sectionGrade === selectedGrade;
+    });
+  }, [sections, formData.grade_level]);
+
+  const openModal = (row, mode = "view") => {
+    const e = row.raw;
+    const expired =
+      isEnrollmentExpired(e.academic_year) &&
+      e.status !== "DROPPED" &&
+      e.status !== "COMPLETED";
+
+    if (mode === "edit" && expired) {
       addToast(
-        "Cannot Approve Yet",
-        `Please complete/fix: ${missing.join(", ")}`,
+        "Enrollment Expired",
+        `${e.first_name} ${e.last_name}'s enrollment ended on ${formatExpiryDate(
+          e.academic_year
+        )}. Editing is blocked.`,
         "error"
       );
+      mode = "view";
+    }
+
+    setEditingId(e.id);
+    setModalMode(mode);
+    setModalStatus(e.status || "PENDING");
+    setModalExpired(expired);
+    setEditingAcademicYear(false);
+
+    const inferredEdu =
+      e.education_level ||
+      (["prek", "kinder"].includes(e.grade_level)
+        ? "preschool"
+        : ["grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(
+              e.grade_level
+            )
+          ? "elementary"
+          : "");
+
+    const father = splitFullName(e?.parent_info?.father_name || "");
+    const mother = splitFullName(e?.parent_info?.mother_name || "");
+    const guardian = splitFullName(e?.parent_info?.guardian_name || "");
+    const addr = splitAddress(e.address || "");
+
+    setFormData({
+      ...emptyForm(),
+      first_name: e.first_name || "",
+      last_name: e.last_name || "",
+      middle_name: e.middle_name || "",
+      birth_date: e.birth_date || "",
+      gender: e.gender || "",
+      lrn: e.lrn || "",
+      education_level: inferredEdu,
+      grade_level: e.grade_level || "",
+      student_type: e.student_type || "",
+      academic_year: e.academic_year || getCurrentAcademicYear(),
+      status: e.status || "PENDING",
+      payment_mode: e.payment_mode || "",
+      section: e.section ? String(e.section) : "",
+      email: e.email || "",
+      religion: e.religion || "",
+      telephone_number: e.telephone_number || "",
+      mobile_number: e.mobile_number || "",
+      parent_facebook: e.parent_facebook || "",
+      street: addr.street,
+      barangay: addr.barangay,
+      city: addr.city,
+      province: addr.province,
+      region: addr.region,
+      zip_code: addr.zip_code,
+      remarks: e.remarks || "",
+      parent_info: {
+        father_first: father.first,
+        father_middle: father.middle,
+        father_last: father.last,
+        father_contact: e?.parent_info?.father_contact || "",
+        father_occupation: e?.parent_info?.father_occupation || "",
+        mother_first: mother.first,
+        mother_middle: mother.middle,
+        mother_last: mother.last,
+        mother_contact: e?.parent_info?.mother_contact || "",
+        mother_occupation: e?.parent_info?.mother_occupation || "",
+        guardian_first: guardian.first,
+        guardian_middle: guardian.middle,
+        guardian_last: guardian.last,
+        guardian_contact: e?.parent_info?.guardian_contact || "",
+        guardian_relationship: e?.parent_info?.guardian_relationship || "",
+      },
+    });
+
+    setModalOpen(true);
+  };
+
+  const openCreateModal = () => {
+    setEditingId(null);
+    setModalMode("edit");
+    setModalStatus(null);
+    setModalExpired(false);
+    setEditingAcademicYear(false);
+    setFormData({ ...emptyForm(), academic_year: window_.academicYear });
+    setModalOpen(true);
+  };
+
+  const handlePromote = (row) => {
+    const e = row.raw;
+    const { next, nextEdu } = getNextGrade(e.grade_level);
+
+    if (!next) {
+      addToast(
+        "Already at Highest Grade",
+        `${e.first_name} ${e.last_name} has completed Grade 6.`,
+        "warning"
+      );
+      return;
+    }
+
+    const nextYear = advanceAcademicYear(e.academic_year);
+    const father = splitFullName(e?.parent_info?.father_name || "");
+    const mother = splitFullName(e?.parent_info?.mother_name || "");
+    const guardian = splitFullName(e?.parent_info?.guardian_name || "");
+    const addr = splitAddress(e.address || "");
+
+    setEditingId(null);
+    setModalMode("edit");
+    setModalStatus(null);
+    setModalExpired(false);
+    setEditingAcademicYear(false);
+
+    setFormData({
+      ...emptyForm(),
+      first_name: e.first_name || "",
+      last_name: e.last_name || "",
+      middle_name: e.middle_name || "",
+      birth_date: e.birth_date || "",
+      gender: e.gender || "",
+      lrn: e.lrn || "",
+      email: e.email || "",
+      religion: e.religion || "",
+      telephone_number: e.telephone_number || "",
+      mobile_number: e.mobile_number || "",
+      parent_facebook: e.parent_facebook || "",
+      street: addr.street,
+      barangay: addr.barangay,
+      city: addr.city,
+      province: addr.province,
+      region: addr.region,
+      zip_code: addr.zip_code,
+      education_level: nextEdu,
+      grade_level: next,
+      academic_year: nextYear,
+      student_type: "old",
+      status: "PENDING",
+      payment_mode: "",
+      section: "",
+      remarks: "",
+      parent_info: {
+        father_first: father.first,
+        father_middle: father.middle,
+        father_last: father.last,
+        father_contact: e?.parent_info?.father_contact || "",
+        father_occupation: e?.parent_info?.father_occupation || "",
+        mother_first: mother.first,
+        mother_middle: mother.middle,
+        mother_last: mother.last,
+        mother_contact: e?.parent_info?.mother_contact || "",
+        mother_occupation: e?.parent_info?.mother_occupation || "",
+        guardian_first: guardian.first,
+        guardian_middle: guardian.middle,
+        guardian_last: guardian.last,
+        guardian_contact: e?.parent_info?.guardian_contact || "",
+        guardian_relationship: e?.parent_info?.guardian_relationship || "",
+      },
+    });
+
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setModalMode("view");
+    setEditingId(null);
+    setModalStatus(null);
+    setModalExpired(false);
+    setEditingAcademicYear(false);
+
+    setDocUploadFile(null);
+    setDocUploadType("other");
+    setDocUploadLabel("");
+    setDocSaving(false);
+
+    setEditingDocId(null);
+    setEditingDocLabel("");
+    setEditingDocType("other");
+    setEditingDocFile(null);
+  };
+
+  const isReadOnly = (modalMode === "view" && editingId !== null) || modalExpired;
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((p) =>
+      name === "education_level"
+        ? { ...p, education_level: value, grade_level: "", section: "" }
+        : name === "grade_level"
+          ? { ...p, grade_level: value, section: "" }
+          : { ...p, [name]: value }
+    );
+  };
+
+  const handleParentChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((p) => ({
+      ...p,
+      parent_info: { ...p.parent_info, [name]: value },
+    }));
+  };
+
+  const validateCreate = () => {
+    const missing = [];
+    if (!formData.last_name?.trim()) missing.push("Last Name");
+    if (!formData.first_name?.trim()) missing.push("First Name");
+    if (!formData.birth_date) missing.push("Birth Date");
+    if (!formData.grade_level) missing.push("Grade Level");
+    if (!formData.education_level) missing.push("Education Level");
+    if (!formData.student_type) missing.push("Student Type");
+    if (!formData.academic_year) missing.push("Academic Year");
+    if (
+      !formData.email?.trim() &&
+      !formData.mobile_number?.trim() &&
+      !formData.telephone_number?.trim()
+    ) {
+      missing.push("At least one contact (Email, Mobile, or Telephone)");
+    }
+    if (!formData.parent_facebook?.trim()) missing.push("Parent Facebook");
+    if (!formData.payment_mode) missing.push("Payment Mode");
+
+    const lrnRequiredGrades = [
+      "kinder",
+      "grade1",
+      "grade2",
+      "grade3",
+      "grade4",
+      "grade5",
+      "grade6",
+    ];
+    if (lrnRequiredGrades.includes(formData.grade_level)) {
+      if (!formData.lrn?.trim()) {
+        missing.push("LRN (required for this grade level)");
+      } else if (formData.lrn.length !== 12) {
+        missing.push("LRN must be exactly 12 digits");
+      }
+    }
+
+    if (missing.length) {
+      addToast("Missing Required Fields", missing.join(", "), "error");
       return false;
     }
-
     return true;
-  }, [getMissingFieldsForApproval, addToast]);
-
-  const handleImageSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      addToast("Invalid File", "Please select an image file.", "error");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      addToast("File Too Large", "Image must be under 5MB.", "error");
-      return;
-    }
-
-    setApproveImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (evt) => setApproveImagePreview(evt.target?.result);
-    reader.readAsDataURL(file);
   };
 
-  const closeApproveImageModal = () => {
-    setApproveImageOpen(false);
-    setApprovePendingId(null);
-    setApproveImageFile(null);
-    setApproveImagePreview(null);
-  };
+  const handleApprove = async (id) => {
+    const row = normalized.find((r) => r.id === id);
+    if (!row) return;
+    if (!validateBeforeApprove(row)) return;
 
-  const handleApproveWithImage = async () => {
-    if (!approvePendingId) return;
-    if (!approveImageFile) {
-      addToast("Missing Image", "Please upload an ID image before approving.", "warning");
-      return;
-    }
-
-    setApprovingImage(true);
     try {
       const payload = new FormData();
-      payload.append("id_image", approveImageFile);
-      if (formData.section) payload.append("section", formData.section);
+      if (row.raw?.section) payload.append("section", row.raw.section);
 
       const token = getToken();
-      const res = await fetch(`${API_BASE}/api/enrollments/${approvePendingId}/mark_active/`, {
+      const res = await fetch(`${API_BASE}/api/enrollments/${id}/mark_active/`, {
         method: "POST",
         headers: token ? { Authorization: `Token ${token}` } : {},
         body: payload,
@@ -765,32 +1163,14 @@ export default function EnrollmentManagement() {
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      if (!res.ok)
         throw new Error(data.detail || JSON.stringify(data) || "Approval failed");
-      }
 
       await fetchEnrollments();
-      addToast("Approved", "Enrollment approved successfully.", "success");
-      closeApproveImageModal();
+      addToast("Approved", "Enrollment approved successfully. \n May now be processed to ID.", "success");
     } catch (err) {
       addToast("Approval Failed", err.message || "Could not approve enrollment.", "error");
-    } finally {
-      setApprovingImage(false);
     }
-  };
-
-  const handleApprove = (id) => {
-    const row = normalized.find((r) => r.id === id);
-    if (!row) return;
-
-    if (!validateBeforeApprove(row)) return;
-
-    setFormData((prev) => ({
-      ...prev,
-      section: row.raw?.section ? String(row.raw.section) : "",
-    }));
-
-    openApproveImageModal(id);
   };
 
   const handleDecline = async (id) => {
@@ -829,322 +1209,15 @@ export default function EnrollmentManagement() {
 
   const handleSelectOne = (id) => {
     const newSet = new Set(selectedIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
     setSelectedIds(newSet);
-  };
-
-  const filteredEnrollments = useMemo(() => {
-    const s = searchTerm.toLowerCase().trim();
-    return normalized.filter((row) => {
-      const matchesSearch =
-        !s ||
-        row.studentName.toLowerCase().includes(s) ||
-        row.parentName.toLowerCase().includes(s) ||
-        String(row.phone).toLowerCase().includes(s) ||
-        String(row.sectionName).toLowerCase().includes(s);
-
-      const matchesStatus = matchesStatusFilter(filterStatus, row.statusText, row.expired);
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [normalized, searchTerm, filterStatus]);
-
-  const enrollTotalPages = Math.ceil(filteredEnrollments.length / ITEMS_PER_PAGE);
-  const paginatedEnrollments = filteredEnrollments.slice(
-    (enrollPage - 1) * ITEMS_PER_PAGE,
-    enrollPage * ITEMS_PER_PAGE
-  );
-
-  useEffect(() => {
-    setEnrollPage(1);
-  }, [searchTerm, filterStatus]);
-
-  const stats = useMemo(() => ({
-    total: normalized.length,
-    active: normalized.filter((e) => e.statusCode === "ACTIVE" && !e.expired).length,
-    pending: normalized.filter((e) => e.statusCode === "PENDING" && !e.expired).length,
-    dropped: normalized.filter((e) => e.statusCode === "DROPPED").length,
-    expired: normalized.filter((e) => e.expired).length,
-  }), [normalized]);
-
-  const gradeOptions = useMemo(() => {
-    if (formData.education_level === "preschool") {
-      return [
-        { value: "prek", label: "Pre-Kinder" },
-        { value: "kinder", label: "Kindergarten" },
-      ];
-    }
-    if (formData.education_level === "elementary") {
-      return ["grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].map((v) => ({
-        value: v,
-        label: gradeLabel(v),
-      }));
-    }
-    return [];
-  }, [formData.education_level]);
-
-  const filteredSections = useMemo(() => {
-    if (!formData.grade_level) return sections;
-
-    const selectedGrade = normalizeSectionGrade(formData.grade_level);
-
-    return sections.filter((s) => {
-      const rawSectionGrade = s.grade_level ?? s.grade ?? s.year_level ?? s.level ?? "";
-      const sectionGrade = normalizeSectionGrade(rawSectionGrade);
-      return !sectionGrade || sectionGrade === selectedGrade;
-    });
-  }, [sections, formData.grade_level]);
-
-  const openModal = (row, mode = "view") => {
-    const e = row.raw;
-    const expired = isEnrollmentExpired(e.academic_year) && e.status !== "DROPPED" && e.status !== "COMPLETED";
-
-    if (mode === "edit" && expired) {
-      addToast(
-        "Enrollment Expired",
-        `${e.first_name} ${e.last_name}'s enrollment ended on ${formatExpiryDate(e.academic_year)}. Editing is blocked.`,
-        "error"
-      );
-      mode = "view";
-    }
-
-    setEditingId(e.id);
-    setModalMode(mode);
-    setModalStatus(e.status || "PENDING");
-    setModalExpired(expired);
-    setEditingAcademicYear(false);
-
-    const inferredEdu =
-      e.education_level ||
-      (["prek", "kinder"].includes(e.grade_level)
-        ? "preschool"
-        : ["grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(e.grade_level)
-          ? "elementary"
-          : "");
-
-    const father = splitFullName(e?.parent_info?.father_name || "");
-    const mother = splitFullName(e?.parent_info?.mother_name || "");
-    const guardian = splitFullName(e?.parent_info?.guardian_name || "");
-    const addr = splitAddress(e.address || "");
-
-    setFormData({
-      ...emptyForm(),
-      first_name: e.first_name || "",
-      last_name: e.last_name || "",
-      middle_name: e.middle_name || "",
-      birth_date: e.birth_date || "",
-      gender: e.gender || "",
-      lrn: e.lrn || "",
-
-      education_level: inferredEdu,
-      grade_level: e.grade_level || "",
-      student_type: e.student_type || "",
-      academic_year: e.academic_year || getCurrentAcademicYear(),
-      status: e.status || "PENDING",
-      payment_mode: e.payment_mode || "",
-      section: e.section ? String(e.section) : "",
-
-      email: e.email || "",
-      religion: e.religion || "",
-      telephone_number: e.telephone_number || "",
-      mobile_number: e.mobile_number || "",
-      parent_facebook: e.parent_facebook || "",
-
-      street: addr.street,
-      barangay: addr.barangay,
-      city: addr.city,
-      province: addr.province,
-      region: addr.region,
-      zip_code: addr.zip_code,
-
-      remarks: e.remarks || "",
-
-      parent_info: {
-        father_first: father.first,
-        father_middle: father.middle,
-        father_last: father.last,
-        father_contact: e?.parent_info?.father_contact || "",
-        father_occupation: e?.parent_info?.father_occupation || "",
-
-        mother_first: mother.first,
-        mother_middle: mother.middle,
-        mother_last: mother.last,
-        mother_contact: e?.parent_info?.mother_contact || "",
-        mother_occupation: e?.parent_info?.mother_occupation || "",
-
-        guardian_first: guardian.first,
-        guardian_middle: guardian.middle,
-        guardian_last: guardian.last,
-        guardian_contact: e?.parent_info?.guardian_contact || "",
-        guardian_relationship: e?.parent_info?.guardian_relationship || "",
-      },
-    });
-
-    setModalOpen(true);
-  };
-
-  const openCreateModal = () => {
-    setEditingId(null);
-    setModalMode("edit");
-    setModalStatus(null);
-    setModalExpired(false);
-    setEditingAcademicYear(false);
-    setFormData({ ...emptyForm(), academic_year: window_.academicYear });
-    setModalOpen(true);
-  };
-
-  const handlePromote = (row) => {
-    const e = row.raw;
-    const { next, nextEdu } = getNextGrade(e.grade_level);
-
-    if (!next) {
-      addToast("Already at Highest Grade", `${e.first_name} ${e.last_name} has completed Grade 6.`, "warning");
-      return;
-    }
-
-    const nextYear = advanceAcademicYear(e.academic_year);
-    const father = splitFullName(e?.parent_info?.father_name || "");
-    const mother = splitFullName(e?.parent_info?.mother_name || "");
-    const guardian = splitFullName(e?.parent_info?.guardian_name || "");
-    const addr = splitAddress(e.address || "");
-
-    setEditingId(null);
-    setModalMode("edit");
-    setModalStatus(null);
-    setModalExpired(false);
-    setEditingAcademicYear(false);
-
-    setFormData({
-      ...emptyForm(),
-      first_name: e.first_name || "",
-      last_name: e.last_name || "",
-      middle_name: e.middle_name || "",
-      birth_date: e.birth_date || "",
-      gender: e.gender || "",
-      lrn: e.lrn || "",
-
-      email: e.email || "",
-      religion: e.religion || "",
-      telephone_number: e.telephone_number || "",
-      mobile_number: e.mobile_number || "",
-      parent_facebook: e.parent_facebook || "",
-
-      street: addr.street,
-      barangay: addr.barangay,
-      city: addr.city,
-      province: addr.province,
-      region: addr.region,
-      zip_code: addr.zip_code,
-
-      education_level: nextEdu,
-      grade_level: next,
-      academic_year: nextYear,
-      student_type: "old",
-      status: "PENDING",
-      payment_mode: "",
-      section: "",
-      remarks: "",
-
-      parent_info: {
-        father_first: father.first,
-        father_middle: father.middle,
-        father_last: father.last,
-        father_contact: e?.parent_info?.father_contact || "",
-        father_occupation: e?.parent_info?.father_occupation || "",
-
-        mother_first: mother.first,
-        mother_middle: mother.middle,
-        mother_last: mother.last,
-        mother_contact: e?.parent_info?.mother_contact || "",
-        mother_occupation: e?.parent_info?.mother_occupation || "",
-
-        guardian_first: guardian.first,
-        guardian_middle: guardian.middle,
-        guardian_last: guardian.last,
-        guardian_contact: e?.parent_info?.guardian_contact || "",
-        guardian_relationship: e?.parent_info?.guardian_relationship || "",
-      },
-    });
-
-    setModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setModalOpen(false);
-    setModalMode("view");
-    setEditingId(null);
-    setModalStatus(null);
-    setModalExpired(false);
-    setEditingAcademicYear(false);
-  };
-
-  const isReadOnly = (modalMode === "view" && editingId !== null) || modalExpired;
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((p) =>
-      name === "education_level"
-        ? { ...p, education_level: value, grade_level: "", section: "" }
-        : name === "grade_level"
-          ? { ...p, grade_level: value, section: "" }
-          : { ...p, [name]: value }
-    );
-  };
-
-  const handleParentChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((p) => ({
-      ...p,
-      parent_info: { ...p.parent_info, [name]: value },
-    }));
-  };
-
-  const validateCreate = () => {
-    const missing = [];
-    if (!formData.last_name?.trim()) missing.push("Last Name");
-    if (!formData.first_name?.trim()) missing.push("First Name");
-    if (!formData.birth_date) missing.push("Birth Date");
-    if (!formData.grade_level) missing.push("Grade Level");
-    if (!formData.education_level) missing.push("Education Level");
-    if (!formData.student_type) missing.push("Student Type");
-    if (!formData.academic_year) missing.push("Academic Year");
-    if (!formData.email?.trim() && !formData.mobile_number?.trim() && !formData.telephone_number?.trim()) {
-      missing.push("At least one contact (Email, Mobile, or Telephone)");
-    }
-    if (!formData.parent_facebook?.trim()) missing.push("Parent Facebook");
-    if (!formData.payment_mode) missing.push("Payment Mode");
-    if (!formData.section) missing.push("Section / Room");
-
-    const lrnRequiredGrades = ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"];
-    if (lrnRequiredGrades.includes(formData.grade_level)) {
-      if (!formData.lrn?.trim()) {
-        missing.push("LRN (required for this grade level)");
-      } else if (formData.lrn.length !== 12) {
-        missing.push("LRN must be exactly 12 digits");
-      }
-    }
-
-    if (missing.length) {
-      addToast("Missing Required Fields", missing.join(", "), "error");
-      return false;
-    }
-    return true;
   };
 
   const handleApproveModal = async () => {
     if (!editingId) return;
-
-    const row = normalized.find((r) => r.id === editingId);
-    if (!row) return;
-
-    if (!validateBeforeApprove(row)) return;
-
-    setModalOpen(false);
-    openApproveImageModal(editingId);
+    await handleApprove(editingId);
+    closeModal();
   };
 
   const handleDeclineModal = async () => {
@@ -1184,7 +1257,9 @@ export default function EnrollmentManagement() {
       const nowExpired = isEnrollmentExpired(newYear);
       setModalExpired(nowExpired);
       setEditingAcademicYear(false);
-      if (!nowExpired) addToast("Academic Year Updated", `Enrollment is now active for ${newYear}.`, "success");
+      if (!nowExpired) {
+        addToast("Academic Year Updated", `Enrollment is now active for ${newYear}.`, "success");
+      }
     } catch {
       addToast("Save Failed", "Could not update academic year.", "error");
     }
@@ -1206,7 +1281,13 @@ export default function EnrollmentManagement() {
     }
 
     if (isEnrollmentExpired(formData.academic_year)) {
-      if (!window.confirm(`Warning: AY "${formData.academic_year}" has already ended.\n\nDo you still want to save?`)) return;
+      if (
+        !window.confirm(
+          `Warning: AY "${formData.academic_year}" has already ended.\n\nDo you still want to save?`
+        )
+      ) {
+        return;
+      }
     }
 
     let normalizedMobile = null;
@@ -1225,7 +1306,6 @@ export default function EnrollmentManagement() {
       birth_date: formData.birth_date || null,
       gender: formData.gender,
       lrn: formData.lrn,
-
       education_level: formData.education_level,
       grade_level: formData.grade_level,
       student_type: formData.student_type,
@@ -1233,7 +1313,6 @@ export default function EnrollmentManagement() {
       status: formData.status,
       payment_mode: formData.payment_mode,
       section: formData.section || null,
-
       email: formData.email,
       address: buildAddress(formData),
       religion: formData.religion,
@@ -1241,7 +1320,6 @@ export default function EnrollmentManagement() {
       mobile_number: normalizedMobile ?? formData.mobile_number,
       parent_facebook: formData.parent_facebook,
       remarks: formData.remarks,
-
       parent_info: {
         father_name: buildName(
           formData.parent_info.father_first,
@@ -1250,7 +1328,6 @@ export default function EnrollmentManagement() {
         ),
         father_contact: formData.parent_info.father_contact,
         father_occupation: formData.parent_info.father_occupation,
-
         mother_name: buildName(
           formData.parent_info.mother_first,
           formData.parent_info.mother_middle,
@@ -1258,7 +1335,6 @@ export default function EnrollmentManagement() {
         ),
         mother_contact: formData.parent_info.mother_contact,
         mother_occupation: formData.parent_info.mother_occupation,
-
         guardian_name: buildName(
           formData.parent_info.guardian_first,
           formData.parent_info.guardian_middle,
@@ -1310,20 +1386,220 @@ export default function EnrollmentManagement() {
     }
   };
 
+  const currentDocs = useMemo(() => {
+    const row = normalized.find((r) => r.id === editingId);
+    return Array.isArray(row?.raw?.documents) ? row.raw.documents : [];
+  }, [normalized, editingId]);
+
+  const refreshEnrollmentById = async (id) => {
+    const res = await fetch(`${API_BASE}/api/enrollments/${id}/`, {
+      method: "GET",
+      headers: authHeaders(),
+      credentials: "include",
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data) throw new Error("Failed to refresh enrollment.");
+    setEnrollments((prev) => prev.map((item) => (item.id === id ? data : item)));
+  };
+
+  const startEditDocument = (doc) => {
+    setEditingDocId(doc.id);
+    setEditingDocLabel(doc.label || "");
+    setEditingDocType(doc.document_type || "other");
+    setEditingDocFile(null);
+  };
+
+  const cancelEditDocument = () => {
+    setEditingDocId(null);
+    setEditingDocLabel("");
+    setEditingDocType("other");
+    setEditingDocFile(null);
+  };
+
+  const handleUploadDocument = async () => {
+    if (!editingId) return;
+
+    if (!docUploadFile) {
+      addToast("Missing File", "Please select a document file first.", "warning");
+      return;
+    }
+
+    setDocSaving(true);
+    try {
+      const form = new FormData();
+      form.append("file", docUploadFile);
+      form.append("document_type", docUploadType);
+      form.append("label", docUploadLabel.trim() || docUploadFile.name);
+
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/api/enrollments/${editingId}/documents/upload/`, {
+        method: "POST",
+        headers: token ? { Authorization: `Token ${token}` } : {},
+        credentials: "include",
+        body: form,
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Failed to upload document.");
+
+      await refreshEnrollmentById(editingId);
+      setDocUploadFile(null);
+      setDocUploadType("other");
+      setDocUploadLabel("");
+      addToast("Document Uploaded", "Enrollment document uploaded successfully.", "success");
+    } catch (err) {
+      addToast("Upload Failed", err.message || "Could not upload document.", "error");
+    } finally {
+      setDocSaving(false);
+    }
+  };
+
+  const handleUpdateDocument = async () => {
+    if (!editingId || !editingDocId) return;
+
+    setDocSaving(true);
+    try {
+      const form = new FormData();
+      form.append("label", editingDocLabel.trim());
+      form.append("document_type", editingDocType);
+      if (editingDocFile) form.append("file", editingDocFile);
+
+      const token = getToken();
+      const res = await fetch(
+        `${API_BASE}/api/enrollments/${editingId}/documents/${editingDocId}/update/`,
+        {
+          method: "PATCH",
+          headers: token ? { Authorization: `Token ${token}` } : {},
+          credentials: "include",
+          body: form,
+        }
+      );
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Failed to update document.");
+
+      await refreshEnrollmentById(editingId);
+      cancelEditDocument();
+      addToast("Document Updated", "Enrollment document updated successfully.", "success");
+    } catch (err) {
+      addToast("Update Failed", err.message || "Could not update document.", "error");
+    } finally {
+      setDocSaving(false);
+    }
+  };
+
+  const handleDeleteDocument = async (docId) => {
+    if (!editingId) return;
+    if (!window.confirm("Delete this document?")) return;
+
+    setDocSaving(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/enrollments/${editingId}/documents/${docId}/delete/`,
+        {
+          method: "DELETE",
+          headers: authHeaders(false),
+          credentials: "include",
+        }
+      );
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Failed to delete document.");
+
+      await refreshEnrollmentById(editingId);
+      if (editingDocId === docId) cancelEditDocument();
+      addToast("Document Deleted", "Enrollment document removed successfully.", "success");
+    } catch (err) {
+      addToast("Delete Failed", err.message || "Could not delete document.", "error");
+    } finally {
+      setDocSaving(false);
+    }
+  };
+
+  const openIdUploadModal = (row) => {
+    setIdUploadEnrollmentId(row.id);
+    setIdUploadFile(null);
+    setIdUploadPreview(null);
+    setIdUploadOpen(true);
+  };
+
+  const closeIdUploadModal = () => {
+    setIdUploadOpen(false);
+    setIdUploadEnrollmentId(null);
+    setIdUploadFile(null);
+    setIdUploadPreview(null);
+  };
+
+  const handleIdImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      addToast("Invalid File", "Please select an image file.", "error");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      addToast("File Too Large", "Image must be under 5MB.", "error");
+      return;
+    }
+
+    setIdUploadFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => setIdUploadPreview(evt.target?.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleUploadIdImage = async () => {
+    if (!idUploadEnrollmentId || !idUploadFile) {
+      addToast("Missing Image", "Please choose an image first.", "warning");
+      return;
+    }
+
+    setIdUploading(true);
+    try {
+      const form = new FormData();
+      form.append("id_image", idUploadFile);
+
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/api/enrollments/${idUploadEnrollmentId}/upload-id-image/`, {
+        method: "POST",
+        headers: token ? { Authorization: `Token ${token}` } : {},
+        body: form,
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Failed to upload ID image.");
+
+      await fetchEnrollments();
+      addToast("ID Uploaded", "Student ID image uploaded successfully.", "success");
+      closeIdUploadModal();
+    } catch (err) {
+      addToast("Upload Failed", err.message || "Could not upload ID image.", "error");
+    } finally {
+      setIdUploading(false);
+    }
+  };
+
   return (
     <div className="enrollment-management">
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
       <div className="enrollment-stats-section">
         <div className="enrollment-stats-header">
-          <div className="enrollment-stats-title">Overview</div>
+          <div className="enrollment-stats-title">Enrollment Overview</div>
           <div className="header-actions">
-            <button className="btn-primary" onClick={openCreateModal}>+ Add Enrollee</button>
+            <button className="btn-primary" onClick={openCreateModal}>
+              + Add Enrollee
+            </button>
             <button className="btn-icon" onClick={fetchEnrollments} title="Refresh">
               <RefreshCw size={16} />
             </button>
             <button
-              className={`btn-icon ${settingsOpen ? 'btn-icon--active' : ''}`}
+              className={`btn-icon ${settingsOpen ? "btn-icon--active" : ""}`}
               onClick={() => setSettingsOpen((v) => !v)}
               title="School Year Settings"
             >
@@ -1332,18 +1608,51 @@ export default function EnrollmentManagement() {
           </div>
         </div>
 
-        <StatsGrid>
-          <StatCard label="Total" value={stats.total} icon={<Users size={20} />} color="blue" subtitle="All enrollees" />
-          <StatCard label="Enrolled" value={stats.active} icon={<UserCheck size={20} />} color="green" subtitle={stats.total ? `${Math.round((stats.active / stats.total) * 100)}% of total` : '—'} subtitleType="positive" />
-          <StatCard label="Pending" value={stats.pending} icon={<Clock size={20} />} color="yellow" subtitle={stats.total ? `${Math.round((stats.pending / stats.total) * 100)}% of total` : '—'} />
-          <StatCard label="Declined" value={stats.dropped} icon={<UserMinus size={20} />} color="red" subtitle={stats.total ? `${Math.round((stats.dropped / stats.total) * 100)}% of total` : '—'} subtitleType="negative" />
-          <StatCard label="Expired" value={stats.expired} icon={<UserX size={20} />} color="purple" subtitle={stats.total ? `${Math.round((stats.expired / stats.total) * 100)}% of total` : '—'} subtitleType="negative" />
+        <StatsGrid className="unified-stats-grid">
+          <StatCard
+            label="Total"
+            value={stats.total}
+            icon={<Users size={20} />}
+            color="blue"
+            subtitle="All enrollees"
+          />
+          <StatCard
+            label="Enrolled"
+            value={stats.active}
+            icon={<UserCheck size={20} />}
+            color="green"
+            subtitle={stats.total ? `${Math.round((stats.active / stats.total) * 100)}% of total` : "—"}
+            subtitleType="positive"
+          />
+          <StatCard
+            label="Pending"
+            value={stats.pending}
+            icon={<Clock size={20} />}
+            color="yellow"
+            subtitle={stats.total ? `${Math.round((stats.pending / stats.total) * 100)}% of total` : "—"}
+          />
+          <StatCard
+            label="Declined"
+            value={stats.dropped}
+            icon={<UserMinus size={20} />}
+            color="red"
+            subtitle={stats.total ? `${Math.round((stats.dropped / stats.total) * 100)}% of total` : "—"}
+            subtitleType="negative"
+          />
+          <StatCard
+            label="Expired"
+            value={stats.expired}
+            icon={<UserX size={20} />}
+            color="purple"
+            subtitle={stats.total ? `${Math.round((stats.expired / stats.total) * 100)}% of total` : "—"}
+            subtitleType="negative"
+          />
           <StatCard
             label="Enrollment"
-            value={window_.isOpen ? `Open · ${window_.daysLeft}d left` : 'Closed'}
+            value={window_.isOpen ? `Open · ${window_.daysLeft}d left` : "Closed"}
             icon={<Calendar size={20} />}
-            color={window_.isOpen ? 'teal' : 'red'}
-            subtitle={window_.isOpen ? 'Accepting enrollees' : 'Window closed'}
+            color={window_.isOpen ? "teal" : "red"}
+            subtitle={window_.isOpen ? "Accepting enrollees" : "Window closed"}
           />
         </StatsGrid>
       </div>
@@ -1353,25 +1662,53 @@ export default function EnrollmentManagement() {
           <div className="settings-panel__header">
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Calendar size={16} style={{ color: "#4f6ef7" }} />
-              <span style={{ fontWeight: 700, fontSize: 14 }}>Enrollment Window & School Year</span>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>
+                Enrollment Window & School Year
+              </span>
             </div>
-            <button onClick={() => setSettingsOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", display: "flex" }}>
+            <button
+              onClick={() => setSettingsOpen(false)}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "#6b7280",
+                display: "flex",
+              }}
+            >
               <X size={16} />
             </button>
           </div>
 
           {settingsLoading ? (
-            <div style={{ padding: "20px", textAlign: "center", color: "#6b7280", fontSize: 13 }}>Loading settings…</div>
+            <div
+              style={{
+                padding: "20px",
+                textAlign: "center",
+                color: "#6b7280",
+                fontSize: 13,
+              }}
+            >
+              Loading settings…
+            </div>
           ) : (
             <>
               <div className="settings-panel__status">
-                <div className="settings-panel__status-badge" style={{ background: window_.isOpen ? "#d1fae5" : "#fee2e2", color: window_.isOpen ? "#065f46" : "#7f1d1d" }}>
+                <div
+                  className="settings-panel__status-badge"
+                  style={{
+                    background: window_.isOpen ? "#d1fae5" : "#fee2e2",
+                    color: window_.isOpen ? "#065f46" : "#7f1d1d",
+                  }}
+                >
                   {window_.isOpen ? <CheckCircle size={13} /> : <XCircle size={13} />}
-                  {window_.isOpen ? `Open — ${window_.daysLeft} day${window_.daysLeft !== 1 ? "s" : ""} left` : "Closed"}
+                  {window_.isOpen
+                    ? `Open — ${window_.daysLeft} day${window_.daysLeft !== 1 ? "s" : ""} left`
+                    : "Closed"}
                 </div>
                 <div style={{ fontSize: 12, color: "#6b7280" }}>
-                  {fmtDate(window_.openDate)} → {fmtDate(window_.closeDate)}
-                  {" · "}AY <strong>{window_.academicYear}</strong>
+                  {fmtDate(window_.openDate)} → {fmtDate(window_.closeDate)} · AY{" "}
+                  <strong>{window_.academicYear}</strong>
                 </div>
               </div>
 
@@ -1379,12 +1716,19 @@ export default function EnrollmentManagement() {
                 <div className="settings-panel__field">
                   <label className="settings-panel__label">
                     Academic Year
-                    <span className="settings-panel__hint">Leave blank to auto-calculate from open date</span>
+                    <span className="settings-panel__hint">
+                      Leave blank to auto-calculate from open date
+                    </span>
                   </label>
                   <input
                     className="settings-panel__input"
                     value={draft.academic_year}
-                    onChange={(e) => setDraft((p) => ({ ...p, academic_year: e.target.value.replace(/\s+/g, "") }))}
+                    onChange={(e) =>
+                      setDraft((p) => ({
+                        ...p,
+                        academic_year: e.target.value.replace(/\s+/g, ""),
+                      }))
+                    }
                     placeholder={`Auto: ${window_.academicYear}`}
                   />
                 </div>
@@ -1392,7 +1736,9 @@ export default function EnrollmentManagement() {
                 <div className="settings-panel__field">
                   <label className="settings-panel__label">
                     Enrollment Open Date
-                    <span className="settings-panel__hint">Leave blank to use auto default (June 1)</span>
+                    <span className="settings-panel__hint">
+                      Leave blank to use auto default (June 1)
+                    </span>
                   </label>
                   <input
                     type="date"
@@ -1403,7 +1749,15 @@ export default function EnrollmentManagement() {
                   {draft.open_date && (
                     <button
                       onClick={() => setDraft((p) => ({ ...p, open_date: "" }))}
-                      style={{ fontSize: 11, color: "#6b7280", background: "none", border: "none", cursor: "pointer", marginTop: 4, textDecoration: "underline" }}
+                      style={{
+                        fontSize: 11,
+                        color: "#6b7280",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        marginTop: 4,
+                        textDecoration: "underline",
+                      }}
                     >
                       Clear (use auto)
                     </button>
@@ -1413,7 +1767,9 @@ export default function EnrollmentManagement() {
                 <div className="settings-panel__field">
                   <label className="settings-panel__label">
                     Enrollment Window Duration
-                    <span className="settings-panel__hint">Number of days the form stays open</span>
+                    <span className="settings-panel__hint">
+                      Number of days the form stays open
+                    </span>
                   </label>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input
@@ -1423,38 +1779,32 @@ export default function EnrollmentManagement() {
                       className="settings-panel__input"
                       style={{ width: 80 }}
                       value={draft.window_days}
-                      onChange={(e) => setDraft((p) => ({ ...p, window_days: e.target.value }))}
+                      onChange={(e) =>
+                        setDraft((p) => ({ ...p, window_days: e.target.value }))
+                      }
                     />
-                    <span style={{ fontSize: 13, color: "#6b7280" }}>
-                      days
-                      {draft.open_date || settings?.open_date
-                        ? ` · closes ${fmtDate((() => {
-                          const d = new Date((draft.open_date || settings?.open_date) + "T00:00:00");
-                          d.setDate(d.getDate() + parseInt(draft.window_days, 10) - 1);
-                          return d;
-                        })())}`
-                        : ""}
-                    </span>
+                    <span style={{ fontSize: 13, color: "#6b7280" }}>days</span>
                   </div>
                 </div>
               </div>
 
-              {(draft.open_date || draft.academic_year || draft.window_days !== (settings?.window_days ?? 7)) && (
-                <div className="settings-panel__preview">
-                  <span style={{ fontSize: 12, color: "#4f6ef7", fontWeight: 600 }}>📋 Preview after saving:</span>
-                  <span style={{ fontSize: 12, color: "#374151" }}>
-                    {" "}AY <strong>{draft.academic_year || computeEnrollmentWindow({ ...settings, ...draft, open_date: draft.open_date || null, academic_year: draft.academic_year || null }).academicYear}</strong>
-                    {" · "}Window: {fmtDate(computeEnrollmentWindow({ ...settings, ...draft, open_date: draft.open_date || null }).openDate)}
-                    {" → "}{fmtDate(computeEnrollmentWindow({ ...settings, ...draft, open_date: draft.open_date || null, window_days: draft.window_days }).closeDate)}
-                  </span>
-                </div>
-              )}
-
               <div className="settings-panel__actions">
-                <button className="btn-primary" onClick={handleSaveSettings} disabled={settingsSaving}>
-                  {settingsSaving ? "Saving…" : <><CheckCircle size={13} /> Save Settings</>}
+                <button
+                  className="btn-primary"
+                  onClick={handleSaveSettings}
+                  disabled={settingsSaving}
+                >
+                  {settingsSaving ? "Saving…" : (
+                    <>
+                      <CheckCircle size={13} /> Save Settings
+                    </>
+                  )}
                 </button>
-                <button className="btn-secondary" onClick={handleResetSettings} disabled={settingsSaving}>
+                <button
+                  className="btn-secondary"
+                  onClick={handleResetSettings}
+                  disabled={settingsSaving}
+                >
                   Reset to Defaults
                 </button>
               </div>
@@ -1489,7 +1839,14 @@ export default function EnrollmentManagement() {
         {loading ? (
           <div className="no-results">Loading…</div>
         ) : filteredEnrollments.length === 0 ? (
-          <div className="no-results">No enrollments found. Try adjusting filters.</div>
+          <div className="no-results">
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              No enrollment records found
+            </div>
+            <div style={{ fontSize: 13, color: "#94a3b8" }}>
+              Try changing the search keyword or status filter.
+            </div>
+          </div>
         ) : (
           <table className="enrollments-table">
             <thead>
@@ -1497,27 +1854,30 @@ export default function EnrollmentManagement() {
                 <th style={{ width: 40, textAlign: "center" }}>
                   <input
                     type="checkbox"
-                    checked={selectedIds.size === paginatedEnrollments.length && paginatedEnrollments.length > 0}
+                    checked={
+                      selectedIds.size === paginatedEnrollments.length &&
+                      paginatedEnrollments.length > 0
+                    }
                     onChange={handleSelectAll}
                     title="Select all on this page"
                     style={{ cursor: "pointer", width: 18, height: 18 }}
                   />
                 </th>
-                <th>Student Name</th>
-                <th>Grade Level</th>
-                <th>Section</th>
+                <th>Student</th>
+                {/* <th>Grade Level</th> */}
+                {/* <th>Section</th> */}
                 <th>Enrollment Date</th>
                 <th>Status</th>
                 <th>Fee Status</th>
-                <th>Parent/Guardian</th>
-                <th>Phone</th>
+                <th>Parent / Guardian</th>
+                {/* <th>Phone</th> */}
                 <th>Approve / Decline</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {paginatedEnrollments.map((row) => (
-                <tr key={row.id} style={row.expired ? { background: "#fdf4ff" } : {}}>
+                <tr key={row.id} style={row.expired ? { background: "#fcf7ff" } : {}}>
                   <td style={{ textAlign: "center", width: 40 }}>
                     <input
                       type="checkbox"
@@ -1526,67 +1886,108 @@ export default function EnrollmentManagement() {
                       style={{ cursor: "pointer", width: 18, height: 18 }}
                     />
                   </td>
-                  <td style={{ fontWeight: 500 }}>
-                    {row.studentName}
-                    {row.expired && (
-                      <div style={{ fontSize: 10, color: "#9333ea", fontWeight: 600, marginTop: 2 }}>
-                        Expired · {formatExpiryDate(row.academicYear)}
-                      </div>
-                    )}
+                  <td>
+                    <StudentCell row={row} />
                   </td>
-                  <td>{row.gradeLevel}</td>
-                  <td>{row.sectionName}</td>
-                  <td>{row.enrollmentDate ? new Date(row.enrollmentDate).toLocaleDateString() : "—"}</td>
-                  <td><StatusBadge code={row.statusCode} expired={row.expired} /></td>
-                  <td><FeeBadge fee={row.fee} /></td>
-                  <td>{row.parentName}</td>
-                  <td>{row.phone}</td>
+                  {/* <td>{row.gradeLevel}</td> */}
+                  {/* <td>{row.sectionName}</td> */}
+                  <td>
+                    {row.enrollmentDate
+                      ? new Date(row.enrollmentDate).toLocaleDateString()
+                      : "—"}
+                  </td>
+                  <td>
+                    <StatusBadge code={row.statusCode} expired={row.expired} />
+                  </td>
+                  <td>
+                    <FeeBadge fee={row.fee} />
+                  </td>
+                  <td>
+                    <ParentCell row={row} />
+                  </td>
+                  {/* <td>{row.phone}</td> */}
                   <td>
                     {row.expired ? (
-                      <span style={{ color: "#9333ea", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span className="table-inline-status table-inline-status--expired">
                         <AlertTriangle size={13} /> Expired
                       </span>
                     ) : row.statusCode === "PENDING" ? (
                       <div className="approve-decline-group">
-                        <button className="btn-approve" onClick={() => handleApprove(row.id)}><CheckCircle size={12} /> Approve</button>
-                        <button className="btn-decline" onClick={() => handleDecline(row.id)}><XCircle size={12} /> Decline</button>
+                        <button className="btn-approve" onClick={() => handleApprove(row.id)}>
+                          <CheckCircle size={12} /> Approve
+                        </button>
+                        <button className="btn-decline" onClick={() => handleDecline(row.id)}>
+                          <XCircle size={12} /> Decline
+                        </button>
                       </div>
                     ) : row.statusCode === "ACTIVE" ? (
-                      <span style={{ color: "#059669", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span className="table-inline-status table-inline-status--approved">
                         <CheckCircle size={13} /> Approved
                       </span>
                     ) : row.statusCode === "DROPPED" ? (
-                      <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span className="table-inline-status table-inline-status--declined">
                         <XCircle size={13} /> Declined
                       </span>
                     ) : row.statusCode === "COMPLETED" ? (
-                      <span style={{ color: "#1d4ed8", fontWeight: 600, fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span className="table-inline-status table-inline-status--completed">
                         <CheckCircle size={13} /> Completed
                       </span>
-                    ) : <span style={{ opacity: 0.4 }}>—</span>}
+                    ) : (
+                      <span style={{ opacity: 0.4 }}>—</span>
+                    )}
                   </td>
                   <td>
                     <div className="action-buttons">
-                      <button className="btn-edit" title="View" onClick={() => openModal(row, "view")}><Eye size={14} /></button>
+                      <button className="btn-edit" title="View" onClick={() => openModal(row, "view")}>
+                        <Eye size={14} />
+                      </button>
+
                       <button
                         className="btn-edit"
                         title={row.expired ? "Editing blocked — enrollment expired" : "Edit"}
                         onClick={() => !row.expired && openModal(row, "edit")}
                         disabled={row.expired}
-                        style={row.expired ? { opacity: 0.35, cursor: "not-allowed", pointerEvents: "none" } : {}}
+                        style={
+                          row.expired
+                            ? {
+                                opacity: 0.35,
+                                cursor: "not-allowed",
+                                pointerEvents: "none",
+                              }
+                            : {}
+                        }
                       >
                         <Edit2 size={14} />
                       </button>
-                      {(row.statusCode === "ACTIVE" || row.statusCode === "COMPLETED") && getNextGrade(row.raw.grade_level).next && (
+
+                      {(row.statusCode === "ACTIVE" || row.statusCode === "COMPLETED") &&
+                        getNextGrade(row.raw.grade_level).next && (
+                          <button
+                            className="btn-promote"
+                            title={`Promote to ${gradeLabel(
+                              getNextGrade(row.raw.grade_level).next
+                            )}`}
+                            onClick={() => handlePromote(row)}
+                          >
+                            <ArrowUpCircle size={14} />
+                          </button>
+                        )}
+
+                      {row.statusCode === "ACTIVE" && (
                         <button
-                          className="btn-promote"
-                          title={`Promote to ${gradeLabel(getNextGrade(row.raw.grade_level).next)}`}
-                          onClick={() => handlePromote(row)}
+                          className="btn-edit"
+                          title="Upload ID Image"
+                          onClick={() => openIdUploadModal(row)}
                         >
-                          <ArrowUpCircle size={14} />
+                          ID
                         </button>
                       )}
-                      <button className="btn-delete" title="Delete" onClick={() => handleDeleteEnrollment(row.id)}>
+
+                      <button
+                        className="btn-delete"
+                        title="Delete"
+                        onClick={() => handleDeleteEnrollment(row.id)}
+                      >
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -1607,479 +2008,795 @@ export default function EnrollmentManagement() {
       </div>
 
       {modalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+        <div className="modal-overlay enrollment-modal-overlay">
+          <div className="modal-content enrollment-modal-content enrollment-modal-content--details">
+            <div className="enrollment-modal-header">
+              <div className="enrollment-modal-title-wrap">
+                <h2>
+                  {editingId
+                    ? `${formData.first_name || "Student"} ${formData.last_name || ""}`.trim()
+                    : formData.student_type === "old" && formData.grade_level
+                      ? `Promotion Enrollment — ${gradeLabel(formData.grade_level)}`
+                      : "New Enrollment Record"}
+                </h2>
+                <div className="enrollment-modal-subtitle">
+                  Review, edit, approve, or decline the enrollment record.
+                </div>
+              </div>
+
+              <button type="button" className="enrollment-modal-close" onClick={closeModal}>
+                <X size={18} />
+              </button>
+            </div>
+
             {modalExpired && (
-              <div style={{ background: "#fdf4ff", border: "1.5px solid #d8b4fe", borderRadius: 10, padding: "14px 16px", marginBottom: 18 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <AlertTriangle size={17} style={{ color: "#9333ea", flexShrink: 0, marginTop: 1 }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: "#6b21a8", lineHeight: 1.5 }}>
-                      <strong>Enrollment Expired</strong><br />
-                      This enrollment ended on <strong>{formatExpiryDate(formData.academic_year)}</strong>.
-                      Editing is disabled — you can update the academic year to re-activate it.
+              <div className="enrollment-highlight-note" style={{ marginBottom: 18 }}>
+                <strong>Enrollment Expired.</strong> This enrollment ended on{" "}
+                <strong>{formatExpiryDate(formData.academic_year)}</strong>. Editing is
+                disabled until the academic year is updated.
+                {editingAcademicYear ? (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <input
+                      name="academic_year"
+                      value={formData.academic_year}
+                      onChange={handleInputChange}
+                      placeholder="e.g. 2025-2026"
+                      className="settings-panel__input"
+                      style={{ width: 160 }}
+                    />
+                    <button className="btn-primary" onClick={handleSaveAcademicYear}>
+                      <CheckCircle size={13} /> Save
+                    </button>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setEditingAcademicYear(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setEditingAcademicYear(true)}
+                    >
+                      <Edit2 size={13} /> Edit Academic Year
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!editingId && formData.student_type === "old" && formData.grade_level && (
+              <div className="enrollment-soft-note" style={{ marginBottom: 18 }}>
+                <strong>Promotion Enrollment.</strong> Creating a new enrollment for{" "}
+                <strong>
+                  {formData.first_name} {formData.last_name}
+                </strong>{" "}
+                — promoted to <strong>{gradeLabel(formData.grade_level)}</strong> for AY{" "}
+                <strong>{formData.academic_year}</strong>.
+              </div>
+            )}
+
+            <div className="enrollment-modal-grid">
+              <EnrollmentSection title="Academic Information" icon="🎓">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>
+                      LRN{" "}
+                      {[
+                        "kinder",
+                        "grade1",
+                        "grade2",
+                        "grade3",
+                        "grade4",
+                        "grade5",
+                        "grade6",
+                      ].includes(formData.grade_level) && (
+                        <span style={{ color: "#dc2626" }}>*</span>
+                      )}
+                    </label>
+                    <input
+                      name="lrn"
+                      value={formData.lrn}
+                      onChange={(e) => {
+                        const numericValue = e.target.value.replace(/\D/g, "");
+                        setFormData((p) => ({ ...p, lrn: numericValue.slice(0, 12) }));
+                      }}
+                      disabled={isReadOnly}
+                      maxLength="12"
+                      inputMode="numeric"
+                      placeholder="12 digits for Kinder-Grade 6"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Student Type *</label>
+                    <select
+                      name="student_type"
+                      value={formData.student_type}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    >
+                      <option value="">Select</option>
+                      <option value="new">New / Transferee</option>
+                      <option value="old">Old Student</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Education Level *</label>
+                    <select
+                      name="education_level"
+                      value={formData.education_level}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    >
+                      <option value="">Select</option>
+                      <option value="preschool">Preschool</option>
+                      <option value="elementary">Elementary</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Grade Level *</label>
+                    <select
+                      name="grade_level"
+                      value={formData.grade_level}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly || !formData.education_level}
+                    >
+                      <option value="">Select</option>
+                      {gradeOptions.map((g) => (
+                        <option key={g.value} value={g.value}>
+                          {g.label} (age {GRADE_AGE_RULES[g.value]?.min}–
+                          {GRADE_AGE_RULES[g.value]?.max})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Section / Room</label>
+                    <select
+                      name="section"
+                      value={formData.section}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly || sectionsLoading}
+                    >
+                      <option value="">
+                        {sectionsLoading ? "Loading sections..." : "Optional"}
+                      </option>
+                      {filteredSections.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name || s.section_name || `Section ${s.id}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Academic Year *</label>
+                    <input
+                      name="academic_year"
+                      value={formData.academic_year}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    disabled={isReadOnly}
+                  >
+                    <option value="PENDING">Pending</option>
+                    <option value="ACTIVE">Enrolled</option>
+                    <option value="DROPPED">Dropped</option>
+                    <option value="COMPLETED">Completed</option>
+                  </select>
+                </div>
+              </EnrollmentSection>
+
+              <EnrollmentSection title="Student Information" icon="👤">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Last Name *</label>
+                    <input
+                      name="last_name"
+                      value={formData.last_name}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>First Name *</label>
+                    <input
+                      name="first_name"
+                      value={formData.first_name}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Middle Name</label>
+                    <input
+                      name="middle_name"
+                      value={formData.middle_name}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Birth Date</label>
+                    <input
+                      type="date"
+                      name="birth_date"
+                      value={formData.birth_date || ""}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                      max={todayISO()}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Gender</label>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleInputChange}
+                    disabled={isReadOnly}
+                  >
+                    <option value="">Select</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </div>
+
+                {formData.birth_date && formData.grade_level && !isReadOnly && (() => {
+                  const check = validateAgeForGrade(formData.birth_date, formData.grade_level);
+                  const age = calcAge(formData.birth_date);
+                  const rule = GRADE_AGE_RULES[formData.grade_level];
+                  return (
+                    <div
+                      className={check === true ? "enrollment-soft-note" : "enrollment-highlight-note"}
+                    >
+                      {check === true ? (
+                        <>
+                          Age {age} is valid for {rule?.label} (allowed: {rule?.min}–
+                          {rule?.max} yrs)
+                        </>
+                      ) : (
+                        <>{check}</>
+                      )}
                     </div>
-                    {editingAcademicYear ? (
-                      <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          <input
-                            name="academic_year"
-                            value={formData.academic_year}
-                            onChange={handleInputChange}
-                            placeholder="e.g. 2025-2026"
-                            style={{
-                              padding: "8px 12px",
-                              borderRadius: 8,
-                              fontSize: 13,
-                              border: "1.5px solid #a855f7",
-                              outline: "none",
-                              fontFamily: "inherit",
-                              width: 140,
-                            }}
-                          />
-                          {formData.academic_year && (
-                            <span style={{ fontSize: 11, color: isEnrollmentExpired(formData.academic_year) ? "#9333ea" : "#059669" }}>
-                              {isEnrollmentExpired(formData.academic_year)
-                                ? `Still expired — ends ${formatExpiryDate(formData.academic_year)}`
-                                : `✓ Valid — expires ${formatExpiryDate(formData.academic_year)}`}
-                            </span>
+                  );
+                })()}
+              </EnrollmentSection>
+
+              <EnrollmentSection title="Contact Information" icon="📞">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Email</label>
+                    <input
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Religion</label>
+                    <input
+                      name="religion"
+                      value={formData.religion}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Telephone</label>
+                    <input
+                      name="telephone_number"
+                      value={formData.telephone_number}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Mobile</label>
+                    <input
+                      name="mobile_number"
+                      value={formData.mobile_number}
+                      onChange={handleInputChange}
+                      onBlur={() => {
+                        const n = normalizePHMobile(formData.mobile_number);
+                        if (n) setFormData((p) => ({ ...p, mobile_number: n }));
+                      }}
+                      disabled={isReadOnly}
+                      placeholder="09XXXXXXXXX or +639XXXXXXXXX"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Parent Facebook</label>
+                  <input
+                    name="parent_facebook"
+                    value={formData.parent_facebook}
+                    onChange={handleInputChange}
+                    disabled={isReadOnly}
+                    placeholder="Facebook profile link"
+                  />
+                </div>
+              </EnrollmentSection>
+
+              <EnrollmentSection title="Address" icon="📍">
+                <div className="form-group form-group--full">
+                  <label>House No. / Street</label>
+                  <input
+                    name="street"
+                    value={formData.street}
+                    onChange={handleInputChange}
+                    disabled={isReadOnly}
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Barangay</label>
+                    <input
+                      name="barangay"
+                      value={formData.barangay}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>City / Municipality</label>
+                    <input
+                      name="city"
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Province</label>
+                    <input
+                      name="province"
+                      value={formData.province}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Region</label>
+                    <input
+                      name="region"
+                      value={formData.region}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>ZIP Code</label>
+                  <input
+                    name="zip_code"
+                    value={formData.zip_code}
+                    onChange={handleInputChange}
+                    disabled={isReadOnly}
+                  />
+                </div>
+              </EnrollmentSection>
+
+              <EnrollmentSection title="Parent / Guardian Information" icon="👨‍👩‍👧" full>
+                <div className="form-row">
+                  <div>
+                    <p className="parent-section-label">Mother</p>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>First Name</label>
+                        <input
+                          name="mother_first"
+                          value={formData.parent_info.mother_first}
+                          onChange={handleParentChange}
+                          disabled={isReadOnly}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Middle Name</label>
+                        <input
+                          name="mother_middle"
+                          value={formData.parent_info.mother_middle}
+                          onChange={handleParentChange}
+                          disabled={isReadOnly}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Last Name</label>
+                        <input
+                          name="mother_last"
+                          value={formData.parent_info.mother_last}
+                          onChange={handleParentChange}
+                          disabled={isReadOnly}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Contact Number</label>
+                        <input
+                          name="mother_contact"
+                          value={formData.parent_info.mother_contact}
+                          onChange={handleParentChange}
+                          disabled={isReadOnly}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Occupation</label>
+                      <input
+                        name="mother_occupation"
+                        value={formData.parent_info.mother_occupation}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="parent-section-label">Father</p>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>First Name</label>
+                        <input
+                          name="father_first"
+                          value={formData.parent_info.father_first}
+                          onChange={handleParentChange}
+                          disabled={isReadOnly}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Middle Name</label>
+                        <input
+                          name="father_middle"
+                          value={formData.parent_info.father_middle}
+                          onChange={handleParentChange}
+                          disabled={isReadOnly}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Last Name</label>
+                        <input
+                          name="father_last"
+                          value={formData.parent_info.father_last}
+                          onChange={handleParentChange}
+                          disabled={isReadOnly}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Contact Number</label>
+                        <input
+                          name="father_contact"
+                          value={formData.parent_info.father_contact}
+                          onChange={handleParentChange}
+                          disabled={isReadOnly}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Occupation</label>
+                      <input
+                        name="father_occupation"
+                        value={formData.parent_info.father_occupation}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="enrollment-divider-space" />
+
+                <p className="parent-section-label">
+                  Guardian{" "}
+                  <span style={{ fontWeight: 400, color: "#9ca3af" }}>
+                    (if applicable)
+                  </span>
+                </p>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>First Name</label>
+                    <input
+                      name="guardian_first"
+                      value={formData.parent_info.guardian_first}
+                      onChange={handleParentChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Middle Name</label>
+                    <input
+                      name="guardian_middle"
+                      value={formData.parent_info.guardian_middle}
+                      onChange={handleParentChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Last Name</label>
+                    <input
+                      name="guardian_last"
+                      value={formData.parent_info.guardian_last}
+                      onChange={handleParentChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Contact Number</label>
+                    <input
+                      name="guardian_contact"
+                      value={formData.parent_info.guardian_contact}
+                      onChange={handleParentChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Relationship to Student</label>
+                  <input
+                    name="guardian_relationship"
+                    value={formData.parent_info.guardian_relationship}
+                    onChange={handleParentChange}
+                    disabled={isReadOnly}
+                  />
+                </div>
+              </EnrollmentSection>
+
+              <EnrollmentSection title="Payment Information" icon="💰" full>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Payment Mode *</label>
+                    <select
+                      name="payment_mode"
+                      value={formData.payment_mode}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    >
+                      <option value="">Select</option>
+                      <option value="cash">Cash</option>
+                      <option value="installment">Installment</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Remarks</label>
+                    <input
+                      name="remarks"
+                      value={formData.remarks}
+                      onChange={handleInputChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                </div>
+              </EnrollmentSection>
+
+              <EnrollmentSection title="Submitted Documents" icon="📎" full>
+                <div className="enrollment-documents-wrap enrollment-new-documents-space">
+                  <div className="enrollment-documents-intro">
+                    Admin can review, upload, replace, relabel, or remove documents for
+                    this enrollment.
+                  </div>
+
+                  <div
+                    style={{
+                      marginBottom: 18,
+                      padding: 14,
+                      border: "1px solid #e5eaf2",
+                      borderRadius: 14,
+                      background: "#f8fbff",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 13 }}>
+                      Add New Document
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Document Type</label>
+                        <select
+                          value={docUploadType}
+                          onChange={(e) => setDocUploadType(e.target.value)}
+                        >
+                          {DOCUMENT_TYPE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Label</label>
+                        <input
+                          value={docUploadLabel}
+                          onChange={(e) => setDocUploadLabel(e.target.value)}
+                          placeholder="Optional custom label"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Choose File</label>
+                      <input
+                        type="file"
+                        onChange={(e) => setDocUploadFile(e.target.files?.[0] || null)}
+                      />
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <button
+                        className="btn-primary"
+                        onClick={handleUploadDocument}
+                        disabled={docSaving}
+                      >
+                        {docSaving ? "Saving..." : "Upload Document"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="enrollment-documents-grid">
+                    {currentDocs.length ? (
+                      currentDocs.map((doc) => (
+                        <div key={doc.id} className="enrollment-document-card">
+                          {editingDocId === doc.id ? (
+                            <>
+                              <div className="form-group">
+                                <label>Document Type</label>
+                                <select
+                                  value={editingDocType}
+                                  onChange={(e) => setEditingDocType(e.target.value)}
+                                >
+                                  {DOCUMENT_TYPE_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                      {opt.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="form-group">
+                                <label>Label</label>
+                                <input
+                                  value={editingDocLabel}
+                                  onChange={(e) => setEditingDocLabel(e.target.value)}
+                                />
+                              </div>
+
+                              <div className="form-group">
+                                <label>Replace File</label>
+                                <input
+                                  type="file"
+                                  onChange={(e) =>
+                                    setEditingDocFile(e.target.files?.[0] || null)
+                                  }
+                                />
+                              </div>
+
+                              <div className="enrollment-document-card__actions">
+                                <button
+                                  className="btn-primary"
+                                  onClick={handleUpdateDocument}
+                                  disabled={docSaving}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  className="btn-secondary"
+                                  onClick={cancelEditDocument}
+                                  disabled={docSaving}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="enrollment-document-card__type">
+                                {doc.label || doc.document_type}
+                              </div>
+
+                              <div className="enrollment-document-card__meta">
+                                {DOCUMENT_TYPE_OPTIONS.find(
+                                  (x) => x.value === doc.document_type
+                                )?.label || doc.document_type}
+                              </div>
+
+                              <div className="enrollment-document-card__actions">
+                                <a
+                                  href={doc.file}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="enrollment-document-link"
+                                >
+                                  <Paperclip size={12} />
+                                  View
+                                  <ExternalLink size={12} />
+                                </a>
+
+                                <button
+                                  className="btn-edit"
+                                  onClick={() => startEditDocument(doc)}
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+
+                                <button
+                                  className="btn-delete"
+                                  onClick={() => handleDeleteDocument(doc.id)}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </>
                           )}
                         </div>
-                        <button className="btn-primary" onClick={handleSaveAcademicYear}><CheckCircle size={13} /> Save</button>
-                        <button className="btn-secondary" onClick={() => setEditingAcademicYear(false)}>Cancel</button>
-                      </div>
+                      ))
                     ) : (
-                      <button
-                        onClick={() => setEditingAcademicYear(true)}
-                        style={{
-                          marginTop: 10,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "7px 14px",
-                          borderRadius: 8,
-                          border: "1.5px solid #a855f7",
-                          background: "white",
-                          color: "#7e22ce",
-                          fontSize: 12,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          fontFamily: "inherit",
-                        }}
-                      >
-                        <Edit2 size={12} /> Edit Academic Year
-                      </button>
+                      <div className="enrollment-soft-note">
+                        No documents submitted for this enrollment.
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
-            )}
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-              <h2>
-                {editingId
-                  ? "Enrollment Details"
-                  : formData.student_type === "old" && formData.grade_level
-                    ? `Promote to ${gradeLabel(formData.grade_level)}`
-                    : "Add Enrollee"}
-              </h2>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {editingId && !modalExpired && (
-                  modalMode === "view"
-                    ? <button className="btn-primary" onClick={() => setModalMode("edit")}>Edit</button>
-                    : <button className="btn-secondary" onClick={() => setModalMode("view")}>View</button>
-                )}
-
-                {editingId && !modalExpired && modalStatus === "PENDING" && (
-                  <>
-                    <button className="btn-approve" onClick={handleApproveModal}><CheckCircle size={13} /> Approve</button>
-                    <button className="btn-decline" onClick={handleDeclineModal}><XCircle size={13} /> Decline</button>
-                  </>
-                )}
-
-                {editingId && modalStatus === "ACTIVE" && !modalExpired && <span style={{ color: "#059669", fontWeight: 700, fontSize: 13 }}>✔ Approved</span>}
-                {editingId && modalStatus === "DROPPED" && <span style={{ color: "#dc2626", fontWeight: 700, fontSize: 13 }}>✖ Declined</span>}
-                {editingId && modalStatus === "COMPLETED" && <span style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 13 }}>✔ Completed</span>}
-                {modalExpired && <span style={badgeStyle(STATUS_STYLES, "EXPIRED")}><AlertTriangle size={11} /> Expired</span>}
-
-                {editingId && (modalStatus === "ACTIVE" || modalStatus === "COMPLETED") && !modalExpired && getNextGrade(formData.grade_level).next && (
-                  <button
-                    className="btn-promote"
-                    onClick={() => {
-                      const m = normalized.find((r) => r.id === editingId);
-                      if (m) {
-                        closeModal();
-                        handlePromote(m);
-                      }
-                    }}
-                  >
-                    <ArrowUpCircle size={13} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {!editingId && formData.student_type === "old" && formData.grade_level && (
-              <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", borderRadius: 10, padding: "12px 16px", marginBottom: 18, display: "flex", alignItems: "flex-start", gap: 10 }}>
-                <ArrowUpCircle size={17} style={{ color: "#16a34a", flexShrink: 0, marginTop: 1 }} />
-                <div style={{ fontSize: 13, color: "#166534", lineHeight: 1.6 }}>
-                  <strong>Promotion Enrollment</strong><br />
-                  Creating a new enrollment for <strong>{formData.first_name} {formData.last_name}</strong> — promoted to <strong>{gradeLabel(formData.grade_level)}</strong> for AY <strong>{formData.academic_year}</strong>.
-                  Personal and parent info has been carried over. Please set the <strong>Section</strong> and <strong>Payment Mode</strong> before saving.
-                </div>
-              </div>
-            )}
-
-            <h3>🎓 Academic Information</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label>LRN {["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(formData.grade_level) && <span style={{ color: "#dc2626" }}>*</span>}</label>
-                <input
-                  name="lrn"
-                  value={formData.lrn}
-                  onChange={(e) => {
-                    const numericValue = e.target.value.replace(/\D/g, "");
-                    setFormData((p) => ({ ...p, lrn: numericValue.slice(0, 12) }));
-                  }}
-                  disabled={isReadOnly}
-                  maxLength="12"
-                  inputMode="numeric"
-                  placeholder="12 digits for Kinder-Grade 6"
-                />
-                {formData.lrn && formData.lrn.length !== 12 && ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(formData.grade_level) && (
-                  <div style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>LRN must be exactly 12 digits ({formData.lrn.length}/12)</div>
-                )}
-              </div>
-              <div className="form-group">
-                <label>Student Type *</label>
-                <select name="student_type" value={formData.student_type} onChange={handleInputChange} disabled={isReadOnly}>
-                  <option value="">Select</option>
-                  <option value="new">New / Transferee</option>
-                  <option value="old">Old Student</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Education Level *</label>
-                <select name="education_level" value={formData.education_level} onChange={handleInputChange} disabled={isReadOnly}>
-                  <option value="">Select</option>
-                  <option value="preschool">Preschool</option>
-                  <option value="elementary">Elementary</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Grade Level *</label>
-                <select
-                  name="grade_level"
-                  value={formData.grade_level}
-                  onChange={handleInputChange}
-                  disabled={isReadOnly || !formData.education_level}
-                >
-                  <option value="">Select</option>
-                  {gradeOptions.map((g) => (
-                    <option key={g.value} value={g.value}>
-                      {g.label} (age {GRADE_AGE_RULES[g.value]?.min}–{GRADE_AGE_RULES[g.value]?.max})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Section / Room *</label>
-                <select
-                  name="section"
-                  value={formData.section}
-                  onChange={handleInputChange}
-                  disabled={isReadOnly || sectionsLoading}
-                >
-                  <option value="">
-                    {sectionsLoading ? "Loading sections..." : "Select Section"}
-                  </option>
-                  {filteredSections.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name || s.section_name || `Section ${s.id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Academic Year *</label>
-                <input name="academic_year" value={formData.academic_year} onChange={handleInputChange} disabled={isReadOnly} />
-                {formData.academic_year && (
-                  <span style={{ fontSize: 11, marginTop: 4, color: isEnrollmentExpired(formData.academic_year) ? "#9333ea" : "#059669" }}>
-                    {isEnrollmentExpired(formData.academic_year)
-                      ? `Expired on ${formatExpiryDate(formData.academic_year)}`
-                      : `Expires ${formatExpiryDate(formData.academic_year)}`}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Status</label>
-                <select name="status" value={formData.status} onChange={handleInputChange} disabled={isReadOnly}>
-                  <option value="PENDING">Pending</option>
-                  <option value="ACTIVE">Enrolled</option>
-                  <option value="DROPPED">Dropped</option>
-                  <option value="COMPLETED">Completed</option>
-                </select>
-              </div>
-              <div className="form-group" />
-            </div>
-
-            <h3>👤 Student Information</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Last Name *</label>
-                <input name="last_name" value={formData.last_name} onChange={handleInputChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group">
-                <label>First Name *</label>
-                <input name="first_name" value={formData.first_name} onChange={handleInputChange} disabled={isReadOnly} />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Middle Name</label>
-                <input name="middle_name" value={formData.middle_name} onChange={handleInputChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group">
-                <label>Birth Date</label>
-                <input
-                  type="date"
-                  name="birth_date"
-                  value={formData.birth_date || ""}
-                  onChange={handleInputChange}
-                  disabled={isReadOnly}
-                  max={todayISO()}
-                />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Gender</label>
-                <select name="gender" value={formData.gender} onChange={handleInputChange} disabled={isReadOnly}>
-                  <option value="">Select</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                </select>
-              </div>
-            </div>
-
-            {formData.birth_date && formData.grade_level && !isReadOnly && (() => {
-              const check = validateAgeForGrade(formData.birth_date, formData.grade_level);
-              const age = calcAge(formData.birth_date);
-              const rule = GRADE_AGE_RULES[formData.grade_level];
-              return (
-                <div
-                  style={{
-                    padding: "9px 13px",
-                    borderRadius: 8,
-                    marginBottom: 12,
-                    fontSize: 12,
-                    background: check === true ? "#f0fdf4" : "#fff7ed",
-                    border: `1.5px solid ${check === true ? "#86efac" : "#fed7aa"}`,
-                    color: check === true ? "#166534" : "#92400e",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 7,
-                  }}
-                >
-                  {check === true
-                    ? <><CheckCircle size={13} /> Age {age} is valid for {rule?.label} (allowed: {rule?.min}–{rule?.max} yrs)</>
-                    : <><AlertTriangle size={13} /> {check}</>}
-                </div>
-              );
-            })()}
-
-            <h3>📞 Contact Information</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Email</label>
-                <input name="email" value={formData.email} onChange={handleInputChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group">
-                <label>Religion</label>
-                <input name="religion" value={formData.religion} onChange={handleInputChange} disabled={isReadOnly} />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Telephone</label>
-                <input name="telephone_number" value={formData.telephone_number} onChange={handleInputChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group">
-                <label>Mobile</label>
-                <input
-                  name="mobile_number"
-                  value={formData.mobile_number}
-                  onChange={handleInputChange}
-                  onBlur={() => {
-                    const n = normalizePHMobile(formData.mobile_number);
-                    if (n) setFormData((p) => ({ ...p, mobile_number: n }));
-                  }}
-                  disabled={isReadOnly}
-                  placeholder="09XXXXXXXXX or +639XXXXXXXXX"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Parent Facebook</label>
-              <input
-                name="parent_facebook"
-                value={formData.parent_facebook}
-                onChange={handleInputChange}
-                disabled={isReadOnly}
-                required={!isReadOnly}
-                placeholder="Facebook profile link"
-              />
-            </div>
-
-            <h3>📍 Address</h3>
-            <div className="form-group">
-              <label>House No. / Street</label>
-              <input name="street" value={formData.street} onChange={handleInputChange} disabled={isReadOnly} />
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Barangay</label>
-                <input name="barangay" value={formData.barangay} onChange={handleInputChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group">
-                <label>City / Municipality</label>
-                <input name="city" value={formData.city} onChange={handleInputChange} disabled={isReadOnly} />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Province</label>
-                <input name="province" value={formData.province} onChange={handleInputChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group">
-                <label>Region</label>
-                <input name="region" value={formData.region} onChange={handleInputChange} disabled={isReadOnly} />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>ZIP Code</label>
-                <input name="zip_code" value={formData.zip_code} onChange={handleInputChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group" />
-            </div>
-
-            <h3>👨‍👩‍👧 Parent / Guardian Information</h3>
-
-            <p className="parent-section-label">Mother</p>
-            <div className="form-row">
-              <div className="form-group">
-                <label>First Name</label>
-                <input name="mother_first" value={formData.parent_info.mother_first} onChange={handleParentChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group">
-                <label>Middle Name</label>
-                <input name="mother_middle" value={formData.parent_info.mother_middle} onChange={handleParentChange} disabled={isReadOnly} />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Last Name</label>
-                <input name="mother_last" value={formData.parent_info.mother_last} onChange={handleParentChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group">
-                <label>Contact Number</label>
-                <input name="mother_contact" value={formData.parent_info.mother_contact} onChange={handleParentChange} disabled={isReadOnly} />
-              </div>
-            </div>
-            <div className="form-group">
-              <label>Occupation</label>
-              <input name="mother_occupation" value={formData.parent_info.mother_occupation} onChange={handleParentChange} disabled={isReadOnly} />
-            </div>
-
-            <p className="parent-section-label">Father</p>
-            <div className="form-row">
-              <div className="form-group">
-                <label>First Name</label>
-                <input name="father_first" value={formData.parent_info.father_first} onChange={handleParentChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group">
-                <label>Middle Name</label>
-                <input name="father_middle" value={formData.parent_info.father_middle} onChange={handleParentChange} disabled={isReadOnly} />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Last Name</label>
-                <input name="father_last" value={formData.parent_info.father_last} onChange={handleParentChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group">
-                <label>Contact Number</label>
-                <input name="father_contact" value={formData.parent_info.father_contact} onChange={handleParentChange} disabled={isReadOnly} />
-              </div>
-            </div>
-            <div className="form-group">
-              <label>Occupation</label>
-              <input name="father_occupation" value={formData.parent_info.father_occupation} onChange={handleParentChange} disabled={isReadOnly} />
-            </div>
-
-            <p className="parent-section-label">
-              Guardian <span style={{ fontWeight: 400, color: "#9ca3af" }}>(if applicable)</span>
-            </p>
-            <div className="form-row">
-              <div className="form-group">
-                <label>First Name</label>
-                <input name="guardian_first" value={formData.parent_info.guardian_first} onChange={handleParentChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group">
-                <label>Middle Name</label>
-                <input name="guardian_middle" value={formData.parent_info.guardian_middle} onChange={handleParentChange} disabled={isReadOnly} />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Last Name</label>
-                <input name="guardian_last" value={formData.parent_info.guardian_last} onChange={handleParentChange} disabled={isReadOnly} />
-              </div>
-              <div className="form-group">
-                <label>Contact Number</label>
-                <input name="guardian_contact" value={formData.parent_info.guardian_contact} onChange={handleParentChange} disabled={isReadOnly} />
-              </div>
-            </div>
-            <div className="form-group">
-              <label>Relationship to Student</label>
-              <input name="guardian_relationship" value={formData.parent_info.guardian_relationship} onChange={handleParentChange} disabled={isReadOnly} />
-            </div>
-
-            <h3>💰 Payment Information</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Payment Mode *</label>
-                <select name="payment_mode" value={formData.payment_mode} onChange={handleInputChange} disabled={isReadOnly}>
-                  <option value="">Select</option>
-                  <option value="cash">Cash</option>
-                  <option value="installment">Installment</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Remarks</label>
-                <input name="remarks" value={formData.remarks} onChange={handleInputChange} disabled={isReadOnly} />
-              </div>
+              </EnrollmentSection>
             </div>
 
             <div className="form-actions">
-              <button className="btn-secondary" onClick={closeModal}>Close</button>
+              <button className="btn-secondary" onClick={closeModal}>
+                Close
+              </button>
+
+              {editingId && !modalExpired && modalStatus === "PENDING" && (
+                <>
+                  <button className="btn-approve" onClick={handleApproveModal}>
+                    <CheckCircle size={13} /> Approve
+                  </button>
+                  <button className="btn-decline" onClick={handleDeclineModal}>
+                    <XCircle size={13} /> Decline
+                  </button>
+                </>
+              )}
+
               {modalMode === "edit" && !modalExpired && (
                 <button className="btn-primary" onClick={handleSaveEnrollment}>
                   {editingId ? "Save Changes" : "Create Enrollee"}
@@ -2090,138 +2807,86 @@ export default function EnrollmentManagement() {
         </div>
       )}
 
-      {approveImageOpen && (
+      {idUploadOpen && (
         <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 10001,
-          }}
-          onClick={(e) => e.target === e.currentTarget && closeApproveImageModal()}
+          className="modal-overlay enrollment-modal-overlay"
+          onClick={(e) => e.target === e.currentTarget && closeIdUploadModal()}
         >
-          <div
-            style={{
-              background: "white",
-              borderRadius: 12,
-              padding: 30,
-              width: "90%",
-              maxWidth: 450,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-            }}
-          >
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>
-              📸 Student ID Image
-            </div>
-            <div style={{ fontSize: 13, color: "#666", marginBottom: 20, lineHeight: 1.5 }}>
-              Upload the image for School ID.
+          <div className="modal-content" style={{ maxWidth: 460, width: "92vw" }}>
+            <div className="enrollment-modal-header">
+              <div className="enrollment-modal-title-wrap">
+                <h2>Upload Student ID Image</h2>
+                <div className="enrollment-modal-subtitle">
+                  Upload or replace the student's ID image after enrollment approval.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="enrollment-modal-close"
+                onClick={closeIdUploadModal}
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            {approveImagePreview ? (
+            {idUploadPreview ? (
               <div style={{ marginBottom: 20, textAlign: "center" }}>
                 <img
-                  src={approveImagePreview}
+                  src={idUploadPreview}
                   alt="ID Preview"
-                  style={{ maxWidth: "100%", maxHeight: 300, borderRadius: 8 }}
+                  style={{ maxWidth: "100%", maxHeight: 300, borderRadius: 12 }}
                 />
-                <button
-                  onClick={() => {
-                    setApproveImageFile(null);
-                    setApproveImagePreview(null);
-                  }}
-                  style={{
-                    marginTop: 10,
-                    padding: "6px 12px",
-                    background: "#f3f4f6",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 500,
-                  }}
-                >
-                  Remove
-                </button>
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => {
+                      setIdUploadFile(null);
+                      setIdUploadPreview(null);
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             ) : (
               <label
                 style={{
                   display: "block",
                   border: "2px dashed #d1d5db",
-                  borderRadius: 8,
+                  borderRadius: 14,
                   padding: 30,
                   textAlign: "center",
                   cursor: "pointer",
                   background: "#f9fafb",
                   marginBottom: 20,
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "#3b82f6";
-                  e.currentTarget.style.background = "#eff6ff";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "#d1d5db";
-                  e.currentTarget.style.background = "#f9fafb";
                 }}
               >
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={handleImageSelect}
+                  onChange={handleIdImageSelect}
                   style={{ display: "none" }}
                 />
-                <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: "#374151" }}>
-                  Click to upload or drag & drop
+                <div style={{ fontSize: 28, marginBottom: 8 }}>🪪</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                  Click to upload student ID image
                 </div>
                 <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
-                  PNG, JPG(max 5MB)
+                  PNG, JPG up to 5MB
                 </div>
               </label>
             )}
 
-            <div style={{ display: "flex", gap: 12 }}>
-              <button
-                onClick={closeApproveImageModal}
-                disabled={approvingImage}
-                style={{
-                  flex: 1,
-                  padding: "9px 14px",
-                  background: "#f3f4f6",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 6,
-                  cursor: approvingImage ? "not-allowed" : "pointer",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  opacity: approvingImage ? 0.6 : 1,
-                }}
-              >
+            <div className="form-actions">
+              <button className="btn-secondary" onClick={closeIdUploadModal} disabled={idUploading}>
                 Cancel
               </button>
               <button
-                onClick={handleApproveWithImage}
-                disabled={!approveImageFile || approvingImage}
-                style={{
-                  flex: 1,
-                  padding: "9px 14px",
-                  background: approveImageFile && !approvingImage ? "#10b981" : "#d1d5db",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: approveImageFile && !approvingImage ? "pointer" : "not-allowed",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  opacity: !approveImageFile || approvingImage ? 0.6 : 1,
-                }}
+                className="btn-primary"
+                onClick={handleUploadIdImage}
+                disabled={!idUploadFile || idUploading}
               >
-                {approvingImage ? "Uploading..." : "Approve with Image"}
+                {idUploading ? "Uploading..." : "Upload ID"}
               </button>
             </div>
           </div>

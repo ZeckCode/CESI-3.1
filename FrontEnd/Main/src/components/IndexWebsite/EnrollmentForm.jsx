@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { GRADE_AGE_RULES } from "../../config/EnrollmentConfig.js";
 import "../IndexWebsiteCSS/EnrollmentForm.css";
 
@@ -6,7 +7,6 @@ const API_BASE = "http://127.0.0.1:8000";
 
 /* ─────────────────────────────────────────────
    COMPUTE ENROLLMENT WINDOW FROM BACKEND DATA
-   (mirrors the admin-side logic exactly)
 ───────────────────────────────────────────── */
 const computeEnrollmentWindow = (settings) => {
   const autoOpen = () => {
@@ -83,7 +83,8 @@ const EnrollmentClosed = ({ window_, onClose }) => (
    MAIN ENROLLMENT FORM
 ───────────────────────────────────────────── */
 const EnrollmentForm = ({ onClose }) => {
-  /* ── Fetch settings from backend ── */
+  const navigate = useNavigate();
+
   const [settings, setSettings] = useState(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
 
@@ -97,17 +98,14 @@ const EnrollmentForm = ({ onClose }) => {
       });
   }, []);
 
-  /* ── Compute window from live settings ── */
   const window_ = computeEnrollmentWindow(settings);
   const { isOpen, closeDate, daysLeft, academicYear } = window_;
 
-  /* -------------------- BASIC STATES -------------------- */
   const [studentType, setStudentType] = useState("");
   const [educationLevel, setEducationLevel] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
   const [paymentMode, setPaymentMode] = useState("");
 
-  /* -------------------- STUDENT INFO -------------------- */
   const [lrn, setLrn] = useState("");
   const [lastName, setLastName] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -115,14 +113,12 @@ const EnrollmentForm = ({ onClose }) => {
   const [birthDate, setBirthDate] = useState("");
   const [gender, setGender] = useState("");
 
-  /* -------------------- CONTACT INFO -------------------- */
   const [email, setEmail] = useState("");
   const [religion, setReligion] = useState("");
   const [telephone, setTelephone] = useState("");
   const [mobile, setMobile] = useState("");
   const [parentFacebook, setParentFacebook] = useState("");
 
-  /* -------------------- ADDRESS -------------------- */
   const [street, setStreet] = useState("");
   const [barangay, setBarangay] = useState("");
   const [city, setCity] = useState("");
@@ -130,30 +126,34 @@ const EnrollmentForm = ({ onClose }) => {
   const [region, setRegion] = useState("");
   const [zipCode, setZipCode] = useState("");
 
-  /* -------------------- FATHER -------------------- */
   const [fatherFirst, setFatherFirst] = useState("");
   const [fatherMiddle, setFatherMiddle] = useState("");
   const [fatherLast, setFatherLast] = useState("");
   const [fatherContact, setFatherContact] = useState("");
   const [fatherOccupation, setFatherOccupation] = useState("");
 
-  /* -------------------- MOTHER -------------------- */
   const [motherFirst, setMotherFirst] = useState("");
   const [motherMiddle, setMotherMiddle] = useState("");
   const [motherLast, setMotherLast] = useState("");
   const [motherContact, setMotherContact] = useState("");
   const [motherOccupation, setMotherOccupation] = useState("");
 
-  /* -------------------- GUARDIAN -------------------- */
   const [guardianFirst, setGuardianFirst] = useState("");
   const [guardianMiddle, setGuardianMiddle] = useState("");
   const [guardianLast, setGuardianLast] = useState("");
   const [guardianContact, setGuardianContact] = useState("");
   const [guardianRelationship, setGuardianRelationship] = useState("");
 
-  const [website, setWebsite] = useState(""); // honeypot
+  /* optional docs */
+  const [form137File, setForm137File] = useState(null);
+  const [sf10File, setSf10File] = useState(null);
+  const [birthCertificateFile, setBirthCertificateFile] = useState(null);
+  const [goodMoralFile, setGoodMoralFile] = useState(null);
+  const [reportCardFile, setReportCardFile] = useState(null);
+  const [otherDocumentFile, setOtherDocumentFile] = useState(null);
 
-  /* -------------------- TUITION -------------------- */
+  const [website, setWebsite] = useState("");
+
   const [tuition, setTuition] = useState(null);
   const [tuitionLoading, setTuitionLoading] = useState(false);
   const [tuitionError, setTuitionError] = useState("");
@@ -177,7 +177,7 @@ const EnrollmentForm = ({ onClose }) => {
   const tuitionKey = getTuitionKey(gradeLevel);
 
   useEffect(() => {
-    if (!tuitionKey) {
+    if (!tuitionKey || studentType !== "new") {
       setTuition(null);
       setTuitionError("");
       setTuitionLoading(false);
@@ -214,9 +214,8 @@ const EnrollmentForm = ({ onClose }) => {
     return () => {
       isMounted = false;
     };
-  }, [tuitionKey]);
+  }, [tuitionKey, studentType]);
 
-  /* ── Loading splash ── */
   if (settingsLoading) {
     return (
       <div className="enrollment-container">
@@ -227,10 +226,8 @@ const EnrollmentForm = ({ onClose }) => {
     );
   }
 
-  /* ── Closed screen ── */
   if (!isOpen) return <EnrollmentClosed window_={window_} onClose={onClose} />;
 
-  /* -------------------- GRADE OPTIONS -------------------- */
   const gradeOptions =
     educationLevel === "preschool"
       ? [
@@ -248,7 +245,6 @@ const EnrollmentForm = ({ onClose }) => {
         ]
       : [];
 
-  /* -------------------- HELPERS -------------------- */
   const normalizePHMobile = (number) => {
     if (!number) return null;
     const cleaned = String(number).replace(/[\s\-()]/g, "");
@@ -294,9 +290,10 @@ const EnrollmentForm = ({ onClose }) => {
   const buildName = (first, middle, last) =>
     [first, middle, last].map((p) => p.trim()).filter(Boolean).join(" ");
 
-  /* -------------------- SUBMIT -------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (studentType !== "new") return;
 
     const liveSettings = await fetch(`${API_BASE}/api/enrollment-settings/`)
       .then((r) => r.json())
@@ -343,54 +340,58 @@ const EnrollmentForm = ({ onClose }) => {
       return;
     }
 
-    const payload = {
-      student_type: studentType,
-      education_level: educationLevel,
-      grade_level: gradeLevel,
-      academic_year: academicYear,
-      website,
-      lrn,
-      last_name: lastName,
-      first_name: firstName,
-      middle_name: middleName,
-      birth_date: birthDate || null,
-      gender,
-      email,
-      address: buildAddress(),
-      religion,
-      telephone_number: telephone,
-      mobile_number: normalizedMobile,
-      parent_facebook: parentFacebook,
-      payment_mode: paymentMode,
-      remarks: "",
-      parent_info: {
-        father_name: buildName(fatherFirst, fatherMiddle, fatherLast),
-        father_contact: fatherContact,
-        father_occupation: fatherOccupation,
-        mother_name: buildName(motherFirst, motherMiddle, motherLast),
-        mother_contact: motherContact,
-        mother_occupation: motherOccupation,
-        guardian_name: buildName(guardianFirst, guardianMiddle, guardianLast),
-        guardian_contact: guardianContact,
-        guardian_relationship: guardianRelationship,
-      },
-    };
+    const formData = new FormData();
+    formData.append("student_type", studentType);
+    formData.append("education_level", educationLevel);
+    formData.append("grade_level", gradeLevel);
+    formData.append("academic_year", academicYear);
+    formData.append("website", website);
+    formData.append("lrn", lrn);
+    formData.append("last_name", lastName);
+    formData.append("first_name", firstName);
+    formData.append("middle_name", middleName);
+    formData.append("birth_date", birthDate || "");
+    formData.append("gender", gender);
+    formData.append("email", email);
+    formData.append("address", buildAddress());
+    formData.append("religion", religion);
+    formData.append("telephone_number", telephone);
+    formData.append("mobile_number", normalizedMobile);
+    formData.append("parent_facebook", parentFacebook);
+    formData.append("payment_mode", paymentMode);
+    formData.append("remarks", "");
+
+    formData.append("parent_info.father_name", buildName(fatherFirst, fatherMiddle, fatherLast));
+    formData.append("parent_info.father_contact", fatherContact);
+    formData.append("parent_info.father_occupation", fatherOccupation);
+    formData.append("parent_info.mother_name", buildName(motherFirst, motherMiddle, motherLast));
+    formData.append("parent_info.mother_contact", motherContact);
+    formData.append("parent_info.mother_occupation", motherOccupation);
+    formData.append("parent_info.guardian_name", buildName(guardianFirst, guardianMiddle, guardianLast));
+    formData.append("parent_info.guardian_contact", guardianContact);
+    formData.append("parent_info.guardian_relationship", guardianRelationship);
+
+    if (form137File) formData.append("form_137_file", form137File);
+    if (sf10File) formData.append("sf10_file", sf10File);
+    if (birthCertificateFile) formData.append("birth_certificate_file", birthCertificateFile);
+    if (goodMoralFile) formData.append("good_moral_file", goodMoralFile);
+    if (reportCardFile) formData.append("report_card_file", reportCardFile);
+    if (otherDocumentFile) formData.append("other_document_file", otherDocumentFile);
 
     try {
       const response = await fetch(`${API_BASE}/api/enrollments/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: formData,
       });
 
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
         console.error("Submission Error:", data);
         alert("Error: " + JSON.stringify(data));
         return;
       }
 
-      await response.json();
       alert("Enrollment submitted successfully!");
       if (onClose) onClose();
     } catch (err) {
@@ -429,448 +430,511 @@ const EnrollmentForm = ({ onClose }) => {
         <h3>🎓 Academic Information</h3>
         <div className="form-grid">
           <div className="form-group">
-            <label>
-              LRN {["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(gradeLevel) && <span className="required">*</span>}
-            </label>
-            <input
-              value={lrn}
-              onChange={(e) => setLrn(e.target.value.replace(/\D/g, ""))}
-              placeholder={
-                ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(gradeLevel)
-                  ? "12 digits (required)"
-                  : "Pre-Kinder students may leave blank"
-              }
-              maxLength="12"
-              inputMode="numeric"
-            />
-            {lrn &&
-              lrn.length !== 12 &&
-              ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(gradeLevel) && (
-                <div style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>
-                  LRN must be exactly 12 digits ({lrn.length}/12)
-                </div>
-              )}
-          </div>
-
-          <div className="form-group">
-            <label>Student Type</label>
-            <select value={studentType} onChange={(e) => setStudentType(e.target.value)}>
+            <label>Student Type <span className="required">*</span></label>
+            <select value={studentType} onChange={(e) => setStudentType(e.target.value)} required>
               <option value="">Select</option>
               <option value="new">New / Transferee</option>
               <option value="old">Old Student</option>
             </select>
           </div>
 
-          <div className="form-group">
-            <label>Education Level<span className="required">*</span></label>
-            <select
-              value={educationLevel}
-              onChange={(e) => {
-                setEducationLevel(e.target.value);
-                setGradeLevel("");
-                setTuition(null);
-                setTuitionError("");
-              }}
-              required
-            >
-              <option value="">Select</option>
-              <option value="preschool">Preschool</option>
-              <option value="elementary">Elementary</option>
-            </select>
-          </div>
+          {studentType === "new" && (
+            <>
+              <div className="form-group">
+                <label>LRN {["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(gradeLevel) && <span className="required">*</span>}</label>
+                <input
+                  value={lrn}
+                  onChange={(e) => setLrn(e.target.value.replace(/\D/g, ""))}
+                  placeholder={
+                    ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(gradeLevel)
+                      ? "12 digits (required)"
+                      : "Pre-Kinder students may leave blank"
+                  }
+                  maxLength="12"
+                  inputMode="numeric"
+                />
+                {lrn &&
+                  lrn.length !== 12 &&
+                  ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(gradeLevel) && (
+                    <div style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>
+                      LRN must be exactly 12 digits ({lrn.length}/12)
+                    </div>
+                  )}
+              </div>
 
-          <div className="form-group">
-            <label>Grade Level<span className="required">*</span></label>
-            <select
-              value={gradeLevel}
-              disabled={!educationLevel}
-              onChange={(e) => setGradeLevel(e.target.value)}
-              required
-            >
-              <option value="">Select</option>
-              {gradeOptions.map((g) => {
-                const rule = GRADE_AGE_RULES[g.value];
-                return (
-                  <option key={g.value} value={g.value}>
-                    {g.label}{rule ? ` (age ${rule.min}–${rule.max})` : ""}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
+              <div className="form-group">
+                <label>Education Level<span className="required">*</span></label>
+                <select
+                  value={educationLevel}
+                  onChange={(e) => {
+                    setEducationLevel(e.target.value);
+                    setGradeLevel("");
+                    setTuition(null);
+                    setTuitionError("");
+                  }}
+                  required
+                >
+                  <option value="">Select</option>
+                  <option value="preschool">Preschool</option>
+                  <option value="elementary">Elementary</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Grade Level<span className="required">*</span></label>
+                <select
+                  value={gradeLevel}
+                  disabled={!educationLevel}
+                  onChange={(e) => setGradeLevel(e.target.value)}
+                  required
+                >
+                  <option value="">Select</option>
+                  {gradeOptions.map((g) => {
+                    const rule = GRADE_AGE_RULES[g.value];
+                    return (
+                      <option key={g.value} value={g.value}>
+                        {g.label}{rule ? ` (age ${rule.min}–${rule.max})` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </>
+          )}
         </div>
 
-        <h3>👤 Student Information</h3>
-        <div className="form-grid">
-          <div className="form-group">
-            <label>Last Name <span className="required">*</span></label>
-            <input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
-          </div>
-          <div className="form-group">
-            <label>First Name <span className="required">*</span></label>
-            <input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
-          </div>
-          <div className="form-group">
-            <label>Middle Name <span className="required">*</span></label>
-            <input value={middleName} onChange={(e) => setMiddleName(e.target.value)} required />
-          </div>
-          <div className="form-group">
-            <label>Birth Date <span className="required">*</span></label>
-            <input type="date" value={birthDate} max={maxBirthDate} onChange={(e) => setBirthDate(e.target.value)} required />
-          </div>
-          <div className="form-group">
-            <label>Gender<span className="required">*</span></label>
-            <select value={gender} onChange={(e) => setGender(e.target.value)} required>
-              <option value="">Select</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select>
-          </div>
-        </div>
-
-        {ageValidation && (
-          <div className={`age-validation-hint ${ageValidation.ok ? "age-validation-hint--ok" : "age-validation-hint--error"}`}>
-            <span>{ageValidation.ok ? "✓" : "✗"}</span>
-            <span>{ageValidation.msg}</span>
+        {!studentType && (
+          <div style={{ marginTop: 12, padding: 14, borderRadius: 10, background: "#f8fafc", color: "#475569" }}>
+            Select <strong>New / Transferee</strong> to fill out the full enrollment form, or select <strong>Old Student </strong>
+            to log in and continue re-enrollment in the Parent/Student Portal.
           </div>
         )}
 
-        {educationLevel && (
-          <details className="age-reference">
-            <summary>📋 Age requirements per grade level</summary>
-            <table className="age-reference__table">
-              <thead>
-                <tr>
-                  <th>Grade</th>
-                  <th>Min Age</th>
-                  <th>Max Age</th>
-                </tr>
-              </thead>
-              <tbody>
-                {gradeOptions.map((g) => {
-                  const rule = GRADE_AGE_RULES[g.value];
-                  const age = calcAge(birthDate);
-                  const isSelected = gradeLevel === g.value;
-                  const inRange = age !== null && rule && age >= rule.min && age <= rule.max;
-                  return (
-                    <tr
-                      key={g.value}
-                      className={isSelected ? (inRange ? "age-ref-row--valid" : "age-ref-row--invalid") : ""}
-                    >
-                      <td>{g.label}</td>
-                      <td>{rule?.min}</td>
-                      <td>{rule?.max}</td>
+        {studentType === "old" && (
+          <div style={{ marginTop: 18 }}>
+            <h3>🔐 Old Student Re-enrollment</h3>
+            <div style={{ marginBottom: 12, color: "#4b5563", fontSize: 14 }}>
+              Old students must log in to the Parent/Student Portal to continue re-enrollment.
+            </div>
+
+            <div className="form-actions" style={{ marginTop: 18 }}>
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/login", {
+                    state: { from: { pathname: "/student/reenrollment" } },
+                  })
+                }
+              >
+                Login to Re-enroll
+              </button>
+
+              <button type="button" className="secondary" onClick={onClose}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {studentType === "new" && (
+          <>
+            <h3>👤 Student Information</h3>
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Last Name <span className="required">*</span></label>
+                <input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label>First Name <span className="required">*</span></label>
+                <input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label>Middle Name <span className="required">*</span></label>
+                <input value={middleName} onChange={(e) => setMiddleName(e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label>Birth Date <span className="required">*</span></label>
+                <input type="date" value={birthDate} max={maxBirthDate} onChange={(e) => setBirthDate(e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label>Gender<span className="required">*</span></label>
+                <select value={gender} onChange={(e) => setGender(e.target.value)} required>
+                  <option value="">Select</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+            </div>
+
+            {ageValidation && (
+              <div className={`age-validation-hint ${ageValidation.ok ? "age-validation-hint--ok" : "age-validation-hint--error"}`}>
+                <span>{ageValidation.ok ? "✓" : "✗"}</span>
+                <span>{ageValidation.msg}</span>
+              </div>
+            )}
+
+            {educationLevel && (
+              <details className="age-reference">
+                <summary>📋 Age requirements per grade level</summary>
+                <table className="age-reference__table">
+                  <thead>
+                    <tr>
+                      <th>Grade</th>
+                      <th>Min Age</th>
+                      <th>Max Age</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </details>
-        )}
+                  </thead>
+                  <tbody>
+                    {gradeOptions.map((g) => {
+                      const rule = GRADE_AGE_RULES[g.value];
+                      const age = calcAge(birthDate);
+                      const isSelected = gradeLevel === g.value;
+                      const inRange = age !== null && rule && age >= rule.min && age <= rule.max;
+                      return (
+                        <tr
+                          key={g.value}
+                          className={isSelected ? (inRange ? "age-ref-row--valid" : "age-ref-row--invalid") : ""}
+                        >
+                          <td>{g.label}</td>
+                          <td>{rule?.min}</td>
+                          <td>{rule?.max}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </details>
+            )}
 
-        <h3>📞 Contact Information</h3>
-        <div className="form-grid">
-          <div className="form-group">
-            <label>Email <span className="required">*</span></label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="parent@email.com"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Religion<span className="required">*</span></label>
-            <input value={religion} onChange={(e) => setReligion(e.target.value)} required />
-          </div>
-          <div className="form-group">
-            <label>Telephone</label>
-            <input value={telephone} onChange={(e) => setTelephone(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label>Mobile Number <span className="required">*</span></label>
-            <input
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-              placeholder="09XXXXXXXXX or +639XXXXXXXXX"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Parent Facebook<span className="required">*</span></label>
-            <input value={parentFacebook} onChange={(e) => setParentFacebook(e.target.value)} required />
-          </div>
-        </div>
+            <h3>📞 Contact Information</h3>
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Email <span className="required">*</span></label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="parent@email.com"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Religion<span className="required">*</span></label>
+                <input value={religion} onChange={(e) => setReligion(e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label>Mobile Number <span className="required">*</span></label>
+                <input
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value)}
+                  placeholder="09XXXXXXXXX or +639XXXXXXXXX"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Parent Facebook<span className="required">*</span></label>
+                <input value={parentFacebook} onChange={(e) => setParentFacebook(e.target.value)} required />
+              </div>
+            </div>
 
-        <h3>📍 Address</h3>
-        <div className="form-grid">
-          <div className="form-group form-group--full">
-            <label>House No. / Street<span className="required">*</span></label>
-            <input
-              value={street}
-              onChange={(e) => setStreet(e.target.value)}
-              placeholder="e.g. 123 Rizal St."
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Barangay<span className="required">*</span></label>
-            <input
-              value={barangay}
-              onChange={(e) => setBarangay(e.target.value)}
-              placeholder="e.g. Brgy. Santo Niño"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>City / Municipality<span className="required">*</span></label>
-            <input
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="e.g. Caloocan City"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Province<span className="required">*</span></label>
-            <input
-              value={province}
-              onChange={(e) => setProvince(e.target.value)}
-              placeholder="e.g. Metro Manila"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Region<span className="required">*</span></label>
-            <select value={region} onChange={(e) => setRegion(e.target.value)} required>
-              <option value="">Select Region</option>
-              <option value="NCR">NCR – National Capital Region</option>
-              <option value="Region I">Region I – Ilocos Region</option>
-              <option value="Region II">Region II – Cagayan Valley</option>
-              <option value="Region III">Region III – Central Luzon</option>
-              <option value="Region IV-A">Region IV-A – CALABARZON</option>
-              <option value="Region IV-B">Region IV-B – MIMAROPA</option>
-              <option value="Region V">Region V – Bicol Region</option>
-              <option value="Region VI">Region VI – Western Visayas</option>
-              <option value="Region VII">Region VII – Central Visayas</option>
-              <option value="Region VIII">Region VIII – Eastern Visayas</option>
-              <option value="Region IX">Region IX – Zamboanga Peninsula</option>
-              <option value="Region X">Region X – Northern Mindanao</option>
-              <option value="Region XI">Region XI – Davao Region</option>
-              <option value="Region XII">Region XII – SOCCSKSARGEN</option>
-              <option value="Region XIII">Region XIII – Caraga</option>
-              <option value="CAR">CAR – Cordillera Administrative Region</option>
-              <option value="BARMM">BARMM – Bangsamoro</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>ZIP Code<span className="required">*</span></label>
-            <input
-              value={zipCode}
-              onChange={(e) => setZipCode(e.target.value)}
-              placeholder="e.g. 1400"
-              maxLength={4}
-              inputMode="numeric"
-              required
-            />
-          </div>
-        </div>
+            <h3>📍 Address</h3>
+            <div className="form-grid">
+              <div className="form-group form-group--full">
+                <label>House No. / Street<span className="required">*</span></label>
+                <input
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  placeholder="e.g. 123 Rizal St."
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Barangay<span className="required">*</span></label>
+                <input
+                  value={barangay}
+                  onChange={(e) => setBarangay(e.target.value)}
+                  placeholder="e.g. Brgy. Santo Niño"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>City / Municipality<span className="required">*</span></label>
+                <input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="e.g. Caloocan City"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Province<span className="required">*</span></label>
+                <input
+                  value={province}
+                  onChange={(e) => setProvince(e.target.value)}
+                  placeholder="e.g. Metro Manila"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Region<span className="required">*</span></label>
+                <select value={region} onChange={(e) => setRegion(e.target.value)} required>
+                  <option value="">Select Region</option>
+                  <option value="NCR">NCR – National Capital Region</option>
+                  <option value="Region I">Region I – Ilocos Region</option>
+                  <option value="Region II">Region II – Cagayan Valley</option>
+                  <option value="Region III">Region III – Central Luzon</option>
+                  <option value="Region IV-A">Region IV-A – CALABARZON</option>
+                  <option value="Region IV-B">Region IV-B – MIMAROPA</option>
+                  <option value="Region V">Region V – Bicol Region</option>
+                  <option value="Region VI">Region VI – Western Visayas</option>
+                  <option value="Region VII">Region VII – Central Visayas</option>
+                  <option value="Region VIII">Region VIII – Eastern Visayas</option>
+                  <option value="Region IX">Region IX – Zamboanga Peninsula</option>
+                  <option value="Region X">Region X – Northern Mindanao</option>
+                  <option value="Region XI">Region XI – Davao Region</option>
+                  <option value="Region XII">Region XII – SOCCSKSARGEN</option>
+                  <option value="Region XIII">Region XIII – Caraga</option>
+                  <option value="CAR">CAR – Cordillera Administrative Region</option>
+                  <option value="BARMM">BARMM – Bangsamoro</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>ZIP Code<span className="required">*</span></label>
+                <input
+                  value={zipCode}
+                  onChange={(e) => setZipCode(e.target.value)}
+                  placeholder="e.g. 1400"
+                  maxLength={4}
+                  inputMode="numeric"
+                  required
+                />
+              </div>
+            </div>
 
-        {buildAddress() && (
-          <div className="address-preview">
-            <span>📌</span>
-            <span>{buildAddress()}</span>
-          </div>
-        )}
-
-        <h3>👨‍👩‍👧 Parent / Guardian Information</h3>
-
-        <p className="parent-section-label">Mother</p>
-        <div className="form-grid">
-          <div className="form-group">
-            <label>First Name</label>
-            <input value={motherFirst} onChange={(e) => setMotherFirst(e.target.value)} placeholder="First name" />
-          </div>
-          <div className="form-group">
-            <label>Middle Name</label>
-            <input value={motherMiddle} onChange={(e) => setMotherMiddle(e.target.value)} placeholder="Middle name" />
-          </div>
-          <div className="form-group">
-            <label>Last Name</label>
-            <input value={motherLast} onChange={(e) => setMotherLast(e.target.value)} placeholder="Last name" />
-          </div>
-          <div className="form-group">
-            <label>Contact Number</label>
-            <input value={motherContact} onChange={(e) => setMotherContact(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label>Occupation</label>
-            <input value={motherOccupation} onChange={(e) => setMotherOccupation(e.target.value)} />
-          </div>
-        </div>
-
-        <p className="parent-section-label">Father</p>
-        <div className="form-grid">
-          <div className="form-group">
-            <label>First Name</label>
-            <input value={fatherFirst} onChange={(e) => setFatherFirst(e.target.value)} placeholder="First name" />
-          </div>
-          <div className="form-group">
-            <label>Middle Name</label>
-            <input value={fatherMiddle} onChange={(e) => setFatherMiddle(e.target.value)} placeholder="Middle name" />
-          </div>
-          <div className="form-group">
-            <label>Last Name</label>
-            <input value={fatherLast} onChange={(e) => setFatherLast(e.target.value)} placeholder="Last name" />
-          </div>
-          <div className="form-group">
-            <label>Contact Number</label>
-            <input value={fatherContact} onChange={(e) => setFatherContact(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label>Occupation</label>
-            <input value={fatherOccupation} onChange={(e) => setFatherOccupation(e.target.value)} />
-          </div>
-        </div>
-
-        <p className="parent-section-label">
-          Guardian <span style={{ fontWeight: 400, color: "#9ca3af" }}>(if applicable)</span>
-        </p>
-        <div className="form-grid">
-          <div className="form-group">
-            <label>First Name</label>
-            <input value={guardianFirst} onChange={(e) => setGuardianFirst(e.target.value)} placeholder="First name" />
-          </div>
-          <div className="form-group">
-            <label>Middle Name</label>
-            <input value={guardianMiddle} onChange={(e) => setGuardianMiddle(e.target.value)} placeholder="Middle name" />
-          </div>
-          <div className="form-group">
-            <label>Last Name</label>
-            <input value={guardianLast} onChange={(e) => setGuardianLast(e.target.value)} placeholder="Last name" />
-          </div>
-          <div className="form-group">
-            <label>Contact Number</label>
-            <input value={guardianContact} onChange={(e) => setGuardianContact(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label>Relationship to Student</label>
-            <input
-              value={guardianRelationship}
-              onChange={(e) => setGuardianRelationship(e.target.value)}
-              placeholder="e.g. Sibling, Aunt/Uncle, Grandparent"
-            />
-          </div>
-        </div>
-
-        <h3>💰 Payment Information</h3>
-        <div className="form-group">
-          <label>Payment Mode <span className="required">*</span></label>
-          <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} required>
-            <option value="">Select</option>
-            <option value="cash">Cash</option>
-            <option value="installment">Installment</option>
-          </select>
-        </div>
-
-        {(tuitionLoading || tuitionError || tuition) && (
-          <div className="tuition-box">
-            <h3>📊 Tuition Breakdown</h3>
-
-            {tuitionLoading && (
-              <div className="tuition-row">
-                <span>Loading tuition configuration...</span>
+            {buildAddress() && (
+              <div className="address-preview">
+                <span>📌</span>
+                <span>{buildAddress()}</span>
               </div>
             )}
 
-            {!tuitionLoading && tuitionError && (
-              <div className="tuition-row" style={{ color: "#dc2626" }}>
-                <span>{tuitionError}</span>
+            <h3>👨‍👩‍👧 Parent / Guardian Information</h3>
+
+            <p className="parent-section-label">Mother</p>
+            <div className="form-grid">
+              <div className="form-group">
+                <label>First Name</label>
+                <input value={motherFirst} onChange={(e) => setMotherFirst(e.target.value)} placeholder="First name" />
+              </div>
+              <div className="form-group">
+                <label>Middle Name</label>
+                <input value={motherMiddle} onChange={(e) => setMotherMiddle(e.target.value)} placeholder="Middle name" />
+              </div>
+              <div className="form-group">
+                <label>Last Name</label>
+                <input value={motherLast} onChange={(e) => setMotherLast(e.target.value)} placeholder="Last name" />
+              </div>
+              <div className="form-group">
+                <label>Mobile Number</label>
+                <input value={motherContact} onChange={(e) => setMotherContact(e.target.value)} placeholder="ex. 09123456789" />
+              </div>
+              <div className="form-group">
+                <label>Occupation</label>
+                <input value={motherOccupation} onChange={(e) => setMotherOccupation(e.target.value)} placeholder="Occupation" />
+              </div>
+            </div>
+
+            <p className="parent-section-label">Father</p>
+            <div className="form-grid">
+              <div className="form-group">
+                <label>First Name</label>
+                <input value={fatherFirst} onChange={(e) => setFatherFirst(e.target.value)} placeholder="First name" />
+              </div>
+              <div className="form-group">
+                <label>Middle Name</label>
+                <input value={fatherMiddle} onChange={(e) => setFatherMiddle(e.target.value)} placeholder="Middle name" />
+              </div>
+              <div className="form-group">
+                <label>Last Name</label>
+                <input value={fatherLast} onChange={(e) => setFatherLast(e.target.value)} placeholder="Last name" />
+              </div>
+              <div className="form-group">
+                <label>Mobile Number</label>
+                <input value={fatherContact} onChange={(e) => setFatherContact(e.target.value)} placeholder="ex. 09123456789" />
+              </div>
+              <div className="form-group">
+                <label>Occupation</label>
+                <input value={fatherOccupation} onChange={(e) => setFatherOccupation(e.target.value)} placeholder="Occupation" />
+              </div>
+            </div>
+
+            <p className="parent-section-label">
+              Guardian <span style={{ fontWeight: 400, color: "#9ca3af" }}>(if applicable)</span>
+            </p>
+            <div className="form-grid">
+              <div className="form-group">
+                <label>First Name</label>
+                <input value={guardianFirst} onChange={(e) => setGuardianFirst(e.target.value)} placeholder="First name" />
+              </div>
+              <div className="form-group">
+                <label>Middle Name</label>
+                <input value={guardianMiddle} onChange={(e) => setGuardianMiddle(e.target.value)} placeholder="Middle name" />
+              </div>
+              <div className="form-group">
+                <label>Last Name</label>
+                <input value={guardianLast} onChange={(e) => setGuardianLast(e.target.value)} placeholder="Last name" />
+              </div>
+              <div className="form-group">
+                <label>Mobile Number</label>
+                <input value={guardianContact} onChange={(e) => setGuardianContact(e.target.value)} placeholder="ex. 09123456789" />
+              </div>
+              <div className="form-group">
+                <label>Relationship to Student</label>
+                <input
+                  value={guardianRelationship}
+                  onChange={(e) => setGuardianRelationship(e.target.value)}
+                  placeholder="e.g. Sibling, Aunt/Uncle, Grandparent"
+                />
+              </div>
+            </div>
+
+            <h3>📎 Optional Documents</h3>
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Form 137-E</label>
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setForm137File(e.target.files?.[0] || null)} />
+              </div>
+              <div className="form-group">
+                <label>School Form 10 (SF10)</label>
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setSf10File(e.target.files?.[0] || null)} />
+              </div>
+              <div className="form-group">
+                <label>Birth Certificate</label>
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setBirthCertificateFile(e.target.files?.[0] || null)} />
+              </div>
+              <div className="form-group">
+                <label>Good Moral Certificate</label>
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setGoodMoralFile(e.target.files?.[0] || null)} />
+              </div>
+              <div className="form-group">
+                <label>Report Card</label>
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setReportCardFile(e.target.files?.[0] || null)} />
+              </div>
+              <div className="form-group">
+                <label>Other Document</label>
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setOtherDocumentFile(e.target.files?.[0] || null)} />
+              </div>
+            </div>
+
+            <h3>💰 Payment Information</h3>
+            <div className="form-group">
+              <label>Payment Mode <span className="required">*</span></label>
+              <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} required>
+                <option value="">Select</option>
+                <option value="cash">Cash</option>
+                <option value="installment">Installment</option>
+              </select>
+            </div>
+
+            {(tuitionLoading || tuitionError || tuition) && (
+              <div className="tuition-box">
+                <h3>📊 Tuition Breakdown</h3>
+
+                {tuitionLoading && (
+                  <div className="tuition-row">
+                    <span>Loading tuition configuration...</span>
+                  </div>
+                )}
+
+                {!tuitionLoading && tuitionError && (
+                  <div className="tuition-row" style={{ color: "#dc2626" }}>
+                    <span>{tuitionError}</span>
+                  </div>
+                )}
+
+                {!tuitionLoading && tuition && paymentMode === "cash" && (
+                  <>
+                    <div className="tuition-row">
+                      <span>Tuition Fee (Cash)</span>
+                      <span>₱{formatMoney(tuition.cash)}</span>
+                    </div>
+                    <div className="tuition-row">
+                      <span>Miscellaneous (August)</span>
+                      <span>₱{formatMoney(tuition.misc_aug)}</span>
+                    </div>
+                    <div className="tuition-row">
+                      <span>Miscellaneous (November)</span>
+                      <span>₱{formatMoney(tuition.misc_nov)}</span>
+                    </div>
+                    {studentType === "new" && (
+                      <div className="tuition-row">
+                        <span>Assessment Fee</span>
+                        <span>₱{formatMoney(tuition.assessment)}</span>
+                      </div>
+                    )}
+                    <div className="tuition-total">
+                      <strong>Total (Cash)</strong>
+                      <strong>
+                        ₱{formatMoney(Number(tuition.total_cash || 0) + (studentType === "new" ? Number(tuition.assessment || 0) : 0))}
+                      </strong>
+                    </div>
+                  </>
+                )}
+
+                {!tuitionLoading && tuition && paymentMode === "installment" && (
+                  <>
+                    <div className="tuition-row">
+                      <span>Tuition Fee (Installment)</span>
+                      <span>₱{formatMoney(tuition.installment)}</span>
+                    </div>
+                    <div className="tuition-row">
+                      <span>Initial Payment</span>
+                      <span>₱{formatMoney(tuition.initial)}</span>
+                    </div>
+                    <div className="tuition-row">
+                      <span>Reservation Fee</span>
+                      <span>₱{formatMoney(tuition.reservation_fee)}</span>
+                    </div>
+                    <div className="tuition-row">
+                      <span>Monthly Payment</span>
+                      <span>₱{formatMoney(tuition.monthly)}</span>
+                    </div>
+                    <div className="tuition-row">
+                      <span>Miscellaneous (August)</span>
+                      <span>₱{formatMoney(tuition.misc_aug)}</span>
+                    </div>
+                    <div className="tuition-row">
+                      <span>Miscellaneous (November)</span>
+                      <span>₱{formatMoney(tuition.misc_nov)}</span>
+                    </div>
+                    {studentType === "new" && (
+                      <div className="tuition-row">
+                        <span>Assessment Fee</span>
+                        <span>₱{formatMoney(tuition.assessment)}</span>
+                      </div>
+                    )}
+                    <div className="tuition-total">
+                      <strong>Total (Installment)</strong>
+                      <strong>
+                        ₱{formatMoney(Number(tuition.total_installment || 0) + (studentType === "new" ? Number(tuition.assessment || 0) : 0))}
+                      </strong>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
-            {!tuitionLoading && tuition && paymentMode === "cash" && (
-              <>
-                <div className="tuition-row">
-                  <span>Tuition Fee (Cash)</span>
-                  <span>₱{formatMoney(tuition.cash)}</span>
-                </div>
-                <div className="tuition-row">
-                  <span>Miscellaneous (August)</span>
-                  <span>₱{formatMoney(tuition.misc_aug)}</span>
-                </div>
-                <div className="tuition-row">
-                  <span>Miscellaneous (November)</span>
-                  <span>₱{formatMoney(tuition.misc_nov)}</span>
-                </div>
-                {studentType === "new" && (
-                  <div className="tuition-row">
-                    <span>Assessment Fee</span>
-                    <span>₱{formatMoney(tuition.assessment)}</span>
-                  </div>
-                )}
-                <div className="tuition-total">
-                  <strong>Total (Cash)</strong>
-                  <strong>
-                    ₱{formatMoney(Number(tuition.total_cash || 0) + (studentType === "new" ? Number(tuition.assessment || 0) : 0))}
-                  </strong>
-                </div>
-              </>
-            )}
-
-            {!tuitionLoading && tuition && paymentMode === "installment" && (
-              <>
-                <div className="tuition-row">
-                  <span>Tuition Fee (Installment)</span>
-                  <span>₱{formatMoney(tuition.installment)}</span>
-                </div>
-                <div className="tuition-row">
-                  <span>Initial Payment</span>
-                  <span>₱{formatMoney(tuition.initial)}</span>
-                </div>
-                <div className="tuition-row">
-                  <span>Reservation Fee</span>
-                  <span>₱{formatMoney(tuition.reservation_fee)}</span>
-                </div>
-                <div className="tuition-row">
-                  <span>Monthly Payment</span>
-                  <span>₱{formatMoney(tuition.monthly)}</span>
-                </div>
-                <div className="tuition-row">
-                  <span>Miscellaneous (August)</span>
-                  <span>₱{formatMoney(tuition.misc_aug)}</span>
-                </div>
-                <div className="tuition-row">
-                  <span>Miscellaneous (November)</span>
-                  <span>₱{formatMoney(tuition.misc_nov)}</span>
-                </div>
-                {studentType === "new" && (
-                  <div className="tuition-row">
-                    <span>Assessment Fee</span>
-                    <span>₱{formatMoney(tuition.assessment)}</span>
-                  </div>
-                )}
-                <div className="tuition-total">
-                  <strong>Total (Installment)</strong>
-                  <strong>
-                    ₱{formatMoney(Number(tuition.total_installment || 0) + (studentType === "new" ? Number(tuition.assessment || 0) : 0))}
-                  </strong>
-                </div>
-              </>
-            )}
-          </div>
+            <div className="form-actions">
+              <button
+                type="submit"
+                disabled={(ageValidation !== null && !ageValidation.ok) || tuitionLoading}
+              >
+                Submit Enrollment
+              </button>
+              <button type="button" className="secondary" onClick={onClose}>Cancel</button>
+            </div>
+          </>
         )}
-
-        <div className="form-actions">
-          <button
-            type="submit"
-            disabled={(ageValidation !== null && !ageValidation.ok) || tuitionLoading}
-          >
-            Submit Enrollment
-          </button>
-          <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-        </div>
       </form>
     </div>
   );
