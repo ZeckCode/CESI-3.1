@@ -9,13 +9,15 @@ const Grades = () => {
   const [grades, setGrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [schoolYear, setSchoolYear] = useState("");
+  const [studentName, setStudentName] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const [gradesRes, syRes] = await Promise.all([
+        const [gradesRes, syRes, profileRes] = await Promise.all([
           apiFetch("/api/grades/my-grades/"),
           apiFetch("/api/classmanagement/school-years/active/"),
+          apiFetch("/api/accounts/profile/"),
         ]);
         if (gradesRes.ok) {
           setGrades(await gradesRes.json());
@@ -23,6 +25,11 @@ const Grades = () => {
         if (syRes.ok) {
           const syData = await syRes.json();
           setSchoolYear(syData.name || "");
+        }
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          const name = profileData.user?.get_full_name || profileData.user?.username || "";
+          setStudentName(name);
         }
       } catch (e) {
         console.error(e);
@@ -130,7 +137,7 @@ const Grades = () => {
       <section className="sg-section sg-print-area">
         <div className="sg-section-header">
           <div>
-            <h2 className="sg-section-title">Official Grade Report</h2>
+            <h2 className="sg-section-title">{studentName ? `${studentName} Grades` : "Grades"}</h2>
             <p className="sg-section-subtitle">S.Y. {schoolYear || "—"}</p>
           </div>
           <div className="sg-header-actions sg-no-print">
