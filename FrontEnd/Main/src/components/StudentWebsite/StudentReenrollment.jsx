@@ -74,6 +74,9 @@ const gradeLabelFromProfile = (raw) => {
   return v;
 };
 
+
+
+
 const formatFullName = (...parts) =>
   parts
     .filter(Boolean)
@@ -102,6 +105,14 @@ export default function StudentReenrollment() {
   const [address, setAddress] = useState("");
   const [paymentMode, setPaymentMode] = useState("");
   const [remarks, setRemarks] = useState("");
+
+
+  const [form137File, setForm137File] = useState(null);
+  const [sf10File, setSf10File] = useState(null);
+  const [birthCertificateFile, setBirthCertificateFile] = useState(null);
+  const [goodMoralFile, setGoodMoralFile] = useState(null);
+  const [reportCardFile, setReportCardFile] = useState(null);
+  const [otherDocumentFile, setOtherDocumentFile] = useState(null);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -200,25 +211,30 @@ export default function StudentReenrollment() {
     setSaving(true);
 
     try {
-      const payload = {
-        student_first_name: studentFirstName.trim(),
-        student_middle_name: studentMiddleName.trim(),
-        student_last_name: studentLastName.trim(),
-        parent_first_name: parentFirstName.trim(),
-        parent_middle_name: parentMiddleName.trim(),
-        parent_last_name: parentLastName.trim(),
-        contact_number: contactNumber.trim(),
-        address: address.trim(),
-        payment_mode: paymentMode,
-        remarks: remarks.trim(),
-      };
+      const form = new FormData();
+      form.append("student_first_name", studentFirstName.trim());
+      form.append("student_middle_name", studentMiddleName.trim());
+      form.append("student_last_name", studentLastName.trim());
+      form.append("parent_first_name", parentFirstName.trim());
+      form.append("parent_middle_name", parentMiddleName.trim());
+      form.append("parent_last_name", parentLastName.trim());
+      form.append("contact_number", contactNumber.trim());
+      form.append("address", address.trim());
+      form.append("payment_mode", paymentMode);
+      form.append("remarks", remarks.trim());
 
-      const res = await fetchWithToken("/api/enrollments/submit-reenrollment/", {
+      if (form137File) form.append("form_137_file", form137File);
+      if (sf10File) form.append("sf10_file", sf10File);
+      if (birthCertificateFile) form.append("birth_certificate_file", birthCertificateFile);
+      if (goodMoralFile) form.append("good_moral_file", goodMoralFile);
+      if (reportCardFile) form.append("report_card_file", reportCardFile);
+      if (otherDocumentFile) form.append("other_document_file", otherDocumentFile);
+
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/api/enrollments/submit-reenrollment/`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        headers: token ? { Authorization: `Token ${token}` } : {},
+        body: form,
       });
 
       const text = await res.text();
@@ -235,24 +251,12 @@ export default function StudentReenrollment() {
 
       setSuccess("Re-enrollment application submitted successfully. Please wait for admin review.");
 
-      setData((prev) => {
-        const oldProfile = prev?.profile || {};
-        return {
-          ...(prev || {}),
-          profile: {
-            ...oldProfile,
-            student_first_name: studentFirstName.trim(),
-            student_middle_name: studentMiddleName.trim(),
-            student_last_name: studentLastName.trim(),
-            parent_first_name: parentFirstName.trim(),
-            parent_middle_name: parentMiddleName.trim(),
-            parent_last_name: parentLastName.trim(),
-            contact_number: contactNumber.trim(),
-            address: address.trim(),
-            payment_mode: paymentMode,
-          },
-        };
-      });
+      setForm137File(null);
+      setSf10File(null);
+      setBirthCertificateFile(null);
+      setGoodMoralFile(null);
+      setReportCardFile(null);
+      setOtherDocumentFile(null);
     } catch (err) {
       setError(err.message || "Failed to submit re-enrollment.");
     } finally {
@@ -304,7 +308,7 @@ export default function StudentReenrollment() {
         </section>
 
         <section className="details-card">
-          <div className="details-header">Live Preview</div>
+          <div className="details-header">Personal Information</div>
           <div className="details-body">
             <InfoRow label="Student Name" value={studentInfo.fullName} />
             <InfoRow label="Parent / Guardian" value={parentName} />
@@ -436,6 +440,40 @@ export default function StudentReenrollment() {
               onChange={(e) => setRemarks(e.target.value)}
               placeholder="Optional notes for re-enrollment"
             />
+          </div>
+          
+          <div className="details-header" style={{ marginTop: "18px" }}>
+            Re-enrollment Documents
+          </div>
+
+          <div className="info-entry entry-border edit-mode">
+            <span className="entry-label">Form 137-E</span>
+            <input type="file" className="entry-input" onChange={(e) => setForm137File(e.target.files?.[0] || null)} />
+          </div>
+
+          <div className="info-entry entry-border edit-mode">
+            <span className="entry-label">School Form 10 (SF10)</span>
+            <input type="file" className="entry-input" onChange={(e) => setSf10File(e.target.files?.[0] || null)} />
+          </div>
+
+          <div className="info-entry entry-border edit-mode">
+            <span className="entry-label">Birth Certificate</span>
+            <input type="file" className="entry-input" onChange={(e) => setBirthCertificateFile(e.target.files?.[0] || null)} />
+          </div>
+
+          <div className="info-entry entry-border edit-mode">
+            <span className="entry-label">Good Moral Certificate</span>
+            <input type="file" className="entry-input" onChange={(e) => setGoodMoralFile(e.target.files?.[0] || null)} />
+          </div>
+
+          <div className="info-entry entry-border edit-mode">
+            <span className="entry-label">Report Card</span>
+            <input type="file" className="entry-input" onChange={(e) => setReportCardFile(e.target.files?.[0] || null)} />
+          </div>
+
+          <div className="info-entry edit-mode">
+            <span className="entry-label">Other Document</span>
+            <input type="file" className="entry-input" onChange={(e) => setOtherDocumentFile(e.target.files?.[0] || null)} />
           </div>
 
           <div className="form-actions" style={{ marginTop: "16px" }}>
