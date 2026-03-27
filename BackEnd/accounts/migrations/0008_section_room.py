@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("classmanagement", "0001_initial"),
+        ("classmanagement", "0002_room_schoolyear_alter_schedule_room_and_more"),
         ("accounts", "0007_teacherprofile_avatar_userprofile_avatar"),
     ]
 

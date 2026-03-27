@@ -14,11 +14,14 @@ import {
   TrendingUp,
   Users,
   XCircle,
+  FileDown,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Pagination from './Pagination';
 import { apiFetchData } from '../api/apiFetch';
 import '../AdminWebsiteCSS/GradesRecords.css';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -277,6 +280,157 @@ const GradesRecords = () => {
       return matchesSearch && matchesGrade && matchesSection && matchesStatus;
     });
   }, [filterGrade, filterSection, filterStatus, gradeMonitoring, searchTerm]);
+
+// PDF Export Function for Grades Records
+const exportGradesToPDF = (activeTab, filteredData, quarter, selectedDate, stats, gradeMonitoring) => {
+  const doc = new jsPDF('landscape');
+  
+  // Add title and header
+  doc.setFontSize(18);
+  doc.setTextColor(33, 37, 41);
+  
+  let title = '';
+  if (activeTab === 'grades') title = 'Current Quarter Grades Report';
+  else if (activeTab === 'history') title = 'Academic History Report';
+  else title = 'Attendance Report';
+  
+  doc.text(title, 14, 15);
+  
+  // Add date and filters
+  doc.setFontSize(10);
+  doc.setTextColor(108, 117, 125);
+  const currentDate = new Date().toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  
+  let subtitle = `Generated: ${currentDate}`;
+  if (activeTab === 'grades') subtitle += ` | Quarter: ${quarter}`;
+  if (activeTab === 'attendance') subtitle += ` | Date: ${selectedDate}`;
+  doc.text(subtitle, 14, 22);
+  
+  // Add stats summary
+  doc.setFontSize(12);
+  doc.setTextColor(33, 37, 41);
+  doc.text('Summary Statistics', 14, 35);
+  
+  let statsData = [];
+  if (activeTab === 'grades') {
+    const summary = gradeMonitoring.summary || {};
+    statsData = [
+      ['Total Students', (summary.total_students ?? 0).toString()],
+      ['Students With Grades', (summary.graded_students ?? 0).toString()],
+      ['Pending / Partial', (summary.pending_grades ?? 0).toString()],
+      ['Average Grade', summary.average_grade ?? '—'],
+      ['Total Records', filteredData.length.toString()],
+    ];
+  } else if (activeTab === 'history') {
+    statsData = [
+      ['Total Records', stats.totalRecords?.toString() || '0'],
+      ['Unique Students', stats.uniqueStudents?.toString() || '0'],
+      ['School Years', stats.schoolYears?.toString() || '0'],
+      ['Average Final Grade', stats.averageFinal || '—'],
+    ];
+  } else {
+    statsData = [
+      ['Total Records', stats.totalRecords?.toString() || '0'],
+      ['Present', stats.present?.toString() || '0'],
+      ['Absent', stats.absent?.toString() || '0'],
+      ['Late', stats.late?.toString() || '0'],
+      ['Excused', stats.excused?.toString() || '0'],
+      ['Unique Students', stats.uniqueStudents?.toString() || '0'],
+    ];
+  }
+  
+  autoTable(doc, {
+    startY: 40,
+    head: [['Metric', 'Value']],
+    body: statsData,
+    theme: 'grid',
+    headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 9 },
+    bodyStyles: { fontSize: 8 },
+    margin: { left: 14, right: 14 },
+    columnStyles: {
+      0: { cellWidth: 70 },
+      1: { cellWidth: 50 }
+    }
+  });
+  
+  // Add data table
+  const finalY = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(12);
+  doc.setTextColor(33, 37, 41);
+  doc.text('Record Details', 14, finalY);
+  
+  let tableData = [];
+  let headers = [];
+  
+  if (activeTab === 'grades') {
+    headers = ['Student #', 'Student Name', 'Grade Level', 'Section', 'Graded Subjects', 'Average', 'Status'];
+    tableData = filteredData.map(s => [
+      s.student_number || '—',
+      s.student_name,
+      toGradeLabel(s.grade_level_label || s.grade_level),
+      s.section_name || '—',
+      `${s.graded_subjects}/${s.total_subjects}`,
+      s.average_grade !== null ? s.average_grade.toString() : '—',
+      s.status || '—'
+    ]);
+  } else if (activeTab === 'history') {
+    headers = ['School Year', 'Student Name', 'Student #', 'Grade Level', 'Section', 'Subject', 'Final Grade', 'Remarks'];
+    tableData = filteredData.map(r => [
+      r.school_year || '—',
+      r.student_name,
+      r.student_number || '—',
+      toGradeLabel(r.grade_level),
+      r.section_name || '—',
+      r.subject_name,
+      r.final_grade !== null ? r.final_grade.toString() : '—',
+      r.remarks || '—'
+    ]);
+  } else {
+    headers = ['Student #', 'Student Name', 'Grade Level', 'Section', 'Status', 'Present', 'Late', 'Excused', 'Absent'];
+    tableData = filteredData.map(r => [
+      r.student_number || '—',
+      r.student_name,
+      toGradeLabel(r.grade_level),
+      r.section_name || '—',
+      r.overall_status || '—',
+      r.present?.toString() || '0',
+      r.late?.toString() || '0',
+      r.excused?.toString() || '0',
+      r.absent?.toString() || '0'
+    ]);
+  }
+  
+  autoTable(doc, {
+    startY: finalY + 5,
+    head: [headers],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 7, cellPadding: 3 },
+    bodyStyles: { fontSize: 6, cellPadding: 3 },
+    margin: { left: 14, right: 14 },
+    styles: { cellWidth: 'auto' }
+  });
+  
+  // Add footer with page number
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(108, 117, 125);
+    doc.text(
+      `Page ${i} of ${pageCount}`,
+      doc.internal.pageSize.width - 20,
+      doc.internal.pageSize.height - 10
+    );
+  }
+  
+  const filename = `${activeTab}_report_${new Date().toISOString().split('T')[0]}.pdf`;
+  doc.save(filename);
+};
 
   const filteredHistory = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -765,13 +919,23 @@ const GradesRecords = () => {
                 <option value={3}>Quarter 3</option>
                 <option value={4}>Quarter 4</option>
               </select>
-            )}
+            )}  
             {activeTab === 'attendance' && (
               <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="gr-date-input" />
             )}
             <button className="gr-btn-primary" onClick={exportCurrentView} disabled={loading}>
               <Download size={18} />
-              Export
+              Export to Excel
+            </button>
+            <button className="gr-btn-primary" onClick={() => exportGradesToPDF(
+            activeTab, 
+            activeTab === 'grades' ? filteredStudents : activeTab === 'history' ? filteredHistory : filteredAttendanceStudents,
+            quarter,
+            selectedDate,
+            activeTab === 'history' ? historyStats : attendanceStats,
+            gradeMonitoring )} disabled={loading} >
+              <FileDown size={18} />
+              Export PDF
             </button>
           </div>
         </div>

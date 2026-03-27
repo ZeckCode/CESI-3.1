@@ -8,6 +8,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
+from django.db.models import Q
 
 from django.contrib.auth import authenticate, login, logout, logout as django_logout
 from django.views.decorators.csrf import csrf_exempt
@@ -111,16 +112,18 @@ class LoginView(APIView):
     authentication_classes = []
 
     def post(self, request):
-        username = request.data.get("username", "").strip()
-        password = request.data.get("password", "").strip()
+        identifier = (request.data.get("username") or "").strip()
+        password = (request.data.get("password") or "").strip()
 
-        try:
-            actual_user = User.objects.get(username__iexact=username)
-            username = actual_user.username
-        except User.DoesNotExist:
-            pass
+        if not identifier or not password:
+            return Response({"success": False, "message": "Username/email and password are required."}, status=400)
 
-        user = authenticate(request, username=username, password=password)
+        # Allow login by username or email (case-insensitive)
+        user_qs = User.objects.filter(Q(username__iexact=identifier) | Q(email__iexact=identifier))
+        if user_qs.exists():
+            identifier = user_qs.first().username
+
+        user = authenticate(request, username=identifier, password=password)
         if not user:
             return Response({"success": False, "message": "Invalid credentials"}, status=400)
 

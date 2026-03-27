@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Plus, Edit2, Trash2, Filter, Clock, Users, BookOpen,
+  Plus, Edit2, Trash2, Filter, Clock, Users, BookOpen, FileDown , 
   Calendar, Save, X, UserCheck, Zap, Download,
   Home, AlertTriangle, Settings, AlertCircle, RefreshCw,
 } from 'lucide-react';
 import StatCard, { StatsGrid } from './StatCard';
 import { apiFetch } from '../api/apiFetch';
 import '../AdminWebsiteCSS/AdminClassManagement.css';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 /* ───────────────────────── helpers ───────────────────────── */
 const GRADE_LEVELS = [
@@ -280,6 +282,133 @@ const ClassManagement = () => {
     ]
   );
 
+  // PDF Export Function for Class Management
+  const exportClassesToPDF = (sections, enrollments) => {
+    const doc = new jsPDF('landscape');
+    
+    // Add title and header
+    doc.setFontSize(18);
+    doc.setTextColor(33, 37, 41);
+    doc.text('Class Management Report', 14, 15);
+    
+    // Add date
+    doc.setFontSize(10);
+    doc.setTextColor(108, 117, 125);
+    const currentDate = new Date().toLocaleDateString('en-PH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    doc.text(`Generated: ${currentDate}`, 14, 22);
+    
+    // Calculate stats
+    const totalStudents = sections.reduce((s, sec) => s + (sec.student_count || 0), 0);
+    const totalActiveEnrollments = enrollments.filter(e => e.status === 'ACTIVE').length;
+    const totalPendingEnrollments = enrollments.filter(e => e.status === 'PENDING').length;
+    const totalExpiredClasses = sections.filter(sec => {
+      const gradeCode = normalizeGradeCode(sec.grade_level);
+      const activeForGrade = enrollments.filter(
+        (e) => normalizeGradeCode(e.grade_level) === gradeCode && e.status === 'ACTIVE'
+      );
+      const assignedToSection = activeForGrade.filter(
+        (e) => Number(e.section) === Number(sec.id)
+      );
+      return assignedToSection.length === 0;
+    }).length;
+    
+    // Add stats summary
+    doc.setFontSize(12);
+    doc.setTextColor(33, 37, 41);
+    doc.text('Summary Statistics', 14, 35);
+    
+    const statsData = [
+      ['Total Sections', sections.length.toString()],
+      ['Total Students (All Sections)', totalStudents.toString()],
+      ['Active Enrollments', totalActiveEnrollments.toString()],
+      ['Pending Enrollments', totalPendingEnrollments.toString()],
+      ['Expired Classes (No Students)', totalExpiredClasses.toString()],
+    ];
+    
+    autoTable(doc, {
+      startY: 40,
+      head: [['Metric', 'Value']],
+      body: statsData,
+      theme: 'grid',
+      headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
+      bodyStyles: { fontSize: 9 },
+      margin: { left: 14, right: 14 },
+      columnStyles: {
+        0: { cellWidth: 80 },
+        1: { cellWidth: 60 }
+      }
+    });
+    
+    // Prepare class data
+    const classData = sections.map(sec => {
+      const gradeCode = normalizeGradeCode(sec.grade_level);
+      const activeForGrade = enrollments.filter(
+        (e) => normalizeGradeCode(e.grade_level) === gradeCode && e.status === 'ACTIVE'
+      );
+      const assignedToSection = activeForGrade.filter(
+        (e) => Number(e.section) === Number(sec.id)
+      );
+      const pendingForGrade = enrollments.filter(
+        (e) => normalizeGradeCode(e.grade_level) === gradeCode && e.status === 'PENDING'
+      );
+      const status = assignedToSection.length > 0 ? 'ONGOING' : 'EXPIRED';
+      
+      return [
+        gradeLabel(sec.grade_level),
+        sec.name,
+        sec.adviser_name || 'Unassigned',
+        sec.room_code || 'Unassigned',
+        assignedToSection.length,
+        pendingForGrade.length,
+        status
+      ];
+    });
+    
+    // Add classes table
+    const finalY = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(12);
+    doc.setTextColor(33, 37, 41);
+    doc.text('Class Details', 14, finalY);
+    
+    autoTable(doc, {
+      startY: finalY + 5,
+      head: [['Grade Level', 'Section', 'Adviser', 'Room', 'Active Students', 'Pending', 'Status']],
+      body: classData,
+      theme: 'grid',
+      headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8, cellPadding: 3 },
+      bodyStyles: { fontSize: 7, cellPadding: 3 },
+      margin: { left: 14, right: 14 },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 22 },
+        5: { cellWidth: 20 },
+        6: { cellWidth: 20 }
+      }
+    });
+    
+    // Add footer with page number
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(108, 117, 125);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        doc.internal.pageSize.width - 20,
+        doc.internal.pageSize.height - 10
+      );
+    }
+    
+    doc.save(`class_report_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   if (loading) {
     return (
       <div className="admin-class-management">
@@ -300,6 +429,13 @@ const ClassManagement = () => {
             <button className="cm-btn-icon" onClick={refreshAll} title="Refresh">
               <RefreshCw size={16} />
             </button>
+            <button 
+    className="cm-btn-icon"
+    onClick={() => exportClassesToPDF(sections, enrollments)}
+  
+  >
+    <FileDown size={18} /> 
+  </button>
           </div>
         </div>
         <StatsGrid>

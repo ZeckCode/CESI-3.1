@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Search, Filter, Download,
+  Search, Filter, Download, FileDown, 
   CheckCircle, Clock,
   Plus, X, ChevronDown, ChevronUp, Edit2, Trash2,
   Bell, Receipt
@@ -9,6 +9,8 @@ import * as XLSX from 'xlsx';
 import '../AdminWebsiteCSS/TransactionHistory.css';
 import Pagination from './Pagination';
 import { getToken } from '../Auth/auth';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const API_BASE = '';
 
@@ -451,6 +453,109 @@ const TransactionHistory = () => {
     }
   };
 
+  // PDF Export Function
+  const exportToPDF = (groupedTransactions, stats) => {
+    const doc = new jsPDF('landscape');
+    
+    // Add title and header
+    doc.setFontSize(18);
+    doc.setTextColor(33, 37, 41);
+    doc.text('Transaction History Report', 14, 15);
+    
+    // Add date
+    doc.setFontSize(10);
+    doc.setTextColor(108, 117, 125);
+    const currentDate = new Date().toLocaleDateString('en-PH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    doc.text(`Generated: ${currentDate}`, 14, 22);
+    
+    // Add stats summary
+    doc.setFontSize(12);
+    doc.setTextColor(33, 37, 41);
+    doc.text('Summary Statistics', 14, 35);
+    
+    // Update the statsData in the exportToPDF function:
+    const statsData = [
+      ['Total Billed', `₱${Number(stats.total_billed || 0).toLocaleString()}`],
+      ['Total Collected', `₱${Number(stats.total_collected || 0).toLocaleString()}`],
+      ['Outstanding Balance', `₱${Number(stats.outstanding_balance || 0).toLocaleString()}`],
+      ['Collection Rate', stats.total_billed > 0 
+        ? `${Math.round((stats.total_collected / stats.total_billed) * 100)}%` 
+        : '—'],
+    ];
+    
+    autoTable(doc, {
+      startY: 40,
+      head: [['Metric', 'Value']],
+      body: statsData,
+      theme: 'grid',
+      headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
+      bodyStyles: { fontSize: 9 },
+      margin: { left: 14, right: 14 },
+      columnStyles: {
+        0: { cellWidth: 80 },
+        1: { cellWidth: 60 }
+      }
+    });
+    
+    // Add transactions summary table
+    const finalY = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(12);
+    doc.setTextColor(33, 37, 41);
+    doc.text('Transaction Summary (By Student)', 14, finalY);
+    
+    // In the summaryData mapping:
+    const summaryData = groupedTransactions.map(group => [
+      group.student_number,
+      group.student_name,
+      group.grade_level || '—',
+      group.payment_mode || '—',
+      `₱${Number(group.total_debit || 0).toLocaleString()}`,  // Changed from '₱' to the actual peso symbol
+      `₱${Number(group.total_credit || 0).toLocaleString()}`, // Changed here too
+      `₱${Number(group.balance || 0).toLocaleString()}`,      // And here
+      group.account_status
+    ]);
+    
+    autoTable(doc, {
+      startY: finalY + 5,
+      head: [['Student No.', 'Student Name', 'Grade', 'Payment Mode', 'Total Debit', 'Total Credit', 'Balance', 'Status']],
+      body: summaryData,
+      theme: 'grid',
+      headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8, cellPadding: 3 },
+      bodyStyles: { fontSize: 7, cellPadding: 3 },
+      margin: { left: 14, right: 14 },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 22 },
+        5: { cellWidth: 22 },
+        6: { cellWidth: 22 },
+        7: { cellWidth: 20 }
+      }
+    });
+    
+    // Add footer with page number
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(108, 117, 125);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        doc.internal.pageSize.width - 20,
+        doc.internal.pageSize.height - 10
+      );
+    }
+    
+    // Save the PDF
+    doc.save(`transaction_report_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   const handleExportData = () => {
     try {
       // Prepare summary data
@@ -705,6 +810,11 @@ const TransactionHistory = () => {
 
             <button className="th-btn-primary" onClick={handleExportData}>
               <Download size={18} /> Export to Excel
+            </button>
+
+            <button className="th-btn-primary" onClick={() => exportToPDF(groupedTransactions, stats)}
+              title="Export to PDF">
+              <FileDown size={18} /> Export to PDF
             </button>
           </div>
         </div>
