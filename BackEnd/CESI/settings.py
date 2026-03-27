@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,10 +21,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-8x_h%6zc09e!^ro6&dj$d+dwq&!8+pnn$4-^*_j4w^s933*@qh'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-dev-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# For testing phase, leave True; in production set DJANGO_DEBUG=False
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
 
 
 
@@ -106,10 +108,14 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "ral531715@gmail.com"  # Your Gmail address
-EMAIL_HOST_PASSWORD = "mjacgbzzcjzubtmr"  # Gmail App Password (not normal password)
+
+# Use environment entries in DigitalOcean App Platform
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'cesi.support@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'cesisupport123')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-FRONTEND_URL = "http://localhost:5173"
+
+# Your frontend URL in dev/devops (can be DO app URL later)
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
 # CORS settings for development - adjust for production as needed
 MIDDLEWARE = [
@@ -126,15 +132,28 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'CESI.urls'
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = True
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "*",  # For testing only. Replace with actual domain in production, e.g. 'your-app.ondigitalocean.app'
+]
 # CSRF / Session config for cross-origin dev
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
-    "http://127.0.0.1:5173",
- ]
+    # Add your production frontend domain(s) here:
+    # "https://your-app.ondigitalocean.app"
+]
+
+CORS_ALLOW_ALL_ORIGINS = True  # SAFE for local dev; set False in production
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    # "https://your-app.ondigitalocean.app",
+]
+
 CORS_ALLOW_HEADERS = [
     "accept",
     "authorization",
@@ -175,11 +194,14 @@ WSGI_APPLICATION = 'CESI.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+import dj_database_url
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
+        ssl_require=False,
+    )
 }
 
 
@@ -218,7 +240,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles' # Add this line
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # Collect static files here in production
 
 AUTH_USER_MODEL = 'accounts.User'
 
