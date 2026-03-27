@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "description": "Placeholder package.json: this Django backend does not use Node.js dependencies.",
+  "dependencies": {}
+}

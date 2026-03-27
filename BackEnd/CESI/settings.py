@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'classmanagement',
     'messaging',
     'reminders',
+    'cmsmodule',
 ]
 
 
