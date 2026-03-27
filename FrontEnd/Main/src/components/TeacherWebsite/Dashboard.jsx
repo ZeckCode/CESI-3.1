@@ -254,16 +254,6 @@ const Dashboard = () => {
 
   return (
     <div className="tdb">
-      {/* Header Section */}
-      <header className="tdb__header">
-        <div className="tdb__headerContent">
-          <h1 className="tdb__title">Dashboard</h1>
-          <p className="tdb__subtitle">
-            Welcome back, <strong>{loading ? "Teacher" : teacherName}</strong>
-          </p>
-        </div>
-      </header>
-
       {/* Quick Stats */}
       <div className="tdb__stats">
         <div className="tdbStat tdbStat--primary">

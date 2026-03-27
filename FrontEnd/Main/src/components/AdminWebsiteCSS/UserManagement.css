@@ -5,7 +5,6 @@
 .user-management {
   padding: 28px;
   background: #ffffff;
-  min-height: 100vh;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -297,9 +296,9 @@
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  margin-bottom: 25px;
   overflow-x: auto;
+  overflow-y: hidden;
+  margin-bottom: 25px;
   -webkit-overflow-scrolling: touch;
 }
 
