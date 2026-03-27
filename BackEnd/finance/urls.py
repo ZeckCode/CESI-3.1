@@ -14,10 +14,7 @@ from .views import (
     TuitionConfigDetail,
     tuition_config_stats,
     tuition_config_by_grade,
-    ProofOfPaymentListCreate,
-    ProofOfPaymentDetail,
-    my_payment_proofs,
-    payment_proof_stats,
+    ProofOfPaymentViewSet,
 )
 
 urlpatterns = [
@@ -42,8 +39,8 @@ urlpatterns = [
     path('tuition-configs/by-grade/<str:grade_key>/', tuition_config_by_grade, name='tuition-config-by-grade'),
 
     # PROOF OF PAYMENT ENDPOINTS
-    path('payment-proofs/', ProofOfPaymentListCreate.as_view(), name='payment-proof-list'),
-    path('payment-proofs/<int:pk>/', ProofOfPaymentDetail.as_view(), name='payment-proof-detail'),
-    path('my-payment-proofs/', my_payment_proofs, name='my-payment-proofs'),
-    path('payment-proofs/stats/', payment_proof_stats, name='payment-proof-stats'),
+    path('proof-of-payments/', ProofOfPaymentViewSet.as_view({'get': 'list', 'post': 'create'}), name='proof-list-create'),
+    path('proof-of-payments/<int:pk>/', ProofOfPaymentViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), name='proof-detail'),
+    path('proof-of-payments/<int:pk>/approve/', ProofOfPaymentViewSet.as_view({'patch': 'approve'}), name='proof-approve'),
+    path('proof-of-payments/<int:pk>/reject/', ProofOfPaymentViewSet.as_view({'patch': 'reject'}), name='proof-reject'),
 ]

@@ -393,157 +393,19 @@ class TuitionConfigCreateSerializer(serializers.ModelSerializer):
 
         return attrs
 
-
 class ProofOfPaymentSerializer(serializers.ModelSerializer):
-    """Serializer for reading/displaying ProofOfPayment submissions."""
-    parent_username = serializers.CharField(source='parent.username', read_only=True)
-    transaction_details = serializers.SerializerMethodField(read_only=True)
-    reviewed_by_username = serializers.CharField(
-        source='reviewed_by.username',
-        read_only=True,
-        allow_null=True
-    )
-    submitted_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
-    reviewed_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True, allow_null=True)
-    payment_date = serializers.DateField(format="%Y-%m-%d")
-
+    proof_image_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = ProofOfPayment
         fields = [
-            'id',
-            'parent',
-            'parent_username',
-            'transaction',
-            'transaction_details',
-            'reference_number',
-            'payment_amount',
-            'payment_date',
-            'payment_method',
-            'document',
-            'description',
-            'status',
-            'rejection_reason',
-            'submitted_date',
-            'reviewed_date',
-            'reviewed_by',
-            'reviewed_by_username',
+            'id', 'reference_number', 'description', 'proof_image',
+            'proof_image_url', 'status', 'admin_remarks', 'created_at'
         ]
-        read_only_fields = [
-            'id',
-            'submitted_date',
-            'reviewed_date',
-            'reviewed_by',
-        ]
-
-    def get_transaction_details(self, obj):
-        """Return a summary of the related transaction."""
-        if obj.transaction:
-            return {
-                'id': obj.transaction.id,
-                'type': obj.transaction.transaction_type,
-                'item': obj.transaction.item,
-                'amount': str(obj.transaction.amount),
-                'reference_number': obj.transaction.reference_number,
-                'status': obj.transaction.status,
-            }
+        read_only_fields = ['id', 'status', 'admin_remarks', 'created_at']
+    
+    def get_proof_image_url(self, obj):
+        request = self.context.get('request')
+        if obj.proof_image:
+            return request.build_absolute_uri(obj.proof_image.url) if request else obj.proof_image.url
         return None
-
-
-class ProofOfPaymentCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating/submitting new ProofOfPayment documents."""
-    payment_date = serializers.DateField(format="%Y-%m-%d")
-
-    class Meta:
-        model = ProofOfPayment
-        fields = [
-            'transaction',
-            'reference_number',
-            'payment_amount',
-            'payment_date',
-            'payment_method',
-            'document',
-            'description',
-        ]
-
-    def validate_transaction(self, value):
-        """Ensure transaction exists and belongs to authenticated user."""
-        # The parent will be set from request.user in the view
-        return value
-
-    def validate_payment_amount(self, value):
-        """Ensure payment amount is positive."""
-        if value <= 0:
-            raise serializers.ValidationError("Payment amount must be greater than 0.")
-        return value
-
-    def validate_document(self, value):
-        """Validate document file size and format."""
-        # Max file size: 5MB
-        max_size = 5 * 1024 * 1024
-        if value.size > max_size:
-            raise serializers.ValidationError("File size must not exceed 5MB.")
-
-        # Allowed file types
-        allowed_types = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
-        if value.content_type not in allowed_types:
-            raise serializers.ValidationError(
-                "Only JPEG, PNG, and PDF files are allowed."
-            )
-        return value
-
-    def validate(self, attrs):
-        """Additional validation for the submission."""
-        transaction = attrs.get('transaction')
-
-        # Check if proof already exists
-        if ProofOfPayment.objects.filter(transaction=transaction).exists():
-            raise serializers.ValidationError({
-                'transaction': 'A proof of payment has already been submitted for this transaction.'
-            })
-
-        return attrs
-
-    def create(self, validated_data):
-        """Create new proof of payment with parent from request."""
-        validated_data['parent'] = self.context['request'].user
-        return super().create(validated_data)
-
-
-class ProofOfPaymentReviewSerializer(serializers.ModelSerializer):
-    """Serializer for admin review/approval of payment proofs."""
-
-    class Meta:
-        model = ProofOfPayment
-        fields = [
-            'id',
-            'status',
-            'rejection_reason',
-        ]
-
-    def validate_status(self, value):
-        """Validate status transitions."""
-        allowed_statuses = ['APPROVED', 'REJECTED', 'RESUBMIT']
-        if value not in allowed_statuses:
-            raise serializers.ValidationError(
-                f"Admin can only set status to: {', '.join(allowed_statuses)}"
-            )
-        return value
-
-    def validate(self, attrs):
-        """Ensure rejection_reason is provided when rejecting."""
-        status = attrs.get('status')
-        rejection_reason = attrs.get('rejection_reason', '')
-
-        if status in ['REJECTED', 'RESUBMIT'] and not rejection_reason.strip():
-            raise serializers.ValidationError({
-                'rejection_reason': 'Reason is required when rejecting or requesting resubmission.'
-            })
-
-        return attrs
-
-    def update(self, instance, validated_data):
-        """Update proof status and set review details."""
-        from django.utils import timezone
-        validated_data['reviewed_by'] = self.context['request'].user
-        validated_data['reviewed_date'] = timezone.now()
-        return super().update(instance, validated_data)

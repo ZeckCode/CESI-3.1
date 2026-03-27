@@ -1,599 +1,333 @@
-import React, { useState, useEffect, useRef } from "react";
-import "../StudentWebsiteCSS/ProofOfPayment.css";
-import {
-  submitProofOfPayment,
-  getMyPaymentProofs,
-  deletePaymentProof,
-  getPaymentProofDetail,
-} from "../api/finance";
-import { getMyTransactions } from "../api/finance";
-import Toast from "../Global/Toast";
+import React, { useState, useEffect } from "react";
+import { apiFetch } from "../api/apiFetch";
+import "../StudentWebsiteCSS/ProofOfPayment.css"; // You'll need to create this CSS file
 
-const ProofOfPaymentUpload = () => {
-  // Form state
-  const [transactions, setTransactions] = useState([]);
-  const [selectedTransaction, setSelectedTransaction] = useState("");
-  const [referenceNumber, setReferenceNumber] = useState("");
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentDate, setPaymentDate] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [description, setDescription] = useState("");
-  const [document, setDocument] = useState(null);
-  const [documentPreview, setDocumentPreview] = useState(null);
+const formatCurrency = (value) =>
+  `₱${Number(value || 0).toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
-  // Submission state
-  const [proofs, setProofs] = useState([]);
+const statusPillStyle = (status) => {
+  const normalized = String(status || "").toLowerCase();
+
+  if (normalized === "approved") {
+    return { background: "#dcfce7", color: "#166534" };
+  }
+  if (normalized === "rejected") {
+    return { background: "#fee2e2", color: "#b91c1c" };
+  }
+  if (normalized === "pending") {
+    return { background: "#fef3c7", color: "#b45309" };
+  }
+  return { background: "#e2e8f0", color: "#334155" };
+};
+
+export default function ProofOfPayment() {
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [formData, setFormData] = useState({
+    reference_number: "",
+    description: "",
+    proof_image: null,
+  });
 
-  // UI state
-  const [showForm, setShowForm] = useState(false);
-  const [expandedProofId, setExpandedProofId] = useState(null);
-  const fileInputRef = useRef(null);
-
-  // Toast notification
-  const [toast, setToast] = useState(null);
-
-  const PAYMENT_METHODS = [
-    "Bank Transfer",
-    "GCash",
-    "PayMaya",
-    "Check",
-    "Cash",
-    "Other",
-  ];
-
-  const STATUS_COLORS = {
-    PENDING: "#FFA500",
-    APPROVED: "#28a745",
-    REJECTED: "#dc3545",
-    RESUBMIT: "#FF6B6B",
-  };
-
-  const STATUS_LABELS = {
-    PENDING: "Pending Review",
-    APPROVED: "Approved",
-    REJECTED: "Rejected",
-    RESUBMIT: "Resubmit Required",
-  };
-
+  // Fetch existing proof of payment submissions
   useEffect(() => {
-    loadInitialData();
+    fetchPayments();
   }, []);
 
-  const loadInitialData = async () => {
+  const fetchPayments = async () => {
     try {
       setLoading(true);
-      const [txRes, proofsRes] = await Promise.all([
-        getMyTransactions(),
-        getMyPaymentProofs(),
-      ]);
-
-      if (Array.isArray(txRes)) {
-        setTransactions(txRes);
+      const response = await apiFetch("/api/finance/proof-of-payments/");
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch payment proofs");
       }
-
-      if (Array.isArray(proofsRes)) {
-        setProofs(proofsRes);
-      }
+      
+      const data = await response.json();
+      setPayments(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Load error:", err);
-      setError("Failed to load data.");
+      console.error("Error fetching payments:", err);
+      setError(err.message || "Failed to load payment proofs");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      showToast("File size must not exceed 5MB", "error");
-      return;
-    }
-
-    // Validate file type
-    const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
-    if (!allowedTypes.includes(file.type)) {
-      showToast("Only JPEG, PNG, and PDF files are allowed", "error");
-      return;
-    }
-
-    setDocument(file);
-
-    // Generate preview for images
-    if (file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setDocumentPreview(event.target.result);
-      };
-      reader.readAsDataURL(file);
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    if (name === "reference_number") {
+      // Only allow numbers
+      const numbersOnly = value.replace(/[^0-9]/g, "");
+      setFormData(prev => ({ ...prev, [name]: numbersOnly }));
     } else {
-      // For PDFs, show a generic preview
-      setDocumentPreview(null);
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
-  const validateFormSubmission = () => {
-    if (!selectedTransaction) {
-      showToast("Please select a transaction", "warning");
-      return false;
-    }
-    if (!referenceNumber.trim()) {
-      showToast("Reference number is required", "warning");
-      return false;
-    }
-    if (!paymentAmount || Number(paymentAmount) <= 0) {
-      showToast("Payment amount must be greater than 0", "warning");
-      return false;
-    }
-    if (!paymentDate) {
-      showToast("Payment date is required", "warning");
-      return false;
-    }
-    if (!paymentMethod) {
-      showToast("Payment method is required", "warning");
-      return false;
-    }
-    if (!document) {
-      showToast("Please upload a payment proof document", "warning");
-      return false;
-    }
-    return true;
-  };
-
-  const resetForm = () => {
-    setSelectedTransaction("");
-    setReferenceNumber("");
-    setPaymentAmount("");
-    setPaymentDate("");
-    setPaymentMethod("");
-    setDescription("");
-    setDocument(null);
-    setDocumentPreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/heic'];
+      if (!validTypes.includes(file.type)) {
+        setError("Please upload a valid image file (JPEG, PNG, or HEIC)");
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError("File size must be less than 5MB");
+        return;
+      }
+      
+      setFormData(prev => ({ ...prev, proof_image: file }));
+      setError(null);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateFormSubmission()) return;
-
+    
+    // Validate form
+    if (!formData.reference_number.trim()) {
+      setError("Reference number is required");
+      return;
+    }
+    
+    if (!/^\d+$/.test(formData.reference_number)) {
+      setError("Reference number must contain only numbers");
+      return;
+    }
+    
+    if (!formData.description.trim()) {
+      setError("Description is required");
+      return;
+    }
+    
+    if (!formData.proof_image) {
+      setError("Proof of payment image is required");
+      return;
+    }
+    
     try {
       setSubmitting(true);
-      setError("");
-
-      const newProof = await submitProofOfPayment(
-        selectedTransaction,
-        referenceNumber,
-        paymentAmount,
-        paymentDate,
-        paymentMethod,
-        document,
-        description
-      );
-
-      setProofs([newProof, ...proofs]);
-      resetForm();
-      setShowForm(false);
-      showToast(
-        "Payment proof submitted successfully! It will be reviewed shortly.",
-        "success"
-      );
+      setError(null);
+      
+      const formDataToSend = new FormData();
+      formDataToSend.append("reference_number", formData.reference_number);
+      formDataToSend.append("description", formData.description);
+      formDataToSend.append("proof_image", formData.proof_image);
+      
+      const response = await apiFetch("/api/finance/proof-of-payments/", {
+        method: "POST",
+        body: formDataToSend,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to submit payment proof");
+      }
+      
+      setSuccess("Payment proof submitted successfully! Waiting for admin approval.");
+      setFormData({
+        reference_number: "",
+        description: "",
+        proof_image: null,
+      });
+      
+      // Reset file input
+      const fileInput = document.getElementById("proof_image");
+      if (fileInput) fileInput.value = "";
+      
+      // Refresh the list
+      fetchPayments();
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
-      console.error("Submission error:", err);
-      setError(err.message || "Failed to submit proof of payment.");
-      showToast(err.message || "Submission failed", "error");
+      console.error("Error submitting payment:", err);
+      setError(err.message || "Failed to submit payment proof");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (proofId) => {
-    if (!window.confirm("Are you sure you want to delete this submission?")) {
-      return;
-    }
-
-    try {
-      await deletePaymentProof(proofId);
-      setProofs(proofs.filter((p) => p.id !== proofId));
-      showToast("Proof of payment deleted", "success");
-    } catch (err) {
-      console.error("Delete error:", err);
-      showToast(err.message || "Failed to delete proof", "error");
-    }
-  };
-
-  const showToast = (message, type) => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
-
-  const formatCurrency = (value) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
-
   const formatDate = (dateString) => {
     if (!dateString) return "—";
-    return new Date(dateString).toLocaleDateString("en-PH", {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-PH", {
       year: "numeric",
-      month: "short",
+      month: "long",
       day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
-  const getTransactionLabel = (transactionId) => {
-    const tx = transactions.find((t) => t.id === transactionId);
-    if (!tx) return `Transaction #${transactionId}`;
-    return `${tx.item} - ${formatCurrency(tx.amount)} (Ref: ${tx.reference_number})`;
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    // If it's already a full URL, return it
+    if (imagePath.startsWith("http")) return imagePath;
+    // Otherwise, prepend the API base URL
+    return `${process.env.REACT_APP_API_URL || ""}${imagePath}`;
   };
 
-  if (loading) {
-    return (
-      <div className="proof-payment-container">
-        <div className="loading-spinner">Loading...</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="proof-payment-container">
-      {toast && <Toast message={toast.message} type={toast.type} />}
+    <div className="proof-wrapper">
+      <div className="proof-content">
 
-      <div className="proof-payment-header">
-        <h2>Proof of Payment (Delivery/Submission)</h2>
-        <p className="subtitle">
-          Submit payment proof documents to verify your transactions
-        </p>
-      </div>
-
-      {error && <div className="alert alert-error">{error}</div>}
-
-      {/* Upload Form Section */}
-      <div className="proof-payment-form-section">
-        <button
-          className={`btn-toggle-form ${showForm ? "active" : ""}`}
-          onClick={() => setShowForm(!showForm)}
-        >
-          {showForm ? "▼ Hide Form" : "▶ Upload Proof of Payment"}
-        </button>
-
-        {showForm && (
-          <form className="proof-payment-form" onSubmit={handleSubmit}>
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="transaction">Select Transaction *</label>
-                <select
-                  id="transaction"
-                  value={selectedTransaction}
-                  onChange={(e) => setSelectedTransaction(e.target.value)}
-                  disabled={submitting}
-                >
-                  <option value="">-- Select a Transaction --</option>
-                  {transactions.map((tx) => (
-                    <option key={tx.id} value={tx.id}>
-                      {tx.item} - {formatCurrency(tx.amount)} (Ref:{" "}
-                      {tx.reference_number})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="refNumber">Reference Number *</label>
-                <input
-                  id="refNumber"
-                  type="text"
-                  placeholder="e.g., GCASH123456, BANK-TRX-2024"
-                  value={referenceNumber}
-                  onChange={(e) => setReferenceNumber(e.target.value)}
-                  disabled={submitting}
-                />
-              </div>
+        {/* Submission Form */}
+        <div className="proof-form-card">
+          <h3 className="form-title">Submit New Proof of Payment</h3>
+          
+          {error && (
+            <div className="proof-error-message">
+              {error}
             </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="amount">Payment Amount (₱) *</label>
-                <input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  disabled={submitting}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="date">Payment Date *</label>
-                <input
-                  id="date"
-                  type="date"
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  disabled={submitting}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="method">Payment Method *</label>
-                <select
-                  id="method"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  disabled={submitting}
-                >
-                  <option value="">-- Select Method --</option>
-                  {PAYMENT_METHODS.map((method) => (
-                    <option key={method} value={method}>
-                      {method}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          )}
+          
+          {success && (
+            <div className="proof-success-message">
+              {success}
             </div>
-
+          )}
+          
+          <form onSubmit={handleSubmit} className="proof-form">
             <div className="form-group">
-              <label htmlFor="description">Additional Notes</label>
-              <textarea
-                id="description"
-                placeholder="Any additional information about this payment..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+              <label htmlFor="reference_number" className="form-label">
+                Reference Number <span className="required">*</span>
+              </label>
+              <input
+                type="text"
+                id="reference_number"
+                name="reference_number"
+                value={formData.reference_number}
+                onChange={handleInputChange}
+                className="form-input"
+                placeholder="Enter reference number (e.g., GCash ref no., bank ref no.)"
                 disabled={submitting}
-                rows="3"
               />
             </div>
-
-            {/* File Upload */}
-            <div className="form-group file-upload-group">
-              <label>Payment Document Upload *</label>
-              <div className="file-upload-area">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/jpg,application/pdf"
-                  onChange={handleFileSelect}
-                  disabled={submitting}
-                  className="file-input"
-                />
-                <div className="file-upload-prompt">
-                  <svg
-                    className="upload-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                  >
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                  <p>
-                    {document
-                      ? `Selected: ${document.name}`
-                      : "Click to upload or drag and drop"}
-                  </p>
-                  <span className="file-hint">
-                    JPG, PNG, or PDF (max 5MB)
-                  </span>
-                </div>
-              </div>
-
-              {/* Document Preview */}
-              {documentPreview && (
-                <div className="document-preview">
-                  <p className="preview-label">Preview:</p>
-                  <img
-                    src={documentPreview}
-                    alt="Payment proof preview"
-                    className="preview-image"
-                  />
-                </div>
-              )}
-
-              {document && document.type === "application/pdf" && (
-                <div className="document-preview pdf-preview">
-                  <p className="preview-label">PDF Document</p>
-                  <p className="pdf-info">
-                    File: {document.name} ({(document.size / 1024).toFixed(2)} KB)
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Form Actions */}
-            <div className="form-actions">
-              <button
-                type="submit"
-                className="btn btn-primary"
+            
+            <div className="form-group">
+              <label htmlFor="description" className="form-label">
+                Description <span className="required">*</span>
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                className="form-textarea"
+                rows="3"
+                placeholder="Describe the payment (e.g., Tuition fee for March 2026, Registration fee)"
                 disabled={submitting}
-              >
-                {submitting ? "Submitting..." : "Submit Proof of Payment"}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={resetForm}
-                disabled={submitting}
-              >
-                Clear Form
-              </button>
+              />
             </div>
+            
+            <div className="form-group">
+              <label htmlFor="proof_image" className="form-label">
+                Proof of Payment Image <span className="required">*</span>
+              </label>
+              <input
+                type="file"
+                id="proof_image"
+                name="proof_image"
+                onChange={handleFileChange}
+                className="form-file-input"
+                accept="image/jpeg,image/png,image/jpg,image/heic"
+                disabled={submitting}
+              />
+              <small className="form-help-text">
+                Accepted formats: JPEG, PNG, HEIC. Max size: 5MB
+              </small>
+            </div>
+            
+            <button
+              type="submit"
+              className="btn-submit"
+              disabled={submitting}
+            >
+              {submitting ? "Submitting..." : "Submit Proof of Payment"}
+            </button>
           </form>
-        )}
-      </div>
+        </div>
 
-      {/* Submissions List */}
-      <div className="proof-payment-list-section">
-        <h3>Your Submissions ({proofs.length})</h3>
-
-        {proofs.length === 0 ? (
-          <div className="empty-state">
-            <p>No payment proofs submitted yet.</p>
-            <p className="hint">Upload your first proof of payment above.</p>
-          </div>
-        ) : (
-          <div className="submissions-grid">
-            {proofs.map((proof) => (
-              <div key={proof.id} className="proof-card">
-                {/* Card Header */}
-                <div className="proof-card-header">
-                  <div className="proof-title">
-                    <h4>{getTransactionLabel(proof.transaction)}</h4>
-                    <span
-                      className="status-badge"
-                      style={{
-                        backgroundColor: STATUS_COLORS[proof.status],
-                      }}
-                    >
-                      {STATUS_LABELS[proof.status]}
-                    </span>
-                  </div>
-                  <button
-                    className="btn-expand"
-                    onClick={() =>
-                      setExpandedProofId(
-                        expandedProofId === proof.id ? null : proof.id
-                      )
-                    }
-                  >
-                    {expandedProofId === proof.id ? "▼" : "▶"}
-                  </button>
-                </div>
-
-                {/* Card Quick Info */}
-                <div className="proof-quick-info">
-                  <div className="info-item">
-                    <span className="label">Reference:</span>
-                    <span className="value">{proof.reference_number}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="label">Amount:</span>
-                    <span className="value">
-                      {formatCurrency(proof.payment_amount)}
-                    </span>
-                  </div>
-                  <div className="info-item">
-                    <span className="label">Submitted:</span>
-                    <span className="value">
-                      {formatDate(proof.submitted_date)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Expanded Details */}
-                {expandedProofId === proof.id && (
-                  <div className="proof-details">
-                    <div className="details-grid">
-                      <div className="detail-row">
-                        <span className="label">Payment Date:</span>
-                        <span className="value">
-                          {formatDate(proof.payment_date)}
-                        </span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="label">Payment Method:</span>
-                        <span className="value">{proof.payment_method}</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="label">Document:</span>
-                        <span className="value">
-                          <a
-                            href={proof.document}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="document-link"
-                          >
-                            View Document
-                          </a>
-                        </span>
-                      </div>
-                      {proof.description && (
-                        <div className="detail-row full-width">
-                          <span className="label">Notes:</span>
-                          <span className="value">{proof.description}</span>
-                        </div>
-                      )}
-
-                      {/* Review Information */}
-                      {proof.reviewed_by_username && (
-                        <>
-                          <div className="detail-row">
-                            <span className="label">Reviewed By:</span>
-                            <span className="value">
-                              {proof.reviewed_by_username}
-                            </span>
-                          </div>
-                          <div className="detail-row">
-                            <span className="label">Reviewed Date:</span>
-                            <span className="value">
-                              {formatDate(proof.reviewed_date)}
-                            </span>
-                          </div>
-                        </>
-                      )}
-
-                      {/* Rejection Reason */}
-                      {proof.rejection_reason && (
-                        <div className="detail-row full-width">
-                          <span className="label rejection">
-                            Review Reason:
-                          </span>
-                          <span className="value rejection">
-                            {proof.rejection_reason}
-                          </span>
-                        </div>
-                      )}
+        {/* Existing Submissions */}
+        <div className="proof-history">
+          <h3 className="history-title">My Submissions</h3>
+          
+          {loading ? (
+            <div className="proof-loading">
+              <div className="spinner-border" role="status" />
+              Loading submissions...
+            </div>
+          ) : payments.length === 0 ? (
+            <div className="proof-empty">
+              <p>No submissions yet. Submit your first proof of payment above.</p>
+            </div>
+          ) : (
+            <div className="proof-list">
+              {payments.map((payment) => (
+                <div key={payment.id} className="proof-item">
+                  <div className="proof-item-header">
+                    <div className="proof-reference">
+                      <strong>Reference:</strong> {payment.reference_number}
                     </div>
-
-                    {/* Action Buttons */}
-                    {(proof.status === "PENDING" ||
-                      proof.status === "RESUBMIT" ||
-                      proof.status === "REJECTED") && (
-                      <div className="proof-actions">
-                        <button
-                          className="btn btn-danger"
-                          onClick={() => handleDelete(proof.id)}
-                        >
-                          Delete
-                        </button>
+                    <span
+                      className="status-pill"
+                      style={statusPillStyle(payment.status)}
+                    >
+                      {payment.status || "PENDING"}
+                    </span>
+                  </div>
+                  
+                  <div className="proof-item-details">
+                    <div className="proof-detail">
+                      <strong>Submitted:</strong> {formatDate(payment.created_at)}
+                    </div>
+                    
+                    <div className="proof-detail">
+                      <strong>Description:</strong> {payment.description}
+                    </div>
+                    
+                    {payment.admin_remarks && (
+                      <div className="proof-detail proof-remarks">
+                        <strong>Admin Remarks:</strong> {payment.admin_remarks}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Info Box */}
-      <div className="info-box">
-        <h4>📋 How to Submit Your Proof of Payment</h4>
-        <ol>
-          <li>Select the transaction you're paying for</li>
-          <li>Enter the payment reference/confirmation number</li>
-          <li>Enter the payment amount and date</li>
-          <li>Select the payment method used</li>
-          <li>Upload a clear image or PDF of your payment receipt/proof</li>
-          <li>Submit for review</li>
-          <li>Check back for approval status</li>
-        </ol>
-        <p className="note">
-          <strong>Note:</strong> Accepted file formats: JPG, PNG, PDF (Max 5MB).
-          Payment proofs are reviewed within 1-3 business days.
-        </p>
+                  
+                  {payment.proof_image && (
+                    <div className="proof-image-container">
+                      <a
+                        href={getImageUrl(payment.proof_image)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="proof-image-link"
+                      >
+                        <img
+                          src={getImageUrl(payment.proof_image)}
+                          alt="Proof of payment"
+                          className="proof-image-thumbnail"
+                        />
+                        <span>View Proof Image</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
-};
-
-export default ProofOfPaymentUpload;
+}

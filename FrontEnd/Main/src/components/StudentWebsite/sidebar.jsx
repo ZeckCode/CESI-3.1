@@ -74,6 +74,7 @@ export default function Sidebar({
         label: "FINANCE",
         items: [
           { id: "ledgers", label: "Ledger", icon: BookOpenText },
+          { id: "proof-of-payment", label: "Proof of Payment", icon: BookOpenText },
         ],
       },
       {

@@ -12,6 +12,7 @@ import Attendance from "./Attendance";
 import Message from "./Message";
 import StudentReminders from "./StudentReminders";
 import StudentEnrollment from "./StudentEnrollment";
+import ProofOfPayment from "./ProofOfPayment";
 import { getToken } from "../Auth/auth";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 import "../StudentWebsiteCSS/StudentPortal.css";
@@ -155,6 +156,8 @@ export default function StudentMain() {
         return <Profile />;
       case "ledgers":
         return <Ledgers />;
+      case "proof-of-payment":  
+        return <ProofOfPayment />;
       case "grades":
         return <Grades />;
       case "academic-history":
@@ -183,6 +186,7 @@ export default function StudentMain() {
       dashboard: "Dashboard",
       profile: "Student Info",
       ledgers: "Ledger",
+      "proof-of-payment": "Proof of Payment",
       grades: "Grades",
       "academic-history": "Academic History",
       schedule: "Schedule",
@@ -199,6 +203,7 @@ export default function StudentMain() {
       dashboard: "Welcome back! Here's your overview.",
       profile: "View student profile and information.",
       ledgers: "View tuition and payment ledger.",
+      "proof-of-payment": "Submit proof of payment for admin verification.",
       grades: "View student grades and records.",
       "academic-history": "View your complete academic history.",
       schedule: "View your class schedule.",
