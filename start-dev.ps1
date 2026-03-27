@@ -173,7 +173,25 @@ Write-Ok "Python packages up to date"
 # Run migrations
 Write-Step "Applying database migrations..."
 Push-Location "$BackendDir"
-& "$VenvPython" manage.py migrate --run-syncdb 2>&1 | Out-Null
+
+Write-Step "Creating new migrations (makemigrations)..."
+$makemigrationsOutput = & "$VenvPython" manage.py makemigrations --noinput 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Err "makemigrations failed"
+    Write-Err $makemigrationsOutput
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+Write-Ok "makemigrations succeeded"
+
+Write-Step "Running migrate..."
+$migrateOutput = & "$VenvPython" manage.py migrate --run-syncdb 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Err "migrate failed"
+    Write-Err $migrateOutput
+    Read-Host "Press Enter to exit"
+    exit 1
+}
 Write-Ok "Migrations applied"
 
 # Import seed data from JSON if available and database is empty
@@ -206,9 +224,9 @@ if (-not (Test-Path "node_modules")) {
     & npm install --prefer-offline --no-audit --no-fund 2>&1 | Out-Null
 }
 
-# Ensure PDF export dependencies are present for frontend JSDoc exports
-Write-Step "Installing jsPDF and jsPDF-AutoTable (frontend)"
-& npm install jspdf@2.5.1 jspdf-autotable@3.5.31 --save
+# Ensure frontend dependencies are present
+Write-Step "Installing react-quill-new, jsPDF and jsPDF-AutoTable (frontend)"
+& npm install react-quill-new jspdf@2.5.1 jspdf-autotable@3.5.31 --save
 
 Write-Ok "npm packages up to date"
 Pop-Location
