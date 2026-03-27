@@ -2,8 +2,8 @@
    CMS MODULE (ENHANCED DESIGN) - COMPLETE CSS
    ============================================ */
 
-/* Import Google Font for better typography */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* Avoid remote font import to prevent MIME type / blockers in restricted environments */
+/* Use local/system fallback fonts to maintain UI stability */
 
 .cms-container {
   padding: 20px;

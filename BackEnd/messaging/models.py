@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from cryptography.fernet import Fernet
 import os
+from django.conf import settings
 from django.core.cache import cache
 
 User = get_user_model()
@@ -11,34 +12,37 @@ User = get_user_model()
 # Encryption Helper
 # ═══════════════════════════════════════════════════════════
 ENCRYPTION_KEY_CACHE_KEY = 'messaging_encryption_key'
-KEY_FILE_PATH = '/tmp/messaging_encryption.key'  # Store in persistent temp location
+# Use a project-local env directory that is gitignored for safe key storage.
+# This is shared across team members when they generate or set MESSAGING_ENCRYPTION_KEY.
+KEY_FILE_PATH = os.path.join(getattr(settings, 'BASE_DIR', '.'), '.env', 'messaging_encryption.key')
 
 def get_or_create_encryption_key():
     """Get or create encryption key - stored in file for persistence."""
-    try:
-        # Try to read from key file first
-        if os.path.exists(KEY_FILE_PATH):
-            with open(KEY_FILE_PATH, 'r') as f:
-                key = f.read().strip().encode()
-                return key
-    except Exception as e:
-        print(f"Warning: Could not read key file: {e}")
-    
-    # Try environment variable
+    # 1) Existing key from environment variable (recommended for team consistency)
     key_env = os.getenv('MESSAGING_ENCRYPTION_KEY')
     if key_env:
         return key_env.encode() if isinstance(key_env, str) else key_env
-    
-    # Generate new key and save to file
+
+    # 2) Try to read from local key file (.env/messaging_encryption.key)
     try:
-        key = Fernet.generate_key()
+        if os.path.exists(KEY_FILE_PATH):
+            with open(KEY_FILE_PATH, 'rb') as f:
+                key = f.read().strip()
+                if key:
+                    return key
+    except Exception as e:
+        print(f"Warning: Could not read key file: {e}")
+
+    # 3) Generate new key and save to file for local development
+    try:
         os.makedirs(os.path.dirname(KEY_FILE_PATH) or '.', exist_ok=True)
+        key = Fernet.generate_key()
         with open(KEY_FILE_PATH, 'wb') as f:
             f.write(key)
         return key
     except Exception as e:
         print(f"Error creating key file: {e}")
-        # Fallback to environment or default
+        # As fallback, generate ephemeral key (not ideal for persistence)
         return Fernet.generate_key()
 
 
@@ -303,11 +307,73 @@ class ChatRestriction(models.Model):
     @property
     def is_active(self):
         """Check if restriction is still active."""
+        # Expiration wins over permanent remove; this allows a lifted permanent restriction to be in history.
+        if self.expires_at and timezone.now() >= self.expires_at:
+            return False
+
         if self.restriction_type == 'PERMANENT_REMOVE':
             return True
         if self.expires_at:
             return timezone.now() < self.expires_at
         return True
+
+
+class ChatRestrictionAuditLog(models.Model):
+    """Audit log for restriction lifecycle actions."""
+    ACTION_CHOICES = [
+        ('LIFTED', 'Lifted'),
+        ('APPLIED', 'Applied'),
+    ]
+
+    restriction = models.ForeignKey(
+        ChatRestriction,
+        on_delete=models.CASCADE,
+        related_name='audit_logs'
+    )
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    performed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='restriction_audit_actions'
+    )
+    details = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_action_display()} restriction {self.restriction.id} by {self.performed_by.username if self.performed_by else 'unknown'}"
+
+
+class MessageDeletionLog(models.Model):
+    """Audit log of messages deleted by admins or teachers."""
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='deletion_logs'
+    )
+    deleted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='deleted_message_logs'
+    )
+    reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        if self.message:
+            return f"Deletion log for message {self.message.id} by {self.deleted_by.username if self.deleted_by else 'unknown'}"
+        return f"Deletion log by {self.deleted_by.username if self.deleted_by else 'unknown'}"
 
 
 class MessageFlag(models.Model):

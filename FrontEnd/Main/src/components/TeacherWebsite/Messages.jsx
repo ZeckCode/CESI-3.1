@@ -17,6 +17,8 @@ import {
   deleteChat,
   createMessageReport,
   createChatRequest,
+  deleteMessage,
+  listMessageDeletionLogs,
 } from "../api/messaging";
 import { getSchoolYear } from "../api/announcements";
 import { getToken } from "../Auth/auth";
@@ -51,6 +53,11 @@ const Messages = () => {
   const [reportReason, setReportReason] = useState("");
   const [reportDescription, setReportDescription] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
+
+  const [deleteModalMessage, setDeleteModalMessage] = useState(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [userSuggestions, setUserSuggestions] = useState([]);
   const [sectionSuggestions, setSectionSuggestions] = useState([]);
@@ -412,6 +419,42 @@ const Messages = () => {
     setReportReason("");
     setReportDescription("");
     setMessageContextMenu(null);
+  };
+
+  const handleDeleteMessageMenu = (message) => {
+    setDeleteModalMessage(message);
+    setDeleteReason("");
+    setMessageContextMenu(null);
+  };
+
+  const handleConfirmDeleteMessage = async () => {
+    if (!deleteModalMessage) return;
+    if (!deleteReason.trim()) {
+      setError("Please provide a deletion reason.");
+      return;
+    }
+
+    setDeleteSubmitting(true);
+    try {
+      await deleteMessage(deleteModalMessage.id, deleteReason.trim());
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === deleteModalMessage.id
+            ? { ...m, is_deleted: true, content: "[Message removed by teacher]" }
+            : m
+        )
+      );
+
+      setDeleteModalMessage(null);
+      setDeleteReason("");
+      setError("");
+    } catch (err) {
+      setError("Failed to delete message");
+      console.error(err);
+    } finally {
+      setDeleteSubmitting(false);
+    }
   };
 
   const handleSubmitReport = async () => {
@@ -894,6 +937,16 @@ const Messages = () => {
                               >
                                 🚩 Report
                               </button>
+                              {(currentUser?.role === "TEACHER" || currentUser?.role === "ADMIN") && (
+                                <button
+                                  onClick={() => handleDeleteMessageMenu(msg)}
+                                  style={{width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent", cursor: "pointer", textAlign: "left", fontSize: "14px", borderRadius: "4px"}}
+                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f0f0f0")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                                >
+                                  🗑️ Delete
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1092,6 +1145,41 @@ const Messages = () => {
                         disabled={reportSubmitting || !reportReason}
                       >
                         {reportSubmitting ? "Submitting..." : "Submit Report"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Delete message modal */}
+              {deleteModalMessage && (
+                <div style={{position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000}}>
+                  <div style={{backgroundColor: "white", borderRadius: "8px", padding: "20px", maxWidth: "400px", width: "90%", boxShadow: "0 4px 16px rgba(0,0,0,0.2)"}}>
+                    <h3 style={{marginTop: 0}}>Delete Message</h3>
+                    <p>Provide a reason for deletion; this will be saved in admin audit log.</p>
+                    <div style={{marginBottom: "15px"}}>
+                      <textarea
+                        value={deleteReason}
+                        onChange={(e) => setDeleteReason(e.target.value)}
+                        style={{width: "100%", padding: "8px", border: "1px solid #ccc", borderRadius: "4px", minHeight: "80px", fontFamily: "Arial, sans-serif"}}
+                        placeholder="Reason for deleting this message..."
+                      />
+                    </div>
+                    {error && <div style={{color: "red", marginBottom: "10px", fontSize: "14px"}}>{error}</div>}
+                    <div style={{display: "flex", gap: "10px", justifyContent: "flex-end"}}>
+                      <button
+                        onClick={() => setDeleteModalMessage(null)}
+                        style={{padding: "8px 16px", border: "1px solid #ccc", backgroundColor: "white", borderRadius: "4px", cursor: "pointer"}}
+                        disabled={deleteSubmitting}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleConfirmDeleteMessage}
+                        style={{padding: "8px 16px", backgroundColor: "#dc2626", color: "white", border: "none", borderRadius: "4px", cursor: "pointer"}}
+                        disabled={deleteSubmitting || !deleteReason.trim()}
+                      >
+                        {deleteSubmitting ? "Deleting..." : "Delete Message"}
                       </button>
                     </div>
                   </div>
