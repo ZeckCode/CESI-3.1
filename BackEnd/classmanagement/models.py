@@ -74,9 +74,11 @@ class Schedule(models.Model):
 
     teacher = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="schedules",
         limit_choices_to={"role": "TEACHER"},
+        null=True,
+        blank=True,
     )
     subject = models.ForeignKey(
         "accounts.Subject",
