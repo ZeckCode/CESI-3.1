@@ -1,9 +1,9 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    ChatViewSet, MessageViewSet, MessageFlagViewSet, 
+    ChatViewSet, MessageViewSet, MessageFlagViewSet,
     ChatRestrictionViewSet, ProfanityWordViewSet, ChatRequestViewSet,
-    MessageReportViewSet
+    MessageReportViewSet, MessageDeletionLogViewSet
 )
 
 router = DefaultRouter()
@@ -14,6 +14,7 @@ router.register(r'restrictions', ChatRestrictionViewSet, basename='chatrestricti
 router.register(r'profanity', ProfanityWordViewSet, basename='profanityword')
 router.register(r'chat-requests', ChatRequestViewSet, basename='chatrequest')
 router.register(r'reports', MessageReportViewSet, basename='messagereport')
+router.register(r'deletion-logs', MessageDeletionLogViewSet, basename='messagedeletionlog')
 
 urlpatterns = [
     path('', include(router.urls)),

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.utils import timezone
 from .models import (
     ProfanityWord, Chat, ChatMember, Message, ChatRestriction, MessageFlag,
-    ChatRequest, MessageReport, decrypt_message
+    ChatRequest, MessageReport, MessageDeletionLog, decrypt_message
 )
 from accounts.models import User, Section, Subject
 
@@ -195,6 +195,28 @@ class ChatRestrictionSerializer(serializers.ModelSerializer):
     def get_is_global(self, obj):
         """Return whether this is a global restriction."""
         return obj.chat is None
+
+
+class MessageDeletionLogSerializer(serializers.ModelSerializer):
+    message = serializers.PrimaryKeyRelatedField(read_only=True)
+    message_chat_name = serializers.SerializerMethodField()
+    message_sender_name = serializers.SerializerMethodField()
+    deleted_by = UserMinimalSerializer(read_only=True)
+
+    class Meta:
+        model = MessageDeletionLog
+        fields = ['id', 'message', 'message_chat_name', 'message_sender_name', 'deleted_by', 'reason', 'created_at']
+        read_only_fields = ['id', 'message', 'message_chat_name', 'message_sender_name', 'deleted_by', 'created_at']
+
+    def get_message_chat_name(self, obj):
+        if obj.message and obj.message.chat:
+            return obj.message.chat.name or f"Chat #{obj.message.chat.id}"
+        return None
+
+    def get_message_sender_name(self, obj):
+        if obj.message and obj.message.sender:
+            return obj.message.sender.username
+        return None
 
 
 class MessageFlagSerializer(serializers.ModelSerializer):

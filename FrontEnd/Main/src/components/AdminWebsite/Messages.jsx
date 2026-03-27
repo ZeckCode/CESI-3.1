@@ -11,6 +11,7 @@ import {
   liftRestriction,
   listMessageReports,
   reviewMessageReport,
+  listMessageDeletionLogs,
 } from "../api/messaging";
 import { getToken } from "../Auth/auth";
 
@@ -18,6 +19,9 @@ const AdminMessages = () => {
   const [activeTab, setActiveTab] = useState("profanity");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [recordsPage, setRecordsPage] = useState(1);
+  const recordsPerPage = 12;
+
 
   // Profanity Words State
   const [profanityWords, setProfanityWords] = useState([]);
@@ -40,6 +44,7 @@ const AdminMessages = () => {
 
   // Message Reports State
   const [messageReports, setMessageReports] = useState([]);
+  const [deletionLogs, setDeletionLogs] = useState([]);
   const [selectedReportModal, setSelectedReportModal] = useState(null);
   const [reportAdminNotes, setReportAdminNotes] = useState("");
   const [reportActionSubmitting, setReportActionSubmitting] = useState(false);
@@ -58,18 +63,20 @@ const AdminMessages = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [wordsRes, flagsRes, restrictionsRes, reportsRes] =
+      const [wordsRes, flagsRes, restrictionsRes, reportsRes, deletionLogsRes] =
         await Promise.all([
           listProfanityWords(),
           listFlaggedMessages(),
           listChatRestrictions(),
           listMessageReports('PENDING'),
+          listMessageDeletionLogs(),
         ]);
 
       setProfanityWords(wordsRes || []);
       setFlaggedMessages(flagsRes || []);
       setRestrictions(restrictionsRes || []);
       setMessageReports(reportsRes.results || reportsRes || []);
+      setDeletionLogs(deletionLogsRes || []);
       setError("");
     } catch (err) {
       setError("Failed to load data");
@@ -140,27 +147,29 @@ const AdminMessages = () => {
     try {
       const options = {};
       if (action === "restrict") {
-        options.restriction_type = flagRestrictionType;
-        if (flagRestrictionType === "TEMP_MUTE") {
-          options.duration_hours = flagRestrictionDuration;
-        }
+        const isPermanent = flagRestrictionType === "PERMANENT_REMOVE";
+        options.is_permanent = isPermanent;
+        options.restrict_duration = isPermanent ? undefined : flagRestrictionDuration;
         options.admin_notes = flagAdminNotes;
       }
 
-      await takeFlagAction(selectedFlagModal.id, action, options);
+      const updatedFlag = await takeFlagAction(selectedFlagModal.id, action, options);
       setFlaggedMessages((prev) =>
-        prev.filter((f) => f.id !== selectedFlagModal.id)
+        prev.map((f) => (f.id === updatedFlag.id ? updatedFlag : f))
       );
+
       // Refresh restrictions if we just applied a restriction
       if (action === "restrict") {
         await loadRestrictions();
       }
+
       setSelectedFlagModal(null);
       setFlagAdminNotes("");
       setFlagRestrictionDuration(24);
       setFlagRestrictionType("TEMP_MUTE");
     } catch (err) {
       setError("Failed to take action on flag");
+      console.error(err);
     } finally {
       setFlagActionSubmitting(false);
     }
@@ -172,7 +181,11 @@ const AdminMessages = () => {
 
     try {
       await liftRestriction(id);
-      setRestrictions((prev) => prev.filter((r) => r.id !== id));
+      setRestrictions((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, expires_at: new Date().toISOString() } : r
+        )
+      );
       setSelectedRestrictionModal(null);
     } catch (err) {
       setError("Failed to lift restriction");
@@ -204,9 +217,9 @@ const AdminMessages = () => {
 
     setReportActionSubmitting(true);
     try {
-      await reviewMessageReport(selectedReportModal.id, action, reportAdminNotes);
+      const updatedReport = await reviewMessageReport(selectedReportModal.id, action, reportAdminNotes);
       setMessageReports((prev) =>
-        prev.filter((r) => r.id !== selectedReportModal.id)
+        prev.map((r) => (r.id === updatedReport.id ? updatedReport : r))
       );
       setSelectedReportModal(null);
       setReportAdminNotes("");
@@ -222,13 +235,67 @@ const AdminMessages = () => {
       ? profanityWords
       : profanityWords.filter((w) => w.category === filterCategory);
 
-  const pendingFlags = flaggedMessages.filter(
-    (f) => f.status === "PENDING"
-  );
+  const pendingFlags = flaggedMessages.filter((f) => f.status === "PENDING");
+  const pendingReports = messageReports.filter((r) => r.status === "PENDING");
 
   const activeMessageReports = messageReports.filter(
     (r) => r.message && !r.message.is_deleted
   );
+
+  const activeRestrictions = restrictions.filter((r) => {
+    if (r.restriction_type === "PERMANENT_REMOVE") return true;
+    if (r.expires_at) {
+      return new Date(r.expires_at) > new Date();
+    }
+    return true;
+  });
+
+  const records = [
+    ...flaggedMessages.map((f) => ({
+      id: `flag-${f.id}`,
+      type: "Flagged",
+      status: f.status,
+      target: getUserDisplayName(f.message?.sender),
+      actor: f.reviewed_by ? getUserDisplayName(f.reviewed_by) : "(pending)",
+      chat: f.chat?.name || f.chat_name || "Global",
+      details: f.message?.content,
+      timestamp: f.flagged_at,
+    })),
+    ...restrictions.map((r) => ({
+      id: `restriction-${r.id}`,
+      type: "Restriction",
+      status: r.restriction_type,
+      target: getUserDisplayName(r.user),
+      actor: r.restricted_by ? getUserDisplayName(r.restricted_by) : "(auto)",
+      chat: r.chat_name || r.chat?.name || "Global",
+      details: r.reason || "-",
+      timestamp: r.created_at,
+    })),
+    ...messageReports.map((r) => ({
+      id: `report-${r.id}`,
+      type: "Report",
+      status: r.status,
+      target: getUserDisplayName(r.message?.sender),
+      actor: getUserDisplayName(r.reporter),
+      chat: r.message?.chat?.name || r.message?.chat_name || "Unknown",
+      details: r.description || r.reason || "-",
+      timestamp: r.created_at,
+    })),
+    ...deletionLogs.map((log) => ({
+      id: `deletion-${log.id}`,
+      type: "Deletion",
+      status: "DELETED",
+      target: log.message?.sender ? getUserDisplayName(log.message.sender) : "Unknown",
+      actor: log.deleted_by ? getUserDisplayName(log.deleted_by) : "Unknown",
+      chat: log.message_chat_name || "Unknown",
+      details: `Reason: ${log.reason}`,
+      timestamp: log.created_at,
+    })),
+  ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  const totalRecordPages = Math.max(1, Math.ceil(records.length / recordsPerPage));
+  const paginatedRecords = records.slice((recordsPage - 1) * recordsPerPage, recordsPage * recordsPerPage);
+
 
   if (loading) {
     return (
@@ -267,13 +334,19 @@ const AdminMessages = () => {
           className={`admin-tab ${activeTab === "restrictions" ? "active" : ""}`}
           onClick={() => setActiveTab("restrictions")}
         >
-          🔒 Restrictions ({restrictions.length})
+          🔒 Restrictions ({activeRestrictions.length})
         </button>
         <button
           className={`admin-tab ${activeTab === "reports" ? "active" : ""}`}
           onClick={() => setActiveTab("reports")}
         >
-          🚩 Reports ({activeMessageReports.length})
+          🚩 Reports ({pendingReports.length})
+        </button>
+        <button
+          className={`admin-tab ${activeTab === "records" ? "active" : ""}`}
+          onClick={() => setActiveTab("records")}
+        >
+          🗂 Records ({records.length})
         </button>
       </div>
 
@@ -479,7 +552,9 @@ const AdminMessages = () => {
 
                     <div className="admin-detail-row">
                       <div className="admin-detail-label">Chat</div>
-                      <div className="admin-detail-value">{selectedFlagModal.chat.name}</div>
+                      <div className="admin-detail-value">
+                        {selectedFlagModal.chat?.name || selectedFlagModal.chat_name || "Global"}
+                      </div>
                     </div>
 
                     <div className="admin-detail-row">
@@ -503,13 +578,6 @@ const AdminMessages = () => {
                     </h4>
 
                     <div className="admin-btn-group">
-                      <button
-                        onClick={() => handleTakeFlagAction("approve")}
-                        disabled={flagActionSubmitting}
-                        className="admin-btn admin-btn--success"
-                      >
-                        ✓ Approve
-                      </button>
                       <button
                         onClick={() => handleTakeFlagAction("dismiss")}
                         disabled={flagActionSubmitting}
@@ -597,13 +665,13 @@ const AdminMessages = () => {
               </div>
 
               <div className="admin-list-container">
-                {restrictions.length === 0 ? (
+                {activeRestrictions.length === 0 ? (
                   <div className="admin-list-empty">
                     <div className="admin-list-empty-icon">🎉</div>
                     <p>No active restrictions</p>
                   </div>
                 ) : (
-                  restrictions.map((restriction) => (
+                  activeRestrictions.map((restriction) => (
                     <div
                       key={restriction.id}
                       className={`admin-list-item ${selectedRestrictionModal?.id === restriction.id ? "selected" : ""}`}
@@ -613,10 +681,12 @@ const AdminMessages = () => {
                         {getUserDisplayName(restriction.user)}
                       </div>
                       <div className="admin-list-item-meta">
-                        {restriction.restriction_type === "TEMP_MUTE" ? "⏱️ Temp Mute" : "🔒 Permanent"}
+                        {restriction.restriction_type === "TEMP_MUTE"
+                          ? `⏱️ ${formatRestrictionTime(restriction.expires_at)}`
+                          : "🔒 Permanent Remove"}
                       </div>
                       <div className="admin-list-item-preview">
-                        {restriction.chat.name}
+                        {restriction.chat_name || restriction.chat?.name || "Global"}
                       </div>
                     </div>
                   ))
@@ -626,48 +696,43 @@ const AdminMessages = () => {
 
             {/* Restriction Detail Modal */}
             {selectedRestrictionModal && (
-              <div
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  backgroundColor: "rgba(0,0,0,0.45)",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  zIndex: 2100,
-                }}
-              >
-                <div
-                  style={{
-                    width: "100%",
-                    maxWidth: "400px",
-                    background: "#fff",
-                    borderRadius: "10px",
-                    padding: "20px",
-                  }}
-                >
-                  <h3 style={{ marginTop: 0 }}>Restriction Details</h3>
-                  <p>
-                    <strong>User:</strong> {getUserDisplayName(selectedRestrictionModal.user)}
-                  </p>
-                  <p>
-                    <strong>Type:</strong> {selectedRestrictionModal.restriction_type === "TEMP_MUTE" ? "⏱️ Temporary Mute" : "🔒 Permanent Remove"}
-                  </p>
-                  <p>
-                    <strong>Chat:</strong> {selectedRestrictionModal.chat.name}
-                  </p>
-                  <p>
-                    <strong>Expires:</strong>{" "}
-                    {selectedRestrictionModal.expires_at
-                      ? new Date(selectedRestrictionModal.expires_at).toLocaleDateString()
-                      : "Never"}
-                  </p>
-                  {selectedRestrictionModal.admin_notes && (
+              <div className="admin-modal-overlay" onClick={() => setSelectedRestrictionModal(null)}>
+                <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="admin-modal-header">
+                    <h2 className="admin-modal-title">Restriction Details</h2>
+                    <button
+                      className="admin-modal-close"
+                      onClick={() => setSelectedRestrictionModal(null)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="admin-modal-body">
                     <p>
-                      <strong>Notes:</strong> {selectedRestrictionModal.admin_notes}
+                      <strong>User:</strong> {getUserDisplayName(selectedRestrictionModal.user)}
                     </p>
-                  )}
-                  <div style={{ display: "flex", gap: "8px", marginTop: "20px" }}>
+                    <p>
+                      <strong>Type:</strong> {selectedRestrictionModal.restriction_type === "TEMP_MUTE" ? "⏱️ Temporary Mute" : "🔒 Permanent Remove"}
+                    </p>
+                    <p>
+                      <strong>Chat:</strong> {selectedRestrictionModal.chat_name || selectedRestrictionModal.chat?.name || "Global"}
+                    </p>
+                    <p>
+                      <strong>Expires:</strong>{" "}
+                      {selectedRestrictionModal.expires_at
+                        ? new Date(selectedRestrictionModal.expires_at).toLocaleDateString()
+                        : "Never"}
+                    </p>
+                    {selectedRestrictionModal.admin_notes && (
+                      <p>
+                        <strong>Notes:</strong> {selectedRestrictionModal.admin_notes}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="admin-modal-footer" style={{ display: "flex", gap: "8px" }}>
+ 
                     <button
                       onClick={() => handleLiftRestriction(selectedRestrictionModal.id)}
                       className="admin-btn admin-btn--success"
@@ -688,21 +753,21 @@ const AdminMessages = () => {
             <div className="admin-messages-list">
               <div className="admin-list-header">
                 <h3 style={{ margin: 0 }}>Pending Reports</h3>
-                <div className="admin-list-count">{activeMessageReports.length}</div>
+                <div className="admin-list-count">{pendingReports.length}</div>
               </div>
 
               <p style={{ fontSize: "12px", color: "var(--muted)", padding: "0 12px", margin: "8px 0" }}>
-                Approve = reviewed • Dismiss = invalid • Delete = enforce
+                Dismiss = invalid • Delete = enforce
               </p>
 
               <div className="admin-list-container">
-                {activeMessageReports.length === 0 ? (
+                {pendingReports.length === 0 ? (
                   <div className="admin-list-empty">
                     <div className="admin-list-empty-icon">✅</div>
                     <p>No pending reports</p>
                   </div>
                 ) : (
-                  activeMessageReports.map((report) => (
+                  pendingReports.map((report) => (
                     <div
                       key={report.id}
                       className={`admin-list-item ${selectedReportModal?.id === report.id ? "selected" : ""}`}
@@ -793,14 +858,7 @@ const AdminMessages = () => {
 
                     <div className="admin-btn-group">
                       <button
-                        onClick={() => handleReviewReport("approve")}
-                        disabled={reportActionSubmitting}
-                        className="admin-btn admin-btn--success"
-                      >
-                        ✓ Approve
-                      </button>
-                      <button
-                        onClick={() => handleReviewReport("dismiss")}
+                        onClick={() => setSelectedReportModal(null)}
                         disabled={reportActionSubmitting}
                         className="admin-btn admin-btn--secondary"
                       >
@@ -818,6 +876,80 @@ const AdminMessages = () => {
                 </div>
               </div>
             )}
+          </>
+        )}
+
+        {/* RECORDS TAB */}
+        {activeTab === "records" && (
+          <>
+            <div className="admin-messages-list">
+              <div className="admin-list-header">
+                <h3 style={{ margin: 0 }}>Moderation Records</h3>
+                <div className="admin-list-count">{records.length}</div>
+              </div>
+
+              <p style={{ fontSize: "12px", color: "var(--muted)", padding: "0 12px", margin: "8px 0" }}>
+                This tab includes the full history of flags, restrictions, and reports.
+              </p>
+
+              {records.length === 0 ? (
+                <div className="admin-list-empty">
+                  <div className="admin-list-empty-icon">📘</div>
+                  <p>No moderation records found</p>
+                </div>
+              ) : (
+                <>
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Target</th>
+                        <th>Actor</th>
+                        <th>Chat</th>
+                        <th>Details</th>
+                        <th>When</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedRecords.map((record) => (
+                        <tr key={record.id}>
+                          <td>{record.type}</td>
+                          <td>{record.status}</td>
+                          <td>{record.target || "--"}</td>
+                          <td>{record.actor || "--"}</td>
+                          <td>{record.chat || "--"}</td>
+                          <td>{record.details || "--"}</td>
+                          <td>{record.timestamp ? new Date(record.timestamp).toLocaleString() : "--"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {records.length > recordsPerPage && (
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+                      <button
+                        className="admin-btn admin-btn--secondary"
+                        onClick={() => setRecordsPage((prev) => Math.max(1, prev - 1))}
+                        disabled={recordsPage === 1}
+                      >
+                        ← Prev
+                      </button>
+                      <span style={{ fontSize: '14px', color: '#64748b' }}>
+                        Page {recordsPage} of {totalRecordPages}
+                      </span>
+                      <button
+                        className="admin-btn admin-btn--secondary"
+                        onClick={() => setRecordsPage((prev) => Math.min(totalRecordPages, prev + 1))}
+                        disabled={recordsPage === totalRecordPages}
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </>
         )}
 

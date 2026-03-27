@@ -9,12 +9,12 @@ import re
 
 from .models import (
     ProfanityWord, Chat, ChatMember, Message, ChatRestriction, MessageFlag,
-    ChatRequest, MessageReport, encrypt_message
+    ChatRequest, MessageReport, MessageDeletionLog, encrypt_message
 )
 from .serializers import (
     ProfanityWordSerializer, ChatListSerializer, ChatDetailSerializer,
     ChatMemberSerializer, MessageSerializer, ChatRestrictionSerializer,
-    MessageFlagSerializer, ChatCreateSerializer, MessageCreateSerializer,
+    MessageFlagSerializer, MessageDeletionLogSerializer, ChatCreateSerializer, MessageCreateSerializer,
     ChatRequestSerializer, ChatRequestCreateSerializer, MessageReportSerializer,
     MessageReportCreateSerializer
 )
@@ -524,15 +524,21 @@ class MessageViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['delete'])
     def delete_by_admin(self, request, pk=None):
-        """Admin deletes a message."""
-        if request.user.role != 'ADMIN':
+        """Admin/teacher deletes a message and logs reason."""
+        if request.user.role not in ['ADMIN', 'TEACHER']:
             return Response(
-                {'detail': 'Only admins can delete messages.'},
+                {'detail': 'Only admins or teachers can delete messages.'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
         message = self.get_object()
-        reason = request.data.get('reason', '')
+        reason = request.data.get('reason', '').strip()
+
+        if not reason:
+            return Response(
+                {'detail': 'A deletion reason is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         message.is_deleted = True
         message.deleted_by = request.user
@@ -540,7 +546,14 @@ class MessageViewSet(viewsets.ModelViewSet):
         message.deletion_reason = reason
         message.save()
 
-        # Update flag status
+        # Audit log for deletion
+        MessageDeletionLog.objects.create(
+            message=message,
+            deleted_by=request.user,
+            reason=reason,
+        )
+
+        # Update flag status if this message originally had a flag
         if hasattr(message, 'flag'):
             message.flag.status = 'DELETED'
             message.flag.reviewed_by = request.user
@@ -549,8 +562,8 @@ class MessageViewSet(viewsets.ModelViewSet):
             message.flag.save()
 
         return Response(
-            {'detail': 'Message deleted.'},
-            status=status.HTTP_204_NO_CONTENT
+            {'detail': 'Message deleted.', 'deleted_by': request.user.username if request.user else None, 'reason': reason},
+            status=status.HTTP_200_OK
         )
 
 
@@ -590,24 +603,37 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
             flag.status = 'DELETED'
 
         elif action_type == 'restrict':
-            # Restrict user globally (across all chats) - temp or permanent
-            is_permanent = request.data.get('is_permanent', False)
-            
+            # Restrict user globally (across all chats) - temp mute or permanent remove
+            is_permanent = bool(request.data.get('is_permanent', False))
+            restrict_duration = request.data.get('restrict_duration')
+            if restrict_duration is not None:
+                try:
+                    restrict_duration = int(restrict_duration)
+                except (ValueError, TypeError):
+                    restrict_duration = None
+
             restriction, created = ChatRestriction.objects.get_or_create(
                 chat=None,  # Global restriction - applies to ALL chats
                 user=flag.message.sender,
                 defaults={
                     'restriction_type': 'PERMANENT_REMOVE' if is_permanent else 'TEMP_MUTE',
                     'restricted_by': request.user,
-                    'reason': f"Flagged message with words: {flag.flagged_words}"
+                    'reason': f"Flagged message with words: {flag.flagged_words}",
+                    'expires_at': None if is_permanent else (timezone.now() + timedelta(hours=(restrict_duration or 24))),
                 }
             )
-            
-            if not created and not is_permanent:
-                # Update expiry for temp mute
-                restriction.expires_at = timezone.now() + timedelta(hours=restrict_duration or 24)
+
+            if not created:
+                if is_permanent:
+                    restriction.restriction_type = 'PERMANENT_REMOVE'
+                    restriction.expires_at = None
+                else:
+                    restriction.restriction_type = 'TEMP_MUTE'
+                    restriction.expires_at = timezone.now() + timedelta(hours=(restrict_duration or 24))
+                restriction.restricted_by = request.user
+                restriction.reason = f"Flagged message with words: {flag.flagged_words}"
                 restriction.save()
-            
+
             flag.status = 'USER_RESTRICTED'
 
         elif action_type == 'approve':
@@ -638,6 +664,17 @@ class ChatRestrictionViewSet(viewsets.ModelViewSet):
             return ChatRestriction.objects.none()
         return ChatRestriction.objects.all()
 
+
+class MessageDeletionLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """Auditable log of deleted messages."""
+    permission_classes = [IsAuthenticated]
+    serializer_class = MessageDeletionLogSerializer
+
+    def get_queryset(self):
+        if self.request.user.role != 'ADMIN':
+            return MessageDeletionLog.objects.none()
+        return MessageDeletionLog.objects.all().order_by('-created_at')
+
     def create(self, request, *args, **kwargs):
         """Admin creates a restriction."""
         if request.user.role != 'ADMIN':
@@ -657,10 +694,13 @@ class ChatRestrictionViewSet(viewsets.ModelViewSet):
             )
 
         restriction = self.get_object()
-        restriction.delete()
+        # Keep record for audit history: mark as expired immediately (soft lift)
+        restriction.expires_at = timezone.now()
+        restriction.save(update_fields=['expires_at'])
+
         return Response(
-            {'detail': 'Restriction lifted.'},
-            status=status.HTTP_204_NO_CONTENT
+            {'detail': 'Restriction lifted (archived).'},
+            status=status.HTTP_200_OK
         )
 
 

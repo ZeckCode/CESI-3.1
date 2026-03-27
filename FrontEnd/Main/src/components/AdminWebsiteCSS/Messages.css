@@ -260,6 +260,34 @@
   transition: background 0.2s ease;
 }
 
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  border: 1px solid #e5e8f0;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.admin-table th {
+  background: #f8fbff;
+  color: #1f4db9;
+  font-weight: 700;
+}
+
+.admin-table tbody tr:nth-child(even) {
+  background: #f9fbff;
+}
+
+.admin-table tbody tr:hover {
+  background: #eef3ff;
+}
+
 .admin-list-item:hover {
   border-color: #4f6ef7;
   background: #f8faff;
@@ -303,6 +331,7 @@
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

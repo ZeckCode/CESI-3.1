@@ -139,12 +139,16 @@ export async function sendMessage(chatId, content, imageFile = null) {
   return response.json();
 }
 
-export async function deleteMessageByAdmin(messageId, reason = '') {
+export async function deleteMessage(messageId, reason = '') {
   return apiFetchData(`${API_BASE}/messages/${messageId}/delete_by_admin/`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason }),
   });
+}
+
+export async function listMessageDeletionLogs() {
+  return apiFetchData(`${API_BASE}/deletion-logs/`);
 }
 
 // ═══════════════════════════════════════════════════════════
