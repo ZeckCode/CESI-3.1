@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-03-28T02:05:08.462153",
+  "exported_at": "2026-03-28T02:10:33.033657",
   "tables": {
     "accounts_adminprofile": [],
     "accounts_passwordresetrequest": [
@@ -1713,7 +1713,7 @@
       {
         "id": 107,
         "password": "pbkdf2_sha256$1200000$bMl1Xly45CYynflZQk7Z57$DjcntAfXnukJruGU4u0/Sdll6wJzhpmZ1QnWyBjrgxs=",
-        "last_login": "2026-03-27 17:35:25.613592",
+        "last_login": "2026-03-27 18:08:33.779113",
         "is_superuser": 1,
         "username": "Cesi.admin@Cesi.edu.ph",
         "email": "Cesi.admin@Cesi.edu.ph",
@@ -3180,6 +3180,11 @@
         "key": "9a9889a69acc275e6bf60627d8eb0e87f0adce7c",
         "created": "2026-03-27 17:52:11.464582",
         "user_id": 1
+      },
+      {
+        "key": "3ba1b05a5169834752db835769214342a285c50c",
+        "created": "2026-03-27 18:07:39.731051",
+        "user_id": 107
       }
     ],
     "classmanagement_room": [
@@ -3248,9 +3253,9 @@
         "end_time": "08:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 7,
+        "subject_id": 1,
         "school_year_id": null,
-        "subject_id": 1
+        "teacher_id": 7
       },
       {
         "id": 99,
@@ -3259,9 +3264,9 @@
         "end_time": "09:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 100,
@@ -3270,9 +3275,9 @@
         "end_time": "10:50:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 101,
@@ -3281,9 +3286,9 @@
         "end_time": "12:00:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 102,
@@ -3292,9 +3297,9 @@
         "end_time": "13:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 103,
@@ -3303,9 +3308,9 @@
         "end_time": "14:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 104,
@@ -3314,9 +3319,9 @@
         "end_time": "15:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 105,
@@ -3325,9 +3330,9 @@
         "end_time": "16:10:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 106,
@@ -3336,9 +3341,9 @@
         "end_time": "16:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 107,
@@ -3347,9 +3352,9 @@
         "end_time": "08:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 108,
@@ -3358,9 +3363,9 @@
         "end_time": "09:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 109,
@@ -3369,9 +3374,9 @@
         "end_time": "10:50:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 110,
@@ -3380,9 +3385,9 @@
         "end_time": "12:00:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 111,
@@ -3391,9 +3396,9 @@
         "end_time": "13:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 112,
@@ -3402,9 +3407,9 @@
         "end_time": "14:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 113,
@@ -3413,9 +3418,9 @@
         "end_time": "15:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 114,
@@ -3424,9 +3429,9 @@
         "end_time": "16:10:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 115,
@@ -3435,9 +3440,9 @@
         "end_time": "16:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 116,
@@ -3446,9 +3451,9 @@
         "end_time": "08:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 117,
@@ -3457,9 +3462,9 @@
         "end_time": "09:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 118,
@@ -3468,9 +3473,9 @@
         "end_time": "10:50:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 119,
@@ -3479,9 +3484,9 @@
         "end_time": "12:00:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 120,
@@ -3490,9 +3495,9 @@
         "end_time": "13:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 121,
@@ -3501,9 +3506,9 @@
         "end_time": "14:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 122,
@@ -3512,9 +3517,9 @@
         "end_time": "15:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 123,
@@ -3523,9 +3528,9 @@
         "end_time": "16:10:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 124,
@@ -3534,9 +3539,9 @@
         "end_time": "16:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 125,
@@ -3545,9 +3550,9 @@
         "end_time": "08:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 126,
@@ -3556,9 +3561,9 @@
         "end_time": "09:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 127,
@@ -3567,9 +3572,9 @@
         "end_time": "10:50:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 128,
@@ -3578,9 +3583,9 @@
         "end_time": "12:00:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 129,
@@ -3589,9 +3594,9 @@
         "end_time": "13:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 130,
@@ -3600,9 +3605,9 @@
         "end_time": "14:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 131,
@@ -3611,9 +3616,9 @@
         "end_time": "15:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 132,
@@ -3622,9 +3627,9 @@
         "end_time": "16:10:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 133,
@@ -3633,9 +3638,9 @@
         "end_time": "16:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 134,
@@ -3644,9 +3649,9 @@
         "end_time": "08:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 135,
@@ -3655,9 +3660,9 @@
         "end_time": "09:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 136,
@@ -3666,9 +3671,9 @@
         "end_time": "10:50:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 137,
@@ -3677,9 +3682,9 @@
         "end_time": "12:00:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 138,
@@ -3688,9 +3693,9 @@
         "end_time": "13:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 139,
@@ -3699,9 +3704,9 @@
         "end_time": "14:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 140,
@@ -3710,9 +3715,9 @@
         "end_time": "15:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 141,
@@ -3721,9 +3726,9 @@
         "end_time": "16:10:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 15,
+        "subject_id": 7,
         "school_year_id": null,
-        "subject_id": 7
+        "teacher_id": 15
       },
       {
         "id": 142,
@@ -3732,9 +3737,9 @@
         "end_time": "16:30:00",
         "room_id": 5,
         "section_id": 7,
-        "teacher_id": 17,
+        "subject_id": 9,
         "school_year_id": null,
-        "subject_id": 9
+        "teacher_id": 17
       },
       {
         "id": 256,
@@ -3743,9 +3748,9 @@
         "end_time": "11:00:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 102,
+        "subject_id": 3,
         "school_year_id": null,
-        "subject_id": 3
+        "teacher_id": 102
       },
       {
         "id": 257,
@@ -3754,9 +3759,9 @@
         "end_time": "10:00:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 15,
+        "subject_id": null,
         "school_year_id": null,
-        "subject_id": null
+        "teacher_id": 15
       },
       {
         "id": 258,
@@ -3765,9 +3770,9 @@
         "end_time": "12:40:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 15,
+        "subject_id": null,
         "school_year_id": null,
-        "subject_id": null
+        "teacher_id": 15
       },
       {
         "id": 259,
@@ -3776,9 +3781,9 @@
         "end_time": "08:30:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 7,
+        "subject_id": 1,
         "school_year_id": null,
-        "subject_id": 1
+        "teacher_id": 7
       },
       {
         "id": 260,
@@ -3787,9 +3792,9 @@
         "end_time": "11:00:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 102,
+        "subject_id": 3,
         "school_year_id": null,
-        "subject_id": 3
+        "teacher_id": 102
       },
       {
         "id": 261,
@@ -3798,9 +3803,9 @@
         "end_time": "10:00:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 15,
+        "subject_id": null,
         "school_year_id": null,
-        "subject_id": null
+        "teacher_id": 15
       },
       {
         "id": 262,
@@ -3809,9 +3814,9 @@
         "end_time": "12:40:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 15,
+        "subject_id": null,
         "school_year_id": null,
-        "subject_id": null
+        "teacher_id": 15
       },
       {
         "id": 263,
@@ -3820,9 +3825,9 @@
         "end_time": "08:30:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 7,
+        "subject_id": 1,
         "school_year_id": null,
-        "subject_id": 1
+        "teacher_id": 7
       },
       {
         "id": 264,
@@ -3831,9 +3836,9 @@
         "end_time": "11:00:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 102,
+        "subject_id": 3,
         "school_year_id": null,
-        "subject_id": 3
+        "teacher_id": 102
       },
       {
         "id": 265,
@@ -3842,9 +3847,9 @@
         "end_time": "10:00:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 15,
+        "subject_id": null,
         "school_year_id": null,
-        "subject_id": null
+        "teacher_id": 15
       },
       {
         "id": 266,
@@ -3853,9 +3858,9 @@
         "end_time": "12:40:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 15,
+        "subject_id": null,
         "school_year_id": null,
-        "subject_id": null
+        "teacher_id": 15
       },
       {
         "id": 267,
@@ -3864,9 +3869,9 @@
         "end_time": "08:30:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 7,
+        "subject_id": 1,
         "school_year_id": null,
-        "subject_id": 1
+        "teacher_id": 7
       },
       {
         "id": 268,
@@ -3875,9 +3880,9 @@
         "end_time": "11:00:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 102,
+        "subject_id": 3,
         "school_year_id": null,
-        "subject_id": 3
+        "teacher_id": 102
       },
       {
         "id": 269,
@@ -3886,9 +3891,9 @@
         "end_time": "10:00:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 15,
+        "subject_id": null,
         "school_year_id": null,
-        "subject_id": null
+        "teacher_id": 15
       },
       {
         "id": 270,
@@ -3897,9 +3902,9 @@
         "end_time": "12:40:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 15,
+        "subject_id": null,
         "school_year_id": null,
-        "subject_id": null
+        "teacher_id": 15
       },
       {
         "id": 271,
@@ -3908,9 +3913,9 @@
         "end_time": "08:30:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 7,
+        "subject_id": 1,
         "school_year_id": null,
-        "subject_id": 1
+        "teacher_id": 7
       },
       {
         "id": 272,
@@ -3919,9 +3924,9 @@
         "end_time": "11:00:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 102,
+        "subject_id": 3,
         "school_year_id": null,
-        "subject_id": 3
+        "teacher_id": 102
       },
       {
         "id": 273,
@@ -3930,9 +3935,9 @@
         "end_time": "10:00:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 15,
+        "subject_id": null,
         "school_year_id": null,
-        "subject_id": null
+        "teacher_id": 15
       },
       {
         "id": 274,
@@ -3941,9 +3946,9 @@
         "end_time": "12:40:00",
         "room_id": null,
         "section_id": 9,
-        "teacher_id": 15,
+        "subject_id": null,
         "school_year_id": null,
-        "subject_id": null
+        "teacher_id": 15
       }
     ],
     "classmanagement_schoolyear": [
@@ -5557,6 +5562,12 @@
         "app": "messaging",
         "name": "0005_chatrestrictionauditlog",
         "applied": "2026-03-27 10:23:30.570592"
+      },
+      {
+        "id": 77,
+        "app": "classmanagement",
+        "name": "0004_alter_schedule_teacher",
+        "applied": "2026-03-27 18:07:12.422061"
       }
     ],
     "django_session": [
@@ -7479,6 +7490,11 @@
         "session_key": "hepe3p7pb6djeqbr4x9bkrb88god218g",
         "session_data": ".eJxVjMsOwiAQAP9lz4awdFlKj979BsJTqoYmpT0Z_9006UGvM5N5g_P7Vt3e8-rmBBMgXH5Z8PGZ2yHSw7f7IuLStnUO4kjEabu4LSm_rmf7N6i-V5iADGcZcZSUbLFZS6lDisg4mEha0oBFESFrDsSqsLeG1FhUZi0RS4TPF7MsNns:1w6B6b:tt92G8TqJmHrPnM4Degt1Zg_Cd1AkBU5m0B50nyZ7ec",
         "expire_date": "2026-04-10 17:36:21.387020"
+      },
+      {
+        "session_key": "248bi8dh30cse5pvuwzd7szgi4e8cixe",
+        "session_data": ".eJxVjMsOgjAQAP9lz6ahry3l6N1vILvdIqhpEwon478bEg56nZnMG0bat3ncW17HRWAA3QW4_FKm9MzlUPKgcq8q1bKtC6sjUadt6lYlv65n-zeYqc0wQBSrg7fsEsVenDiOWvcOozYmEgYktOQ7g55ZT-wxBZxcwIRTlzEJfL4LCje2:1w6Bbl:FNmonfRFCzUBlnwL1i4zN6FwKTTCyyHs9ZCdGd8Bkg4",
+        "expire_date": "2026-04-10 18:08:33.893711"
       }
     ],
     "enrollment_enrollment": [
