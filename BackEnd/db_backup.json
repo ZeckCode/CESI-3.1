@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-03-27T02:37:55.555807",
+  "exported_at": "2026-03-27T23:42:59.664365",
   "tables": {
     "accounts_adminprofile": [],
     "accounts_passwordresetrequest": [
@@ -200,7 +200,7 @@
     "accounts_teacherprofile": [
       {
         "id": 1,
-        "section_id": null,
+        "section_id": 4,
         "subject_id": 1,
         "user_id": 7,
         "employee_id": "",
@@ -216,9 +216,17 @@
       },
       {
         "id": 3,
-        "section_id": null,
-        "subject_id": 9,
+        "section_id": 3,
+        "subject_id": 5,
         "user_id": 17,
+        "employee_id": "",
+        "avatar": ""
+      },
+      {
+        "id": 4,
+        "section_id": 11,
+        "subject_id": 3,
+        "user_id": 102,
         "employee_id": "",
         "avatar": ""
       }
@@ -227,7 +235,7 @@
       {
         "id": 1,
         "password": "pbkdf2_sha256$1200000$2eujneEQWkcPfEEbCbAScm$+ARBPb/E9Hxr4K2yxpLxVwHFGPX+MzT3dy1VUjk3tZw=",
-        "last_login": "2026-03-26 18:31:29.763199",
+        "last_login": "2026-03-27 14:02:41.932475",
         "is_superuser": 1,
         "username": "ace",
         "email": "acy995kim@gmail.com",
@@ -283,7 +291,7 @@
       {
         "id": 6,
         "password": "pbkdf2_sha256$1200000$dRxjHISzmW033MS1wfTNf2$Fq42fxYz8rIicE/7Ik3D9BWwxGJ9/JCXm3Nb6tUUMlg=",
-        "last_login": "2026-03-26 15:55:59.073939",
+        "last_login": "2026-03-27 10:31:37.474609",
         "is_superuser": 0,
         "username": "parent_jane",
         "email": "jane.parent@example.com",
@@ -297,7 +305,7 @@
       {
         "id": 7,
         "password": "pbkdf2_sha256$1200000$I7qEWWTIElj9MDDdACHKPf$cyjQbJ4f8A0iB68U7NK/v6XrXHs3bZ9D0C+ypd71gTE=",
-        "last_login": "2026-03-26 14:22:07.207134",
+        "last_login": "2026-03-27 14:04:32.938962",
         "is_superuser": 0,
         "username": "teacher_smith",
         "email": "smith@example.com",
@@ -1581,6 +1589,20 @@
         "status": "ACTIVE",
         "updated_at": "2026-03-25 19:17:33.532893",
         "role": "PARENT_STUDENT"
+      },
+      {
+        "id": 102,
+        "password": "pbkdf2_sha256$1200000$6Eukw2SLlvZd6yQC0IPkG0$5eizIuG8QeVNfoT7ytJub8frCKo3ZXT5CrWxpoUZ9Pk=",
+        "last_login": "2026-03-27 10:49:46.758111",
+        "is_superuser": 0,
+        "username": "eng_teacher",
+        "email": "eng.teacher@cesi.edu.ph",
+        "is_staff": 0,
+        "is_active": 1,
+        "created_at": "2026-03-27 10:45:48.273704",
+        "status": "ACTIVE",
+        "updated_at": "2026-03-27 10:45:48.959776",
+        "role": "TEACHER"
       }
     ],
     "accounts_user_groups": [],
@@ -2941,6 +2963,126 @@
         "content_type_id": 41,
         "codename": "view_proofofpayment",
         "name": "Can view Proof of Payment"
+      },
+      {
+        "id": 165,
+        "content_type_id": 42,
+        "codename": "add_contactinquiry",
+        "name": "Can add contact inquiry"
+      },
+      {
+        "id": 166,
+        "content_type_id": 42,
+        "codename": "change_contactinquiry",
+        "name": "Can change contact inquiry"
+      },
+      {
+        "id": 167,
+        "content_type_id": 42,
+        "codename": "delete_contactinquiry",
+        "name": "Can delete contact inquiry"
+      },
+      {
+        "id": 168,
+        "content_type_id": 42,
+        "codename": "view_contactinquiry",
+        "name": "Can view contact inquiry"
+      },
+      {
+        "id": 169,
+        "content_type_id": 43,
+        "codename": "add_missionvision",
+        "name": "Can add mission vision"
+      },
+      {
+        "id": 170,
+        "content_type_id": 43,
+        "codename": "change_missionvision",
+        "name": "Can change mission vision"
+      },
+      {
+        "id": 171,
+        "content_type_id": 43,
+        "codename": "delete_missionvision",
+        "name": "Can delete mission vision"
+      },
+      {
+        "id": 172,
+        "content_type_id": 43,
+        "codename": "view_missionvision",
+        "name": "Can view mission vision"
+      },
+      {
+        "id": 173,
+        "content_type_id": 44,
+        "codename": "add_schoolinformation",
+        "name": "Can add school information"
+      },
+      {
+        "id": 174,
+        "content_type_id": 44,
+        "codename": "change_schoolinformation",
+        "name": "Can change school information"
+      },
+      {
+        "id": 175,
+        "content_type_id": 44,
+        "codename": "delete_schoolinformation",
+        "name": "Can delete school information"
+      },
+      {
+        "id": 176,
+        "content_type_id": 44,
+        "codename": "view_schoolinformation",
+        "name": "Can view school information"
+      },
+      {
+        "id": 177,
+        "content_type_id": 45,
+        "codename": "add_messagedeletionlog",
+        "name": "Can add message deletion log"
+      },
+      {
+        "id": 178,
+        "content_type_id": 45,
+        "codename": "change_messagedeletionlog",
+        "name": "Can change message deletion log"
+      },
+      {
+        "id": 179,
+        "content_type_id": 45,
+        "codename": "delete_messagedeletionlog",
+        "name": "Can delete message deletion log"
+      },
+      {
+        "id": 180,
+        "content_type_id": 45,
+        "codename": "view_messagedeletionlog",
+        "name": "Can view message deletion log"
+      },
+      {
+        "id": 181,
+        "content_type_id": 46,
+        "codename": "add_chatrestrictionauditlog",
+        "name": "Can add chat restriction audit log"
+      },
+      {
+        "id": 182,
+        "content_type_id": 46,
+        "codename": "change_chatrestrictionauditlog",
+        "name": "Can change chat restriction audit log"
+      },
+      {
+        "id": 183,
+        "content_type_id": 46,
+        "codename": "delete_chatrestrictionauditlog",
+        "name": "Can delete chat restriction audit log"
+      },
+      {
+        "id": 184,
+        "content_type_id": 46,
+        "codename": "view_chatrestrictionauditlog",
+        "name": "Can view chat restriction audit log"
       }
     ],
     "authtoken_token": [
@@ -2953,6 +3095,11 @@
         "key": "3cd186743a9a0727e2a876323ae368684fa2735a",
         "created": "2026-03-26 18:37:14.185431",
         "user_id": 84
+      },
+      {
+        "key": "a1d9612eeec808d155834751ff979fe905bb08b2",
+        "created": "2026-03-27 14:04:32.944742",
+        "user_id": 7
       }
     ],
     "classmanagement_room": [
@@ -3508,6 +3655,215 @@
         "teacher_id": 17,
         "school_year_id": null,
         "subject_id": 9
+      },
+      {
+        "id": 256,
+        "day_of_week": "MON",
+        "start_time": "10:00:00",
+        "end_time": "11:00:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 102,
+        "school_year_id": null,
+        "subject_id": 3
+      },
+      {
+        "id": 257,
+        "day_of_week": "MON",
+        "start_time": "09:30:00",
+        "end_time": "10:00:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 15,
+        "school_year_id": null,
+        "subject_id": null
+      },
+      {
+        "id": 258,
+        "day_of_week": "MON",
+        "start_time": "12:00:00",
+        "end_time": "12:40:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 15,
+        "school_year_id": null,
+        "subject_id": null
+      },
+      {
+        "id": 259,
+        "day_of_week": "TUE",
+        "start_time": "07:30:00",
+        "end_time": "08:30:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 7,
+        "school_year_id": null,
+        "subject_id": 1
+      },
+      {
+        "id": 260,
+        "day_of_week": "TUE",
+        "start_time": "10:00:00",
+        "end_time": "11:00:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 102,
+        "school_year_id": null,
+        "subject_id": 3
+      },
+      {
+        "id": 261,
+        "day_of_week": "TUE",
+        "start_time": "09:30:00",
+        "end_time": "10:00:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 15,
+        "school_year_id": null,
+        "subject_id": null
+      },
+      {
+        "id": 262,
+        "day_of_week": "TUE",
+        "start_time": "12:00:00",
+        "end_time": "12:40:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 15,
+        "school_year_id": null,
+        "subject_id": null
+      },
+      {
+        "id": 263,
+        "day_of_week": "WED",
+        "start_time": "07:30:00",
+        "end_time": "08:30:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 7,
+        "school_year_id": null,
+        "subject_id": 1
+      },
+      {
+        "id": 264,
+        "day_of_week": "WED",
+        "start_time": "10:00:00",
+        "end_time": "11:00:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 102,
+        "school_year_id": null,
+        "subject_id": 3
+      },
+      {
+        "id": 265,
+        "day_of_week": "WED",
+        "start_time": "09:30:00",
+        "end_time": "10:00:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 15,
+        "school_year_id": null,
+        "subject_id": null
+      },
+      {
+        "id": 266,
+        "day_of_week": "WED",
+        "start_time": "12:00:00",
+        "end_time": "12:40:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 15,
+        "school_year_id": null,
+        "subject_id": null
+      },
+      {
+        "id": 267,
+        "day_of_week": "THU",
+        "start_time": "07:30:00",
+        "end_time": "08:30:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 7,
+        "school_year_id": null,
+        "subject_id": 1
+      },
+      {
+        "id": 268,
+        "day_of_week": "THU",
+        "start_time": "10:00:00",
+        "end_time": "11:00:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 102,
+        "school_year_id": null,
+        "subject_id": 3
+      },
+      {
+        "id": 269,
+        "day_of_week": "THU",
+        "start_time": "09:30:00",
+        "end_time": "10:00:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 15,
+        "school_year_id": null,
+        "subject_id": null
+      },
+      {
+        "id": 270,
+        "day_of_week": "THU",
+        "start_time": "12:00:00",
+        "end_time": "12:40:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 15,
+        "school_year_id": null,
+        "subject_id": null
+      },
+      {
+        "id": 271,
+        "day_of_week": "FRI",
+        "start_time": "07:30:00",
+        "end_time": "08:30:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 7,
+        "school_year_id": null,
+        "subject_id": 1
+      },
+      {
+        "id": 272,
+        "day_of_week": "FRI",
+        "start_time": "10:00:00",
+        "end_time": "11:00:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 102,
+        "school_year_id": null,
+        "subject_id": 3
+      },
+      {
+        "id": 273,
+        "day_of_week": "FRI",
+        "start_time": "09:30:00",
+        "end_time": "10:00:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 15,
+        "school_year_id": null,
+        "subject_id": null
+      },
+      {
+        "id": 274,
+        "day_of_week": "FRI",
+        "start_time": "12:00:00",
+        "end_time": "12:40:00",
+        "room_id": null,
+        "section_id": 9,
+        "teacher_id": 15,
+        "school_year_id": null,
+        "subject_id": null
       }
     ],
     "classmanagement_schoolyear": [
@@ -3526,6 +3882,29 @@
         "end_date": "2027-03-26",
         "is_active": 0,
         "created_at": "2026-03-25 06:17:02.416093"
+      }
+    ],
+    "cmsmodule_contactinquiry": [
+      {
+        "id": 1,
+        "address": "123 School St., City, Country",
+        "phone_number": "+1234567890",
+        "email": "info@school.edu",
+        "facebook_link": ""
+      }
+    ],
+    "cmsmodule_missionvision": [
+      {
+        "id": 1,
+        "mission_text": "Our mission is to provide excellent education.",
+        "vision_text": "Our vision is to be a leading educational institution."
+      }
+    ],
+    "cmsmodule_schoolinformation": [
+      {
+        "id": 1,
+        "school_name": "Our School",
+        "about_text": "<p>testing&nbsp;testing&nbsp;</p>"
       }
     ],
     "django_admin_log": [
@@ -4545,6 +4924,31 @@
         "id": 41,
         "app_label": "finance",
         "model": "proofofpayment"
+      },
+      {
+        "id": 42,
+        "app_label": "cmsmodule",
+        "model": "contactinquiry"
+      },
+      {
+        "id": 43,
+        "app_label": "cmsmodule",
+        "model": "missionvision"
+      },
+      {
+        "id": 44,
+        "app_label": "cmsmodule",
+        "model": "schoolinformation"
+      },
+      {
+        "id": 45,
+        "app_label": "messaging",
+        "model": "messagedeletionlog"
+      },
+      {
+        "id": 46,
+        "app_label": "messaging",
+        "model": "chatrestrictionauditlog"
       }
     ],
     "django_migrations": [
@@ -4985,6 +5389,24 @@
         "app": "finance",
         "name": "0008_transaction_enrollment_and_more",
         "applied": "2026-03-26 17:16:37.783767"
+      },
+      {
+        "id": 74,
+        "app": "cmsmodule",
+        "name": "0001_initial",
+        "applied": "2026-03-27 07:13:00.579031"
+      },
+      {
+        "id": 75,
+        "app": "messaging",
+        "name": "0004_messagedeletionlog",
+        "applied": "2026-03-27 09:33:10.053847"
+      },
+      {
+        "id": 76,
+        "app": "messaging",
+        "name": "0005_chatrestrictionauditlog",
+        "applied": "2026-03-27 10:23:30.570592"
       }
     ],
     "django_session": [
@@ -6892,6 +7314,16 @@
         "session_key": "9ztvh8ds03ldtqg4ybcxbbpui529vpmf",
         "session_data": ".eJxVjDEOgzAMAP_iuYrSJIaYsTtvQE5sCm0VJAJT1b9XSAztene6Nwy8b9OwV12HWaCDGODyCxPnp5bDyIPLfTF5Kds6J3Mk5rTV9Ivo63a2f4OJ6wQduGi1SZKzeouNG2PkqxdERs9MbWisJ3GevSXllnTERC0lFAopu-jg8wUH3zfo:1w5pZz:U3tzoQnAbfVAPjiPO3TVETrjsFqRufazxGEXx5_O5fw",
         "expire_date": "2026-04-09 18:37:15.480722"
+      },
+      {
+        "session_key": "gk9g05qcd9uldemsy3qges4wynnsc1s8",
+        "session_data": ".eJxVjMsOwiAQAP9lz4awdFlKj979BsJTqoYmpT0Z_9006UGvM5N5g_P7Vt3e8-rmBBMgXH5Z8PGZ2yHSw7f7IuLStnUO4kjEabu4LSm_rmf7N6i-V5iADGcZcZSUbLFZS6lDisg4mEha0oBFESFrDsSqsLeG1FhUZi0RS4TPF7MsNns:1w65Bw:HYsyYQmBak12P0MBifGS10bjkPZYhDXQ4jGMk77fjrY",
+        "expire_date": "2026-04-10 11:17:28.458983"
+      },
+      {
+        "session_key": "87q7rckwf0htshbr65twacbesh5s24b1",
+        "session_data": ".eJxVjEsOgjAUAO_y1qahUFofS_ecoXk_BDWQUFgZ725IWOh2ZjJvyLRvY96LrXlS6CDB5ZcxydPmQ-iD5vviZJm3dWJ3JO60xfWL2ut2tn-DkcoIHbB4kYixvUqQCqNGJatJWt9UA1pFyERJE5kEQrYaOSaOpuglNEOCzxcRzjkr:1w67nc:ukB7JdZ3IHemePAlEpQ-_iP0VFiJmfLzdl-YMvGffWU",
+        "expire_date": "2026-04-10 14:04:32.948627"
       }
     ],
     "enrollment_enrollment": [
@@ -12904,6 +13336,44 @@
         "updated_at": "2026-03-16 05:59:56.547462",
         "recorded_by_id": null,
         "student_id": 6
+      },
+      {
+        "id": 2,
+        "school_year": "2024-2025",
+        "grade_level": 5,
+        "section_name": "Tulip",
+        "subject_name": "English",
+        "subject_code": "ENG101",
+        "q1": 85,
+        "q2": 86,
+        "q3": 87,
+        "q4": 88,
+        "final_grade": 86.5,
+        "remarks": "PASSED",
+        "teacher_name": "Ms. Smith",
+        "created_at": "2026-03-27 11:24:05.009140",
+        "updated_at": "2026-03-27 11:24:05.009160",
+        "recorded_by_id": null,
+        "student_id": 16
+      },
+      {
+        "id": 3,
+        "school_year": "2024-2025",
+        "grade_level": 5,
+        "section_name": "Tulip",
+        "subject_name": "Science",
+        "subject_code": "SCI101",
+        "q1": 82,
+        "q2": 84,
+        "q3": 85,
+        "q4": 86,
+        "final_grade": 84.25,
+        "remarks": "PASSED",
+        "teacher_name": "Mr. Johnson",
+        "created_at": "2026-03-27 11:24:05.013780",
+        "updated_at": "2026-03-27 11:24:05.013796",
+        "recorded_by_id": null,
+        "student_id": 16
       }
     ],
     "grades_classstanding": [
@@ -13481,1020 +13951,456 @@
     ],
     "messaging_chat": [
       {
-        "id": 1,
+        "id": 16,
         "name": "asd",
         "chat_type": "GROUP_PROJECT",
         "school_year": "2025-2026",
         "is_active": 1,
-        "created_at": "2026-03-22 06:39:15.894596",
-        "updated_at": "2026-03-22 06:39:15.894619",
+        "created_at": "2026-03-27 08:44:59.390416",
+        "updated_at": "2026-03-27 08:44:59.390439",
         "creator_id": 6,
         "participant_two_id": null,
         "section_id": null,
         "subject_id": null
       },
       {
-        "id": 2,
-        "name": null,
-        "chat_type": "GROUP_CLASS",
-        "school_year": "2025-2026",
-        "is_active": 1,
-        "created_at": "2026-03-22 07:37:49.146454",
-        "updated_at": "2026-03-22 07:37:49.146477",
-        "creator_id": 7,
-        "participant_two_id": null,
-        "section_id": 9,
-        "subject_id": 9
-      },
-      {
-        "id": 3,
-        "name": "asd",
-        "chat_type": "GROUP_PROJECT",
-        "school_year": "2025-2026",
-        "is_active": 1,
-        "created_at": "2026-03-22 07:41:33.124242",
-        "updated_at": "2026-03-22 07:41:33.124262",
-        "creator_id": 6,
-        "participant_two_id": null,
-        "section_id": null,
-        "subject_id": null
-      },
-      {
-        "id": 4,
-        "name": "asd",
-        "chat_type": "GROUP_PROJECT",
-        "school_year": "2025-2026",
-        "is_active": 1,
-        "created_at": "2026-03-22 07:52:48.334955",
-        "updated_at": "2026-03-22 07:52:48.334976",
-        "creator_id": 6,
-        "participant_two_id": null,
-        "section_id": null,
-        "subject_id": null
-      },
-      {
-        "id": 5,
-        "name": "wasd",
-        "chat_type": "GROUP_PROJECT",
-        "school_year": "2025-2026",
-        "is_active": 0,
-        "created_at": "2026-03-22 07:57:44.936455",
-        "updated_at": "2026-03-22 14:47:15.174417",
-        "creator_id": 7,
-        "participant_two_id": null,
-        "section_id": null,
-        "subject_id": null
-      },
-      {
-        "id": 6,
-        "name": "wasd",
-        "chat_type": "GROUP_PROJECT",
-        "school_year": "2025-2026",
-        "is_active": 1,
-        "created_at": "2026-03-22 08:19:07.284813",
-        "updated_at": "2026-03-22 08:19:07.284829",
-        "creator_id": 6,
-        "participant_two_id": null,
-        "section_id": null,
-        "subject_id": null
-      },
-      {
-        "id": 7,
-        "name": null,
-        "chat_type": "GROUP_CLASS",
-        "school_year": "2025-2026",
-        "is_active": 1,
-        "created_at": "2026-03-22 08:25:04.909205",
-        "updated_at": "2026-03-22 08:25:04.909228",
-        "creator_id": 7,
-        "participant_two_id": null,
-        "section_id": 9,
-        "subject_id": 1
-      },
-      {
-        "id": 8,
-        "name": "asd",
-        "chat_type": "GROUP_PROJECT",
-        "school_year": "2025-2026",
-        "is_active": 0,
-        "created_at": "2026-03-22 08:26:34.280793",
-        "updated_at": "2026-03-22 14:47:20.067352",
-        "creator_id": 7,
-        "participant_two_id": null,
-        "section_id": null,
-        "subject_id": null
-      },
-      {
-        "id": 9,
-        "name": null,
-        "chat_type": "GROUP_CLASS",
-        "school_year": "2025-2026",
-        "is_active": 1,
-        "created_at": "2026-03-22 09:04:48.213243",
-        "updated_at": "2026-03-22 09:04:48.213258",
-        "creator_id": 7,
-        "participant_two_id": null,
-        "section_id": 9,
-        "subject_id": 3
-      },
-      {
-        "id": 10,
+        "id": 17,
         "name": null,
         "chat_type": "INDIVIDUAL",
-        "school_year": "2025-2026",
+        "school_year": "",
         "is_active": 1,
-        "created_at": "2026-03-22 09:06:35.429173",
-        "updated_at": "2026-03-22 09:06:35.429187",
-        "creator_id": 6,
-        "participant_two_id": 93,
-        "section_id": null,
-        "subject_id": null
-      },
-      {
-        "id": 11,
-        "name": null,
-        "chat_type": "INDIVIDUAL",
-        "school_year": "2025-2026",
-        "is_active": 1,
-        "created_at": "2026-03-22 14:22:35.379420",
-        "updated_at": "2026-03-22 14:22:35.379447",
-        "creator_id": 100,
-        "participant_two_id": 16,
-        "section_id": null,
-        "subject_id": null
-      },
-      {
-        "id": 12,
-        "name": null,
-        "chat_type": "INDIVIDUAL",
-        "school_year": "2025-2026",
-        "is_active": 1,
-        "created_at": "2026-03-22 14:32:17.040494",
-        "updated_at": "2026-03-25 03:21:40.627338",
-        "creator_id": 100,
+        "created_at": "2026-03-27 08:45:39.898965",
+        "updated_at": "2026-03-27 08:45:39.898989",
+        "creator_id": 7,
         "participant_two_id": 6,
-        "section_id": null,
-        "subject_id": null
-      },
-      {
-        "id": 13,
-        "name": null,
-        "chat_type": "INDIVIDUAL",
-        "school_year": "2025-2026",
-        "is_active": 1,
-        "created_at": "2026-03-22 14:47:02.201822",
-        "updated_at": "2026-03-22 14:47:02.201855",
-        "creator_id": 7,
-        "participant_two_id": 100,
-        "section_id": null,
-        "subject_id": null
-      },
-      {
-        "id": 14,
-        "name": null,
-        "chat_type": "INDIVIDUAL",
-        "school_year": "2025-2026",
-        "is_active": 1,
-        "created_at": "2026-03-22 14:52:22.406936",
-        "updated_at": "2026-03-22 14:52:22.406958",
-        "creator_id": 6,
-        "participant_two_id": 7,
-        "section_id": null,
-        "subject_id": null
-      },
-      {
-        "id": 15,
-        "name": null,
-        "chat_type": "INDIVIDUAL",
-        "school_year": "2025-2026",
-        "is_active": 1,
-        "created_at": "2026-03-22 14:52:41.851015",
-        "updated_at": "2026-03-22 14:52:41.851051",
-        "creator_id": 100,
-        "participant_two_id": 7,
         "section_id": null,
         "subject_id": null
       }
     ],
     "messaging_chatmember": [
       {
-        "id": 1,
+        "id": 29,
         "is_admin": 1,
-        "joined_at": "2026-03-22 06:39:15.901550",
-        "chat_id": 1,
+        "joined_at": "2026-03-27 08:44:59.397365",
+        "chat_id": 16,
         "user_id": 6
       },
       {
-        "id": 2,
-        "is_admin": 1,
-        "joined_at": "2026-03-22 07:41:33.131020",
-        "chat_id": 3,
-        "user_id": 6
-      },
-      {
-        "id": 3,
+        "id": 30,
         "is_admin": 0,
-        "joined_at": "2026-03-22 07:52:28.251833",
-        "chat_id": 2,
-        "user_id": 7
-      },
-      {
-        "id": 4,
-        "is_admin": 1,
-        "joined_at": "2026-03-22 07:52:48.339206",
-        "chat_id": 4,
-        "user_id": 6
-      },
-      {
-        "id": 5,
-        "is_admin": 1,
-        "joined_at": "2026-03-22 07:57:44.947295",
-        "chat_id": 5,
-        "user_id": 7
-      },
-      {
-        "id": 6,
-        "is_admin": 1,
-        "joined_at": "2026-03-22 08:19:07.291508",
-        "chat_id": 6,
-        "user_id": 6
-      },
-      {
-        "id": 7,
-        "is_admin": 1,
-        "joined_at": "2026-03-22 08:26:34.286281",
-        "chat_id": 8,
-        "user_id": 7
-      },
-      {
-        "id": 8,
-        "is_admin": 1,
-        "joined_at": "2026-03-22 09:04:48.219757",
-        "chat_id": 9,
-        "user_id": 7
-      },
-      {
-        "id": 9,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 09:04:48.225112",
-        "chat_id": 9,
-        "user_id": 6
-      },
-      {
-        "id": 10,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 09:04:48.229447",
-        "chat_id": 9,
-        "user_id": 97
-      },
-      {
-        "id": 11,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 09:04:48.232964",
-        "chat_id": 9,
-        "user_id": 95
-      },
-      {
-        "id": 12,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 09:04:48.236541",
-        "chat_id": 9,
-        "user_id": 94
-      },
-      {
-        "id": 13,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 09:04:48.240370",
-        "chat_id": 9,
+        "joined_at": "2026-03-27 08:45:19.968663",
+        "chat_id": 16,
         "user_id": 93
       },
       {
-        "id": 14,
+        "id": 31,
         "is_admin": 0,
-        "joined_at": "2026-03-22 09:04:48.243385",
-        "chat_id": 9,
-        "user_id": 92
+        "joined_at": "2026-03-27 08:45:39.909574",
+        "chat_id": 17,
+        "user_id": 7
       },
       {
-        "id": 15,
+        "id": 32,
         "is_admin": 0,
-        "joined_at": "2026-03-22 09:04:48.246994",
-        "chat_id": 9,
-        "user_id": 90
-      },
-      {
-        "id": 16,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 09:06:35.436514",
-        "chat_id": 10,
+        "joined_at": "2026-03-27 08:45:39.913877",
+        "chat_id": 17,
         "user_id": 6
-      },
-      {
-        "id": 17,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 09:06:35.442350",
-        "chat_id": 10,
-        "user_id": 93
-      },
-      {
-        "id": 18,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 14:22:35.387600",
-        "chat_id": 11,
-        "user_id": 100
-      },
-      {
-        "id": 19,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 14:22:35.392855",
-        "chat_id": 11,
-        "user_id": 16
-      },
-      {
-        "id": 20,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 14:32:17.046720",
-        "chat_id": 12,
-        "user_id": 100
-      },
-      {
-        "id": 21,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 14:32:17.052231",
-        "chat_id": 12,
-        "user_id": 6
-      },
-      {
-        "id": 22,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 14:47:02.207590",
-        "chat_id": 13,
-        "user_id": 7
-      },
-      {
-        "id": 23,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 14:47:02.211819",
-        "chat_id": 13,
-        "user_id": 100
-      },
-      {
-        "id": 24,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 14:47:58.362917",
-        "chat_id": 7,
-        "user_id": 7
-      },
-      {
-        "id": 25,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 14:52:22.413924",
-        "chat_id": 14,
-        "user_id": 6
-      },
-      {
-        "id": 26,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 14:52:22.420081",
-        "chat_id": 14,
-        "user_id": 7
-      },
-      {
-        "id": 27,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 14:52:41.859985",
-        "chat_id": 15,
-        "user_id": 100
-      },
-      {
-        "id": 28,
-        "is_admin": 0,
-        "joined_at": "2026-03-22 14:52:41.864256",
-        "chat_id": 15,
-        "user_id": 7
       }
     ],
     "messaging_chatrequest": [
       {
-        "id": 1,
+        "id": 6,
         "first_message": "testing",
         "status": "ACCEPTED",
-        "created_at": "2026-03-22 14:32:17.074061",
-        "responded_at": "2026-03-25 03:29:03.652648",
-        "chat_id": 12,
+        "created_at": "2026-03-27 08:45:39.917853",
+        "responded_at": "2026-03-27 08:46:48.120563",
+        "chat_id": 17,
         "recipient_id": 6,
-        "requester_id": 100
-      },
-      {
-        "id": 2,
-        "first_message": "I would like to reach out for your car's extended warranty",
-        "status": "ACCEPTED",
-        "created_at": "2026-03-22 14:47:02.254623",
-        "responded_at": "2026-03-25 03:27:23.330521",
-        "chat_id": 13,
-        "recipient_id": 100,
         "requester_id": 7
-      },
-      {
-        "id": 3,
-        "first_message": "asd",
-        "status": "ACCEPTED",
-        "created_at": "2026-03-22 14:52:22.441195",
-        "responded_at": "2026-03-22 14:58:36.209198",
-        "chat_id": 14,
-        "recipient_id": 7,
-        "requester_id": 6
-      },
-      {
-        "id": 4,
-        "first_message": "hello",
-        "status": "ACCEPTED",
-        "created_at": "2026-03-22 14:52:41.884919",
-        "responded_at": "2026-03-22 14:58:29.508224",
-        "chat_id": 15,
-        "recipient_id": 7,
-        "requester_id": 100
-      },
-      {
-        "id": 5,
-        "first_message": "halo",
-        "status": "PENDING",
-        "created_at": "2026-03-25 03:27:48.601573",
-        "responded_at": null,
-        "chat_id": 11,
-        "recipient_id": 16,
-        "requester_id": 100
       }
     ],
     "messaging_chatrestriction": [
       {
-        "id": 6,
+        "id": 10,
         "restriction_type": "TEMP_MUTE",
-        "reason": "Flagged message with words: tangina mo",
-        "expires_at": null,
-        "created_at": "2026-03-25 04:12:43.134197",
+        "reason": "Flagged message with words: bad word",
+        "expires_at": "2026-03-27 10:25:44.027710",
+        "created_at": "2026-03-27 09:25:44.028858",
         "restricted_by_id": 1,
-        "user_id": 100,
+        "user_id": 7,
+        "chat_id": null
+      },
+      {
+        "id": 11,
+        "restriction_type": "TEMP_MUTE",
+        "reason": "Flagged message with words: bad word",
+        "expires_at": "2026-03-27 10:25:12.835665",
+        "created_at": "2026-03-27 10:12:47.935916",
+        "restricted_by_id": 1,
+        "user_id": 6,
         "chat_id": null
       }
     ],
+    "messaging_chatrestrictionauditlog": [],
     "messaging_message": [
       {
-        "id": 1,
-        "encrypted_content": "gAAAAABpv5gQ_4bD2kU-aoszxdIHfTsubwufF7arGxOz31ta-n69wPQ6SFtNNPDV7EJ0L1DYFEBMc37PuYV8Ca2tscU5FJC3Uw==",
+        "id": 28,
+        "encrypted_content": "gAAAAABpxkP8xf--c-S1Tio6FdRIoiiTT3l-YsmDk2A9PxeXWV0wdeY3KFqBSfEZ_JpCztv7O6LtnzGBQRrLANFviLRtwHTZOA==",
         "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 07:19:44.201717",
-        "chat_id": 1,
-        "deleted_by_id": null,
+        "is_flagged": 1,
+        "flagged_words": "bad word",
+        "is_deleted": 1,
+        "deleted_at": "2026-03-27 09:18:33.547683",
+        "deletion_reason": "Deleted by admin due to report",
+        "school_year": "",
+        "created_at": "2026-03-27 08:46:52.285616",
+        "chat_id": 17,
+        "deleted_by_id": 1,
         "sender_id": 6
       },
       {
-        "id": 2,
-        "encrypted_content": "gAAAAABpv5gsmJnPSjG9TP7hEzYU01LaITl-e246lTuJvZMCcvxPivuC_x39Gh9Ln5PB2GEPUgY6u0quWF67BVzT1Nzn7SHMbA==",
+        "id": 29,
+        "encrypted_content": "gAAAAABpxkUwoSh6e8K3c1xATZM-_OfIZRBOMbWc4dByBp8Z7RCt1AAwdxHmPxL4bqCF8F1quqLb60J4nY-p4Ql6Aluxksm1pg==",
         "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
+        "is_flagged": 1,
+        "flagged_words": "bad word",
         "is_deleted": 0,
         "deleted_at": null,
         "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 07:20:12.066813",
-        "chat_id": 1,
-        "deleted_by_id": null,
-        "sender_id": 6
-      },
-      {
-        "id": 3,
-        "encrypted_content": "gAAAAABpv50woJmFkPJjTN8bF_5uDI6B2YWXraaOz_xnKmjcrB31jiX0a-upYDaqTbroZqF2myCDnBgmFcpyptCJYDjAIpkyMA==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 07:41:36.362868",
-        "chat_id": 3,
-        "deleted_by_id": null,
-        "sender_id": 6
-      },
-      {
-        "id": 4,
-        "encrypted_content": "gAAAAABpv5-8UnZRKMPfVqEzdVtcwwDLDI1js6UPg2j-SVT7FzAZRQVGe6phwF88477t4DchE0zeM0bEaRltRCWSob0XPHzyvw==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 07:52:28.269484",
-        "chat_id": 2,
+        "school_year": "",
+        "created_at": "2026-03-27 08:52:00.231801",
+        "chat_id": 17,
         "deleted_by_id": null,
         "sender_id": 7
       },
       {
-        "id": 5,
-        "encrypted_content": "gAAAAABpv6HS0_ShmsxbdzC6F08zWsIr8vEreKgYCoIQhL98ZmpQB1lo2dhwrNC4j308QpElGnO_nK4DK3q_REh03zwosa2BXw==",
+        "id": 30,
+        "encrypted_content": "gAAAAABpxkkUONRJS7sQb0ajeTWx6h2rQQapiaSP4lbtAY1u5-ZeypHgD-sBoAW3P0aSSubrFx4gAAlqzEIRvyqWan55ImUSBw==",
+        "image": "",
+        "is_flagged": 1,
+        "flagged_words": "bad word",
+        "is_deleted": 0,
+        "deleted_at": null,
+        "deletion_reason": "",
+        "school_year": "",
+        "created_at": "2026-03-27 09:08:36.841107",
+        "chat_id": 17,
+        "deleted_by_id": null,
+        "sender_id": 7
+      },
+      {
+        "id": 31,
+        "encrypted_content": "gAAAAABpxkkYzvmK3u6KrDgGwWIvVpzrntGc8k26jo-b09JoHxJuoCAHAjVr8ptdKGnAO6F-7y2OjPyKeCo3khQ_G9WY4P3ZQQ==",
         "image": "",
         "is_flagged": 0,
         "flagged_words": "",
         "is_deleted": 1,
-        "deleted_at": "2026-03-22 08:28:10.975741",
+        "deleted_at": "2026-03-27 10:14:36.798168",
         "deletion_reason": "Deleted by admin due to report",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 08:01:22.730168",
-        "chat_id": 2,
+        "school_year": "",
+        "created_at": "2026-03-27 09:08:40.799856",
+        "chat_id": 17,
         "deleted_by_id": 1,
         "sender_id": 7
       },
       {
-        "id": 6,
-        "encrypted_content": "gAAAAABpv6YrurxpcmsO5K3OZrx7h3CWVeX4AqzV2JX6IWZaxWeGGV-ZL-TbNauqWtYpB6w8IdKxpap8stKxITHm8eKjlLZOPg==",
+        "id": 32,
+        "encrypted_content": "gAAAAABpxkxzDFSt4rjFO61D9cdhvxem-745tET1COO8Jp5txZVB-Uh2rp5S18oxQWEuzXYK8grL8p6d5lDiivHm9owWIckP7g==",
         "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 08:19:55.824103",
-        "chat_id": 6,
-        "deleted_by_id": null,
-        "sender_id": 6
-      },
-      {
-        "id": 7,
-        "encrypted_content": "gAAAAABpv7DH3vL31atDRMDWcqmq-Ej_k9KhRQLZdQGY0ta8wJaNPlzQZrzxLXt6AA1nIzyC3wsQjL-jC4Zht6xPVURc703YiA==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 09:05:11.548380",
-        "chat_id": 9,
-        "deleted_by_id": null,
+        "is_flagged": 1,
+        "flagged_words": "bad word",
+        "is_deleted": 1,
+        "deleted_at": "2026-03-27 09:49:54.244908",
+        "deletion_reason": "my bad",
+        "school_year": "",
+        "created_at": "2026-03-27 09:22:59.810847",
+        "chat_id": 17,
+        "deleted_by_id": 7,
         "sender_id": 7
       },
       {
-        "id": 8,
-        "encrypted_content": "gAAAAABpv7EgDOBfRFHOMucvxfRyYl_aWPZWG-Fxmtf60UfPK7bym9qHv-ASqhNFCfeohoaqv2iTmkZi4GoHGJuQqpIqTjQPqA==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 09:06:40.294294",
-        "chat_id": 10,
-        "deleted_by_id": null,
-        "sender_id": 6
-      },
-      {
-        "id": 9,
-        "encrypted_content": "gAAAAABpv7GNaEpOWDcL0zX877hqaAQvJOkuEIl1HZ7aBSfxiFnTz6D8X_dqhS9YgMw6Xc3RoNr8uxNiFbp87u8htr61N_-5yw==",
+        "id": 33,
+        "encrypted_content": "gAAAAABpxkx1Z5JouzhfzwPu-DVLOuLgpJtWai4SeVF2NgPsaa0LOTVkbGBCMjpOgOGU4vs1R1RkrpdkrEvli1K_eJBdXepZVg==",
         "image": "",
         "is_flagged": 1,
-        "flagged_words": "putang ina",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 09:08:29.102284",
-        "chat_id": 6,
-        "deleted_by_id": null,
-        "sender_id": 6
-      },
-      {
-        "id": 10,
-        "encrypted_content": "gAAAAABpv_suB910u5z75ocolgCfcd838fFjDZl_tGCZZGe_B80uEQjVIsh7nUXQLKOd5FEtJlQoCq0bBAEKH6kWsezfnigMDg==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 14:22:38.385557",
-        "chat_id": 11,
-        "deleted_by_id": null,
-        "sender_id": 100
-      },
-      {
-        "id": 11,
-        "encrypted_content": "gAAAAABpwAEeTcXuRJj-1K1h1sfRyX-xk3ySiIeS6stdQbxmPaJkeJjSaBrbG0rCjVGRi4ytFxMOT9JTH6nNda1dxptFic-W9kpqMvk36jQgcv-y9MA3RiFdQIU_A6whWsZHjBxMLp_ZbRE0iS7yM46Kiq43jALZEw==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 14:47:58.374503",
-        "chat_id": 7,
-        "deleted_by_id": null,
+        "flagged_words": "bad word",
+        "is_deleted": 1,
+        "deleted_at": "2026-03-27 09:38:56.028323",
+        "deletion_reason": "bruh my bad",
+        "school_year": "",
+        "created_at": "2026-03-27 09:23:01.308842",
+        "chat_id": 17,
+        "deleted_by_id": 7,
         "sender_id": 7
       },
       {
-        "id": 12,
-        "encrypted_content": "gAAAAABpwATMikvzjrGbg0p3aVmekQLsfnYr8yPnhbQV8h7saKh6aHuRqZHqs79S1JwD-O7J_pw6Ed3s4YO9awIHVtmqhGJ_Ww==",
+        "id": 34,
+        "encrypted_content": "gAAAAABpxlfjzhHcYs1sK2i0zy0mZNuXkIJian-nlR0kT4gUUVmLWlH7odP4ANc7sSXvutM2rl20HDk-AtmC7Yyk7xwlGdicw8RBvX9gjacW13HahhzAzQU=",
         "image": "",
         "is_flagged": 0,
         "flagged_words": "",
         "is_deleted": 0,
         "deleted_at": null,
         "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 15:03:40.921372",
-        "chat_id": 15,
+        "school_year": "",
+        "created_at": "2026-03-27 10:11:47.477417",
+        "chat_id": 17,
         "deleted_by_id": null,
-        "sender_id": 7
+        "sender_id": 6
       },
       {
-        "id": 13,
-        "encrypted_content": "gAAAAABpwATRyZyJXr2sj95wXTkC8qXM_YZ60MWm9EG7FNDfPbzhmmXZYY3dZXsNWH84oMEmz8ldCWNVE2bCgYAMNj47Y3ybRw==",
+        "id": 35,
+        "encrypted_content": "gAAAAABpxlflOVq2Hqun7cFh-CHz0nWLTiY1RZapnsDnG04daJZT60zTqAtMHD5Sbj8QGO35MEi41WObQoXAkVt5zvsK3ZM3Aw==",
         "image": "",
         "is_flagged": 0,
         "flagged_words": "",
         "is_deleted": 0,
         "deleted_at": null,
         "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 15:03:45.140980",
-        "chat_id": 14,
+        "school_year": "",
+        "created_at": "2026-03-27 10:11:49.806405",
+        "chat_id": 17,
         "deleted_by_id": null,
-        "sender_id": 7
+        "sender_id": 6
       },
       {
-        "id": 14,
-        "encrypted_content": "gAAAAABpwAT2CR3Ua3Krv2PA-kAXexI5cU5kXgBrds95jHcz1_qWc4XFBTeTRnruuwG7QyWxcPByl43Hkj-8R8reHa5Rtfb0vA==",
+        "id": 36,
+        "encrypted_content": "gAAAAABpxlfnBeezTIUs-mdaZDTk4HpFr5GdT09uC4xshGRe296hQw2ZSM6aIyO2AQ0eiPiL39JZWCZvd4JKmgJmeqEJ7yrO_g==",
         "image": "",
         "is_flagged": 0,
         "flagged_words": "",
         "is_deleted": 0,
         "deleted_at": null,
         "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 15:04:22.086124",
-        "chat_id": 15,
+        "school_year": "",
+        "created_at": "2026-03-27 10:11:51.307879",
+        "chat_id": 17,
         "deleted_by_id": null,
-        "sender_id": 100
+        "sender_id": 6
       },
       {
-        "id": 15,
-        "encrypted_content": "gAAAAABpwAT5RAJz0C6p_wk_p6hLJnPemJvomkCgXan2cVeHpwF0ITUKG4Y_-5cDOPnM_IYfGxGoEj3H7jMQE7AWtY7XFzxwHA==",
+        "id": 37,
+        "encrypted_content": "gAAAAABpxlfou9g5y3xgmPx5a5Q9L18epLkUYRTWtnE-R0QLl7Vy9iXI3P4AmRvS5Sct6ZbHBe55NtxpSzBZYO7Ijs5f_2NezQ==",
         "image": "",
         "is_flagged": 0,
         "flagged_words": "",
         "is_deleted": 0,
         "deleted_at": null,
         "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-22 15:04:25.248227",
-        "chat_id": 15,
+        "school_year": "",
+        "created_at": "2026-03-27 10:11:52.643413",
+        "chat_id": 17,
         "deleted_by_id": null,
-        "sender_id": 100
+        "sender_id": 6
       },
       {
-        "id": 16,
-        "encrypted_content": "gAAAAABpw1TxxyJQmfHJLDEMmQhOKKT3ow-t58HAw0cQze0aZTWQIU8aSVkNKF6io6jw490K8anHmdCh8XRhIKQM5VsqPQ2pVQ==",
+        "id": 38,
+        "encrypted_content": "gAAAAABpxlf_GFZMeuILSonr_xn_k4xrFK-W_m6s4FoSNj0SQUhQhsWqrzAaSW7Kco7VsttWH61fbOE058sX9sD52syp7j9cNA==",
         "image": "",
         "is_flagged": 1,
-        "flagged_words": "putang ina",
+        "flagged_words": "bad word",
         "is_deleted": 0,
         "deleted_at": null,
         "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-25 03:22:25.860232",
-        "chat_id": 14,
+        "school_year": "",
+        "created_at": "2026-03-27 10:12:15.267194",
+        "chat_id": 17,
         "deleted_by_id": null,
         "sender_id": 6
       },
       {
-        "id": 17,
-        "encrypted_content": "gAAAAABpw1aE23pMSrSaXRTvMkG3RnxexrBqVOWsXBrsV3zuP4vm_hNTVW-_UoXcbL9rm54WQqdeuCf0jrklHadjQFix7dX09A==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-25 03:29:08.850612",
-        "chat_id": 12,
-        "deleted_by_id": null,
-        "sender_id": 6
-      },
-      {
-        "id": 18,
-        "encrypted_content": "gAAAAABpw1aHzg-YUtlal3ClbHYSKgL9m7-l20aGMYqxMpPUwT_PcJgKVNxsKV95U7Lc88EJM90n-E1l51SjP2cVqqcnnQGmPw==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-25 03:29:11.322171",
-        "chat_id": 12,
-        "deleted_by_id": null,
-        "sender_id": 6
-      },
-      {
-        "id": 19,
-        "encrypted_content": "gAAAAABpw1aK0wu7JT9CQH43jwS-5t34DMTtxHnVSgZ8y5b4-Ai7oh2UillIgWRT9cK5BzookdfBD6Pw-vrA1qj7yRPDGC81_g==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-25 03:29:14.184177",
-        "chat_id": 12,
-        "deleted_by_id": null,
-        "sender_id": 6
-      },
-      {
-        "id": 20,
-        "encrypted_content": "gAAAAABpw1aNZweR-bBAPUoPA-8lm64zMRq8oHQOcGDkcLCBQ8X0Zzx0HhHuYaUJ8nMvAHDx-6T7JHFNyAXP5kfqLuCwywNOBw==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-25 03:29:17.464168",
-        "chat_id": 12,
-        "deleted_by_id": null,
-        "sender_id": 6
-      },
-      {
-        "id": 21,
-        "encrypted_content": "gAAAAABpw1aYNI_KquL1C6B2qJLPOWX3dAaBS6b3O7YDvYspxyD43ZWanoFG8RDB9v06bNYu7gVrhokG-lkBzeyXmahZ6Op9YA==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-25 03:29:28.276574",
-        "chat_id": 14,
-        "deleted_by_id": null,
-        "sender_id": 6
-      },
-      {
-        "id": 22,
-        "encrypted_content": "gAAAAABpw1bla3LzT465NUMMus-QGpNULR_rjEYKox80EzuzZU2176r0t6nlDgMLNY_ldvGlP0B3g_aR-p_XKq4PKtgWBm44tA==",
+        "id": 39,
+        "encrypted_content": "gAAAAABpxlgAxIrZE29RJDKPrQtL7hjR-byaZug1J78gqXM50uluRt_euJJbC0OVFYrpYeN6tF34d7olC1rxwwABwH7o3fvQYQ==",
         "image": "",
         "is_flagged": 1,
-        "flagged_words": "tangina mo",
+        "flagged_words": "bad word",
         "is_deleted": 0,
         "deleted_at": null,
         "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-25 03:30:45.972888",
-        "chat_id": 12,
+        "school_year": "",
+        "created_at": "2026-03-27 10:12:16.948417",
+        "chat_id": 17,
         "deleted_by_id": null,
-        "sender_id": 100
+        "sender_id": 6
       },
       {
-        "id": 23,
-        "encrypted_content": "gAAAAABpw1eX7U4r1ABnKu3uXm6ktpFbzXsZXR7ewkRtp0RNX9fJ0Js--njHVnKz3verL_P3EcAEoLB2zhlw79JAVSkKFe-J7w==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-25 03:33:43.995617",
-        "chat_id": 12,
-        "deleted_by_id": null,
-        "sender_id": 100
-      },
-      {
-        "id": 24,
-        "encrypted_content": "gAAAAABpw15t7gzRGDIahnZKbiPrukqyizv8JapcPu_ChVkzCN_tuEKzff-IvTPTSZchqerpRySpQ0rSy7uQfbXdKKu_2E-XiA==",
+        "id": 40,
+        "encrypted_content": "gAAAAABpxlgCu1Un5q2moSwTc6tJc-erIHYXjMPqUpLDVfLveWP45G5kLfNcwYXgCQ6a_9sNOqw4hW_TsmGpKqpvXjbxHPuJRw==",
         "image": "",
         "is_flagged": 1,
-        "flagged_words": "putang ina",
+        "flagged_words": "bad word",
         "is_deleted": 0,
         "deleted_at": null,
         "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-25 04:02:53.050665",
-        "chat_id": 12,
+        "school_year": "",
+        "created_at": "2026-03-27 10:12:18.740409",
+        "chat_id": 17,
         "deleted_by_id": null,
-        "sender_id": 100
+        "sender_id": 6
+      }
+    ],
+    "messaging_messagedeletionlog": [
+      {
+        "id": 1,
+        "reason": "bruh my bad",
+        "created_at": "2026-03-27 09:38:56.033343",
+        "deleted_by_id": 7,
+        "message_id": 33
       },
       {
-        "id": 25,
-        "encrypted_content": "gAAAAABpw18mBhIxNYwkjulntH3tzVpVdKP6d7_OXkyFvBd8rsvwkzb7Cq7vdqMzG3DseIFQ6pUJzWyTI4RbaAs8KutiS4B6Ew==",
-        "image": "",
-        "is_flagged": 1,
-        "flagged_words": "putang ina",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-25 04:05:58.494230",
-        "chat_id": 11,
-        "deleted_by_id": null,
-        "sender_id": 100
+        "id": 2,
+        "reason": "my bad",
+        "created_at": "2026-03-27 09:42:36.709501",
+        "deleted_by_id": 7,
+        "message_id": 32
       },
       {
-        "id": 26,
-        "encrypted_content": "gAAAAABpw2AfmLHT33eP7JMiZVbgEPDXfWoidvbfQrFGErkLw4WLMkCP54L9xwitIstfL3KWOQcoEsVx4r9R9xHKCHZ0uDmYgw==",
-        "image": "",
-        "is_flagged": 1,
-        "flagged_words": "tangina mo",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-25 04:10:07.472362",
-        "chat_id": 12,
-        "deleted_by_id": null,
-        "sender_id": 100
+        "id": 3,
+        "reason": "my bad",
+        "created_at": "2026-03-27 09:49:54.252565",
+        "deleted_by_id": 7,
+        "message_id": 32
       },
       {
-        "id": 27,
-        "encrypted_content": "gAAAAABpxUFbGBuG8RzlYydznWIEgyvK0imQfwxU8zib1AwWSu_v6ofF5qcAHycRylKhYCHwk_fenPjgdzUL2cke72yT6xYV3A==",
-        "image": "",
-        "is_flagged": 0,
-        "flagged_words": "",
-        "is_deleted": 0,
-        "deleted_at": null,
-        "deletion_reason": "",
-        "school_year": "2025-2026",
-        "created_at": "2026-03-26 14:23:23.682014",
-        "chat_id": 15,
-        "deleted_by_id": null,
-        "sender_id": 7
+        "id": 4,
+        "reason": "bad",
+        "created_at": "2026-03-27 09:54:17.281882",
+        "deleted_by_id": 7,
+        "message_id": 31
       }
     ],
     "messaging_messageflag": [
       {
-        "id": 1,
-        "flagged_at": "2026-03-22 09:08:29.107139",
-        "flagged_words": "putang ina",
+        "id": 7,
+        "flagged_at": "2026-03-27 08:46:52.291447",
+        "flagged_words": "bad word",
         "status": "USER_RESTRICTED",
-        "reviewed_at": "2026-03-25 03:53:25.525200",
-        "admin_notes": "",
-        "chat_id": 6,
-        "message_id": 9,
+        "reviewed_at": "2026-03-27 08:48:37.410696",
+        "admin_notes": "ehe",
+        "chat_id": 17,
+        "message_id": 28,
         "reviewed_by_id": 1
       },
       {
-        "id": 2,
-        "flagged_at": "2026-03-25 03:22:25.875860",
-        "flagged_words": "putang ina",
+        "id": 8,
+        "flagged_at": "2026-03-27 08:52:00.239848",
+        "flagged_words": "bad word",
         "status": "USER_RESTRICTED",
-        "reviewed_at": "2026-03-25 03:23:34.745341",
+        "reviewed_at": "2026-03-27 09:03:47.162338",
         "admin_notes": "bruh",
-        "chat_id": 14,
-        "message_id": 16,
+        "chat_id": 17,
+        "message_id": 29,
         "reviewed_by_id": 1
       },
       {
-        "id": 3,
-        "flagged_at": "2026-03-25 03:30:45.985826",
-        "flagged_words": "tangina mo",
+        "id": 9,
+        "flagged_at": "2026-03-27 09:08:36.847271",
+        "flagged_words": "bad word",
         "status": "USER_RESTRICTED",
-        "reviewed_at": "2026-03-25 03:31:22.834866",
-        "admin_notes": "what",
-        "chat_id": 12,
-        "message_id": 22,
+        "reviewed_at": "2026-03-27 09:14:53.252503",
+        "admin_notes": "brother ",
+        "chat_id": 17,
+        "message_id": 30,
         "reviewed_by_id": 1
       },
       {
-        "id": 4,
-        "flagged_at": "2026-03-25 04:02:53.057570",
-        "flagged_words": "putang ina",
-        "status": "USER_RESTRICTED",
-        "reviewed_at": "2026-03-25 04:03:29.734756",
-        "admin_notes": "2 hours mute ehe",
-        "chat_id": 12,
-        "message_id": 24,
-        "reviewed_by_id": 1
+        "id": 10,
+        "flagged_at": "2026-03-27 09:22:59.817643",
+        "flagged_words": "bad word",
+        "status": "DELETED",
+        "reviewed_at": "2026-03-27 09:49:54.257028",
+        "admin_notes": "my bad",
+        "chat_id": 17,
+        "message_id": 32,
+        "reviewed_by_id": 7
       },
       {
-        "id": 5,
-        "flagged_at": "2026-03-25 04:05:58.501233",
-        "flagged_words": "putang ina",
+        "id": 11,
+        "flagged_at": "2026-03-27 09:23:01.317198",
+        "flagged_words": "bad word",
+        "status": "DELETED",
+        "reviewed_at": "2026-03-27 09:38:56.037435",
+        "admin_notes": "bruh my bad",
+        "chat_id": 17,
+        "message_id": 33,
+        "reviewed_by_id": 7
+      },
+      {
+        "id": 12,
+        "flagged_at": "2026-03-27 10:12:15.273275",
+        "flagged_words": "bad word",
         "status": "USER_RESTRICTED",
-        "reviewed_at": "2026-03-25 04:07:25.510119",
+        "reviewed_at": "2026-03-27 10:24:12.841960",
         "admin_notes": "",
-        "chat_id": 11,
-        "message_id": 25,
+        "chat_id": 17,
+        "message_id": 38,
         "reviewed_by_id": 1
       },
       {
-        "id": 6,
-        "flagged_at": "2026-03-25 04:10:07.480591",
-        "flagged_words": "tangina mo",
+        "id": 13,
+        "flagged_at": "2026-03-27 10:12:16.953181",
+        "flagged_words": "bad word",
         "status": "USER_RESTRICTED",
-        "reviewed_at": "2026-03-25 04:12:43.139678",
-        "admin_notes": "",
-        "chat_id": 12,
-        "message_id": 26,
+        "reviewed_at": "2026-03-27 10:14:11.136319",
+        "admin_notes": "asd",
+        "chat_id": 17,
+        "message_id": 39,
+        "reviewed_by_id": 1
+      },
+      {
+        "id": 14,
+        "flagged_at": "2026-03-27 10:12:18.747222",
+        "flagged_words": "bad word",
+        "status": "USER_RESTRICTED",
+        "reviewed_at": "2026-03-27 10:12:47.940781",
+        "admin_notes": "ehe",
+        "chat_id": 17,
+        "message_id": 40,
         "reviewed_by_id": 1
       }
     ],
     "messaging_messagereport": [
       {
-        "id": 1,
-        "reason": "INAPPROPRIATE",
-        "description": "bruh",
-        "status": "DISMISSED",
-        "created_at": "2026-03-22 08:15:26.415336",
-        "reviewed_at": "2026-03-22 09:07:31.494111",
-        "admin_notes": "",
-        "message_id": 5,
+        "id": 5,
+        "reason": "PROFANITY",
+        "description": "asd",
+        "status": "RESOLVED",
+        "created_at": "2026-03-27 08:53:45.908913",
+        "reviewed_at": "2026-03-27 09:18:33.554847",
+        "admin_notes": "asd",
+        "message_id": 28,
         "reporter_id": 7,
         "reviewed_by_id": 1
       },
       {
-        "id": 2,
-        "reason": "INAPPROPRIATE",
-        "description": "aa",
-        "status": "REVIEWED",
-        "created_at": "2026-03-22 08:20:00.645805",
-        "reviewed_at": "2026-03-22 09:07:35.451753",
-        "admin_notes": "asd",
-        "message_id": 6,
+        "id": 6,
+        "reason": "OTHER",
+        "description": "bruh",
+        "status": "RESOLVED",
+        "created_at": "2026-03-27 09:23:20.060701",
+        "reviewed_at": "2026-03-27 10:14:36.804711",
+        "admin_notes": "",
+        "message_id": 31,
         "reporter_id": 6,
         "reviewed_by_id": 1
-      },
-      {
-        "id": 3,
-        "reason": "INAPPROPRIATE",
-        "description": "a",
-        "status": "REVIEWED",
-        "created_at": "2026-03-22 08:27:34.024230",
-        "reviewed_at": "2026-03-22 09:07:21.011806",
-        "admin_notes": "a",
-        "message_id": 4,
-        "reporter_id": 7,
-        "reviewed_by_id": 1
-      },
-      {
-        "id": 4,
-        "reason": "PROFANITY",
-        "description": "nagmura oh",
-        "status": "PENDING",
-        "created_at": "2026-03-22 15:05:57.907644",
-        "reviewed_at": null,
-        "admin_notes": "",
-        "message_id": 15,
-        "reporter_id": 7,
-        "reviewed_by_id": null
       }
     ],
     "messaging_profanityword": [
       {
-        "id": 1,
-        "word": "putang ina",
+        "id": 6,
+        "word": "bad word",
         "category": "SWEAR",
         "is_active": 1,
-        "created_at": "2026-03-22 09:08:05.486147",
-        "updated_at": "2026-03-22 09:08:05.486169"
+        "created_at": "2026-03-27 08:43:59.024708",
+        "updated_at": "2026-03-27 08:43:59.024796"
       },
       {
-        "id": 2,
-        "word": "puta",
-        "category": "SWEAR",
+        "id": 7,
+        "word": "fat",
+        "category": "INSULT",
         "is_active": 1,
-        "created_at": "2026-03-22 15:05:39.177108",
-        "updated_at": "2026-03-22 15:05:39.177130"
-      },
-      {
-        "id": 3,
-        "word": "tangina anlala",
-        "category": "SWEAR",
-        "is_active": 1,
-        "created_at": "2026-03-25 03:05:37.606330",
-        "updated_at": "2026-03-25 03:05:37.606385"
-      },
-      {
-        "id": 5,
-        "word": "tangina mo",
-        "category": "SWEAR",
-        "is_active": 1,
-        "created_at": "2026-03-25 03:30:13.448948",
-        "updated_at": "2026-03-25 03:30:13.449004"
+        "created_at": "2026-03-27 08:44:11.914480",
+        "updated_at": "2026-03-27 08:44:11.914506"
       }
     ],
     "reminders_reminder": [

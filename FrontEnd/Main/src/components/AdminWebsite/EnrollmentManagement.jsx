@@ -2051,7 +2051,7 @@ export default function EnrollmentManagement() {
                     )}
                   </td>
                   <td>
-                    <div className="action-buttons">
+                    <div className="action-buttons" style={{ justifyContent: "flex-start" }}>
                       <button className="btn-edit" title="View" onClick={() => openModal(row, "view")}>
                         <Eye size={14} />
                       </button>
@@ -2073,8 +2073,26 @@ export default function EnrollmentManagement() {
                       >
                         <Edit2 size={14} />
                       </button>
+                      <button
+                        className="btn-delete"
+                        title="Delete"
+                        onClick={() => handleDeleteEnrollment(row.id)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      
 
-                      {(row.statusCode === "ACTIVE" || row.statusCode === "COMPLETED") &&
+                      {row.statusCode === "ACTIVE" && (
+                        <button
+                          className="btn-edit"
+                          title="Upload ID Image"
+                          onClick={() => openIdUploadModal(row)}
+                        >
+                          ID
+                        </button>
+                        
+                      )}
+                       {(row.statusCode === "ACTIVE" || row.statusCode === "COMPLETED") &&
                         getNextGrade(row.raw.grade_level).next && (
                           <button
                             className="btn-promote"
@@ -2086,24 +2104,6 @@ export default function EnrollmentManagement() {
                             <ArrowUpCircle size={14} />
                           </button>
                         )}
-
-                      {row.statusCode === "ACTIVE" && (
-                        <button
-                          className="btn-edit"
-                          title="Upload ID Image"
-                          onClick={() => openIdUploadModal(row)}
-                        >
-                          ID
-                        </button>
-                      )}
-
-                      <button
-                        className="btn-delete"
-                        title="Delete"
-                        onClick={() => handleDeleteEnrollment(row.id)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
                     </div>
                   </td>
                 </tr>
