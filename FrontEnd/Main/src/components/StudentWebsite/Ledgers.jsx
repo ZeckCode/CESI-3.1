@@ -303,26 +303,7 @@ export default function Ledgers() {
       <div className="ledger-content">
         {!isPrinting && (
           <>
-            <header className="ledger-header-flex">
-              <div className="header-title-area">
-                <div>
-                  <h2 className="title-text">Ledger</h2>
-                  <p style={{ margin: 0, color: "#64748b", fontSize: "0.95rem" }}>
-                    View tuition and payment ledger.
-                  </p>
-                </div>
-              </div>
-
-              <div className="header-actions">
-                <button
-                  type="button"
-                  className="btn-action btn-print"
-                  onClick={handlePrint}
-                >
-                  Print
-                </button>
-              </div>
-            </header>
+            
 
             <div className="ledger-tabs">
               <button
@@ -866,26 +847,32 @@ export default function Ledgers() {
 
                         <tbody>
                           {(student.installments || []).length > 0 ? (
-                            student.installments.map((item, itemIndex) => (
-                              <tr
-                                key={item.id || `${student.student_id}-${itemIndex}`}
-                              >
-                                <td>{item.installment_number || itemIndex + 1}</td>
-                                <td>{item.due_date || "—"}</td>
-                                <td>{item.description || "Installment"}</td>
-                                <td>{formatCurrency(item.amount_due)}</td>
-                                <td>{formatCurrency(item.amount_paid)}</td>
-                                <td>{formatCurrency(item.balance)}</td>
-                                <td>
-                                  <span
-                                    className="status-pill"
-                                    style={statusPillStyle(item.status)}
-                                  >
-                                    {item.status || "PENDING"}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))
+                            student.installments.map((item, itemIndex) => {
+                              const amount_due = Number(item.amount || 0);
+                              const amount_paid = item.is_paid ? amount_due : 0;
+                              const balance = amount_due - amount_paid;
+                              
+                              return (
+                                <tr
+                                  key={item.id || `${student.student_id}-${itemIndex}`}
+                                >
+                                  <td>{itemIndex + 1}</td>
+                                  <td>{item.due_date || "—"}</td>
+                                  <td>{item.type || "Installment"}</td>
+                                  <td>{formatCurrency(amount_due)}</td>
+                                  <td>{formatCurrency(amount_paid)}</td>
+                                  <td>{formatCurrency(balance)}</td>
+                                  <td>
+                                    <span
+                                      className="status-pill"
+                                      style={statusPillStyle(item.status)}
+                                    >
+                                      {item.status || "PENDING"}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })
                           ) : (
                             <tr>
                               <td
@@ -901,6 +888,49 @@ export default function Ledgers() {
                             </tr>
                           )}
                         </tbody>
+
+                        {(student.installments || []).length > 0 && (
+                          <tfoot>
+                            <tr
+                              style={{
+                                background: "#f8fafc",
+                                borderTop: "2px solid #dbeafe",
+                                fontWeight: 700,
+                              }}
+                            >
+                              <td colSpan="3" style={{ textAlign: "right" }}>
+                                TOTAL:
+                              </td>
+                              <td style={{ textAlign: "right" }}>
+                                {formatCurrency(
+                                  (student.installments || []).reduce(
+                                    (sum, item) => sum + Number(item.amount || 0),
+                                    0
+                                  )
+                                )}
+                              </td>
+                              <td style={{ textAlign: "right" }}>
+                                {formatCurrency(
+                                  (student.installments || []).reduce(
+                                    (sum, item) => 
+                                      sum + (item.is_paid ? Number(item.amount || 0) : 0),
+                                    0
+                                  )
+                                )}
+                              </td>
+                              <td style={{ textAlign: "right", color: "#dc2626" }}>
+                                {formatCurrency(
+                                  (student.installments || []).reduce(
+                                    (sum, item) => 
+                                      sum + (item.is_paid ? 0 : Number(item.amount || 0)),
+                                    0
+                                  )
+                                )}
+                              </td>
+                              <td></td>
+                            </tr>
+                          </tfoot>
+                        )}
                       </table>
                     </div>
                   </div>

@@ -173,7 +173,25 @@ Write-Ok "Python packages up to date"
 # Run migrations
 Write-Step "Applying database migrations..."
 Push-Location "$BackendDir"
-& "$VenvPython" manage.py migrate --run-syncdb 2>&1 | Out-Null
+
+Write-Step "Creating new migrations (makemigrations)..."
+$makemigrationsOutput = & "$VenvPython" manage.py makemigrations --noinput 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Err "makemigrations failed"
+    Write-Err $makemigrationsOutput
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+Write-Ok "makemigrations succeeded"
+
+Write-Step "Running migrate..."
+$migrateOutput = & "$VenvPython" manage.py migrate --run-syncdb 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Err "migrate failed"
+    Write-Err $migrateOutput
+    Read-Host "Press Enter to exit"
+    exit 1
+}
 Write-Ok "Migrations applied"
 
 # Import seed data from JSON if available and database is empty
@@ -197,20 +215,84 @@ Pop-Location
 # =============================================
 Write-Step "Setting up Frontend..."
 
-Push-Location "$FrontendDir"
-if (-not (Test-Path "node_modules")) {
-    Write-Warn "node_modules not found - running npm install..."
-    & npm install
-} else {
-    Write-Step "Checking for updated npm packages..."
-    & npm install --prefer-offline --no-audit --no-fund 2>&1 | Out-Null
+function Test-NpmPackageInstalled {
+    param(
+        [string]$PackageName
+    )
+
+    & npm ls $PackageName --depth=0 *> $null
+    return ($LASTEXITCODE -eq 0)
 }
 
-# Ensure PDF export dependencies are present for frontend JSDoc exports
-Write-Step "Installing jsPDF and jsPDF-AutoTable (frontend)"
-& npm install jspdf@2.5.1 jspdf-autotable@3.5.31 --save
+Push-Location "$FrontendDir"
 
-Write-Ok "npm packages up to date"
+$packageJsonPath = Join-Path $FrontendDir "package.json"
+$packageLockPath = Join-Path $FrontendDir "package-lock.json"
+$nodeModulesPath = Join-Path $FrontendDir "node_modules"
+
+if (-not (Test-Path $packageJsonPath)) {
+    Write-Err "package.json not found in frontend: $FrontendDir"
+    Pop-Location
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+
+$needsNpmInstall = $false
+
+if (-not (Test-Path $nodeModulesPath)) {
+    Write-Warn "node_modules not found - frontend dependencies need install"
+    $needsNpmInstall = $true
+}
+elseif (Test-Path $packageLockPath) {
+    $lockTime = (Get-Item $packageLockPath).LastWriteTime
+    $modulesTime = (Get-Item $nodeModulesPath).LastWriteTime
+    if ($lockTime -gt $modulesTime) {
+        Write-Warn "package-lock.json is newer than node_modules - refreshing frontend packages"
+        $needsNpmInstall = $true
+    }
+}
+
+if ($needsNpmInstall) {
+    Write-Step "Installing frontend packages..."
+    & npm install --legacy-peer-deps --no-audit --no-fund
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "npm install failed"
+        Pop-Location
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
+    Write-Ok "Frontend packages installed"
+} else {
+    Write-Ok "Frontend packages already installed - skipping npm install"
+}
+
+# Ensure required libraries exist, but do NOT reinstall every run
+$missingFrontendPackages = @()
+
+if (-not (Test-NpmPackageInstalled "react-quill-new")) {
+    $missingFrontendPackages += "react-quill-new"
+}
+if (-not (Test-NpmPackageInstalled "jspdf")) {
+    $missingFrontendPackages += "jspdf@2.5.1"
+}
+if (-not (Test-NpmPackageInstalled "jspdf-autotable")) {
+    $missingFrontendPackages += "jspdf-autotable@3.5.31"
+}
+
+if ($missingFrontendPackages.Count -gt 0) {
+    Write-Step "Installing missing frontend libraries: $($missingFrontendPackages -join ', ')"
+    & npm install --save --legacy-peer-deps --no-audit --no-fund @missingFrontendPackages
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Failed to install required frontend libraries"
+        Pop-Location
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
+    Write-Ok "Required frontend libraries installed"
+} else {
+    Write-Ok "react-quill-new, jspdf and jspdf-autotable already installed"
+}
+
 Pop-Location
 
 # =============================================

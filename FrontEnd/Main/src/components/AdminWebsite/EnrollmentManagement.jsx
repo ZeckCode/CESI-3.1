@@ -2,13 +2,15 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Edit2, Trash2, Search, Filter,
   CheckCircle, Clock, AlertCircle, XCircle, Eye, RefreshCw,
-  AlertTriangle, ArrowUpCircle, Settings, Calendar, X,
+  AlertTriangle, ArrowUpCircle, FileText, Settings, Calendar, X,
   Users, UserCheck, UserMinus, UserX, Paperclip, ExternalLink,
 } from "lucide-react";
 import StatCard, { StatsGrid } from "./StatCard";
 import Pagination from "./Pagination";
 import "../AdminWebsiteCSS/EnrollmentManagement.css";
 import { getToken } from "../Auth/auth";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const API_BASE = "http://127.0.0.1:8000";
 
@@ -454,6 +456,111 @@ const Toast = ({ toasts, onDismiss }) => (
     ))}
   </div>
 );
+
+const exportToPDF = (enrollments, stats, window_) => {
+  // Create new PDF document
+  const doc = new jsPDF('landscape');
+  
+  // Add title and header
+  doc.setFontSize(18);
+  doc.setTextColor(33, 37, 41);
+  doc.text('Enrollment Report', 14, 15);
+  
+  // Add date
+  doc.setFontSize(10);
+  doc.setTextColor(108, 117, 125);
+  const currentDate = new Date().toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  doc.text(`Generated: ${currentDate}`, 14, 22);
+  
+  // Add stats summary
+  doc.setFontSize(12);
+  doc.setTextColor(33, 37, 41);
+  doc.text('Summary Statistics', 14, 35);
+  
+  const statsData = [
+    ['Total Enrollments', stats.total.toString()],
+    ['Active/Enrolled', stats.active.toString()],
+    ['Pending', stats.pending.toString()],
+    ['Declined/Dropped', stats.dropped.toString()],
+    ['Expired', stats.expired.toString()],
+    ['Enrollment Status', window_.isOpen ? `Open (${window_.daysLeft} days left)` : 'Closed'],
+    ['Academic Year', window_.academicYear || '—'],
+  ];
+  
+  // Use autoTable function directly
+  autoTable(doc, {
+    startY: 40,
+    head: [['Metric', 'Value']],
+    body: statsData,
+    theme: 'grid',
+    headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
+    bodyStyles: { fontSize: 9 },
+    margin: { left: 14, right: 14 },
+    columnStyles: {
+      0: { cellWidth: 80 },
+      1: { cellWidth: 40 }
+    }
+  });
+  
+  // Add enrollment data table
+  const finalY = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(12);
+  doc.setTextColor(33, 37, 41);
+  doc.text('Enrollment Details', 14, finalY);
+  
+  // Prepare table data
+  const tableData = enrollments.map(enrollment => [
+    enrollment.studentName,
+    enrollment.gradeLevel,
+    enrollment.sectionName,
+    enrollment.enrollmentDate ? new Date(enrollment.enrollmentDate).toLocaleDateString() : '—',
+    enrollment.statusText + (enrollment.expired ? ' (Expired)' : ''),
+    enrollment.fee === 'cash' || enrollment.fee === 'Paid' ? 'Cash' : 'Installment',
+    enrollment.parentName,
+    enrollment.phone
+  ]);
+  
+  // Add enrollment table
+  autoTable(doc, {
+    startY: finalY + 5,
+    head: [['Student Name', 'Grade', 'Section', 'Enrollment Date', 'Status', 'Payment', 'Parent/Guardian', 'Contact']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8, cellPadding: 3 },
+    bodyStyles: { fontSize: 7, cellPadding: 3 },
+    margin: { left: 14, right: 14 },
+    columnStyles: {
+      0: { cellWidth: 35 },
+      1: { cellWidth: 25 },
+      2: { cellWidth: 25 },
+      3: { cellWidth: 28 },
+      4: { cellWidth: 28 },
+      5: { cellWidth: 25 },
+      6: { cellWidth: 35 },
+      7: { cellWidth: 35 }
+    }
+  });
+  
+  // Add footer with page number
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(108, 117, 125);
+    doc.text(
+      `Page ${i} of ${pageCount}`,
+      doc.internal.pageSize.width - 20,
+      doc.internal.pageSize.height - 10
+    );
+  }
+  
+  // Save the PDF
+  doc.save(`enrollment_report_${new Date().toISOString().split('T')[0]}.pdf`);
+};
 
 const EnrollmentSection = ({ title, icon, full = false, children }) => (
   <section
@@ -1598,6 +1705,13 @@ export default function EnrollmentManagement() {
             <button className="btn-icon" onClick={fetchEnrollments} title="Refresh">
               <RefreshCw size={16} />
             </button>
+            <button 
+              className="btn-icon" 
+              onClick={() => exportToPDF(normalized, stats, window_)}
+              title="Export to PDF"             
+            >
+              <FileText size={16} />
+            </button>
             <button
               className={`btn-icon ${settingsOpen ? "btn-icon--active" : ""}`}
               onClick={() => setSettingsOpen((v) => !v)}
@@ -1937,7 +2051,7 @@ export default function EnrollmentManagement() {
                     )}
                   </td>
                   <td>
-                    <div className="action-buttons">
+                    <div className="action-buttons" style={{ justifyContent: "flex-start" }}>
                       <button className="btn-edit" title="View" onClick={() => openModal(row, "view")}>
                         <Eye size={14} />
                       </button>
@@ -1959,8 +2073,26 @@ export default function EnrollmentManagement() {
                       >
                         <Edit2 size={14} />
                       </button>
+                      <button
+                        className="btn-delete"
+                        title="Delete"
+                        onClick={() => handleDeleteEnrollment(row.id)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      
 
-                      {(row.statusCode === "ACTIVE" || row.statusCode === "COMPLETED") &&
+                      {row.statusCode === "ACTIVE" && (
+                        <button
+                          className="btn-edit"
+                          title="Upload ID Image"
+                          onClick={() => openIdUploadModal(row)}
+                        >
+                          ID
+                        </button>
+                        
+                      )}
+                       {(row.statusCode === "ACTIVE" || row.statusCode === "COMPLETED") &&
                         getNextGrade(row.raw.grade_level).next && (
                           <button
                             className="btn-promote"
@@ -1972,24 +2104,6 @@ export default function EnrollmentManagement() {
                             <ArrowUpCircle size={14} />
                           </button>
                         )}
-
-                      {row.statusCode === "ACTIVE" && (
-                        <button
-                          className="btn-edit"
-                          title="Upload ID Image"
-                          onClick={() => openIdUploadModal(row)}
-                        >
-                          ID
-                        </button>
-                      )}
-
-                      <button
-                        className="btn-delete"
-                        title="Delete"
-                        onClick={() => handleDeleteEnrollment(row.id)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
                     </div>
                   </td>
                 </tr>
@@ -2416,111 +2530,109 @@ export default function EnrollmentManagement() {
               </EnrollmentSection>
 
               <EnrollmentSection title="Parent / Guardian Information" icon="👨‍👩‍👧" full>
-                <div className="form-row">
-                  <div>
-                    <p className="parent-section-label">Mother</p>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>First Name</label>
-                        <input
-                          name="mother_first"
-                          value={formData.parent_info.mother_first}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Middle Name</label>
-                        <input
-                          name="mother_middle"
-                          value={formData.parent_info.mother_middle}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                    </div>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Last Name</label>
-                        <input
-                          name="mother_last"
-                          value={formData.parent_info.mother_last}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Contact Number</label>
-                        <input
-                          name="mother_contact"
-                          value={formData.parent_info.mother_contact}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
+                <div>
+                  <p className="parent-section-label">Mother</p>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>First Name</label>
+                      <input
+                        name="mother_first"
+                        value={formData.parent_info.mother_first}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
                     </div>
                     <div className="form-group">
-                      <label>Occupation</label>
+                      <label>Middle Name</label>
                       <input
-                        name="mother_occupation"
-                        value={formData.parent_info.mother_occupation}
+                        name="mother_middle"
+                        value={formData.parent_info.mother_middle}
                         onChange={handleParentChange}
                         disabled={isReadOnly}
                       />
                     </div>
                   </div>
-
-                  <div>
-                    <p className="parent-section-label">Father</p>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>First Name</label>
-                        <input
-                          name="father_first"
-                          value={formData.parent_info.father_first}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Middle Name</label>
-                        <input
-                          name="father_middle"
-                          value={formData.parent_info.father_middle}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                    </div>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Last Name</label>
-                        <input
-                          name="father_last"
-                          value={formData.parent_info.father_last}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Contact Number</label>
-                        <input
-                          name="father_contact"
-                          value={formData.parent_info.father_contact}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                    </div>
+                  <div className="form-row">
                     <div className="form-group">
-                      <label>Occupation</label>
+                      <label>Last Name</label>
                       <input
-                        name="father_occupation"
-                        value={formData.parent_info.father_occupation}
+                        name="mother_last"
+                        value={formData.parent_info.mother_last}
                         onChange={handleParentChange}
                         disabled={isReadOnly}
                       />
                     </div>
+                    <div className="form-group">
+                      <label>Contact Number</label>
+                      <input
+                        name="mother_contact"
+                        value={formData.parent_info.mother_contact}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Occupation</label>
+                    <input
+                      name="mother_occupation"
+                      value={formData.parent_info.mother_occupation}
+                      onChange={handleParentChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="parent-section-label">Father</p>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>First Name</label>
+                      <input
+                        name="father_first"
+                        value={formData.parent_info.father_first}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Middle Name</label>
+                      <input
+                        name="father_middle"
+                        value={formData.parent_info.father_middle}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Last Name</label>
+                      <input
+                        name="father_last"
+                        value={formData.parent_info.father_last}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Contact Number</label>
+                      <input
+                        name="father_contact"
+                        value={formData.parent_info.father_contact}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Occupation</label>
+                    <input
+                      name="father_occupation"
+                      value={formData.parent_info.father_occupation}
+                      onChange={handleParentChange}
+                      disabled={isReadOnly}
+                    />
                   </div>
                 </div>
 

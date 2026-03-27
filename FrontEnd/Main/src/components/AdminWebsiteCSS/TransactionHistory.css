@@ -341,6 +341,12 @@
   align-items: center;
 }
 
+.th-header-actions button {
+  padding: 8px 16px;
+  font-size: 13px;
+  height: 38px;
+}
+
 /* Success (green) button */
 .th-btn-success {
   background: linear-gradient(135deg, #10b981, #059669);
