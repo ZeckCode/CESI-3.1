@@ -151,6 +151,10 @@ export async function listMessageDeletionLogs() {
   return apiFetchData(`${API_BASE}/deletion-logs/`);
 }
 
+export async function listChatRestrictionAuditLogs() {
+  return apiFetchData(`${API_BASE}/restriction-audit-logs/`);
+}
+
 // ═══════════════════════════════════════════════════════════
 // PROFANITY MANAGEMENT (Admin Only)
 // ═══════════════════════════════════════════════════════════

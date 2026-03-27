@@ -318,6 +318,36 @@ class ChatRestriction(models.Model):
         return True
 
 
+class ChatRestrictionAuditLog(models.Model):
+    """Audit log for restriction lifecycle actions."""
+    ACTION_CHOICES = [
+        ('LIFTED', 'Lifted'),
+        ('APPLIED', 'Applied'),
+    ]
+
+    restriction = models.ForeignKey(
+        ChatRestriction,
+        on_delete=models.CASCADE,
+        related_name='audit_logs'
+    )
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    performed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='restriction_audit_actions'
+    )
+    details = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_action_display()} restriction {self.restriction.id} by {self.performed_by.username if self.performed_by else 'unknown'}"
+
+
 class MessageDeletionLog(models.Model):
     """Audit log of messages deleted by admins or teachers."""
     message = models.ForeignKey(

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.utils import timezone
 from .models import (
-    ProfanityWord, Chat, ChatMember, Message, ChatRestriction, MessageFlag,
+    ProfanityWord, Chat, ChatMember, Message, ChatRestriction, ChatRestrictionAuditLog, MessageFlag,
     ChatRequest, MessageReport, MessageDeletionLog, decrypt_message
 )
 from accounts.models import User, Section, Subject
@@ -195,6 +195,28 @@ class ChatRestrictionSerializer(serializers.ModelSerializer):
     def get_is_global(self, obj):
         """Return whether this is a global restriction."""
         return obj.chat is None
+
+
+class ChatRestrictionAuditLogSerializer(serializers.ModelSerializer):
+    restriction_id = serializers.IntegerField(source='restriction.id', read_only=True)
+    restriction_user = serializers.SerializerMethodField()
+    restriction_chat_name = serializers.SerializerMethodField()
+    performed_by = UserMinimalSerializer(read_only=True)
+
+    class Meta:
+        model = ChatRestrictionAuditLog
+        fields = ['id', 'restriction_id', 'restriction_user', 'restriction_chat_name', 'action', 'performed_by', 'details', 'created_at']
+        read_only_fields = ['id', 'restriction_id', 'restriction_user', 'restriction_chat_name', 'performed_by', 'created_at']
+
+    def get_restriction_user(self, obj):
+        return obj.restriction.user.username if obj.restriction.user else 'Unknown'
+
+    def get_restriction_chat_name(self, obj):
+        if obj.restriction.chat is None:
+            return 'Global'
+        if obj.restriction.chat.name:
+            return obj.restriction.chat.name
+        return f'Chat #{obj.restriction.chat.id}'
 
 
 class MessageDeletionLogSerializer(serializers.ModelSerializer):

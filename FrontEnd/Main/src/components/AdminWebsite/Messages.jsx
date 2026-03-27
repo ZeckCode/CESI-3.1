@@ -12,6 +12,7 @@ import {
   listMessageReports,
   reviewMessageReport,
   listMessageDeletionLogs,
+  listChatRestrictionAuditLogs,
 } from "../api/messaging";
 import { getToken } from "../Auth/auth";
 
@@ -34,7 +35,8 @@ const AdminMessages = () => {
   const [flaggedMessages, setFlaggedMessages] = useState([]);
   const [selectedFlagModal, setSelectedFlagModal] = useState(null);
   const [flagRestrictionType, setFlagRestrictionType] = useState("TEMP_MUTE");
-  const [flagRestrictionDuration, setFlagRestrictionDuration] = useState(24);
+  const [flagRestrictionHours, setFlagRestrictionHours] = useState(0);
+  const [flagRestrictionMinutes, setFlagRestrictionMinutes] = useState(30);
   const [flagAdminNotes, setFlagAdminNotes] = useState("");
   const [flagActionSubmitting, setFlagActionSubmitting] = useState(false);
 
@@ -45,6 +47,7 @@ const AdminMessages = () => {
   // Message Reports State
   const [messageReports, setMessageReports] = useState([]);
   const [deletionLogs, setDeletionLogs] = useState([]);
+  const [restrictionAuditLogs, setRestrictionAuditLogs] = useState([]);
   const [selectedReportModal, setSelectedReportModal] = useState(null);
   const [reportAdminNotes, setReportAdminNotes] = useState("");
   const [reportActionSubmitting, setReportActionSubmitting] = useState(false);
@@ -63,13 +66,14 @@ const AdminMessages = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [wordsRes, flagsRes, restrictionsRes, reportsRes, deletionLogsRes] =
+      const [wordsRes, flagsRes, restrictionsRes, reportsRes, deletionLogsRes, restrictionAuditLogsRes] =
         await Promise.all([
           listProfanityWords(),
           listFlaggedMessages(),
           listChatRestrictions(),
           listMessageReports('PENDING'),
           listMessageDeletionLogs(),
+          listChatRestrictionAuditLogs(),
         ]);
 
       setProfanityWords(wordsRes || []);
@@ -77,6 +81,7 @@ const AdminMessages = () => {
       setRestrictions(restrictionsRes || []);
       setMessageReports(reportsRes.results || reportsRes || []);
       setDeletionLogs(deletionLogsRes || []);
+      setRestrictionAuditLogs(restrictionAuditLogsRes || []);
       setError("");
     } catch (err) {
       setError("Failed to load data");
@@ -149,7 +154,14 @@ const AdminMessages = () => {
       if (action === "restrict") {
         const isPermanent = flagRestrictionType === "PERMANENT_REMOVE";
         options.is_permanent = isPermanent;
-        options.restrict_duration = isPermanent ? undefined : flagRestrictionDuration;
+        if (!isPermanent) {
+          options.restrict_duration_hours = Number(flagRestrictionHours || 0);
+          options.restrict_duration_minutes = Number(flagRestrictionMinutes || 0);
+          // next layer: minimal duration 1 minute if nothing set
+          if (options.restrict_duration_hours === 0 && options.restrict_duration_minutes === 0) {
+            options.restrict_duration_minutes = 30;
+          }
+        }
         options.admin_notes = flagAdminNotes;
       }
 
@@ -289,6 +301,16 @@ const AdminMessages = () => {
       actor: log.deleted_by ? getUserDisplayName(log.deleted_by) : "Unknown",
       chat: log.message_chat_name || "Unknown",
       details: `Reason: ${log.reason}`,
+      timestamp: log.created_at,
+    })),
+    ...restrictionAuditLogs.map((log) => ({
+      id: `restriction-audit-${log.id}`,
+      type: log.action === 'LIFTED' ? 'Lifted Restriction' : 'Restriction Action',
+      status: log.action,
+      target: log.restriction_user || 'Unknown',
+      actor: log.performed_by ? getUserDisplayName(log.performed_by) : 'Unknown',
+      chat: log.restriction_chat_name || 'Unknown',
+      details: log.details || '',
       timestamp: log.created_at,
     })),
   ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -614,18 +636,31 @@ const AdminMessages = () => {
                     </div>
 
                     {flagRestrictionType === "TEMP_MUTE" && (
-                      <div className="admin-form-group">
-                        <label className="admin-detail-label">Duration (Hours)</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="168"
-                          value={flagRestrictionDuration}
-                          onChange={(e) => setFlagRestrictionDuration(parseInt(e.target.value))}
-                          disabled={flagActionSubmitting}
-                          placeholder="Duration (hours)"
-                          className="admin-form-input"
-                        />
+                      <div className="admin-form-group" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 120px' }}>
+                          <label className="admin-detail-label">Hours</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="24"
+                            value={flagRestrictionHours}
+                            onChange={(e) => setFlagRestrictionHours(Math.max(0, Math.min(24, Number(e.target.value))))}
+                            disabled={flagActionSubmitting}
+                            className="admin-form-input"
+                          />
+                        </div>
+                        <div style={{ flex: '1 1 120px' }}>
+                          <label className="admin-detail-label">Minutes</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="60"
+                            value={flagRestrictionMinutes}
+                            onChange={(e) => setFlagRestrictionMinutes(Math.max(0, Math.min(60, Number(e.target.value))))}
+                            disabled={flagActionSubmitting}
+                            className="admin-form-input"
+                          />
+                        </div>
                       </div>
                     )}
 

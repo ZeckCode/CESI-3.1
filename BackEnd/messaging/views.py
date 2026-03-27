@@ -8,15 +8,15 @@ from django.db.models import Q, Count
 import re
 
 from .models import (
-    ProfanityWord, Chat, ChatMember, Message, ChatRestriction, MessageFlag,
+    ProfanityWord, Chat, ChatMember, Message, ChatRestriction, ChatRestrictionAuditLog, MessageFlag,
     ChatRequest, MessageReport, MessageDeletionLog, encrypt_message
 )
 from .serializers import (
     ProfanityWordSerializer, ChatListSerializer, ChatDetailSerializer,
     ChatMemberSerializer, MessageSerializer, ChatRestrictionSerializer,
-    MessageFlagSerializer, MessageDeletionLogSerializer, ChatCreateSerializer, MessageCreateSerializer,
-    ChatRequestSerializer, ChatRequestCreateSerializer, MessageReportSerializer,
-    MessageReportCreateSerializer
+    ChatRestrictionAuditLogSerializer, MessageFlagSerializer, MessageDeletionLogSerializer,
+    ChatCreateSerializer, MessageCreateSerializer, ChatRequestSerializer,
+    ChatRequestCreateSerializer, MessageReportSerializer, MessageReportCreateSerializer
 )
 from accounts.models import User, Section, Subject
 
@@ -592,7 +592,6 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
 
         flag = self.get_object()
         action_type = request.data.get('action')  # 'delete', 'restrict', 'approve', 'dismiss'
-        restrict_duration = request.data.get('restrict_duration')  # hours (for temp mute)
         admin_notes = request.data.get('admin_notes', '')
 
         if action_type == 'delete':
@@ -605,12 +604,45 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
         elif action_type == 'restrict':
             # Restrict user globally (across all chats) - temp mute or permanent remove
             is_permanent = bool(request.data.get('is_permanent', False))
-            restrict_duration = request.data.get('restrict_duration')
-            if restrict_duration is not None:
+
+            # Support hours+minutes in request, fallback to old restrict_duration hours
+            restrict_hours = request.data.get('restrict_duration_hours')
+            restrict_minutes = request.data.get('restrict_duration_minutes')
+            raw_duration = request.data.get('restrict_duration')
+
+            parsed_hours = None
+            parsed_minutes = None
+
+            if restrict_hours is not None:
                 try:
-                    restrict_duration = int(restrict_duration)
+                    parsed_hours = int(restrict_hours)
                 except (ValueError, TypeError):
-                    restrict_duration = None
+                    parsed_hours = 0
+
+            if restrict_minutes is not None:
+                try:
+                    parsed_minutes = int(restrict_minutes)
+                except (ValueError, TypeError):
+                    parsed_minutes = 0
+
+            if parsed_hours is None and raw_duration is not None:
+                try:
+                    parsed_hours = int(raw_duration)
+                except (ValueError, TypeError):
+                    parsed_hours = 0
+
+            parsed_hours = parsed_hours if parsed_hours is not None else 0
+            parsed_minutes = parsed_minutes if parsed_minutes is not None else 0
+
+            parsed_hours = max(0, parsed_hours)
+            parsed_minutes = max(0, min(60, parsed_minutes))
+
+            if parsed_hours == 0 and parsed_minutes == 0:
+                parsed_minutes = 30
+
+            restriction_duration_delta = timedelta(hours=parsed_hours, minutes=parsed_minutes)
+            if restriction_duration_delta.total_seconds() <= 0:
+                restriction_duration_delta = timedelta(minutes=30)
 
             restriction, created = ChatRestriction.objects.get_or_create(
                 chat=None,  # Global restriction - applies to ALL chats
@@ -619,7 +651,7 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
                     'restriction_type': 'PERMANENT_REMOVE' if is_permanent else 'TEMP_MUTE',
                     'restricted_by': request.user,
                     'reason': f"Flagged message with words: {flag.flagged_words}",
-                    'expires_at': None if is_permanent else (timezone.now() + timedelta(hours=(restrict_duration or 24))),
+                    'expires_at': None if is_permanent else (timezone.now() + restriction_duration_delta),
                 }
             )
 
@@ -629,7 +661,7 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
                     restriction.expires_at = None
                 else:
                     restriction.restriction_type = 'TEMP_MUTE'
-                    restriction.expires_at = timezone.now() + timedelta(hours=(restrict_duration or 24))
+                    restriction.expires_at = timezone.now() + restriction_duration_delta
                 restriction.restricted_by = request.user
                 restriction.reason = f"Flagged message with words: {flag.flagged_words}"
                 restriction.save()
@@ -664,6 +696,42 @@ class ChatRestrictionViewSet(viewsets.ModelViewSet):
             return ChatRestriction.objects.none()
         return ChatRestriction.objects.all()
 
+    @action(detail=True, methods=['post'])
+    def lift_restriction(self, request, pk=None):
+        """Admin lifts a restriction and records an audit log."""
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only admins can lift restrictions.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        restriction = self.get_object()
+        restriction.expires_at = timezone.now()
+        restriction.save(update_fields=['expires_at'])
+
+        ChatRestrictionAuditLog.objects.create(
+            restriction=restriction,
+            action='LIFTED',
+            performed_by=request.user,
+            details=request.data.get('details', 'Restriction lifted by admin'),
+        )
+
+        return Response(
+            {'detail': 'Restriction lifted (archived).'},
+            status=status.HTTP_200_OK
+        )
+
+
+class ChatRestrictionAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """Auditable log of restriction actions."""
+    permission_classes = [IsAuthenticated]
+    serializer_class = ChatRestrictionAuditLogSerializer
+
+    def get_queryset(self):
+        if self.request.user.role != 'ADMIN':
+            return ChatRestrictionAuditLog.objects.none()
+        return ChatRestrictionAuditLog.objects.all().order_by('-created_at')
+
 
 class MessageDeletionLogViewSet(viewsets.ReadOnlyModelViewSet):
     """Auditable log of deleted messages."""
@@ -684,24 +752,6 @@ class MessageDeletionLogViewSet(viewsets.ReadOnlyModelViewSet):
             )
         return super().create(request, *args, **kwargs)
 
-    @action(detail=True, methods=['post'])
-    def lift_restriction(self, request, pk=None):
-        """Admin lifts a restriction."""
-        if request.user.role != 'ADMIN':
-            return Response(
-                {'detail': 'Only admins can lift restrictions.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        restriction = self.get_object()
-        # Keep record for audit history: mark as expired immediately (soft lift)
-        restriction.expires_at = timezone.now()
-        restriction.save(update_fields=['expires_at'])
-
-        return Response(
-            {'detail': 'Restriction lifted (archived).'},
-            status=status.HTTP_200_OK
-        )
 
 
 # ═══════════════════════════════════════════════════════════

@@ -141,33 +141,52 @@ const GradesRecords = () => {
       setLoading(true);
       setError('');
       try {
-        const [gradesData, historyData, attendanceData] = await Promise.all([
-          apiFetchData(`/api/grades/admin-monitoring/?quarter=${quarter}`),
-          apiFetchData('/api/grades/academic-history/'),
-          apiFetchData(`/api/attendance/records/?date=${selectedDate}`),
-        ]);
+        if (activeTab === 'grades') {
+          const gradesData = await apiFetchData(`/api/grades/admin-monitoring/?quarter=${quarter}&page=${page}`);
+          if (cancelled) return;
 
-        if (cancelled) return;
-        
-        // Add defensive checks to prevent data cross-contamination
-        const validGradesData = gradesData && typeof gradesData === 'object' 
-          ? { 
-              summary: gradesData.summary || {}, 
-              students: Array.isArray(gradesData.students) ? gradesData.students : [], 
-              quarter 
-            }
-          : { summary: {}, students: [], quarter };
-        
-        const validHistoryData = Array.isArray(historyData) ? historyData : [];
-        const validAttendanceData = Array.isArray(attendanceData) ? attendanceData : [];
-        
-        setGradeMonitoring(validGradesData);
-        setHistoryRecords(validHistoryData);
-        setAttendanceRecords(validAttendanceData);
+          const validGradesData = gradesData && typeof gradesData === 'object'
+            ? {
+                summary: gradesData.summary || {},
+                students: Array.isArray(gradesData.students) ? gradesData.students : [],
+                quarter,
+              }
+            : { summary: {}, students: [], quarter };
+
+          setGradeMonitoring(validGradesData);
+          // Clear other tab data to avoid cross-tab leakage
+          setHistoryRecords([]);
+          setAttendanceRecords([]);
+        } else if (activeTab === 'history') {
+          const historyData = await apiFetchData(`/api/grades/academic-history/?page=${page}`);
+          if (cancelled) return;
+
+          const validHistoryData = Array.isArray(historyData)
+            ? historyData
+            : Array.isArray(historyData?.results)
+            ? historyData.results
+            : [];
+
+          setHistoryRecords(validHistoryData);
+          setGradeMonitoring({ summary: {}, students: [], quarter });
+          setAttendanceRecords([]);
+        } else if (activeTab === 'attendance') {
+          const attendanceData = await apiFetchData(`/api/attendance/records/?date=${selectedDate}&page=${page}`);
+          if (cancelled) return;
+
+          const validAttendanceData = Array.isArray(attendanceData)
+            ? attendanceData
+            : Array.isArray(attendanceData?.results)
+            ? attendanceData.results
+            : [];
+
+          setAttendanceRecords(validAttendanceData);
+          setGradeMonitoring({ summary: {}, students: [], quarter });
+          setHistoryRecords([]);
+        }
       } catch (fetchError) {
         if (cancelled) return;
         setError(fetchError.message || 'Failed to load grade and records monitoring data.');
-        // Set empty data on error to prevent stale data issues
         setGradeMonitoring({ summary: {}, students: [], quarter });
         setHistoryRecords([]);
         setAttendanceRecords([]);
@@ -180,7 +199,7 @@ const GradesRecords = () => {
     return () => {
       cancelled = true;
     };
-  }, [quarter, selectedDate]);
+  }, [activeTab, quarter, selectedDate, page]);
 
   useEffect(() => {
     setPage(1);
