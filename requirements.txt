@@ -21,4 +21,5 @@ django-quill-editor>=0.1.42
 
 # In case of direct backend quill usage - no backend advanced Quill packages currently used
 # Frontend dependencies are in FrontEnd/Main/package.json and managed by npm/yarn.
-gunicorn CESI.wsgi:application --bind 0.0.0.0:8000
+# Production Web Server
+gunicorn>=20.1,<21.0
