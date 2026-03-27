@@ -10,7 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,10 +22,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-8x_h%6zc09e!^ro6&dj$d+dwq&!8+pnn$4-^*_j4w^s933*@qh'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-dev-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# For testing in production_test branch, we keep True (dev/test). Set DJANGO_DEBUG=False in DigitalOcean when ready.
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
 
 
 
@@ -106,10 +109,10 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "ral531715@gmail.com"  # Your Gmail address
-EMAIL_HOST_PASSWORD = "mjacgbzzcjzubtmr"  # Gmail App Password (not normal password)
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'cesi.support@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'placeholder-password')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-FRONTEND_URL = "http://localhost:5173"
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
 # CORS settings for development - adjust for production as needed
 MIDDLEWARE = [
@@ -126,15 +129,29 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'CESI.urls'
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = True
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "162.159.140.98",
+    "172.66.0.96",
+    "*",  # Temporary for testing; replace with deployed hostname in production.
+]
 # CSRF / Session config for cross-origin dev
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
-    "http://127.0.0.1:5173",
- ]
+    # Add DigitalOcean frontend URL once available:
+    # "https://<your-app>.ondigitalocean.app",
+]
+CORS_ALLOW_ALL_ORIGINS = True  # Dev/testing only; set False in production.
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    # "https://<your-app>.ondigitalocean.app",
+]
+
 CORS_ALLOW_HEADERS = [
     "accept",
     "authorization",
@@ -176,10 +193,11 @@ WSGI_APPLICATION = 'CESI.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
+        ssl_require=False,
+    )
 }
 
 
@@ -218,6 +236,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 AUTH_USER_MODEL = 'accounts.User'
 
