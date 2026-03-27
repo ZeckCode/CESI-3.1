@@ -15,3 +15,9 @@ Pillow>=12.0,<13.0
 
 # cryptography (Fernet encryption for messaging module)
 cryptography>=46.0,<47.0
+
+# Optional package for Quill-like rich text field support in Django backend (frontend uses react-quill via npm)
+django-quill-editor>=0.7.0
+
+# In case of direct backend quill usage - no backend advanced Quill packages currently used
+# Frontend dependencies are in FrontEnd/Main/package.json and managed by npm/yarn.
