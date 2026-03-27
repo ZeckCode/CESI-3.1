@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import DOMPurify from "dompurify";
 import "../IndexWebsiteCSS/Notebook.css";
 import "../IndexWebsiteCSS/AnnouncementCard.css";
+import OrganizationalChart from "../AdminWebsite/OrganizationalChart";
 
 const API_BASE = ""; // use Vite proxy
 
@@ -11,6 +13,12 @@ const Notebook = ({ onClose, openEnrollment }) => {
   const [announcements, setAnnouncements] = useState([]);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
 
+  const [cmsData, setCmsData] = useState({
+    school: {},
+    mission: {},
+    contact: {},
+  });
+
   useEffect(() => {
     fetch(`${API_BASE}/api/announcements/`)
       .then((res) => res.json())
@@ -19,6 +27,12 @@ const Notebook = ({ onClose, openEnrollment }) => {
         setAnnouncements(list);
       })
       .catch((err) => console.error("Error fetching announcements:", err));
+
+    // Fetch CMS Content
+    fetch(`${API_BASE}/api/cms/school-info/`).then(res => res.json()).then(data => setCmsData(prev => ({...prev, school: data}))).catch(() => {});
+    fetch(`${API_BASE}/api/cms/mission-vision/`).then(res => res.json()).then(data => setCmsData(prev => ({...prev, mission: data}))).catch(() => {});
+    fetch(`${API_BASE}/api/cms/contact-inquiry/`).then(res => res.json()).then(data => setCmsData(prev => ({...prev, contact: data}))).catch(() => {});
+
   }, []);
 
   function toAbsUrl(path) {
@@ -114,8 +128,8 @@ const Notebook = ({ onClose, openEnrollment }) => {
       title: "School Information",
       content: (
         <>
-          <h3>Welcome to CESI!</h3>
-          <p>
+          <h3>{(cmsData.school && cmsData.school.school_name) ? cmsData.school.school_name : "Welcome to CESI!"}</h3>
+          <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((cmsData.school && cmsData.school.about_text) ? cmsData.school.about_text : `<p>
             Caloocan Evangelical School Inc. (CESI) is a School Ministry of
             Caloocan Evangelical Church Inc., dedicated to providing quality
             Christian education since 1982. We nurture young minds from Nursery,
@@ -131,7 +145,7 @@ const Notebook = ({ onClose, openEnrollment }) => {
             Program (Government Recognition No. E-011 S.2011 &amp; P-014 S.2011)
             <br />
             📍 <strong>Location:</strong> #47 P. Zamora St., Caloocan City
-          </p>
+          </p>`) }} />
         </>
       ),
     },
@@ -140,49 +154,11 @@ const Notebook = ({ onClose, openEnrollment }) => {
       title: "Mission & Vision",
       content: (
         <>
-          <h3>Philosophy</h3>
-          <p style={{ textAlign: "justify", textIndent: "2em" }}>
-            CESI shall train children in basic life concepts and in all phases
-            of developments: socially, emotionally, physically, intellectually
-            and spiritually with emphasis on the evidence of the Almighty God.
-            The school adheres to the spiritual mandate “Train up a child in the
-            way he should go, and when he is old, he will not turn from it.
-            (Proverbs 22:6)"
-          </p>
-
           <h3>Our Mission</h3>
-          <p style={{ textAlign: "justify", textIndent: "2em" }}>
-            The mission of the School aims to train young people in the basic
-            skills necessary for success in everyday living through effective,
-            flexible and challenging curriculum and approaches that will develop
-            in them autonomy, appropriate knowledge and attitude, proper study
-            habits, desirable Christian values, acceptable social behavior,
-            personal discipline, love of country, and respect for elders as a
-            preparation for further education.
-          </p>
+          <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((cmsData.mission && cmsData.mission.mission_text) ? cmsData.mission.mission_text : `<p>The mission of the School...</p>`) }} />
 
           <h3>Our Vision</h3>
-          <p style={{ textAlign: "justify", textIndent: "2em" }}>
-            The vision of the School states that CESI shall serve as a nucleus
-            for strong basic Christian education, proclaiming Jesus Christ as
-            Lord and Savior, and developing children to become well-rounded
-            persons: God-fearing, physically fit, emotionally stable, mentally
-            alert, socially adaptable and law-abiding citizens of the Republic
-            of the Philippines.
-          </p>
-
-          <h3>Core Values</h3>
-          <div style={{ display: "table", margin: "0 auto" }}>
-            <p style={{ textAlign: "left" }}>
-              <strong>C</strong>reative and Holistic
-              <br />
-              <strong>E</strong>nglish Speaking Environment
-              <br />
-              <strong>S</strong>ingapore Mathematics
-              <br />
-              <strong>I</strong>ntegrated Christian Values
-            </p>
-          </div>
+          <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((cmsData.mission && cmsData.mission.vision_text) ? cmsData.mission.vision_text : `<p>The vision of the School...</p>`) }} />
         </>
       ),
     },
@@ -198,23 +174,24 @@ const Notebook = ({ onClose, openEnrollment }) => {
         <>
           <h3>📞 Get in Touch</h3>
           <p>
-            <strong>Phone:</strong> (02) 8-285-3702 / 0905-299-6303
+            <strong>Phone:</strong> {(cmsData.contact && cmsData.contact.phone_number) ? cmsData.contact.phone_number : "(02) 8-285-3702 / 0905-299-6303"}
           </p>
           <p>
-            <strong>Email:</strong> caloocanevangelicalschool@gmail.com
+            <strong>Email:</strong> {(cmsData.contact && cmsData.contact.email) ? cmsData.contact.email : "caloocanevangelicalschool@gmail.com"}
           </p>
           <p>
-            <strong>Address:</strong> #47 P. Zamora St. Caloocan City, Metro
-            Manila
+            <strong>Address:</strong> {(cmsData.contact && cmsData.contact.address) ? cmsData.contact.address : "#47 P. Zamora St. Caloocan City, Metro Manila"}
           </p>
-
-          <h3>⏰ Office Hours</h3>
-          <p>Monday to Friday: 8:00 AM - 4:30 PM</p>
 
           <h3>💬 Social Media</h3>
-          <p>Facebook: @cesicaloocan</p>
+          <p>Facebook: <a href={(cmsData.contact && cmsData.contact.facebook_link) ? cmsData.contact.facebook_link : "https://facebook.com/cesicaloocan"} target="_blank" rel="noopener noreferrer">@cesicaloocan</a></p>
         </>
       ),
+    },
+
+    "org-chart": {
+      title: "Organizational Chart",
+      content: <OrganizationalChart />,
     },
   };
 

@@ -220,6 +220,12 @@
   display: flex;
   flex-direction: column;
   background: #fff;
+  min-height: 0;
+}
+
+.chatBody {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* chat header */

@@ -2,8 +2,8 @@
    CMS MODULE (ENHANCED DESIGN) - COMPLETE CSS
    ============================================ */
 
-/* Import Google Font for better typography */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* Avoid remote font import to prevent MIME type / blockers in restricted environments */
+/* Use local/system fallback fonts to maintain UI stability */
 
 .cms-container {
   padding: 20px;
@@ -153,7 +153,18 @@
 .cms-field textarea {
   resize: vertical;
   min-height: 120px;
-  line-height: 1.6;
+  line-height: 1.5;
+}
+
+/* React Quill Override */
+.ql-editor {
+  line-height: 1.2 !important;
+  font-size: 16px;
+}
+
+/* Make sure paragraphs inside the editor show the same spacing as the website */
+.ql-editor p {
+  margin-bottom: 10px;
 }
 
 /* File Input Styling */
@@ -400,7 +411,7 @@
 /* Content */
 .cms-post-content {
   margin: 4px 0 8px;
-  line-height: 1.7;
+  line-height: 1.5;
   color: #334155;
   font-size: 15px;
 }
@@ -800,7 +811,7 @@
 
 .cms-postmodal-content {
   margin: 0;
-  line-height: 1.8;
+  line-height: 1.5;
   color: #334155;
   white-space: pre-wrap;
 }

@@ -205,6 +205,11 @@ if (-not (Test-Path "node_modules")) {
     Write-Step "Checking for updated npm packages..."
     & npm install --prefer-offline --no-audit --no-fund 2>&1 | Out-Null
 }
+
+# Ensure PDF export dependencies are present for frontend JSDoc exports
+Write-Step "Installing jsPDF and jsPDF-AutoTable (frontend)"
+& npm install jspdf@2.5.1 jspdf-autotable@3.5.31 --save
+
 Write-Ok "npm packages up to date"
 Pop-Location
 

@@ -580,20 +580,16 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         if not enrollment.parent_user:
             return False
 
-        student_name = self._student_full_name(enrollment)
-        school_year = enrollment.academic_year or ""
-
         return Transaction.objects.filter(
             parent=enrollment.parent_user,
-            student_name=student_name,
-            school_year=school_year,
+            enrollment=enrollment,
             transaction_type="TUITION",
-            item__in=["REGISTRATION", "INITIAL"],
         ).exists()
-
+        
     def _create_transaction(
         self,
         *,
+        enrollment,
         parent_user,
         student_name,
         school_year,
@@ -608,9 +604,16 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         due_date=None,
         status_value="POSTED",
     ):
+        effective_student_number = self._get_effective_student_number(enrollment)
+
         return Transaction.objects.create(
             parent=parent_user,
+            enrollment=enrollment,
             student_name=student_name,
+            student_number_snapshot=effective_student_number,
+            grade_level_snapshot=enrollment.grade_level or "",
+            payment_mode_snapshot=enrollment.payment_mode or "",
+            student_type_snapshot=enrollment.student_type or "",
             school_year=school_year,
             semester=semester,
             transaction_type=transaction_type,
@@ -653,6 +656,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             total_cash = Decimal(str(tuition.total_cash or 0))
 
             self._create_transaction(
+                enrollment=enrollment,
                 parent_user=enrollment.parent_user,
                 student_name=student_name,
                 school_year=school_year,
@@ -669,6 +673,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             )
 
             self._create_transaction(
+                enrollment=enrollment,
                 parent_user=enrollment.parent_user,
                 student_name=student_name,
                 school_year=school_year,
@@ -691,6 +696,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 debit_status = "POSTED" if sched["item"] == "INITIAL" else "PENDING"
 
                 self._create_transaction(
+                    enrollment=enrollment,
                     parent_user=enrollment.parent_user,
                     student_name=student_name,
                     school_year=school_year,
@@ -710,6 +716,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             if initial > 0:
                 initial_due = date(2026, 5, 31)
                 self._create_transaction(
+                    enrollment=enrollment,
                     parent_user=enrollment.parent_user,
                     student_name=student_name,
                     school_year=school_year,

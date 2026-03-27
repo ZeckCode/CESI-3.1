@@ -126,7 +126,9 @@ const GradesRecords = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedDate, setSelectedDate] = useState(todayString());
   const [quarter, setQuarter] = useState(1);
+  const [filterSchoolYear, setFilterSchoolYear] = useState('all');
   const [expandedStudentId, setExpandedStudentId] = useState(null);
+  const [expandedHistoryStudentId, setExpandedHistoryStudentId] = useState(null);
   const [expandedAttendanceStudentId, setExpandedAttendanceStudentId] = useState(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -142,19 +144,55 @@ const GradesRecords = () => {
       setLoading(true);
       setError('');
       try {
-        const [gradesData, historyData, attendanceData] = await Promise.all([
-          apiFetchData(`/api/grades/admin-monitoring/?quarter=${quarter}`),
-          apiFetchData('/api/grades/academic-history/'),
-          apiFetchData(`/api/attendance/records/?date=${selectedDate}`),
-        ]);
+        if (activeTab === 'grades') {
+          const gradesData = await apiFetchData(`/api/grades/admin-monitoring/?quarter=${quarter}&page=${page}`);
+          if (cancelled) return;
 
-        if (cancelled) return;
-        setGradeMonitoring(gradesData || { summary: {}, students: [], quarter });
-        setHistoryRecords(Array.isArray(historyData) ? historyData : []);
-        setAttendanceRecords(Array.isArray(attendanceData) ? attendanceData : []);
+          const validGradesData = gradesData && typeof gradesData === 'object'
+            ? {
+                summary: gradesData.summary || {},
+                students: Array.isArray(gradesData.students) ? gradesData.students : [],
+                quarter,
+              }
+            : { summary: {}, students: [], quarter };
+
+          setGradeMonitoring(validGradesData);
+          // Clear other tab data to avoid cross-tab leakage
+          setHistoryRecords([]);
+          setAttendanceRecords([]);
+        } else if (activeTab === 'history') {
+          const historyData = await apiFetchData(`/api/grades/academic-history/?page=${page}`);
+          if (cancelled) return;
+
+          const validHistoryData = Array.isArray(historyData)
+            ? historyData
+            : Array.isArray(historyData?.results)
+            ? historyData.results
+            : [];
+
+          setHistoryRecords(validHistoryData);
+          setGradeMonitoring({ summary: {}, students: [], quarter });
+          setAttendanceRecords([]);
+        } else if (activeTab === 'attendance') {
+          const attendanceData = await apiFetchData(`/api/attendance/records/?date=${selectedDate}&page=${page}`);
+          if (cancelled) return;
+
+          const validAttendanceData = Array.isArray(attendanceData)
+            ? attendanceData
+            : Array.isArray(attendanceData?.results)
+            ? attendanceData.results
+            : [];
+
+          setAttendanceRecords(validAttendanceData);
+          setGradeMonitoring({ summary: {}, students: [], quarter });
+          setHistoryRecords([]);
+        }
       } catch (fetchError) {
         if (cancelled) return;
         setError(fetchError.message || 'Failed to load grade and records monitoring data.');
+        setGradeMonitoring({ summary: {}, students: [], quarter });
+        setHistoryRecords([]);
+        setAttendanceRecords([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -164,15 +202,22 @@ const GradesRecords = () => {
     return () => {
       cancelled = true;
     };
-  }, [quarter, selectedDate]);
+  }, [activeTab, quarter, selectedDate, page]);
 
   useEffect(() => {
     setPage(1);
-  }, [activeTab, searchTerm, filterGrade, filterSection, filterStatus, quarter, selectedDate]);
+  }, [activeTab, searchTerm, filterGrade, filterSection, filterStatus, filterSchoolYear, quarter, selectedDate]);
 
   useEffect(() => {
     setExpandedAttendanceStudentId(null);
   }, [activeTab, selectedDate, filterGrade, filterSection, filterStatus, searchTerm]);
+
+  // Reset all expansion states when switching tabs to prevent state leakage
+  useEffect(() => {
+    setExpandedStudentId(null);
+    setExpandedHistoryStudentId(null);
+    setExpandedAttendanceStudentId(null);
+  }, [activeTab]);
 
   const gradeOptions = useMemo(() => {
     const labels = new Set();
@@ -202,6 +247,15 @@ const GradesRecords = () => {
     return [...names].sort();
   }, [attendanceRecords, filterGrade, gradeMonitoring.students, historyRecords]);
 
+  // School year options from academic history
+  const schoolYearOptions = useMemo(() => {
+    const years = new Set();
+    historyRecords.forEach((row) => {
+      if (row.school_year) years.add(row.school_year);
+    });
+    return [...years].sort((a, b) => b.localeCompare(a)); // Newest first
+  }, [historyRecords]);
+
   // Reset section filter when grade filter changes so stale section selection doesn't ghost-filter.
   useEffect(() => {
     setFilterSection('all');
@@ -209,7 +263,9 @@ const GradesRecords = () => {
 
   const filteredStudents = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    return gradeMonitoring.students.filter((student) => {
+    const students = Array.isArray(gradeMonitoring?.students) ? gradeMonitoring.students : [];
+    
+    return students.filter((student) => {
       const matchesSearch = !query || [
         student.student_name,
         student.student_username,
@@ -223,7 +279,7 @@ const GradesRecords = () => {
       const matchesStatus = filterStatus === 'all' || student.status === filterStatus;
       return matchesSearch && matchesGrade && matchesSection && matchesStatus;
     });
-  }, [filterGrade, filterSection, filterStatus, gradeMonitoring.students, searchTerm]);
+  }, [filterGrade, filterSection, filterStatus, gradeMonitoring, searchTerm]);
 
 // PDF Export Function for Grades Records
 const exportGradesToPDF = (activeTab, filteredData, quarter, selectedDate, stats, gradeMonitoring) => {
@@ -378,7 +434,11 @@ const exportGradesToPDF = (activeTab, filteredData, quarter, selectedDate, stats
 
   const filteredHistory = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    return historyRecords.filter((record) => {
+    const records = Array.isArray(historyRecords) ? historyRecords : [];
+    
+    return records.filter((record) => {
+      if (!record || typeof record !== 'object') return false;
+      
       const matchesSearch = !query || [
         record.student_name,
         record.student_username,
@@ -391,14 +451,63 @@ const exportGradesToPDF = (activeTab, filteredData, quarter, selectedDate, stats
 
       const matchesGrade = filterGrade === 'all' || toGradeLabel(record.grade_level) === filterGrade;
       const matchesSection = filterSection === 'all' || record.section_name === filterSection;
+      const matchesSchoolYear = filterSchoolYear === 'all' || record.school_year === filterSchoolYear;
       const matchesStatus = filterStatus === 'all' || String(record.remarks || '').toLowerCase() === filterStatus;
-      return matchesSearch && matchesGrade && matchesSection && matchesStatus;
+      return matchesSearch && matchesGrade && matchesSection && matchesSchoolYear && matchesStatus;
     });
-  }, [filterGrade, filterSection, filterStatus, historyRecords, searchTerm]);
+  }, [filterGrade, filterSection, filterSchoolYear, filterStatus, historyRecords, searchTerm]);
+
+  // Group academic history records by student for accordion display
+  const groupedHistoryStudents = useMemo(() => {
+    const grouped = new Map();
+    const records = Array.isArray(filteredHistory) ? filteredHistory : [];
+    
+    records.forEach((record) => {
+      if (!record || typeof record !== 'object') return;
+      
+      const studentId = record.student;
+      if (!studentId) return;
+      
+      if (!grouped.has(studentId)) {
+        grouped.set(studentId, {
+          student_id: studentId,
+          student_name: record.student_name || '—',
+          student_username: record.student_username || '',
+          student_number: record.student_number || '',
+          grade_level: record.grade_level,
+          section_name: record.section_name || '—',
+          records: [],
+        });
+      }
+      grouped.get(studentId).records.push(record);
+    });
+
+    return [...grouped.values()]
+      .map((student) => {
+        const finalGrades = student.records
+          .map((r) => Number(r.final_grade))
+          .filter((g) => !Number.isNaN(g));
+        const averageFinal = finalGrades.length
+          ? (finalGrades.reduce((sum, g) => sum + g, 0) / finalGrades.length).toFixed(2)
+          : null;
+        
+        return {
+          ...student,
+          total_records: student.records.length,
+          average_final: averageFinal,
+          school_years: [...new Set(student.records.map((r) => r.school_year).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
+        };
+      })
+      .sort((a, b) => String(a.student_name || '').localeCompare(String(b.student_name || '')));
+  }, [filteredHistory]);
 
   const filteredAttendanceRecords = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    return attendanceRecords.filter((record) => {
+    const records = Array.isArray(attendanceRecords) ? attendanceRecords : [];
+    
+    return records.filter((record) => {
+      if (!record || typeof record !== 'object') return false;
+      
       const matchesSearch = !query || [
         record.student_name,
         record.student_username,
@@ -417,17 +526,22 @@ const exportGradesToPDF = (activeTab, filteredData, quarter, selectedDate, stats
 
   const filteredAttendanceStudents = useMemo(() => {
     const grouped = new Map();
+    const records = Array.isArray(filteredAttendanceRecords) ? filteredAttendanceRecords : [];
 
-    filteredAttendanceRecords.forEach((record) => {
+    records.forEach((record) => {
+      if (!record || typeof record !== 'object') return;
+      
       const studentId = record.student;
+      if (!studentId) return;
+      
       if (!grouped.has(studentId)) {
         grouped.set(studentId, {
           student: studentId,
-          student_name: record.student_name,
-          student_username: record.student_username,
-          student_number: record.student_number,
+          student_name: record.student_name || '—',
+          student_username: record.student_username || '',
+          student_number: record.student_number || '',
           grade_level: record.grade_level,
-          section_name: record.section_name,
+          section_name: record.section_name || '—',
           present: 0,
           absent: 0,
           late: 0,
@@ -504,7 +618,7 @@ const exportGradesToPDF = (activeTab, filteredData, quarter, selectedDate, stats
     activeTab === 'grades'
       ? filteredStudents
       : activeTab === 'history'
-      ? filteredHistory
+      ? groupedHistoryStudents
       : filteredAttendanceStudents;
 
   const totalPages = Math.ceil(activeRows.length / ITEMS_PER_PAGE);
@@ -894,6 +1008,18 @@ const exportGradesToPDF = (activeTab, filteredData, quarter, selectedDate, stats
               )}
             </select>
           </div>
+
+          {activeTab === 'history' && (
+            <div className="gr-filter-group">
+              <Filter size={20} />
+              <select value={filterSchoolYear} onChange={(e) => setFilterSchoolYear(e.target.value)} className="gr-filter-select">
+                <option value="all">All School Years</option>
+                {schoolYearOptions.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="gr-table-container">
@@ -986,49 +1112,84 @@ const exportGradesToPDF = (activeTab, filteredData, quarter, selectedDate, stats
             <table className="gr-table">
               <thead>
                 <tr>
-                  <th>School Year</th>
+                  <th>Student #</th>
                   <th>Student</th>
                   <th>Grade Level</th>
                   <th>Section</th>
-                  <th>Subject</th>
-                  <th>Final Grade</th>
-                  <th>Remarks</th>
-                  <th>Teacher</th>
+                  <th>Total Records</th>
+                  <th>Average Final</th>
+                  <th>School Years</th>
+                  <th>Details</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedRows.map((record) => (
-                  <tr key={record.id}>
-                    <td data-label="School Year">{record.school_year}</td>
-                    <td data-label="Student" className="gr-student-name">
-                      <div className="gr-stack">
-                        <span>{record.student_name}</span>
-                        <span className="gr-muted">{record.student_number || '@' + record.student_username}</span>
-                      </div>
-                    </td>
-                    <td data-label="Grade Level">{toGradeLabel(record.grade_level)}</td>
-                    <td data-label="Section">{record.section_name || '—'}</td>
-                    <td data-label="Subject">
-                      <div className="gr-stack">
-                        <span>{record.subject_name}</span>
-                        <span className="gr-muted">{record.subject_code || '—'}</span>
-                      </div>
-                    </td>
-                    <td data-label="Final Grade">
-                      {record.final_grade !== null ? (
-                        <span className={gradeChipClass(record.final_grade)}>{record.final_grade}</span>
-                      ) : (
-                        <span className="gr-muted">—</span>
+                {paginatedRows.map((student) => {
+                  const expanded = expandedHistoryStudentId === student.student_id;
+                  return (
+                    <React.Fragment key={student.student_id}>
+                      <tr>
+                        <td data-label="Student #" className="gr-student-id">{student.student_number || '—'}</td>
+                        <td data-label="Student" className="gr-student-name">
+                          <div className="gr-stack">
+                            <span>{student.student_name}</span>
+                            <span className="gr-muted">@{student.student_username}</span>
+                          </div>
+                        </td>
+                        <td data-label="Grade Level">{toGradeLabel(student.grade_level)}</td>
+                        <td data-label="Section">{student.section_name || '—'}</td>
+                        <td data-label="Total Records">{student.total_records}</td>
+                        <td data-label="Average Final">
+                          {student.average_final !== null ? (
+                            <span className={gradeChipClass(student.average_final)}>{student.average_final}</span>
+                          ) : (
+                            <span className="gr-muted">—</span>
+                          )}
+                        </td>
+                        <td data-label="School Years">
+                          <div className="gr-stack">
+                            <span>{student.school_years.length} year{student.school_years.length === 1 ? '' : 's'}</span>
+                            <span className="gr-muted">{student.school_years[0] || '—'}</span>
+                          </div>
+                        </td>
+                        <td data-label="Details">
+                          <button className="gr-btn-icon" onClick={() => setExpandedHistoryStudentId(expanded ? null : student.student_id)} title="Toggle academic records">
+                            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </button>
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr className="gr-expand-row">
+                          <td colSpan={8}>
+                            <div className="gr-subject-list">
+                              {student.records.map((record) => (
+                                <div key={record.id} className="gr-subject-card">
+                                  <div className="gr-subject-top">
+                                    <strong>{record.subject_name}</strong>
+                                    <span className="gr-subject-code">{record.subject_code || '—'}</span>
+                                  </div>
+                                  <div className="gr-stack">
+                                    <span className="gr-muted">{record.school_year}</span>
+                                    {record.final_grade !== null ? (
+                                      <span className={gradeChipClass(record.final_grade)}>{record.final_grade}</span>
+                                    ) : (
+                                      <span className="gr-grade gr-grade-pending">—</span>
+                                    )}
+                                  </div>
+                                  <div className="gr-stack">
+                                    <span className="gr-muted">Teacher: {record.teacher_name || '—'}</span>
+                                    <span className={`gr-status-badge gr-status-${String(record.remarks || '').toLowerCase() || 'pending'}`}>
+                                      {record.remarks || '—'}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td data-label="Remarks">
-                      <span className={`gr-status-badge gr-status-${String(record.remarks || '').toLowerCase() || 'pending'}`}>
-                        {record.remarks || '—'}
-                      </span>
-                    </td>
-                    <td data-label="Teacher">{record.teacher_name || '—'}</td>
-                  </tr>
-                ))}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           ) : (
