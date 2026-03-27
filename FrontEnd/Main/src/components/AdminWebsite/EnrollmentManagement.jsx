@@ -2530,111 +2530,109 @@ export default function EnrollmentManagement() {
               </EnrollmentSection>
 
               <EnrollmentSection title="Parent / Guardian Information" icon="👨‍👩‍👧" full>
-                <div className="form-row">
-                  <div>
-                    <p className="parent-section-label">Mother</p>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>First Name</label>
-                        <input
-                          name="mother_first"
-                          value={formData.parent_info.mother_first}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Middle Name</label>
-                        <input
-                          name="mother_middle"
-                          value={formData.parent_info.mother_middle}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                    </div>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Last Name</label>
-                        <input
-                          name="mother_last"
-                          value={formData.parent_info.mother_last}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Contact Number</label>
-                        <input
-                          name="mother_contact"
-                          value={formData.parent_info.mother_contact}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
+                <div>
+                  <p className="parent-section-label">Mother</p>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>First Name</label>
+                      <input
+                        name="mother_first"
+                        value={formData.parent_info.mother_first}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
                     </div>
                     <div className="form-group">
-                      <label>Occupation</label>
+                      <label>Middle Name</label>
                       <input
-                        name="mother_occupation"
-                        value={formData.parent_info.mother_occupation}
+                        name="mother_middle"
+                        value={formData.parent_info.mother_middle}
                         onChange={handleParentChange}
                         disabled={isReadOnly}
                       />
                     </div>
                   </div>
-
-                  <div>
-                    <p className="parent-section-label">Father</p>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>First Name</label>
-                        <input
-                          name="father_first"
-                          value={formData.parent_info.father_first}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Middle Name</label>
-                        <input
-                          name="father_middle"
-                          value={formData.parent_info.father_middle}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                    </div>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Last Name</label>
-                        <input
-                          name="father_last"
-                          value={formData.parent_info.father_last}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Contact Number</label>
-                        <input
-                          name="father_contact"
-                          value={formData.parent_info.father_contact}
-                          onChange={handleParentChange}
-                          disabled={isReadOnly}
-                        />
-                      </div>
-                    </div>
+                  <div className="form-row">
                     <div className="form-group">
-                      <label>Occupation</label>
+                      <label>Last Name</label>
                       <input
-                        name="father_occupation"
-                        value={formData.parent_info.father_occupation}
+                        name="mother_last"
+                        value={formData.parent_info.mother_last}
                         onChange={handleParentChange}
                         disabled={isReadOnly}
                       />
                     </div>
+                    <div className="form-group">
+                      <label>Contact Number</label>
+                      <input
+                        name="mother_contact"
+                        value={formData.parent_info.mother_contact}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Occupation</label>
+                    <input
+                      name="mother_occupation"
+                      value={formData.parent_info.mother_occupation}
+                      onChange={handleParentChange}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="parent-section-label">Father</p>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>First Name</label>
+                      <input
+                        name="father_first"
+                        value={formData.parent_info.father_first}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Middle Name</label>
+                      <input
+                        name="father_middle"
+                        value={formData.parent_info.father_middle}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Last Name</label>
+                      <input
+                        name="father_last"
+                        value={formData.parent_info.father_last}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Contact Number</label>
+                      <input
+                        name="father_contact"
+                        value={formData.parent_info.father_contact}
+                        onChange={handleParentChange}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Occupation</label>
+                    <input
+                      name="father_occupation"
+                      value={formData.parent_info.father_occupation}
+                      onChange={handleParentChange}
+                      disabled={isReadOnly}
+                    />
                   </div>
                 </div>
 
