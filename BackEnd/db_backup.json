@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-03-28T00:42:23.669566",
+  "exported_at": "2026-03-28T02:05:08.462153",
   "tables": {
     "accounts_adminprofile": [],
     "accounts_passwordresetrequest": [
@@ -72,6 +72,96 @@
         "sent_at": "2026-03-23 18:41:47.830623",
         "completed_at": "2026-03-23 18:42:00.489960",
         "user_id": 84
+      },
+      {
+        "id": 11,
+        "email": "Teacher.Value@cesi.edu.ph",
+        "message": "",
+        "status": "COMPLETED",
+        "requested_at": "2026-03-27 17:27:23.806279",
+        "sent_at": "2026-03-27 17:28:25.742689",
+        "completed_at": "2026-03-27 17:29:10.514544",
+        "user_id": 106
+      },
+      {
+        "id": 12,
+        "email": "Cesi.admin@Cesi.edu.ph",
+        "message": "",
+        "status": "COMPLETED",
+        "requested_at": "2026-03-27 17:36:15.089333",
+        "sent_at": "2026-03-27 17:36:32.224981",
+        "completed_at": "2026-03-27 17:37:02.136730",
+        "user_id": 107
+      },
+      {
+        "id": 13,
+        "email": "Fili.Teacher@cesi.edu.ph",
+        "message": "",
+        "status": "COMPLETED",
+        "requested_at": "2026-03-27 17:38:12.842046",
+        "sent_at": "2026-03-27 17:38:30.241347",
+        "completed_at": "2026-03-27 17:38:47.797773",
+        "user_id": 103
+      },
+      {
+        "id": 14,
+        "email": "Teacher.Mapeh@cesi.edu.ph",
+        "message": "",
+        "status": "COMPLETED",
+        "requested_at": "2026-03-27 17:46:22.423533",
+        "sent_at": "2026-03-27 17:46:45.449098",
+        "completed_at": "2026-03-27 17:47:35.847934",
+        "user_id": 104
+      },
+      {
+        "id": 15,
+        "email": "Teacher.Math@cesi.edu.ph",
+        "message": "",
+        "status": "COMPLETED",
+        "requested_at": "2026-03-27 17:48:58.948467",
+        "sent_at": "2026-03-27 17:52:22.103894",
+        "completed_at": "2026-03-27 17:52:46.941725",
+        "user_id": 105
+      },
+      {
+        "id": 16,
+        "email": "eng.teacher@cesi.edu.ph",
+        "message": "",
+        "status": "COMPLETED",
+        "requested_at": "2026-03-27 17:53:41.597366",
+        "sent_at": "2026-03-27 17:53:50.907468",
+        "completed_at": "2026-03-27 17:54:34.428160",
+        "user_id": 102
+      },
+      {
+        "id": 17,
+        "email": "hotdog@gmail.com",
+        "message": "",
+        "status": "LINK_SENT",
+        "requested_at": "2026-03-27 17:56:30.252252",
+        "sent_at": "2026-03-27 17:56:38.203350",
+        "completed_at": null,
+        "user_id": 17
+      },
+      {
+        "id": 18,
+        "email": "JaneSmith@gmail.com",
+        "message": "",
+        "status": "COMPLETED",
+        "requested_at": "2026-03-27 18:00:07.226631",
+        "sent_at": "2026-03-27 18:00:16.261114",
+        "completed_at": "2026-03-27 18:00:27.807495",
+        "user_id": 15
+      },
+      {
+        "id": 19,
+        "email": "smith@example.com",
+        "message": "",
+        "status": "COMPLETED",
+        "requested_at": "2026-03-27 18:01:58.435291",
+        "sent_at": "2026-03-27 18:02:08.094409",
+        "completed_at": "2026-03-27 18:02:45.873774",
+        "user_id": 7
       }
     ],
     "accounts_section": [
@@ -193,7 +283,7 @@
         "section_id": 4,
         "subject_id": 1,
         "user_id": 7,
-        "employee_id": "",
+        "employee_id": "20231008",
         "avatar": ""
       },
       {
@@ -201,15 +291,15 @@
         "section_id": 9,
         "subject_id": 7,
         "user_id": 15,
-        "employee_id": "",
+        "employee_id": "20231006",
         "avatar": ""
       },
       {
         "id": 3,
         "section_id": 3,
-        "subject_id": 5,
+        "subject_id": null,
         "user_id": 17,
-        "employee_id": "",
+        "employee_id": "20231005",
         "avatar": ""
       },
       {
@@ -217,6 +307,46 @@
         "section_id": 11,
         "subject_id": 3,
         "user_id": 102,
+        "employee_id": "202310004",
+        "avatar": ""
+      },
+      {
+        "id": 5,
+        "section_id": null,
+        "subject_id": 4,
+        "user_id": 103,
+        "employee_id": "202310003",
+        "avatar": ""
+      },
+      {
+        "id": 6,
+        "section_id": null,
+        "subject_id": 6,
+        "user_id": 104,
+        "employee_id": "202310007",
+        "avatar": ""
+      },
+      {
+        "id": 7,
+        "section_id": null,
+        "subject_id": 2,
+        "user_id": 105,
+        "employee_id": "",
+        "avatar": ""
+      },
+      {
+        "id": 8,
+        "section_id": null,
+        "subject_id": 8,
+        "user_id": 106,
+        "employee_id": "202310009",
+        "avatar": ""
+      },
+      {
+        "id": 9,
+        "section_id": null,
+        "subject_id": 5,
+        "user_id": 108,
         "employee_id": "",
         "avatar": ""
       }
@@ -225,7 +355,7 @@
       {
         "id": 1,
         "password": "pbkdf2_sha256$1200000$2eujneEQWkcPfEEbCbAScm$+ARBPb/E9Hxr4K2yxpLxVwHFGPX+MzT3dy1VUjk3tZw=",
-        "last_login": "2026-03-27 15:44:15.384642",
+        "last_login": "2026-03-27 18:01:35.629266",
         "is_superuser": 1,
         "username": "ace",
         "email": "acy995kim@gmail.com",
@@ -235,20 +365,6 @@
         "status": "ACTIVE",
         "updated_at": "2026-01-18 06:57:26.709000",
         "role": "ADMIN"
-      },
-      {
-        "id": 2,
-        "password": "pbkdf2_sha256$1200000$Rpb7jZqrd2YqgiBvGNOexI$Bh0m5lwqSlR+vGQjKgZS08Vfy3pc2E76HQf0taYF2Uk=",
-        "last_login": "2026-01-18 09:26:40.607000",
-        "is_superuser": 0,
-        "username": "parent1",
-        "email": "parent1@mail.com",
-        "is_staff": 0,
-        "is_active": 1,
-        "created_at": "2026-01-18 06:58:50.085000",
-        "status": "ACTIVE",
-        "updated_at": "2026-01-18 06:58:50.520000",
-        "role": "PARENT_STUDENT"
       },
       {
         "id": 3,
@@ -263,20 +379,6 @@
         "status": "ACTIVE",
         "updated_at": "2026-03-15 18:26:39.401170",
         "role": "ADMIN"
-      },
-      {
-        "id": 5,
-        "password": "pbkdf2_sha256$1200000$CgyYnyFRmPWa1laymzHW9O$VmRHjEQ1eP7vWqdKV1pbvogy8hqPEGblOrU/SiFzqBE=",
-        "last_login": null,
-        "is_superuser": 0,
-        "username": "Vincy Gam",
-        "email": "VincyGam@gmail.com",
-        "is_staff": 0,
-        "is_active": 1,
-        "created_at": "2026-01-28 14:42:25.457000",
-        "status": "ACTIVE",
-        "updated_at": "2026-01-28 14:42:25.910000",
-        "role": "PARENT_STUDENT"
       },
       {
         "id": 6,
@@ -294,8 +396,8 @@
       },
       {
         "id": 7,
-        "password": "pbkdf2_sha256$1200000$I7qEWWTIElj9MDDdACHKPf$cyjQbJ4f8A0iB68U7NK/v6XrXHs3bZ9D0C+ypd71gTE=",
-        "last_login": "2026-03-27 14:04:32.938962",
+        "password": "pbkdf2_sha256$1200000$dKFb0s6ebO60uvacylXPCd$ilojMms2FGI2rUzf6zRRJWR/I7CBDuryhOVHe4K4SVQ=",
+        "last_login": "2026-03-27 18:03:12.688908",
         "is_superuser": 0,
         "username": "teacher_smith",
         "email": "smith@example.com",
@@ -303,7 +405,7 @@
         "is_active": 1,
         "created_at": "2026-01-28 16:18:39.558000",
         "status": "ACTIVE",
-        "updated_at": "2026-01-28 16:18:39.998000",
+        "updated_at": "2026-03-27 18:02:45.869700",
         "role": "TEACHER"
       },
       {
@@ -364,8 +466,8 @@
       },
       {
         "id": 15,
-        "password": "pbkdf2_sha256$1200000$Ou3CfbjZU3OaS0M9gKdGdb$I23c3ynGxHE41XwkcqvcSLqqV4wk5VRubGwvWVXqLh8=",
-        "last_login": "2026-03-26 07:46:37.524011",
+        "password": "pbkdf2_sha256$1200000$4niglYlhb40vgc40LBQFrt$5iq4LKiy2kTjOgPR2HUB+VCBgLR7HggJg8x/fSW8ApU=",
+        "last_login": "2026-03-27 18:03:24.308716",
         "is_superuser": 0,
         "username": "Jane_Smith",
         "email": "JaneSmith@gmail.com",
@@ -373,7 +475,7 @@
         "is_active": 1,
         "created_at": "2026-02-28 17:55:33.866122",
         "status": "ACTIVE",
-        "updated_at": "2026-02-28 18:33:26.679195",
+        "updated_at": "2026-03-27 18:00:27.803575",
         "role": "TEACHER"
       },
       {
@@ -1331,7 +1433,7 @@
       {
         "id": 84,
         "password": "pbkdf2_sha256$1200000$z0zPorHwQtUV6xw0cxLv2K$ZY7xTIEFs6WOZGbzj6LMN16nfaPCX52gMC7quxAOD+0=",
-        "last_login": "2026-03-26 18:37:15.475026",
+        "last_login": "2026-03-27 17:14:03.055577",
         "is_superuser": 0,
         "username": "student_aquino_67",
         "email": "miguel.aquino7g5@school.local",
@@ -1525,20 +1627,6 @@
         "role": "PARENT_STUDENT"
       },
       {
-        "id": 98,
-        "password": "!7fj1h90RKo745sR7nNtebv6dNZj7m7SL6HHQoXmF",
-        "last_login": null,
-        "is_superuser": 0,
-        "username": "zalo",
-        "email": "ra12@gmail.com",
-        "is_staff": 0,
-        "is_active": 1,
-        "created_at": "2026-03-12 23:27:09.636318",
-        "status": "ACTIVE",
-        "updated_at": "2026-03-12 23:27:09.636858",
-        "role": "PARENT_STUDENT"
-      },
-      {
         "id": 101,
         "password": "!WWv1YGwauGtfiPflvcrzMqjudvHmKy3G8TvJHLEr",
         "last_login": null,
@@ -1554,7 +1642,7 @@
       },
       {
         "id": 102,
-        "password": "pbkdf2_sha256$1200000$6Eukw2SLlvZd6yQC0IPkG0$5eizIuG8QeVNfoT7ytJub8frCKo3ZXT5CrWxpoUZ9Pk=",
+        "password": "pbkdf2_sha256$1200000$Jw7LRwv00ldoxPpu7v8p6g$oiINQ36RiMQYP8+r+mI7P6zMgUD5G1cJfPZZaODqrMM=",
         "last_login": "2026-03-27 10:49:46.758111",
         "is_superuser": 0,
         "username": "eng_teacher",
@@ -1563,7 +1651,91 @@
         "is_active": 1,
         "created_at": "2026-03-27 10:45:48.273704",
         "status": "ACTIVE",
-        "updated_at": "2026-03-27 10:45:48.959776",
+        "updated_at": "2026-03-27 17:54:33.972750",
+        "role": "TEACHER"
+      },
+      {
+        "id": 103,
+        "password": "pbkdf2_sha256$1200000$IP3d6K5RdB9Dhrn1k2QdUx$j7kQY/FH6q4euSsQhyN1whNQhFu62+6mVB/rPnzepWo=",
+        "last_login": "2026-03-27 17:45:45.169397",
+        "is_superuser": 0,
+        "username": "Teacher_Filipino",
+        "email": "Fili.Teacher@cesi.edu.ph",
+        "is_staff": 0,
+        "is_active": 1,
+        "created_at": "2026-03-27 17:18:38.217649",
+        "status": "ACTIVE",
+        "updated_at": "2026-03-27 17:38:47.794161",
+        "role": "TEACHER"
+      },
+      {
+        "id": 104,
+        "password": "pbkdf2_sha256$1200000$sOCgsAx5cdwhX2GTW1mLLs$lW7YCdFxn5Yp7nh9flv+rOQvXkq34EQ/iPh+Bp5lyL4=",
+        "last_login": "2026-03-27 17:47:48.303830",
+        "is_superuser": 0,
+        "username": "Teacher_Mapeh",
+        "email": "Teacher.Mapeh@cesi.edu.ph",
+        "is_staff": 0,
+        "is_active": 1,
+        "created_at": "2026-03-27 17:22:00.934274",
+        "status": "ACTIVE",
+        "updated_at": "2026-03-27 17:47:35.844186",
+        "role": "TEACHER"
+      },
+      {
+        "id": 105,
+        "password": "pbkdf2_sha256$1200000$FDClGgPcxlmFxofgddExda$dSb+oBK4DLsCO7TU393mE4AnxPet9yd2MVGiuZ+/uLk=",
+        "last_login": null,
+        "is_superuser": 0,
+        "username": "Teacher_Math",
+        "email": "Teacher.Math@cesi.edu.ph",
+        "is_staff": 0,
+        "is_active": 1,
+        "created_at": "2026-03-27 17:24:40.628748",
+        "status": "ACTIVE",
+        "updated_at": "2026-03-27 17:52:46.938061",
+        "role": "TEACHER"
+      },
+      {
+        "id": 106,
+        "password": "pbkdf2_sha256$1200000$ROEjjmeGV4TmUpJsqJpbkj$0g7F4A09XUXjv4PQMffl9MnP3m3MZ5QgJhhwV/VCwgg=",
+        "last_login": "2026-03-27 17:29:20.331996",
+        "is_superuser": 0,
+        "username": "Teacher_Value",
+        "email": "Teacher.Value@cesi.edu.ph",
+        "is_staff": 0,
+        "is_active": 1,
+        "created_at": "2026-03-27 17:25:45.494597",
+        "status": "ACTIVE",
+        "updated_at": "2026-03-27 17:29:10.339525",
+        "role": "TEACHER"
+      },
+      {
+        "id": 107,
+        "password": "pbkdf2_sha256$1200000$bMl1Xly45CYynflZQk7Z57$DjcntAfXnukJruGU4u0/Sdll6wJzhpmZ1QnWyBjrgxs=",
+        "last_login": "2026-03-27 17:35:25.613592",
+        "is_superuser": 1,
+        "username": "Cesi.admin@Cesi.edu.ph",
+        "email": "Cesi.admin@Cesi.edu.ph",
+        "is_staff": 1,
+        "is_active": 1,
+        "created_at": "2026-03-27 17:34:38.498062",
+        "status": "ACTIVE",
+        "updated_at": "2026-03-27 17:37:02.133110",
+        "role": "ADMIN"
+      },
+      {
+        "id": 108,
+        "password": "pbkdf2_sha256$1200000$lCzB4No0VxVC4gTLhjD26e$pl6iMwoBOOndB5fUhjt409bxI3CoTw6LnNfxIHvmKa4=",
+        "last_login": null,
+        "is_superuser": 0,
+        "username": "Teacher_AP@cesi.edu.ph",
+        "email": "Teacher.AP@cesi.edu.ph",
+        "is_staff": 0,
+        "is_active": 1,
+        "created_at": "2026-03-27 17:58:46.127752",
+        "status": "ACTIVE",
+        "updated_at": "2026-03-27 17:58:46.589399",
         "role": "TEACHER"
       }
     ],
@@ -1576,24 +1748,6 @@
       }
     ],
     "accounts_userprofile": [
-      {
-        "id": 1,
-        "student_first_name": "Mary",
-        "student_middle_name": null,
-        "student_last_name": "Og",
-        "parent_first_name": "Vincy",
-        "parent_middle_name": null,
-        "parent_last_name": "Gam",
-        "contact_number": "0123456789",
-        "address": "123 Main St",
-        "section_id": 4,
-        "user_id": 5,
-        "lrn": "20231107222",
-        "payment_mode": "cash",
-        "student_number": "2026000011",
-        "grade_level": "grade2",
-        "avatar": ""
-      },
       {
         "id": 2,
         "student_first_name": "Johnny",
@@ -1701,24 +1855,6 @@
         "student_number": "2026000025",
         "grade_level": "grade2",
         "avatar": "avatars/ri_hsbQjtI.JPG"
-      },
-      {
-        "id": 8,
-        "student_first_name": "za",
-        "student_middle_name": "na",
-        "student_last_name": "lo",
-        "parent_first_name": "wa",
-        "parent_middle_name": "",
-        "parent_last_name": "we we",
-        "contact_number": "+639222111333",
-        "address": "18 Honradez, tugatog, Caloocan, Manila, NCR, 1213",
-        "section_id": null,
-        "user_id": 98,
-        "lrn": "32224556656",
-        "payment_mode": "cash",
-        "student_number": "2026000007",
-        "grade_level": "grade2",
-        "avatar": ""
       },
       {
         "id": 10,
@@ -3036,18 +3172,13 @@
         "user_id": 87
       },
       {
-        "key": "3cd186743a9a0727e2a876323ae368684fa2735a",
-        "created": "2026-03-26 18:37:14.185431",
-        "user_id": 84
+        "key": "00c529a7d0e1ed3044591c541d8e22d4bcde8724",
+        "created": "2026-03-27 17:47:48.406277",
+        "user_id": 104
       },
       {
-        "key": "a1d9612eeec808d155834751ff979fe905bb08b2",
-        "created": "2026-03-27 14:04:32.944742",
-        "user_id": 7
-      },
-      {
-        "key": "b232ac53c093935524a695b8209c54e91c61da51",
-        "created": "2026-03-27 15:44:15.484468",
+        "key": "9a9889a69acc275e6bf60627d8eb0e87f0adce7c",
+        "created": "2026-03-27 17:52:11.464582",
         "user_id": 1
       }
     ],
@@ -4686,6 +4817,56 @@
         "content_type_id": 11,
         "user_id": 1,
         "action_time": "2026-03-27 16:41:50.090727"
+      },
+      {
+        "id": 84,
+        "object_id": "98",
+        "object_repr": "zalo",
+        "action_flag": 3,
+        "change_message": "",
+        "content_type_id": 11,
+        "user_id": 1,
+        "action_time": "2026-03-27 16:44:14.486516"
+      },
+      {
+        "id": 85,
+        "object_id": "5",
+        "object_repr": "Vincy Gam",
+        "action_flag": 3,
+        "change_message": "",
+        "content_type_id": 11,
+        "user_id": 1,
+        "action_time": "2026-03-27 16:45:46.937125"
+      },
+      {
+        "id": 86,
+        "object_id": "2",
+        "object_repr": "parent1",
+        "action_flag": 3,
+        "change_message": "",
+        "content_type_id": 11,
+        "user_id": 1,
+        "action_time": "2026-03-27 16:45:46.937151"
+      },
+      {
+        "id": 87,
+        "object_id": "107",
+        "object_repr": "Cesi.admin@Cesi.edu.ph",
+        "action_flag": 1,
+        "change_message": "[{\"added\": {}}]",
+        "content_type_id": 11,
+        "user_id": 1,
+        "action_time": "2026-03-27 17:34:38.944714"
+      },
+      {
+        "id": 88,
+        "object_id": "107",
+        "object_repr": "Cesi.admin@Cesi.edu.ph",
+        "action_flag": 2,
+        "change_message": "[{\"changed\": {\"fields\": [\"Superuser status\"]}}]",
+        "content_type_id": 11,
+        "user_id": 1,
+        "action_time": "2026-03-27 17:34:47.046220"
       }
     ],
     "django_content_type": [
@@ -7295,9 +7476,9 @@
         "expire_date": "2026-04-10 14:04:32.948627"
       },
       {
-        "session_key": "3ot4equxmfi4s86nomu11v24s3ya7f2l",
-        "session_data": ".eJxVjMsOwiAQAP9lz4awdFlKj979BsJTqoYmpT0Z_9006UGvM5N5g_P7Vt3e8-rmBBMgXH5Z8PGZ2yHSw7f7IuLStnUO4kjEabu4LSm_rmf7N6i-V5iADGcZcZSUbLFZS6lDisg4mEha0oBFESFrDsSqsLeG1FhUZi0RS4TPF7MsNns:1w69M7:pFv6ovs86UWKsIGP_XbbBTbPXCUpkgFsafmToRSK-VA",
-        "expire_date": "2026-04-10 15:44:15.588602"
+        "session_key": "hepe3p7pb6djeqbr4x9bkrb88god218g",
+        "session_data": ".eJxVjMsOwiAQAP9lz4awdFlKj979BsJTqoYmpT0Z_9006UGvM5N5g_P7Vt3e8-rmBBMgXH5Z8PGZ2yHSw7f7IuLStnUO4kjEabu4LSm_rmf7N6i-V5iADGcZcZSUbLFZS6lDisg4mEha0oBFESFrDsSqsLeG1FhUZi0RS4TPF7MsNns:1w6B6b:tt92G8TqJmHrPnM4Degt1Zg_Cd1AkBU5m0B50nyZ7ec",
+        "expire_date": "2026-04-10 17:36:21.387020"
       }
     ],
     "enrollment_enrollment": [
@@ -7514,7 +7695,7 @@
         "religion": "Christian",
         "student_type": "new",
         "telephone_number": "",
-        "parent_user_id": 98,
+        "parent_user_id": null,
         "student_number": "2026000007",
         "id_image": null
       },
@@ -13325,13 +13506,6 @@
     ],
     "grades_classstanding": [
       {
-        "id": 1,
-        "quarter": 1,
-        "score": 100,
-        "student_id": 5,
-        "subject_id": 1
-      },
-      {
         "id": 2,
         "quarter": 1,
         "score": 100,
@@ -13672,28 +13846,12 @@
     ],
     "grades_studentscore": [
       {
-        "id": 1,
-        "score": 30,
-        "created_at": "2026-02-08 07:30:10.529000",
-        "updated_at": "2026-02-08 07:30:10.529000",
-        "grade_item_id": 1,
-        "student_id": 5
-      },
-      {
         "id": 2,
         "score": 30,
         "created_at": "2026-02-08 07:30:12.484000",
         "updated_at": "2026-02-08 07:30:12.484000",
         "grade_item_id": 1,
         "student_id": 6
-      },
-      {
-        "id": 3,
-        "score": 100,
-        "created_at": "2026-02-08 07:30:36.031000",
-        "updated_at": "2026-02-08 07:30:36.031000",
-        "grade_item_id": 2,
-        "student_id": 5
       },
       {
         "id": 4,
@@ -13704,14 +13862,6 @@
         "student_id": 6
       },
       {
-        "id": 5,
-        "score": 15,
-        "created_at": "2026-02-08 07:31:41.377000",
-        "updated_at": "2026-02-08 07:31:41.377000",
-        "grade_item_id": 3,
-        "student_id": 5
-      },
-      {
         "id": 6,
         "score": 14,
         "created_at": "2026-02-08 07:31:43.268000",
@@ -13720,28 +13870,12 @@
         "student_id": 6
       },
       {
-        "id": 7,
-        "score": 75,
-        "created_at": "2026-02-09 04:02:52.095000",
-        "updated_at": "2026-02-09 04:02:52.095000",
-        "grade_item_id": 4,
-        "student_id": 5
-      },
-      {
         "id": 8,
         "score": 42,
         "created_at": "2026-02-09 04:03:02.473000",
         "updated_at": "2026-02-09 04:03:02.473000",
         "grade_item_id": 4,
         "student_id": 6
-      },
-      {
-        "id": 9,
-        "score": 35,
-        "created_at": "2026-02-09 04:07:01.577000",
-        "updated_at": "2026-02-09 04:07:01.578000",
-        "grade_item_id": 6,
-        "student_id": 5
       },
       {
         "id": 10,
@@ -13760,28 +13894,12 @@
         "student_id": 6
       },
       {
-        "id": 12,
-        "score": 90,
-        "created_at": "2026-02-09 04:07:13.828000",
-        "updated_at": "2026-02-09 04:07:13.828000",
-        "grade_item_id": 5,
-        "student_id": 5
-      },
-      {
         "id": 13,
         "score": 9,
         "created_at": "2026-02-09 04:45:58.891000",
         "updated_at": "2026-02-09 04:45:58.891000",
         "grade_item_id": 7,
         "student_id": 6
-      },
-      {
-        "id": 14,
-        "score": 10,
-        "created_at": "2026-02-09 04:46:06.350000",
-        "updated_at": "2026-02-09 04:46:06.350000",
-        "grade_item_id": 7,
-        "student_id": 5
       },
       {
         "id": 15,
