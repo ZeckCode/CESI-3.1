@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DOMPurify from "dompurify";
 import "../IndexWebsiteCSS/Notebook.css";
 import "../IndexWebsiteCSS/AnnouncementCard.css";
+import OrganizationalChart from "../AdminWebsite/OrganizationalChart";
 
 const API_BASE = ""; // use Vite proxy
 
@@ -186,6 +187,11 @@ const Notebook = ({ onClose, openEnrollment }) => {
           <p>Facebook: <a href={(cmsData.contact && cmsData.contact.facebook_link) ? cmsData.contact.facebook_link : "https://facebook.com/cesicaloocan"} target="_blank" rel="noopener noreferrer">@cesicaloocan</a></p>
         </>
       ),
+    },
+
+    "org-chart": {
+      title: "Organizational Chart",
+      content: <OrganizationalChart />,
     },
   };
 

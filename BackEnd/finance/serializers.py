@@ -15,10 +15,36 @@ class TransactionSerializer(serializers.ModelSerializer):
     due_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
 
     student_name = serializers.CharField(read_only=True)
-    student_number = serializers.CharField(source='parent.profile.student_number', read_only=True, default='')
-    payment_mode = serializers.CharField(source='parent.profile.payment_mode', read_only=True, default='')
-    grade_level = serializers.CharField(source='parent.profile.grade_level', read_only=True, default='')
+    student_number = serializers.SerializerMethodField()
+    payment_mode = serializers.SerializerMethodField()
+    grade_level = serializers.SerializerMethodField()
+    student_type = serializers.CharField(source='student_type_snapshot', read_only=True)
+    enrollment_id = serializers.IntegerField(read_only=True)
+    
+    
+    def get_student_number(self, obj):
+        if obj.student_number_snapshot:
+            return obj.student_number_snapshot
+        try:
+            return obj.parent.profile.student_number or ''
+        except Exception:
+            return ''
 
+    def get_payment_mode(self, obj):
+        if obj.payment_mode_snapshot:
+            return obj.payment_mode_snapshot
+        try:
+            return obj.parent.profile.payment_mode or ''
+        except Exception:
+            return ''
+
+    def get_grade_level(self, obj):
+        if obj.grade_level_snapshot:
+            return obj.grade_level_snapshot
+        try:
+            return obj.parent.profile.grade_level or ''
+        except Exception:
+            return ''
     class Meta:
         model = Transaction
         fields = [
@@ -29,6 +55,8 @@ class TransactionSerializer(serializers.ModelSerializer):
             'student_number',
             'grade_level',
             'payment_mode',
+            'student_type',
+            'enrollment_id',
 
             'transaction_type',
             'entry_type',
@@ -74,6 +102,11 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
             'transaction_date',
             'due_date',
             'status',
+            'enrollment',
+            'student_number_snapshot',
+            'grade_level_snapshot',
+            'payment_mode_snapshot',
+            'student_type_snapshot',
         ]
 
     def validate_parent(self, value):

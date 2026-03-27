@@ -54,6 +54,20 @@ class Transaction(models.Model):
         limit_choices_to={'role': 'PARENT_STUDENT'},
     )
 
+    
+    enrollment = models.ForeignKey(
+        'enrollment.Enrollment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='finance_transactions',
+    )
+
+    student_number_snapshot = models.CharField(max_length=20, blank=True, null=True)
+    grade_level_snapshot = models.CharField(max_length=20, blank=True, null=True)
+    payment_mode_snapshot = models.CharField(max_length=20, blank=True, null=True)
+    student_type_snapshot = models.CharField(max_length=20, blank=True, null=True)
+    
     student_name = models.CharField(max_length=150)
 
     transaction_type = models.CharField(
