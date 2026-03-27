@@ -24,7 +24,7 @@ const ITEMS_PER_PAGE = 10;
 
 const GRADE_ORDER = {
   'Pre-Kinder': -1,
-  Kinder: 0,
+  'Kinder': 0,
   'Grade 1': 1,
   'Grade 2': 2,
   'Grade 3': 3,
@@ -35,10 +35,32 @@ const GRADE_ORDER = {
 
 const todayString = () => new Date().toISOString().slice(0, 10);
 
+const normalizeGradeLevel = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const raw = String(value).trim().toLowerCase();
+
+  if (raw === 'prek' || raw === 'pre-kinder' || raw === 'pre kinder') return -1;
+  if (raw === 'kinder' || raw === '0') return 0;
+
+  const match = raw.match(/^grade\s*(\d+)$/);
+  if (match) return Number(match[1]);
+
+  const num = Number(raw.replace(/[^0-9]/g, ''));
+  if (!Number.isNaN(num)) return num;
+
+  return null;
+};
+
 const toGradeLabel = (value) => {
   if (value === null || value === undefined || value === '') return '—';
+  const normalized = normalizeGradeLevel(value);
+
+  if (normalized === -1) return 'Pre-Kinder';
+  if (normalized === 0) return 'Kinder';
+  if (normalized !== null) return `Grade ${normalized}`;
+
   const raw = String(value).trim();
-  const normalized = raw.toLowerCase().replace(/\s+/g, ' ');
+  const lower = raw.toLowerCase();
 
   if (/^grade\s*grade\s*(\d)$/i.test(raw)) {
     return `Grade ${raw.match(/(\d)$/)[1]}`;
@@ -139,16 +161,73 @@ const GradesRecords = () => {
       setLoading(true);
       setError('');
       try {
-        const [gradesData, historyData, attendanceData] = await Promise.all([
-          apiFetchData(`/api/grades/admin-monitoring/?quarter=${quarter}`),
-          apiFetchData('/api/grades/academic-history/'),
-          apiFetchData(`/api/attendance/records/?date=${selectedDate}`),
-        ]);
+        if (activeTab === 'grades') {
+          const params = new URLSearchParams({ quarter: String(quarter), page: String(page) });
+          if (filterGrade && filterGrade !== 'all') {
+            params.set('grade_level', filterGrade);
+          }
+          if (filterSection && filterSection !== 'all') {
+            const sectionName = filterSection.includes('|') ? filterSection.split('|')[1] : filterSection;
+            if (sectionName) params.set('section', sectionName);
+          }
+          const gradesData = await apiFetchData(`/api/grades/admin-monitoring/?${params.toString()}`);
+          if (cancelled) return;
 
-        if (cancelled) return;
-        setGradeMonitoring(gradesData || { summary: {}, students: [], quarter });
-        setHistoryRecords(Array.isArray(historyData) ? historyData : []);
-        setAttendanceRecords(Array.isArray(attendanceData) ? attendanceData : []);
+          const validGradesData = gradesData && typeof gradesData === 'object'
+            ? {
+                summary: gradesData.summary || {},
+                students: Array.isArray(gradesData.students) ? gradesData.students : [],
+                quarter,
+              }
+            : { summary: {}, students: [], quarter };
+
+          setGradeMonitoring(validGradesData);
+          // Clear other tab data to avoid cross-tab leakage
+          setHistoryRecords([]);
+          setAttendanceRecords([]);
+        } else if (activeTab === 'history') {
+          const historyParams = new URLSearchParams({ page: String(page) });
+          if (filterGrade && filterGrade !== 'all') historyParams.set('grade_level', filterGrade);
+          if (filterSection && filterSection !== 'all') {
+            const sectionName = filterSection.includes('|') ? filterSection.split('|')[1] : filterSection;
+            if (sectionName) historyParams.set('section', sectionName);
+          }
+          if (filterStatus && filterStatus !== 'all') historyParams.set('status', filterStatus);
+          if (filterSchoolYear && filterSchoolYear !== 'all') historyParams.set('school_year', filterSchoolYear);
+
+          const historyData = await apiFetchData(`/api/grades/academic-history/?${historyParams.toString()}`);
+          if (cancelled) return;
+
+          const validHistoryData = Array.isArray(historyData)
+            ? historyData
+            : Array.isArray(historyData?.results)
+            ? historyData.results
+            : [];
+
+          setHistoryRecords(validHistoryData);
+          setGradeMonitoring({ summary: {}, students: [], quarter });
+          setAttendanceRecords([]);
+        } else if (activeTab === 'attendance') {
+          const attendanceParams = new URLSearchParams({ date: selectedDate, page: String(page) });
+          if (filterGrade && filterGrade !== 'all') attendanceParams.set('grade_level', filterGrade);
+          if (filterSection && filterSection !== 'all') {
+            const sectionName = filterSection.includes('|') ? filterSection.split('|')[1] : filterSection;
+            if (sectionName) attendanceParams.set('section', sectionName);
+          }
+
+          const attendanceData = await apiFetchData(`/api/attendance/records/?${attendanceParams.toString()}`);
+          if (cancelled) return;
+
+          const validAttendanceData = Array.isArray(attendanceData)
+            ? attendanceData
+            : Array.isArray(attendanceData?.results)
+            ? attendanceData.results
+            : [];
+
+          setAttendanceRecords(validAttendanceData);
+          setGradeMonitoring({ summary: {}, students: [], quarter });
+          setHistoryRecords([]);
+        }
       } catch (fetchError) {
         if (cancelled) return;
         setError(fetchError.message || 'Failed to load grade and records monitoring data.');
@@ -161,7 +240,7 @@ const GradesRecords = () => {
     return () => {
       cancelled = true;
     };
-  }, [quarter, selectedDate]);
+  }, [activeTab, quarter, selectedDate, page]);
 
   useEffect(() => {
     setPage(1);
@@ -171,33 +250,53 @@ const GradesRecords = () => {
     setExpandedAttendanceStudentId(null);
   }, [activeTab, selectedDate, filterGrade, filterSection, filterStatus, searchTerm]);
 
-  const gradeOptions = useMemo(() => {
-    const labels = new Set();
-    gradeMonitoring.students.forEach((row) => labels.add(toGradeLabel(row.grade_level_label || row.grade_level)));
-    historyRecords.forEach((row) => labels.add(toGradeLabel(row.grade_level)));
-    attendanceRecords.forEach((row) => labels.add(toGradeLabel(row.grade_level)));
-    return [...labels]
-      .filter((value) => value && value !== '—')
-      .sort((a, b) => (GRADE_ORDER[a] ?? 999) - (GRADE_ORDER[b] ?? 999));
-  }, [attendanceRecords, gradeMonitoring.students, historyRecords]);
+  // Reset all expansion states when switching tabs to prevent state leakage
+  useEffect(() => {
+    setExpandedStudentId(null);
+    setExpandedHistoryStudentId(null);
+    setExpandedAttendanceStudentId(null);
+  }, [activeTab]);
 
-  // Section options that narrow based on the selected grade level (cascading filter).
+  const gradeOptions = useMemo(() => {
+    return [
+      'Pre-Kinder',
+      'Kinder',
+      'Grade 1',
+      'Grade 2',
+      'Grade 3',
+      'Grade 4',
+      'Grade 5',
+      'Grade 6',
+    ];
+  }, []);
+
   const sectionOptions = useMemo(() => {
+    const items = new Map();
     const gradeMatches = (gradeValue) =>
       filterGrade === 'all' || toGradeLabel(gradeValue) === filterGrade;
-    const names = new Set();
-    gradeMonitoring.students.forEach((row) => {
-      if (gradeMatches(row.grade_level_label || row.grade_level) && row.section_name)
-        names.add(row.section_name);
-    });
-    historyRecords.forEach((row) => {
-      if (gradeMatches(row.grade_level) && row.section_name) names.add(row.section_name);
+
+    activeData.forEach((row) => {
+      const gradeLabel = toGradeLabel(row.grade_level_label || row.grade_level);
+      const sectionName = row.section_name || '';
+      if (!sectionName) return;
+      if (!gradeMatches(row.grade_level_label || row.grade_level)) return;
+      const key = `${gradeLabel}|${sectionName}`;
+      items.set(key, `${gradeLabel} — ${sectionName}`);
     });
     attendanceRecords.forEach((row) => {
       if (gradeMatches(row.grade_level) && row.section_name) names.add(row.section_name);
     });
     return [...names].sort();
   }, [attendanceRecords, filterGrade, gradeMonitoring.students, historyRecords]);
+
+  // School year options from academic history
+  const schoolYearOptions = useMemo(() => {
+    const years = new Set();
+    historyRecords.forEach((row) => {
+      if (row.school_year) years.add(row.school_year);
+    });
+    return [...years].sort((a, b) => b.localeCompare(a)); // Newest first
+  }, [historyRecords]);
 
   // Reset section filter when grade filter changes so stale section selection doesn't ghost-filter.
   useEffect(() => {
@@ -214,9 +313,17 @@ const GradesRecords = () => {
         student.section_name,
       ].some((value) => String(value || '').toLowerCase().includes(query));
 
+      const rowGrade = normalizeGradeLevel(student.grade_level_label || student.grade_level);
       const gradeLabel = toGradeLabel(student.grade_level_label || student.grade_level);
-      const matchesGrade = filterGrade === 'all' || gradeLabel === filterGrade;
-      const matchesSection = filterSection === 'all' || student.section_name === filterSection;
+      const matchesGrade =
+        filterGradeValue === null ||
+        (rowGrade !== null && rowGrade === filterGradeValue) ||
+        gradeLabel === filterGrade;
+      const studentSectionKey = `${gradeLabel}|${student.section_name || ''}`;
+      const matchesSection =
+        filterSection === 'all' ||
+        student.section_name === filterSection ||
+        studentSectionKey === filterSection;
       const matchesStatus = filterStatus === 'all' || student.status === filterStatus;
       return matchesSearch && matchesGrade && matchesSection && matchesStatus;
     });
@@ -237,6 +344,7 @@ const GradesRecords = () => {
 
       const matchesGrade = filterGrade === 'all' || toGradeLabel(record.grade_level) === filterGrade;
       const matchesSection = filterSection === 'all' || record.section_name === filterSection;
+      const matchesSchoolYear = filterSchoolYear === 'all' || record.school_year === filterSchoolYear;
       const matchesStatus = filterStatus === 'all' || String(record.remarks || '').toLowerCase() === filterStatus;
       return matchesSearch && matchesGrade && matchesSection && matchesStatus;
     });
@@ -255,8 +363,17 @@ const GradesRecords = () => {
         record.marked_by_name,
       ].some((value) => String(value || '').toLowerCase().includes(query));
 
-      const matchesGrade = filterGrade === 'all' || toGradeLabel(record.grade_level) === filterGrade;
-      const matchesSection = filterSection === 'all' || record.section_name === filterSection;
+      const rowGrade = normalizeGradeLevel(record.grade_level);
+      const gradeLabel = toGradeLabel(record.grade_level);
+      const matchesGrade =
+        filterGradeValue === null ||
+        (rowGrade !== null && rowGrade === filterGradeValue) ||
+        gradeLabel === filterGrade;
+      const recordSectionKey = `${gradeLabel}|${record.section_name || ''}`;
+      const matchesSection =
+        filterSection === 'all' ||
+        record.section_name === filterSection ||
+        recordSectionKey === filterSection;
       return matchesSearch && matchesGrade && matchesSection;
     });
   }, [attendanceRecords, filterGrade, filterSection, searchTerm]);
@@ -695,7 +812,7 @@ const GradesRecords = () => {
             <select value={filterSection} onChange={(e) => setFilterSection(e.target.value)} className="gr-filter-select">
               <option value="all">All Sections</option>
               {sectionOptions.map((section) => (
-                <option key={section} value={section}>{section}</option>
+                <option key={section.value} value={section.value}>{section.label}</option>
               ))}
             </select>
           </div>

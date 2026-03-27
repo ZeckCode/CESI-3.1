@@ -375,9 +375,175 @@ def student_quarter_grades(request, student_id, subject_id):
     })
 
 
-# ══════════════════════════════════════════════════════
+def _compute_overall_record(quarter_scores):
+    valid_scores = [q for q in quarter_scores if q is not None]
+    if not valid_scores:
+        return None, "INCOMPLETE"
+    final_grade = round(sum(valid_scores) / len(valid_scores), 2)
+    if final_grade >= 75:
+        return final_grade, "PASSED"
+    return final_grade, "FAILED"
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def grades_root(request):
+    """Basic GET /api/grades/ endpoint to avoid 404 from undefined root path."""
+    return Response({
+        "info": "Grades API root",
+        "endpoints": {
+            "teacher_info": "/api/grades/teacher-info/",
+            "my_sections": "/api/grades/my-sections/",
+            "items": "/api/grades/items/",
+            "scores": "/api/grades/scores/",
+            "class_standing": "/api/grades/class-standing/",
+            "academic_history": "/api/grades/my-academic-history/",
+        },
+    })
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def publish_academic_history(request):
+    """Teacher/admin can preview and commit publish history for a school year."""
+    user = request.user
+    if user.role not in ("TEACHER", "ADMIN"):
+        return Response({"detail": "Forbidden"}, status=403)
+
+    section_id = request.query_params.get("section_id") if request.method == "GET" else request.data.get("section_id")
+    school_year = request.query_params.get("school_year") if request.method == "GET" else request.data.get("school_year")
+    subject_id = request.query_params.get("subject_id") if request.method == "GET" else request.data.get("subject_id")
+
+    if not section_id or not school_year or not subject_id:
+        return Response({"detail": "section_id, school_year, subject_id are required"}, status=400)
+
+    from accounts.models import Section as ClassSection
+
+    try:
+        section_obj = ClassSection.objects.get(pk=section_id)
+    except ClassSection.DoesNotExist:
+        return Response({"detail": "Section not found"}, status=404)
+
+    if user.role == "TEACHER":
+        if not hasattr(user, "teacher_profile") or not user.teacher_profile.subject_id:
+            return Response({"detail": "No subject assigned"}, status=403)
+        if int(subject_id) != user.teacher_profile.subject_id:
+            return Response({"detail": "Teacher subject mismatch"}, status=403)
+
+    try:
+        subject = Subject.objects.get(pk=subject_id)
+    except Subject.DoesNotExist:
+        return Response({"detail": "Subject not found"}, status=404)
+
+    if user.role == "TEACHER":
+        if not Schedule.objects.filter(teacher=user, section_id=section_obj.id, subject_id=subject.id).exists():
+            return Response({"detail": "Forbidden"}, status=403)
+
+    enrollments = Enrollment.objects.filter(section=section_obj, status="ACTIVE").select_related("student")
+
+    if not enrollments.exists():
+        return Response({"detail": "No active students found for section"}, status=400)
+
+    has_incomplete = False
+    preview_rows = []
+
+    for enrollment in enrollments:
+        student = enrollment.student
+        if not student:
+            continue
+
+        scores_by_q = []
+        for q in range(1, 5):
+            scores_by_q.append(_compute_quarter_grade(student.id, subject.id, q)["quarter_grade"])
+
+        final_grade, remarks = _compute_overall_record(scores_by_q)
+
+        is_complete = all(score is not None for score in scores_by_q)
+        if not is_complete:
+            has_incomplete = True
+
+        preview_rows.append({
+            "student_id": student.id,
+            "student_name": f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() or student.username,
+            "grade_level": enrollment.grade_level,
+            "q1": scores_by_q[0],
+            "q2": scores_by_q[1],
+            "q3": scores_by_q[2],
+            "q4": scores_by_q[3],
+            "final_grade": final_grade,
+            "remarks": remarks,
+            "complete": is_complete,
+        })
+
+    if request.method == "GET":
+
+        return Response({
+            "section": section_obj.name,
+            "subject": subject.name,
+            "school_year": school_year,
+            "rows": preview_rows,
+            "can_publish": not has_incomplete,
+            "incomplete_count": sum(1 for r in preview_rows if not r["complete"]),
+        })
+
+    # POST path: actually persist records (only if complete)
+    if has_incomplete:
+        return Response({
+            "detail": "Cannot publish while some students have incomplete quarter grades.",
+            "incomplete_count": sum(1 for r in preview_rows if not r["complete"]),
+        }, status=400)
+
+    published = 0
+    updated = 0
+
+    for row in preview_rows:
+        student = User.objects.filter(pk=row["student_id"]).first()
+        if not student:
+            continue
+
+        grade_level = normalize_grade_level(section_obj.grade_level if section_obj.grade_level is not None else row.get("grade_level"))
+
+        defaults = {
+            "section_name": section_obj.name or "",
+            "subject_name": subject.name,
+            "subject_code": subject.code,
+            "grade_level": grade_level if grade_level is not None else 0,
+            "q1": row["q1"],
+            "q2": row["q2"],
+            "q3": row["q3"],
+            "q4": row["q4"],
+            "final_grade": row["final_grade"],
+            "remarks": row["remarks"],
+            "teacher_name": user.username,
+            "recorded_by": user,
+        }
+
+        _, created = AcademicRecord.objects.update_or_create(
+            student=student,
+            school_year=school_year,
+            subject_name=subject.name,
+            defaults=defaults,
+        )
+
+        if created:
+            published += 1
+        else:
+            updated += 1
+
+    return Response({
+        "success": True,
+        "section": section_obj.name,
+        "subject": subject.name,
+        "school_year": school_year,
+        "published": published,
+        "updated": updated,
+        "total": len(preview_rows),
+    })
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PARENT  —  my child's report card
-# ══════════════════════════════════════════════════════
+# ══════════════════════════════════════════════
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def my_grades(request):
@@ -433,6 +599,10 @@ def admin_grade_records_monitoring(request):
     except (TypeError, ValueError):
         return Response({"detail": "Invalid quarter"}, status=400)
 
+    grade_level_filter = request.query_params.get("grade_level")
+    section_filter = request.query_params.get("section")
+    normalized_grade_filter = normalize_grade_level(grade_level_filter) if grade_level_filter else None
+
     subjects = list(Subject.objects.all().order_by("name"))
     history_by_student = {
         row["student_id"]: row
@@ -455,6 +625,14 @@ def admin_grade_records_monitoring(request):
     for enrollment in enrollments:
         student = enrollment.student
         if not student:
+            continue
+
+        section_grade = getattr(enrollment.section, "grade_level", None)
+        normalized_grade = normalize_grade_level(section_grade if section_grade is not None else enrollment.grade_level)
+        if normalized_grade_filter is not None and normalized_grade != normalized_grade_filter:
+            continue
+
+        if section_filter and enrollment.section and enrollment.section.name != section_filter:
             continue
 
         name = " ".join(
