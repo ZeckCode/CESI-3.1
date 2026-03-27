@@ -2,6 +2,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Root
+    path("", views.grades_root, name="grades-root"),
+
     # Teacher info
     path("teacher-info/", views.teacher_info, name="teacher-info"),
     path("my-sections/", views.teacher_sections, name="grade-teacher-sections"),
@@ -38,6 +41,7 @@ urlpatterns = [
     path("my-academic-history/", views.my_academic_history, name="my-academic-history"),
     path("academic-history/", views.AcademicRecordListCreate.as_view(), name="academic-history-list"),
     path("academic-history/<int:pk>/", views.AcademicRecordDetail.as_view(), name="academic-history-detail"),
+    path("publish-history/", views.publish_academic_history, name="publish-academic-history"),
 
     # Admin — re-enrollment eligibility check for students
     path("my-reenrollment-eligibility/", views.my_reenrollment_eligibility, name="my-reenrollment-eligibility"),

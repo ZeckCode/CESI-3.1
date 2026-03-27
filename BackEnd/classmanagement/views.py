@@ -176,9 +176,16 @@ class ScheduleListCreate(generics.ListCreateAPIView):
             return Response({"detail": "Forbidden"}, status=403)
         ser = ScheduleWriteSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+
+        section_obj = ser.validated_data.get("section")
+        if section_obj and not ser.validated_data.get("room"):
+            if section_obj.room is not None:
+                ser.validated_data["room"] = section_obj.room
+
         conflicts = self._check_conflicts(ser.validated_data)
         if conflicts:
             return Response({"detail": conflicts["message"], "conflicts": conflicts["details"]}, status=400)
+
         self.perform_create(ser)
         obj = Schedule.objects.select_related("teacher", "subject", "section", "room").get(pk=ser.instance.pk)
         return Response(ScheduleReadSerializer(obj).data, status=201)
@@ -196,16 +203,17 @@ class ScheduleListCreate(generics.ListCreateAPIView):
 
         conflicts = []
         
-        # Teacher conflict
-        teacher_conflict = base.filter(teacher=data["teacher"]).first()
-        if teacher_conflict:
-            conflicts.append({
-                "type": "teacher",
-                "message": f"Teacher {data['teacher'].username} already has "
-                          f"{teacher_conflict.subject.name} at "
-                          f"{teacher_conflict.start_time:%H:%M}–{teacher_conflict.end_time:%H:%M} "
-                          f"on {teacher_conflict.get_day_of_week_display()}"
-            })
+        # Teacher conflict (skip for free periods without a teacher)
+        if data.get("teacher"):
+            teacher_conflict = base.filter(teacher=data["teacher"]).first()
+            if teacher_conflict:
+                conflicts.append({
+                    "type": "teacher",
+                    "message": f"Teacher {data['teacher'].username} already has "
+                              f"{getattr(teacher_conflict.subject, 'name', 'No subject')} at "
+                              f"{teacher_conflict.start_time:%H:%M}–{teacher_conflict.end_time:%H:%M} "
+                              f"on {teacher_conflict.get_day_of_week_display()}"
+                })
 
         # Section conflict
         section_conflict = base.filter(section=data["section"]).first()
@@ -226,9 +234,7 @@ class ScheduleListCreate(generics.ListCreateAPIView):
                 conflicts.append({
                     "type": "room",
                     "message": f"Room {room.code} is already booked for "
-                              f"{room_conflict.section.name} ({room_conflict.subject.name}) at "
-                              f"{room_conflict.start_time:%H:%M}–{room_conflict.end_time:%H:%M} "
-                              f"on {room_conflict.get_day_of_week_display()}"
+                              f"{room_conflict.section.name} ({getattr(room_conflict.subject, 'name', 'No subject')}) at "
                 })
 
         if conflicts:
@@ -265,6 +271,12 @@ class ScheduleDetail(generics.RetrieveUpdateDestroyAPIView):
             merged["section"] = Section.objects.get(pk=merged["section"])
         if isinstance(merged.get("room"), int):
             merged["room"] = Room.objects.get(pk=merged["room"])
+
+        if merged.get("section") and not merged.get("room"):
+            sec = merged.get("section")
+            if hasattr(sec, "room") and sec.room is not None:
+                merged["room"] = sec.room
+
         conflicts = ScheduleListCreate._check_conflicts(merged, exclude_id=instance.pk)
         if conflicts:
             return Response({"detail": conflicts["message"], "conflicts": conflicts["details"]}, status=400)
@@ -526,6 +538,72 @@ def auto_generate_schedules(request):
         "created_count": len(created),
         "schedule_ids": created,
         "message": f"Generated {len(created)} schedule entries for {section.name}"
+    }, status=201)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def copy_schedule_day(request):
+    """Copy existing day schedule from source_day to target_days for a section."""
+    if request.user.role != "ADMIN":
+        return Response({"detail": "Forbidden"}, status=403)
+
+    section_id = request.data.get("section")
+    source_day = request.data.get("source_day")
+    target_days = request.data.get("target_days")
+
+    if not section_id or not source_day or not isinstance(target_days, list) or not target_days:
+        return Response({"detail": "section, source_day, target_days are required"}, status=400)
+
+    valid_days = ["MON", "TUE", "WED", "THU", "FRI"]
+    if source_day not in valid_days:
+        return Response({"detail": "source_day must be one of MON,TUE,WED,THU,FRI"}, status=400)
+
+    target_days = [d for d in target_days if d in valid_days and d != source_day]
+    if not target_days:
+        return Response({"detail": "Choose at least one different target day"}, status=400)
+
+    try:
+        section = Section.objects.get(pk=section_id)
+    except Section.DoesNotExist:
+        return Response({"detail": "Section not found"}, status=404)
+
+    source_schedules = Schedule.objects.filter(section=section, day_of_week=source_day)
+    if not source_schedules.exists():
+        return Response({"detail": f"No schedules found for {source_day} in this section."}, status=404)
+
+    created_count = 0
+    skipped = []
+
+    for target_day in target_days:
+        for src in source_schedules:
+            payload = {
+                "teacher": src.teacher,
+                "subject": src.subject,
+                "section": section,
+                "day_of_week": target_day,
+                "start_time": src.start_time,
+                "end_time": src.end_time,
+                "room": src.room or section.room,
+                "school_year": src.school_year,
+            }
+
+            conflicts = ScheduleListCreate._check_conflicts(payload)
+            if conflicts:
+                skipped.append({
+                    "source_id": src.id,
+                    "target_day": target_day,
+                    "conflict": conflicts["message"],
+                })
+                continue
+
+            Schedule.objects.create(**payload)
+            created_count += 1
+
+    return Response({
+        "created_count": created_count,
+        "skipped_count": len(skipped),
+        "skipped": skipped,
     }, status=201)
 
 

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, Edit2, Trash2, Filter, Clock, Users, BookOpen,
   Calendar, Save, X, UserCheck, Zap, Download,
   Home, AlertTriangle, Settings, AlertCircle, RefreshCw,
+  Copy
 } from 'lucide-react';
 import StatCard, { StatsGrid } from './StatCard';
 import { apiFetch } from '../api/apiFetch';
@@ -10,14 +11,14 @@ import '../AdminWebsiteCSS/AdminClassManagement.css';
 
 /* ───────────────────────── helpers ───────────────────────── */
 const GRADE_LEVELS = [
-  { value: 0, label: 'Pre-Kinder' },
-  { value: 1, label: 'Kinder' },
-  { value: 2, label: 'Grade 1' },
-  { value: 3, label: 'Grade 2' },
-  { value: 4, label: 'Grade 3' },
-  { value: 5, label: 'Grade 4' },
-  { value: 6, label: 'Grade 5' },
-  { value: 7, label: 'Grade 6' },
+  { value: 'prek', label: 'Pre-Kinder' },
+  { value: 'kinder', label: 'Kinder' },
+  { value: 'grade1', label: 'Grade 1' },
+  { value: 'grade2', label: 'Grade 2' },
+  { value: 'grade3', label: 'Grade 3' },
+  { value: 'grade4', label: 'Grade 4' },
+  { value: 'grade5', label: 'Grade 5' },
+  { value: 'grade6', label: 'Grade 6' },
 ];
 
 const DAYS = [
@@ -459,7 +460,7 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
     try {
       const payload = {
         name: form.name,
-        grade_level: Number(form.grade_level),
+        grade_level: String(form.grade_level),
         adviser: form.adviser ? Number(form.adviser) : null,
         room: form.room ? Number(form.room) : null,
       };
@@ -952,6 +953,11 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
   const [autofillDays, setAutofillDays] = useState(new Set(['MON', 'TUE', 'WED', 'THU', 'FRI']));
   const [autofillGenerating, setAutofillGenerating] = useState(false);
 
+  const [showCopyDayModal, setShowCopyDayModal] = useState(false);
+  const [copySourceDay, setCopySourceDay] = useState('MON');
+  const [copyTargetDays, setCopyTargetDays] = useState(new Set(['TUE', 'WED', 'THU', 'FRI']));
+  const [copyGenerating, setCopyGenerating] = useState(false);
+
   const toggleAutofillDay = (day) => {
     const newDays = new Set(autofillDays);
     if (newDays.has(day)) {
@@ -965,6 +971,30 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
   const filtered = filterSection
     ? schedules.filter((s) => String(s.section) === filterSection)
     : schedules;
+
+  const availableSourceDays = useMemo(() => {
+    const presentDays = new Set(filtered.map((s) => s.day_of_week));
+    return DAYS.filter((day) => presentDays.has(day.value));
+  }, [filtered]);
+
+  const selectedSectionData = sections.find((s) => String(s.id) === String(form.section));
+
+  const sectionRoomName = selectedSectionData?.room_code
+    ? `${selectedSectionData.room_code}${selectedSectionData.room_name ? ` (${selectedSectionData.room_name})` : ''}`
+    : 'Not assigned';
+
+  const teacherOptions = useMemo(() => {
+    if (!form.subject) {
+      return teachers;
+    }
+    const subjectId = Number(form.subject);
+    return teachers.filter((t) => {
+      const teacherSub = t.teacher_profile?.subject;
+      if (!teacherSub) return false;
+      const tSubjectId = typeof teacherSub === 'number' ? teacherSub : Number(teacherSub.id || teacherSub);
+      return tSubjectId === subjectId;
+    });
+  }, [teachers, form.subject]);
 
   const toggleSelect = (id) =>
     setSelected((prev) => {
@@ -1089,9 +1119,14 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
   };
 
   const handleSave = async () => {
-    // Subject is now optional (for non-subject entries like breaks, extension periods)
-    if (!form.teacher || !form.section || !form.day_of_week || !form.start_time || !form.end_time) {
-      setError('Teacher, Section, Day, Start Time, and End Time are required.');
+    // Subject is optional (non-subject entries like breaks, extension periods)
+    if (!form.section || !form.day_of_week || !form.start_time || !form.end_time) {
+      setError('Section, Day, Start Time, and End Time are required.');
+      return;
+    }
+
+    if (form.subject && !form.teacher) {
+      setError('Teacher is required when a Subject is selected.');
       return;
     }
 
@@ -1100,14 +1135,18 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
     setConflictWarning(null);
 
     try {
+      const selectedSection = sections.find((s) => String(s.id) === String(form.section));
+      const roomId = selectedSection?.room || null;
+      const teacherId = form.teacher ? Number(form.teacher) : null;
+
       const payload = {
-        teacher: Number(form.teacher),
+        teacher: teacherId,
         subject: form.subject ? Number(form.subject) : null,
         section: Number(form.section),
         day_of_week: form.day_of_week,
         start_time: form.start_time + ':00',
         end_time: form.end_time + ':00',
-        room: form.room ? Number(form.room) : null,
+        room: roomId ? Number(roomId) : null,
       };
 
       const url = editId
@@ -1156,6 +1195,67 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
     // Open the autofill modal instead of immediately generating
     setAutofillDays(new Set(['MON', 'TUE', 'WED', 'THU', 'FRI']));
     setShowAutofillModal(true);
+  };
+
+  const toggleCopyTargetDay = (day) => {
+    setCopyTargetDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) next.delete(day);
+      else next.add(day);
+      return next;
+    });
+  };
+
+  const handleCopyDay = async () => {
+    if (!filterSection) {
+      alert('Please select a section first.');
+      return;
+    }
+
+    if (availableSourceDays.length === 0) {
+      alert('This section has no schedule entries yet. Add schedules before copying a day.');
+      return;
+    }
+
+    const initialSource = availableSourceDays[0].value;
+    setCopySourceDay(initialSource);
+
+    const defaultTargets = availableSourceDays
+      .map((d) => d.value)
+      .filter((d) => d !== initialSource);
+
+    setCopyTargetDays(new Set(defaultTargets));
+    setShowCopyDayModal(true);
+  };
+
+  const handleCopySubmit = async () => {
+    if (!copySourceDay || copyTargetDays.size === 0) {
+      alert('Select source day and at least one target day.');
+      return;
+    }
+
+    setCopyGenerating(true);
+    try {
+      const payload = {
+        section: Number(filterSection),
+        source_day: copySourceDay,
+        target_days: Array.from(copyTargetDays),
+      };
+      const r = await apiFetch('/api/classmanagement/schedules/copy-day/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || JSON.stringify(data));
+      alert(`Copied ${data.created_count} entries, skipped ${data.skipped_count}.`);
+      setShowCopyDayModal(false);
+      await onRefresh();
+    } catch (e) {
+      alert('Copy failed: ' + e.message);
+    } finally {
+      setCopyGenerating(false);
+    }
   };
 
   const handleAutofillSubmit = async () => {
@@ -1244,6 +1344,15 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
           <Zap size={18} /> {generating ? 'Generating…' : 'Auto-fill'}
         </button>
 
+        <button
+          className="admin-btn-primary"
+          onClick={handleCopyDay}
+          disabled={!filterSection}
+          style={{ background: '#0ea5e9' }}
+        >
+          <Copy size={18} /> Copy Day
+        </button>
+
         {selected.size > 0 && (
           <>
             <button
@@ -1318,7 +1427,7 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
                 <label>Subject <span style={{ color: '#94a3b8', fontSize: '12px' }}>(Optional)</span></label>
                 <select
                   value={form.subject}
-                  onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                  onChange={(e) => setForm({ ...form, subject: e.target.value, teacher: '' })}
                 >
                   <option value="">— None (e.g., Extension, Free Period) —</option>
                   {subjects.map((s) => (
@@ -1332,17 +1441,21 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
 
             <div className="admin-form-row">
               <div className="admin-form-group">
-                <label>Teacher *</label>
+                <label>Teacher {form.subject ? '*' : '(Optional)'}</label>
                 <select
                   value={form.teacher}
                   onChange={(e) => setForm({ ...form, teacher: e.target.value })}
                 >
                   <option value="">Select…</option>
-                  {teachers.map((t) => (
+                  {teacherOptions.length > 0 ? teacherOptions.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.username}
                     </option>
-                  ))}
+                  )) : (
+                    <option value="" disabled>
+                      No teacher available for selected subject
+                    </option>
+                  )}
                 </select>
               </div>
 
@@ -1382,17 +1495,8 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
               </div>
 
               <div className="admin-form-group">
-                <label>Room</label>
-                <select value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })}>
-                  <option value="">— No Room —</option>
-                  {rooms
-                    .filter((r) => r.is_active)
-                    .map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.code} {r.name && `(${r.name})`}
-                      </option>
-                    ))}
-                </select>
+                <label>Room (auto-assigned)</label>
+                <input type="text" value={sectionRoomName} readOnly />
               </div>
             </div>
 
@@ -1611,6 +1715,65 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
         </div>
       )}
 
+      {showCopyDayModal && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-content" style={{ maxWidth: 520 }}>
+            <div className="admin-modal-header">
+              <h2>Copy Schedule Day</h2>
+              <button className="admin-modal-close-btn" onClick={() => setShowCopyDayModal(false)} title="Close" type="button">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Source Day</label>
+              <select value={copySourceDay} onChange={(e) => setCopySourceDay(e.target.value)}>
+                {availableSourceDays.length === 0 ? (
+                  <option value="">No source day available</option>
+                ) : (
+                  availableSourceDays.map((day) => (
+                    <option key={day.value} value={day.value}>
+                      {day.label}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Target Days</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+                {DAYS.map((day) => (
+                  <label key={day.value} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <input
+                      type="checkbox"
+                      checked={copyTargetDays.has(day.value)}
+                      disabled={day.value === copySourceDay}
+                      onChange={() => toggleCopyTargetDay(day.value)}
+                    />
+                    {day.short}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="admin-form-actions">
+              <button className="admin-btn-secondary" onClick={() => setShowCopyDayModal(false)}>
+                Cancel
+              </button>
+              <button
+                className="admin-btn-primary"
+                onClick={handleCopySubmit}
+                disabled={copyGenerating || copyTargetDays.size === 0}
+                style={{ background: '#0ea5e9' }}
+              >
+                {copyGenerating ? 'Copying…' : 'Copy to Target Day(s)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {view === 'table' && (
         <div className="admin-schedule-container">
           <table className="admin-schedule-table enhanced-table">
@@ -1675,9 +1838,9 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
                       </span>
                     </td>
                     <td>
-                      {s.room ? (
+                      {(s.room_code || s.section_room_code) ? (
                         <span className="room-badge">
-                          <Home size={14} /> {s.room_code}
+                          <Home size={14} /> {s.room_code || s.section_room_code}
                         </span>
                       ) : (
                         <span className="no-room">—</span>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Plus, X, Edit2, Trash2, Settings, Calendar } from "lucide-react";
+import { Plus, X, Edit2, Trash2, Settings, Calendar, FileText } from "lucide-react";
 import "../TeacherWebsiteCSS/Grade.css";
 import { apiFetch } from "../api/apiFetch";
 
@@ -106,12 +106,19 @@ const Grade = () => {
     description: "",
     date_given: "",
     due_date: "",
-    total_score: 100,
+    total_score: 0,
   });
   const [showWeights, setShowWeights] = useState(false);
   const [tempWeights, setTempWeights] = useState({ ...weights });
   const [scoreModal, setScoreModal] = useState(null);
   const [scoreValue, setScoreValue] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishMessage, setPublishMessage] = useState("");
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishPreviewRows, setPublishPreviewRows] = useState([]);
+  const [publishCanConfirm, setPublishCanConfirm] = useState(false);
+  const [publishPreviewError, setPublishPreviewError] = useState("");
+  const [publishLoading, setPublishLoading] = useState(false);
   const [csModal, setCsModal] = useState(null);
   const [csValue, setCsValue] = useState("");
   const [editItem, setEditItem] = useState(null);
@@ -120,6 +127,9 @@ const Grade = () => {
 
   const currentSection =
     sections.find((s) => String(s.id) === String(selectedSection)) || null;
+
+  const canPublish =
+    !!currentSection && students.length > 0 && items.length > 0 && !isPublishing;
 
   // IMPORTANT FIX:
   // backend expects integer grade_level, not "grade4"/"kinder"
@@ -311,9 +321,9 @@ const Grade = () => {
   const handleAddItem = async (category) => {
     if (!teacherSubject || !selectedSection) return;
 
-    const totalScore = Number(newItem.total_score) || 100;
-    if (totalScore < 0) {
-      setError("Total score cannot be negative.");
+    const totalScore = Number(newItem.total_score);
+    if (Number.isNaN(totalScore) || totalScore <= 0) {
+      setError("Total score must be greater than zero.");
       return;
     }
 
@@ -602,6 +612,98 @@ const Grade = () => {
     }
   };
 
+  const handlePublishAcademicHistory = async () => {
+    if (!currentSection) {
+      alert("Please select a section before publishing academic history.");
+      return;
+    }
+
+    const schoolYearLabel =
+      schoolYear?.name ||
+      (schoolYear?.start_year && schoolYear?.end_year
+        ? `${schoolYear.start_year}-${schoolYear.end_year}`
+        : null);
+
+    if (!schoolYearLabel) {
+      alert("Unable to determine active school year. Please check school year settings.");
+      return;
+    }
+
+    setPublishLoading(true);
+    setPublishPreviewError("");
+
+    try {
+      const params = new URLSearchParams({
+        section_id: String(selectedSection),
+        subject_id: String(teacherSubject.subject_id),
+        school_year: schoolYearLabel,
+      });
+
+      const res = await apiFetch(`${API}/api/grades/publish-history/?${params.toString()}`);
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setPublishPreviewError(data?.detail || "Unable to load publish preview.");
+        setShowPublishModal(false);
+      } else {
+        setPublishPreviewRows(Array.isArray(data.rows) ? data.rows : []);
+        setPublishCanConfirm(!!data.can_publish);
+        setShowPublishModal(true);
+        if (!data.can_publish) {
+          setPublishPreviewError(
+            `There are ${data.incomplete_count || 0} student(s) with incomplete grades (cannot publish).`
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Publish preview error:", e);
+      setPublishPreviewError("Something went wrong when preparing publish preview.");
+    } finally {
+      setPublishLoading(false);
+    }
+  };
+
+  const confirmPublishAcademicHistory = async () => {
+    if (!publishCanConfirm) {
+      return;
+    }
+
+    const schoolYearLabel =
+      schoolYear?.name ||
+      (schoolYear?.start_year && schoolYear?.end_year
+        ? `${schoolYear.start_year}-${schoolYear.end_year}`
+        : null);
+
+    setIsPublishing(true);
+
+    try {
+      const payload = {
+        section_id: Number(selectedSection),
+        subject_id: Number(teacherSubject.subject_id),
+        school_year: schoolYearLabel,
+      };
+
+      const res = await apiFetch(`${API}/api/grades/publish-history/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(data?.detail || "Failed to publish academic history. Please check logs and validate all fields.");
+      } else {
+        setPublishMessage(`Published: ${data.published || 0}, Updated: ${data.updated || 0}, Total: ${data.total || 0}`);
+      }
+    } catch (e) {
+      console.error("Publish academic history error:", e);
+      alert("Something went wrong when publishing academic history.");
+    } finally {
+      setIsPublishing(false);
+      setShowPublishModal(false);
+    }
+  };
+
   const weightTotal =
     Number(tempWeights.activity_weight || 0) +
     Number(tempWeights.quiz_weight || 0) +
@@ -674,7 +776,91 @@ const Grade = () => {
         >
           <Settings size={14} /> Weights
         </button>
+
+        <button
+          className="ge__weightsBtn"
+          onClick={handlePublishAcademicHistory}
+          disabled={!canPublish}
+          title="Publish this subject's grades to academic history"
+          style={
+            canPublish
+              ? { backgroundColor: "#1e3a8a", color: "white", borderColor: "#1e3a8a" }
+              : { opacity: 0.6, cursor: "not-allowed" }
+          }
+        >
+          <FileText size={14} /> {isPublishing ? "Publishing..." : "Publish to History"}
+        </button>
       </div>
+
+      {publishMessage && (
+        <div className="ge__publishMessage" style={{ margin: "10px 0", color: "#1f621f" }}>
+          {publishMessage}
+        </div>
+      )}
+
+      {showPublishModal && (
+        <div className="ge__overlay" onClick={() => setShowPublishModal(false)}>
+          <div className="ge__modal" onClick={(e) => e.stopPropagation()} style={{ width: "80vw", maxWidth: "900px" }}>
+            <div className="ge__modalHeader">
+              <h3>Publish Academic History Preview</h3>
+              <button className="ge__modalClose" onClick={() => setShowPublishModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="ge__modalBody" style={{ maxHeight: "60vh", overflowY: "auto" }}>
+              {publishLoading ? (
+                <p>Loading preview...</p>
+              ) : publishPreviewError ? (
+                <p style={{ color: "#b91c1c" }}>{publishPreviewError}</p>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: "6px" }}>Student</th>
+                      <th style={{ textAlign: "center", borderBottom: "1px solid #ddd", padding: "6px" }}>Q1</th>
+                      <th style={{ textAlign: "center", borderBottom: "1px solid #ddd", padding: "6px" }}>Q2</th>
+                      <th style={{ textAlign: "center", borderBottom: "1px solid #ddd", padding: "6px" }}>Q3</th>
+                      <th style={{ textAlign: "center", borderBottom: "1px solid #ddd", padding: "6px" }}>Q4</th>
+                      <th style={{ textAlign: "center", borderBottom: "1px solid #ddd", padding: "6px" }}>Final</th>
+                      <th style={{ textAlign: "center", borderBottom: "1px solid #ddd", padding: "6px" }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {publishPreviewRows.map((row) => (
+                      <tr key={`${row.student_id}-${row.student_name}`}>
+                        <td style={{ padding: "6px", borderBottom: "1px solid #eee" }}>{row.student_name}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q1 != null ? row.q1 : "—"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q2 != null ? row.q2 : "—"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q3 != null ? row.q3 : "—"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q4 != null ? row.q4 : "—"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.final_grade != null ? row.final_grade : "—"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee", color: row.complete ? "#1f621f" : "#b91c1c" }}>
+                          {row.complete ? "Complete" : "Incomplete"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="ge__modalFooter">
+              <button className="ge__btnCancel" onClick={() => setShowPublishModal(false)}>
+                Cancel
+              </button>
+              <button
+                className="ge__btnSave"
+                onClick={confirmPublishAcademicHistory}
+                disabled={!publishCanConfirm || publishLoading || isPublishing}
+                style={publishCanConfirm ? { backgroundColor: "#1e3a8a", color: "white" } : { opacity: 0.6 }}
+              >
+                Publish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="ge__weightBar">
         <span className="ge__weightChip ge__weightChip--act">
@@ -948,15 +1134,19 @@ const Grade = () => {
               <input
                 type="number"
                 className="ge__input"
-                min={1}
                 value={newItem.total_score}
                 onChange={(e) =>
                   setNewItem((p) => ({
                     ...p,
-                    total_score: parseInt(e.target.value, 10) || 100,
+                    total_score: parseInt(e.target.value, 10) || 0,
                   }))
                 }
               />
+              {error && /score/i.test(error) && (
+                <p style={{ color: "#b91c1c", marginTop: "5px", fontSize: "0.9rem" }}>
+                  {error}
+                </p>
+              )}
             </div>
 
             <div className="ge__modalFooter">
