@@ -553,9 +553,6 @@ export default function CMSModule() {
         >Contact & Inquiry</button>
       </div>
 
-        </div>
-      )}
-
       {activeMainTab === "announcements" && (
         <>
           {!canPost && (
@@ -972,7 +969,6 @@ export default function CMSModule() {
           ]} 
         />
       )}
-
     </div>
   );
 }
