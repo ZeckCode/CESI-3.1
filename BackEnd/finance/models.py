@@ -2,6 +2,7 @@
 from decimal import Decimal
 from django.db import models
 from accounts.models import User
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 class Transaction(models.Model):
@@ -193,103 +194,31 @@ class TuitionConfig(models.Model):
 
 
 class ProofOfPayment(models.Model):
-    """
-    Model for storing proof of payment submissions by parents/students.
-    Allows users to upload documentation (photos, screenshots, receipts) 
-    to verify payment made for transactions.
-    """
-    
     STATUS_CHOICES = [
-        ('PENDING', 'Pending Review'),
-        ('APPROVED', 'Approved'),
-        ('REJECTED', 'Rejected'),
-        ('RESUBMIT', 'Resubmit Required'),
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
     ]
-
-    parent = models.ForeignKey(
-        User,
+    
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='payment_proofs',
-        limit_choices_to={'role': 'PARENT_STUDENT'},
-        help_text="The parent/student submitting the proof"
+        related_name='proof_of_payments'
     )
-
-    transaction = models.OneToOneField(
-        Transaction,
-        on_delete=models.CASCADE,
-        related_name='proof_of_payment',
-        help_text="The transaction this proof is for"
-    )
-
-    reference_number = models.CharField(
-        max_length=50,
-        help_text="Payment reference/transaction number from bank or payment provider"
-    )
-
-    payment_amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        help_text="Amount shown in the proof of payment"
-    )
-
-    payment_date = models.DateField(
-        help_text="Date the payment was made"
-    )
-
-    payment_method = models.CharField(
-        max_length=50,
-        help_text="Method of payment (e.g., Bank Transfer, GCash, Check)"
-    )
-
-    document = models.FileField(
-        upload_to='payment_proofs/%Y/%m/',
-        help_text="Upload image or PDF of payment proof (receipt, bank transfer confirmation, etc.)"
-    )
-
-    description = models.TextField(
-        blank=True,
-        null=True,
-        help_text="Additional notes or details about the payment"
-    )
-
+    reference_number = models.CharField(max_length=100)
+    description = models.TextField()
+    proof_image = models.ImageField(upload_to='proofs/%Y/%m/%d/')
     status = models.CharField(
-        max_length=10,
+        max_length=20,
         choices=STATUS_CHOICES,
-        default='PENDING',
-        help_text="Review status of the submitted proof"
+        default='pending'
     )
-
-    rejection_reason = models.TextField(
-        blank=True,
-        null=True,
-        help_text="Reason for rejection if status is REJECTED"
-    )
-
-    submitted_date = models.DateTimeField(
-        auto_now_add=True,
-        help_text="When the proof was submitted"
-    )
-
-    reviewed_date = models.DateTimeField(
-        blank=True,
-        null=True,
-        help_text="When the proof was reviewed"
-    )
-
-    reviewed_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='reviewed_payment_proofs',
-        limit_choices_to={'role': 'ADMIN'},
-        help_text="Admin who reviewed this proof"
-    )
-
+    admin_remarks = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
     class Meta:
-        ordering = ['-submitted_date']
-        verbose_name = 'Proof of Payment'
-        verbose_name_plural = 'Proofs of Payment'
-
+        ordering = ['-created_at']
+    
     def __str__(self):
-        return f"Payment Proof - {self.parent.user.username if hasattr(self.parent, 'user') else self.parent} - {self.reference_number}"
+        return f"{self.user.username} - {self.reference_number}"
