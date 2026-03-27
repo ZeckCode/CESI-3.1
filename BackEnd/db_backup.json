@@ -1,18 +1,8 @@
 {
-  "exported_at": "2026-03-27T23:42:59.664365",
+  "exported_at": "2026-03-28T00:42:23.669566",
   "tables": {
     "accounts_adminprofile": [],
     "accounts_passwordresetrequest": [
-      {
-        "id": 3,
-        "email": "acy995im@gmail.com",
-        "message": "",
-        "status": "LINK_SENT",
-        "requested_at": "2026-03-15 18:05:46.203985",
-        "sent_at": "2026-03-15 18:28:50.143155",
-        "completed_at": null,
-        "user_id": 99
-      },
       {
         "id": 4,
         "email": "ral531715@gmail.com",
@@ -235,7 +225,7 @@
       {
         "id": 1,
         "password": "pbkdf2_sha256$1200000$2eujneEQWkcPfEEbCbAScm$+ARBPb/E9Hxr4K2yxpLxVwHFGPX+MzT3dy1VUjk3tZw=",
-        "last_login": "2026-03-27 14:02:41.932475",
+        "last_login": "2026-03-27 15:44:15.384642",
         "is_superuser": 1,
         "username": "ace",
         "email": "acy995kim@gmail.com",
@@ -361,7 +351,7 @@
       {
         "id": 14,
         "password": "pbkdf2_sha256$1200000$J0sVobbxyAbRzYfBwGqAtZ$zAvMnl0LxvEH78Uq+/M+6VRFtfiw4aiWGXsv8OPnX68=",
-        "last_login": "2026-03-26 18:34:58.604741",
+        "last_login": "2026-03-27 15:41:19.552497",
         "is_superuser": 0,
         "username": "paoogma",
         "email": "ral531712@gmail.com",
@@ -1549,34 +1539,6 @@
         "role": "PARENT_STUDENT"
       },
       {
-        "id": 99,
-        "password": "pbkdf2_sha256$1200000$CiQkiwqIXI05kCw6zsoz8V$mO9pmnuYiMsiMkqZtt3kV5Wr9MWTTMDm1KJHJfwpRnk=",
-        "last_login": "2026-03-26 15:42:29.556772",
-        "is_superuser": 0,
-        "username": "rolo",
-        "email": "acy995im@gmail.com",
-        "is_staff": 0,
-        "is_active": 1,
-        "created_at": "2026-03-13 02:17:50.907009",
-        "status": "ACTIVE",
-        "updated_at": "2026-03-13 02:21:04.678619",
-        "role": "PARENT_STUDENT"
-      },
-      {
-        "id": 100,
-        "password": "pbkdf2_sha256$1200000$hXLdfsFdpdDQP6KUcWWeLu$NVK7YAAg4Xc8OGIRotwicgKRQsa8QIe7nQ/Y3FVSoek=",
-        "last_login": "2026-03-25 04:13:04.753332",
-        "is_superuser": 0,
-        "username": "student2_test",
-        "email": "student2@test.local",
-        "is_staff": 0,
-        "is_active": 1,
-        "created_at": "2026-03-22 14:21:15.414288",
-        "status": "ACTIVE",
-        "updated_at": "2026-03-22 14:21:15.860071",
-        "role": "PARENT_STUDENT"
-      },
-      {
         "id": 101,
         "password": "!WWv1YGwauGtfiPflvcrzMqjudvHmKy3G8TvJHLEr",
         "last_login": null,
@@ -1759,24 +1721,6 @@
         "avatar": ""
       },
       {
-        "id": 9,
-        "student_first_name": "Ro",
-        "student_middle_name": "Do",
-        "student_last_name": "Lo",
-        "parent_first_name": "R",
-        "parent_middle_name": "",
-        "parent_last_name": "E L",
-        "contact_number": "+639166244333",
-        "address": "22 Honradez St., Tugatog, Malabon, Metro Manila, NCR, 1470",
-        "section_id": 11,
-        "user_id": 99,
-        "lrn": "123456789102",
-        "payment_mode": "cash",
-        "student_number": "2026000008",
-        "grade_level": "prek",
-        "avatar": ""
-      },
-      {
         "id": 10,
         "student_first_name": "Felicitas",
         "student_middle_name": "Gutierrez",
@@ -1904,9 +1848,9 @@
       },
       {
         "id": 17,
-        "student_first_name": "e",
-        "student_middle_name": "r",
-        "student_last_name": "w",
+        "student_first_name": "Ryan",
+        "student_middle_name": "L",
+        "student_last_name": "Annn",
         "parent_first_name": "w",
         "parent_middle_name": "",
         "parent_last_name": "w w",
@@ -3100,6 +3044,11 @@
         "key": "a1d9612eeec808d155834751ff979fe905bb08b2",
         "created": "2026-03-27 14:04:32.944742",
         "user_id": 7
+      },
+      {
+        "key": "b232ac53c093935524a695b8209c54e91c61da51",
+        "created": "2026-03-27 15:44:15.484468",
+        "user_id": 1
       }
     ],
     "classmanagement_room": [
@@ -3904,7 +3853,7 @@
       {
         "id": 1,
         "school_name": "Our School",
-        "about_text": "<p>testing&nbsp;testing&nbsp;</p>"
+        "about_text": "<p><s>Halooooooooooooo</s><span class=\"ql-cursor\">﻿</span></p>"
       }
     ],
     "django_admin_log": [
@@ -4717,6 +4666,26 @@
         "content_type_id": 17,
         "user_id": 1,
         "action_time": "2026-03-23 19:10:04.971467"
+      },
+      {
+        "id": 82,
+        "object_id": "100",
+        "object_repr": "student2_test",
+        "action_flag": 3,
+        "change_message": "",
+        "content_type_id": 11,
+        "user_id": 1,
+        "action_time": "2026-03-27 16:40:27.661912"
+      },
+      {
+        "id": 83,
+        "object_id": "99",
+        "object_repr": "rolo",
+        "action_flag": 3,
+        "change_message": "",
+        "content_type_id": 11,
+        "user_id": 1,
+        "action_time": "2026-03-27 16:41:50.090727"
       }
     ],
     "django_content_type": [
@@ -7324,6 +7293,11 @@
         "session_key": "87q7rckwf0htshbr65twacbesh5s24b1",
         "session_data": ".eJxVjEsOgjAUAO_y1qahUFofS_ecoXk_BDWQUFgZ725IWOh2ZjJvyLRvY96LrXlS6CDB5ZcxydPmQ-iD5vviZJm3dWJ3JO60xfWL2ut2tn-DkcoIHbB4kYixvUqQCqNGJatJWt9UA1pFyERJE5kEQrYaOSaOpuglNEOCzxcRzjkr:1w67nc:ukB7JdZ3IHemePAlEpQ-_iP0VFiJmfLzdl-YMvGffWU",
         "expire_date": "2026-04-10 14:04:32.948627"
+      },
+      {
+        "session_key": "3ot4equxmfi4s86nomu11v24s3ya7f2l",
+        "session_data": ".eJxVjMsOwiAQAP9lz4awdFlKj979BsJTqoYmpT0Z_9006UGvM5N5g_P7Vt3e8-rmBBMgXH5Z8PGZ2yHSw7f7IuLStnUO4kjEabu4LSm_rmf7N6i-V5iADGcZcZSUbLFZS6lDisg4mEha0oBFESFrDsSqsLeG1FhUZi0RS4TPF7MsNns:1w69M7:pFv6ovs86UWKsIGP_XbbBTbPXCUpkgFsafmToRSK-VA",
+        "expire_date": "2026-04-10 15:44:15.588602"
       }
     ],
     "enrollment_enrollment": [
@@ -10082,7 +10056,7 @@
         "religion": "Catholic",
         "student_type": "old",
         "telephone_number": "",
-        "parent_user_id": 99,
+        "parent_user_id": null,
         "student_number": "2026000008",
         "id_image": ""
       },
@@ -12570,7 +12544,7 @@
         "reference_number": "CESI-2026-00111",
         "due_date": "2026-05-31",
         "date_created": "2026-03-25 19:17:38.390565",
-        "status": "POSTED",
+        "status": "PENDING",
         "parent_id": 101,
         "balance": -17500,
         "credit": 8750,
@@ -12921,7 +12895,7 @@
         "reference_number": "CESI-2026-00125",
         "due_date": "2026-05-31",
         "date_created": "2026-03-25 19:17:38.399569",
-        "status": "PAID",
+        "status": "PENDING",
         "parent_id": 101,
         "balance": -8750,
         "credit": 8750,
@@ -13056,42 +13030,15 @@
         "reference_number": "CESI-2026-00130",
         "due_date": null,
         "date_created": "2026-03-26 09:11:58.588912",
-        "status": "POSTED",
-        "parent_id": 14,
-        "balance": 38740,
-        "credit": 0,
-        "debit": 38740,
-        "entry_type": "DEBIT",
-        "item": "REGISTRATION",
-        "school_year": "2026-2027",
-        "semester": "2nd",
-        "transaction_date": "2026-03-26",
-        "date_posted": "2026-03-26",
-        "enrollment_id": null,
-        "grade_level_snapshot": null,
-        "payment_mode_snapshot": null,
-        "student_number_snapshot": null,
-        "student_type_snapshot": null
-      },
-      {
-        "id": 131,
-        "student_name": "PaO Ce Ogma",
-        "transaction_type": "TUITION",
-        "amount": 38740,
-        "description": "Cash Tuition Payment",
-        "payment_method": "CASH",
-        "reference_number": "CESI-2026-00131",
-        "due_date": null,
-        "date_created": "2026-03-26 09:11:58.589732",
         "status": "PAID",
         "parent_id": 14,
-        "balance": 0,
+        "balance": -38740,
         "credit": 38740,
         "debit": 0,
         "entry_type": "CREDIT",
         "item": "PAYMENT",
         "school_year": "2026-2027",
-        "semester": "2nd",
+        "semester": "1st",
         "transaction_date": "2026-03-26",
         "date_posted": "2026-03-26",
         "enrollment_id": null,
@@ -13110,9 +13057,9 @@
         "reference_number": "CESI-2026-00132",
         "due_date": null,
         "date_created": "2026-03-26 11:56:11.855889",
-        "status": "PAID",
+        "status": "POSTED",
         "parent_id": 14,
-        "balance": -2221.99,
+        "balance": -40961.99,
         "credit": 2221.99,
         "debit": 0,
         "entry_type": "CREDIT",
@@ -14436,6 +14383,17 @@
         "recipient_id": 84,
         "sender_id": 1,
         "transaction_id": 83
+      },
+      {
+        "id": 4,
+        "title": "Payment Reminder - TUITION",
+        "message": "Good day. This is a payment reminder for Pao Ce Ogma \nregarding TUITION.  Reference No: CESI-2026-00128.\n Amount due: ₱39790.00. \n Status: POSTED. \n  \nPlease settle this payment as soon as possible.",
+        "reminder_type": "PAYMENT",
+        "is_read": 0,
+        "created_at": "2026-03-27 16:31:35.930141",
+        "recipient_id": 14,
+        "sender_id": 1,
+        "transaction_id": 128
       }
     ]
   }
