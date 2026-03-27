@@ -22,17 +22,6 @@ import '../AdminWebsiteCSS/GradesRecords.css';
 
 const ITEMS_PER_PAGE = 10;
 
-const GRADE_ORDER = {
-  'Pre-Kinder': -1,
-  'Kinder': 0,
-  'Grade 1': 1,
-  'Grade 2': 2,
-  'Grade 3': 3,
-  'Grade 4': 4,
-  'Grade 5': 5,
-  'Grade 6': 6,
-};
-
 const todayString = () => new Date().toISOString().slice(0, 10);
 
 const normalizeGradeLevel = (value) => {
@@ -62,17 +51,21 @@ const toGradeLabel = (value) => {
   const raw = String(value).trim();
   const lower = raw.toLowerCase();
 
-  if (/^grade\s*grade\s*(\d)$/i.test(raw)) {
-    return `Grade ${raw.match(/(\d)$/)[1]}`;
+  if (lower === 'prek' || lower === 'pre-kinder' || lower === 'pre kinder') return 'Pre-Kinder';
+  if (lower === 'kinder') return 'Kinder';
+
+  if (/^grade\s*grade\s*(\d+)$/i.test(raw)) {
+    return `Grade ${raw.match(/(\d+)$/)[1]}`;
   }
-  if (/^gradegrade\s*(\d)$/i.test(raw)) {
-    return `Grade ${raw.match(/(\d)$/)[1]}`;
+  if (/^gradegrade\s*(\d+)$/i.test(raw)) {
+    return `Grade ${raw.match(/(\d+)$/)[1]}`;
   }
 
   const map = {
     '-1': 'Pre-Kinder',
     prek: 'Pre-Kinder',
     'pre-kinder': 'Pre-Kinder',
+    'pre kinder': 'Pre-Kinder',
     '0': 'Kinder',
     kinder: 'Kinder',
     '1': 'Grade 1',
@@ -94,8 +87,10 @@ const toGradeLabel = (value) => {
     grade6: 'Grade 6',
     'grade 6': 'Grade 6',
   };
-  return map[normalized] || raw;
+
+  return map[lower] || raw;
 };
+
 const gradeChipClass = (grade) => {
   if (grade === null || grade === undefined || grade === '') return 'gr-grade gr-grade-pending';
   const numeric = Number(grade);
@@ -116,36 +111,17 @@ const resolveAttendanceOverallStatus = ({ present, absent, late, excused }) => {
   return 'unknown';
 };
 
-const escapeCsvValue = (value) => {
-  const text = String(value ?? '');
-  if (text.includes(',') || text.includes('"') || text.includes('\n')) {
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-  return text;
-};
-
-const downloadCsv = (rows, fileName) => {
-  const csv = rows.map((row) => row.map(escapeCsvValue).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-};
-
 const GradesRecords = () => {
   const [activeTab, setActiveTab] = useState('grades');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGrade, setFilterGrade] = useState('all');
   const [filterSection, setFilterSection] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterSchoolYear, setFilterSchoolYear] = useState('all');
   const [selectedDate, setSelectedDate] = useState(todayString());
   const [quarter, setQuarter] = useState(1);
   const [expandedStudentId, setExpandedStudentId] = useState(null);
+  const [expandedHistoryStudentId, setExpandedHistoryStudentId] = useState(null);
   const [expandedAttendanceStudentId, setExpandedAttendanceStudentId] = useState(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -154,46 +130,70 @@ const GradesRecords = () => {
   const [historyRecords, setHistoryRecords] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
 
+  const filterGradeValue = useMemo(() => {
+    if (filterGrade === 'all') return null;
+    return normalizeGradeLevel(filterGrade);
+  }, [filterGrade]);
+
   useEffect(() => {
     let cancelled = false;
 
     const loadData = async () => {
       setLoading(true);
       setError('');
+
       try {
         if (activeTab === 'grades') {
-          const params = new URLSearchParams({ quarter: String(quarter), page: String(page) });
+          const params = new URLSearchParams({
+            quarter: String(quarter),
+            page: String(page),
+          });
+
           if (filterGrade && filterGrade !== 'all') {
             params.set('grade_level', filterGrade);
           }
+
           if (filterSection && filterSection !== 'all') {
-            const sectionName = filterSection.includes('|') ? filterSection.split('|')[1] : filterSection;
+            const sectionName = filterSection.includes('|')
+              ? filterSection.split('|')[1]
+              : filterSection;
             if (sectionName) params.set('section', sectionName);
           }
+
           const gradesData = await apiFetchData(`/api/grades/admin-monitoring/?${params.toString()}`);
           if (cancelled) return;
 
-          const validGradesData = gradesData && typeof gradesData === 'object'
-            ? {
-                summary: gradesData.summary || {},
-                students: Array.isArray(gradesData.students) ? gradesData.students : [],
-                quarter,
-              }
-            : { summary: {}, students: [], quarter };
+          const validGradesData =
+            gradesData && typeof gradesData === 'object'
+              ? {
+                  summary: gradesData.summary || {},
+                  students: Array.isArray(gradesData.students) ? gradesData.students : [],
+                  quarter,
+                }
+              : { summary: {}, students: [], quarter };
 
           setGradeMonitoring(validGradesData);
-          // Clear other tab data to avoid cross-tab leakage
           setHistoryRecords([]);
           setAttendanceRecords([]);
         } else if (activeTab === 'history') {
           const historyParams = new URLSearchParams({ page: String(page) });
+
           if (filterGrade && filterGrade !== 'all') historyParams.set('grade_level', filterGrade);
+
           if (filterSection && filterSection !== 'all') {
-            const sectionName = filterSection.includes('|') ? filterSection.split('|')[1] : filterSection;
+            const sectionName = filterSection.includes('|')
+              ? filterSection.split('|')[1]
+              : filterSection;
             if (sectionName) historyParams.set('section', sectionName);
           }
-          if (filterStatus && filterStatus !== 'all') historyParams.set('status', filterStatus);
-          if (filterSchoolYear && filterSchoolYear !== 'all') historyParams.set('school_year', filterSchoolYear);
+
+          if (filterStatus && filterStatus !== 'all') {
+            historyParams.set('status', filterStatus);
+          }
+
+          if (filterSchoolYear && filterSchoolYear !== 'all') {
+            historyParams.set('school_year', filterSchoolYear);
+          }
 
           const historyData = await apiFetchData(`/api/grades/academic-history/?${historyParams.toString()}`);
           if (cancelled) return;
@@ -208,10 +208,17 @@ const GradesRecords = () => {
           setGradeMonitoring({ summary: {}, students: [], quarter });
           setAttendanceRecords([]);
         } else if (activeTab === 'attendance') {
-          const attendanceParams = new URLSearchParams({ date: selectedDate, page: String(page) });
+          const attendanceParams = new URLSearchParams({
+            date: selectedDate,
+            page: String(page),
+          });
+
           if (filterGrade && filterGrade !== 'all') attendanceParams.set('grade_level', filterGrade);
+
           if (filterSection && filterSection !== 'all') {
-            const sectionName = filterSection.includes('|') ? filterSection.split('|')[1] : filterSection;
+            const sectionName = filterSection.includes('|')
+              ? filterSection.split('|')[1]
+              : filterSection;
             if (sectionName) attendanceParams.set('section', sectionName);
           }
 
@@ -237,25 +244,29 @@ const GradesRecords = () => {
     };
 
     loadData();
+
     return () => {
       cancelled = true;
     };
-  }, [activeTab, quarter, selectedDate, page]);
+  }, [activeTab, quarter, selectedDate, page, filterGrade, filterSection, filterStatus, filterSchoolYear]);
 
   useEffect(() => {
     setPage(1);
-  }, [activeTab, searchTerm, filterGrade, filterSection, filterStatus, quarter, selectedDate]);
+  }, [activeTab, searchTerm, filterGrade, filterSection, filterStatus, filterSchoolYear, quarter, selectedDate]);
 
   useEffect(() => {
     setExpandedAttendanceStudentId(null);
   }, [activeTab, selectedDate, filterGrade, filterSection, filterStatus, searchTerm]);
 
-  // Reset all expansion states when switching tabs to prevent state leakage
   useEffect(() => {
     setExpandedStudentId(null);
     setExpandedHistoryStudentId(null);
     setExpandedAttendanceStudentId(null);
   }, [activeTab]);
+
+  useEffect(() => {
+    setFilterSection('all');
+  }, [filterGrade]);
 
   const gradeOptions = useMemo(() => {
     return [
@@ -272,117 +283,146 @@ const GradesRecords = () => {
 
   const sectionOptions = useMemo(() => {
     const items = new Map();
+
     const gradeMatches = (gradeValue) =>
       filterGrade === 'all' || toGradeLabel(gradeValue) === filterGrade;
 
-    activeData.forEach((row) => {
-      const gradeLabel = toGradeLabel(row.grade_level_label || row.grade_level);
-      const sectionName = row.section_name || '';
-      if (!sectionName) return;
-      if (!gradeMatches(row.grade_level_label || row.grade_level)) return;
-      const key = `${gradeLabel}|${sectionName}`;
-      items.set(key, `${gradeLabel} — ${sectionName}`);
-    });
-    attendanceRecords.forEach((row) => {
-      if (gradeMatches(row.grade_level) && row.section_name) names.add(row.section_name);
-    });
-    return [...names].sort();
-  }, [attendanceRecords, filterGrade, gradeMonitoring.students, historyRecords]);
+    const sourceRows =
+      activeTab === 'grades'
+        ? gradeMonitoring.students
+        : activeTab === 'history'
+        ? historyRecords
+        : attendanceRecords;
 
-  // School year options from academic history
+    sourceRows.forEach((row) => {
+      const rawGrade = row.grade_level_label || row.grade_level || '';
+      const gradeLabel = toGradeLabel(rawGrade);
+      const sectionName = row.section_name || '';
+
+      if (!sectionName) return;
+      if (!gradeMatches(rawGrade)) return;
+
+      const key = `${gradeLabel}|${sectionName}`;
+      items.set(key, { value: key, label: `${gradeLabel} — ${sectionName}` });
+    });
+
+    return [...items.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [activeTab, filterGrade, gradeMonitoring.students, historyRecords, attendanceRecords]);
+
   const schoolYearOptions = useMemo(() => {
     const years = new Set();
     historyRecords.forEach((row) => {
       if (row.school_year) years.add(row.school_year);
     });
-    return [...years].sort((a, b) => b.localeCompare(a)); // Newest first
+    return [...years].sort((a, b) => b.localeCompare(a));
   }, [historyRecords]);
-
-  // Reset section filter when grade filter changes so stale section selection doesn't ghost-filter.
-  useEffect(() => {
-    setFilterSection('all');
-  }, [filterGrade]);
 
   const filteredStudents = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
+
     return gradeMonitoring.students.filter((student) => {
-      const matchesSearch = !query || [
-        student.student_name,
-        student.student_username,
-        student.student_number,
-        student.section_name,
-      ].some((value) => String(value || '').toLowerCase().includes(query));
+      const matchesSearch =
+        !query ||
+        [
+          student.student_name,
+          student.student_username,
+          student.student_number,
+          student.section_name,
+        ].some((value) => String(value || '').toLowerCase().includes(query));
 
       const rowGrade = normalizeGradeLevel(student.grade_level_label || student.grade_level);
       const gradeLabel = toGradeLabel(student.grade_level_label || student.grade_level);
+
       const matchesGrade =
         filterGradeValue === null ||
         (rowGrade !== null && rowGrade === filterGradeValue) ||
         gradeLabel === filterGrade;
+
       const studentSectionKey = `${gradeLabel}|${student.section_name || ''}`;
       const matchesSection =
         filterSection === 'all' ||
         student.section_name === filterSection ||
         studentSectionKey === filterSection;
+
       const matchesStatus = filterStatus === 'all' || student.status === filterStatus;
+
       return matchesSearch && matchesGrade && matchesSection && matchesStatus;
     });
-  }, [filterGrade, filterSection, filterStatus, gradeMonitoring.students, searchTerm]);
+  }, [filterGrade, filterGradeValue, filterSection, filterStatus, gradeMonitoring.students, searchTerm]);
 
   const filteredHistory = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    return historyRecords.filter((record) => {
-      const matchesSearch = !query || [
-        record.student_name,
-        record.student_username,
-        record.student_number,
-        record.subject_name,
-        record.subject_code,
-        record.school_year,
-        record.teacher_name,
-      ].some((value) => String(value || '').toLowerCase().includes(query));
 
-      const matchesGrade = filterGrade === 'all' || toGradeLabel(record.grade_level) === filterGrade;
-      const matchesSection = filterSection === 'all' || record.section_name === filterSection;
-      const matchesSchoolYear = filterSchoolYear === 'all' || record.school_year === filterSchoolYear;
-      const matchesStatus = filterStatus === 'all' || String(record.remarks || '').toLowerCase() === filterStatus;
-      return matchesSearch && matchesGrade && matchesSection && matchesStatus;
+    return historyRecords.filter((record) => {
+      const matchesSearch =
+        !query ||
+        [
+          record.student_name,
+          record.student_username,
+          record.student_number,
+          record.subject_name,
+          record.subject_code,
+          record.school_year,
+          record.teacher_name,
+        ].some((value) => String(value || '').toLowerCase().includes(query));
+
+      const gradeLabel = toGradeLabel(record.grade_level);
+      const recordSectionKey = `${gradeLabel}|${record.section_name || ''}`;
+
+      const matchesGrade = filterGrade === 'all' || gradeLabel === filterGrade;
+      const matchesSection =
+        filterSection === 'all' ||
+        record.section_name === filterSection ||
+        recordSectionKey === filterSection;
+      const matchesSchoolYear =
+        filterSchoolYear === 'all' || record.school_year === filterSchoolYear;
+      const matchesStatus =
+        filterStatus === 'all' || String(record.remarks || '').toLowerCase() === filterStatus;
+
+      return matchesSearch && matchesGrade && matchesSection && matchesSchoolYear && matchesStatus;
     });
-  }, [filterGrade, filterSection, filterStatus, historyRecords, searchTerm]);
+  }, [filterGrade, filterSection, filterStatus, filterSchoolYear, historyRecords, searchTerm]);
 
   const filteredAttendanceRecords = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
+
     return attendanceRecords.filter((record) => {
-      const matchesSearch = !query || [
-        record.student_name,
-        record.student_username,
-        record.student_number,
-        record.section_name,
-        record.subject_name,
-        record.subject_code,
-        record.marked_by_name,
-      ].some((value) => String(value || '').toLowerCase().includes(query));
+      const matchesSearch =
+        !query ||
+        [
+          record.student_name,
+          record.student_username,
+          record.student_number,
+          record.section_name,
+          record.subject_name,
+          record.subject_code,
+          record.marked_by_name,
+        ].some((value) => String(value || '').toLowerCase().includes(query));
 
       const rowGrade = normalizeGradeLevel(record.grade_level);
       const gradeLabel = toGradeLabel(record.grade_level);
+
       const matchesGrade =
         filterGradeValue === null ||
         (rowGrade !== null && rowGrade === filterGradeValue) ||
         gradeLabel === filterGrade;
+
       const recordSectionKey = `${gradeLabel}|${record.section_name || ''}`;
       const matchesSection =
         filterSection === 'all' ||
         record.section_name === filterSection ||
         recordSectionKey === filterSection;
+
       return matchesSearch && matchesGrade && matchesSection;
     });
-  }, [attendanceRecords, filterGrade, filterSection, searchTerm]);
+  }, [attendanceRecords, filterGrade, filterGradeValue, filterSection, searchTerm]);
 
   const filteredAttendanceStudents = useMemo(() => {
     const grouped = new Map();
 
     filteredAttendanceRecords.forEach((record) => {
       const studentId = record.student;
+
       if (!grouped.has(studentId)) {
         grouped.set(studentId, {
           student: studentId,
@@ -401,6 +441,7 @@ const GradesRecords = () => {
 
       const row = grouped.get(studentId);
       const statusKey = String(record.status || '').toUpperCase();
+
       if (statusKey === 'PRESENT') row.present += 1;
       else if (statusKey === 'ABSENT') row.absent += 1;
       else if (statusKey === 'LATE') row.late += 1;
@@ -433,6 +474,7 @@ const GradesRecords = () => {
     const finalGrades = filteredHistory
       .map((record) => Number(record.final_grade))
       .filter((value) => !Number.isNaN(value));
+
     return {
       totalRecords: filteredHistory.length,
       uniqueStudents: new Set(filteredHistory.map((record) => record.student)).size,
@@ -447,10 +489,12 @@ const GradesRecords = () => {
     const statusCounts = filteredAttendanceRecords.reduce(
       (acc, record) => {
         const statusKey = String(record.status || '').toUpperCase();
+
         if (statusKey === 'PRESENT') acc.present += 1;
         else if (statusKey === 'ABSENT') acc.absent += 1;
         else if (statusKey === 'LATE') acc.late += 1;
         else if (statusKey === 'EXCUSED') acc.excused += 1;
+
         return acc;
       },
       { present: 0, absent: 0, late: 0, excused: 0 }
@@ -470,7 +514,7 @@ const GradesRecords = () => {
       ? filteredHistory
       : filteredAttendanceStudents;
 
-  const totalPages = Math.ceil(activeRows.length / ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(activeRows.length / ITEMS_PER_PAGE));
   const paginatedRows = activeRows.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   const exportCurrentView = () => {
@@ -484,12 +528,13 @@ const GradesRecords = () => {
           'Student Number': row.student_number || '—',
           'Student Name': row.student_name,
           'Grade Level': toGradeLabel(row.grade_level_label || row.grade_level),
-          'Section': row.section_name,
+          Section: row.section_name,
           'Graded Subjects': `${row.graded_subjects}/${row.total_subjects}`,
           'Average Grade': row.average_grade ?? '—',
-          'Status': row.status,
+          Status: row.status,
           'History Count': row.history_count,
         }));
+
         const sheet = XLSX.utils.json_to_sheet(gradesData);
         sheet['!cols'] = [
           { wch: 15 },
@@ -509,13 +554,14 @@ const GradesRecords = () => {
           'Student Name': row.student_name,
           'Student Number': row.student_number || '—',
           'Grade Level': toGradeLabel(row.grade_level),
-          'Section': row.section_name || '—',
-          'Subject': row.subject_name,
+          Section: row.section_name || '—',
+          Subject: row.subject_name,
           'Subject Code': row.subject_code || '—',
           'Final Grade': row.final_grade ?? '—',
-          'Remarks': row.remarks || '—',
-          'Teacher': row.teacher_name || '—',
+          Remarks: row.remarks || '—',
+          Teacher: row.teacher_name || '—',
         }));
+
         const sheet = XLSX.utils.json_to_sheet(historyData);
         sheet['!cols'] = [
           { wch: 15 },
@@ -533,18 +579,19 @@ const GradesRecords = () => {
         filename = `admin-academic-history-${timestamp}.xlsx`;
       } else if (activeTab === 'attendance') {
         const attendanceData = filteredAttendanceStudents.map((row) => ({
-          'Date': selectedDate,
+          Date: selectedDate,
           'Student Number': row.student_number || '—',
           'Student Name': row.student_name,
           'Grade Level': toGradeLabel(row.grade_level),
-          'Section': row.section_name || '—',
+          Section: row.section_name || '—',
           'Overall Status': row.overall_status,
-          'Present': row.present,
-          'Late': row.late,
-          'Excused': row.excused,
-          'Absent': row.absent,
+          Present: row.present,
+          Late: row.late,
+          Excused: row.excused,
+          Absent: row.absent,
           'Subject Details': row.subjects.map((s) => `${s.subject_name} (${s.status})`).join('; '),
         }));
+
         const sheet = XLSX.utils.json_to_sheet(attendanceData);
         sheet['!cols'] = [
           { wch: 15 },
@@ -657,6 +704,7 @@ const GradesRecords = () => {
     }
 
     const summary = gradeMonitoring.summary || {};
+
     return (
       <div className="gr-stats-grid">
         <div className="gr-stat-card gr-stat-blue">
@@ -727,15 +775,24 @@ const GradesRecords = () => {
       <section className="gr-section">{renderStats()}</section>
 
       <div className="gr-tabs-container">
-        <button className={`gr-tab-button ${activeTab === 'grades' ? 'gr-tab-active' : ''}`} onClick={() => setActiveTab('grades')}>
+        <button
+          className={`gr-tab-button ${activeTab === 'grades' ? 'gr-tab-active' : ''}`}
+          onClick={() => setActiveTab('grades')}
+        >
           <FileText size={18} />
           Current Grades
         </button>
-        <button className={`gr-tab-button ${activeTab === 'history' ? 'gr-tab-active' : ''}`} onClick={() => setActiveTab('history')}>
+        <button
+          className={`gr-tab-button ${activeTab === 'history' ? 'gr-tab-active' : ''}`}
+          onClick={() => setActiveTab('history')}
+        >
           <History size={18} />
           Academic Records
         </button>
-        <button className={`gr-tab-button ${activeTab === 'attendance' ? 'gr-tab-active' : ''}`} onClick={() => setActiveTab('attendance')}>
+        <button
+          className={`gr-tab-button ${activeTab === 'attendance' ? 'gr-tab-active' : ''}`}
+          onClick={() => setActiveTab('attendance')}
+        >
           <Calendar size={18} />
           Attendance
         </button>
@@ -762,16 +819,27 @@ const GradesRecords = () => {
 
           <div className="gr-header-actions">
             {activeTab === 'grades' && (
-              <select value={quarter} onChange={(e) => setQuarter(Number(e.target.value))} className="gr-filter-select gr-inline-select">
+              <select
+                value={quarter}
+                onChange={(e) => setQuarter(Number(e.target.value))}
+                className="gr-filter-select gr-inline-select"
+              >
                 <option value={1}>Quarter 1</option>
                 <option value={2}>Quarter 2</option>
                 <option value={3}>Quarter 3</option>
                 <option value={4}>Quarter 4</option>
               </select>
             )}
+
             {activeTab === 'attendance' && (
-              <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="gr-date-input" />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="gr-date-input"
+              />
             )}
+
             <button className="gr-btn-primary" onClick={exportCurrentView} disabled={loading}>
               <Download size={18} />
               Export
@@ -799,28 +867,63 @@ const GradesRecords = () => {
 
           <div className="gr-filter-group">
             <Filter size={20} />
-            <select value={filterGrade} onChange={(e) => setFilterGrade(e.target.value)} className="gr-filter-select">
+            <select
+              value={filterGrade}
+              onChange={(e) => setFilterGrade(e.target.value)}
+              className="gr-filter-select"
+            >
               <option value="all">All Grade Levels</option>
               {gradeOptions.map((grade) => (
-                <option key={grade} value={grade}>{grade}</option>
+                <option key={grade} value={grade}>
+                  {grade}
+                </option>
               ))}
             </select>
           </div>
 
           <div className="gr-filter-group">
             <Filter size={20} />
-            <select value={filterSection} onChange={(e) => setFilterSection(e.target.value)} className="gr-filter-select">
+            <select
+              value={filterSection}
+              onChange={(e) => setFilterSection(e.target.value)}
+              className="gr-filter-select"
+            >
               <option value="all">All Sections</option>
               {sectionOptions.map((section) => (
-                <option key={section.value} value={section.value}>{section.label}</option>
+                <option key={section.value} value={section.value}>
+                  {section.label}
+                </option>
               ))}
             </select>
           </div>
 
+          {activeTab === 'history' && (
+            <div className="gr-filter-group">
+              <Filter size={20} />
+              <select
+                value={filterSchoolYear}
+                onChange={(e) => setFilterSchoolYear(e.target.value)}
+                className="gr-filter-select"
+              >
+                <option value="all">All School Years</option>
+                {schoolYearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="gr-filter-group">
             <Filter size={20} />
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="gr-filter-select">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="gr-filter-select"
+            >
               <option value="all">All Status</option>
+
               {activeTab === 'grades' && (
                 <>
                   <option value="completed">Completed</option>
@@ -828,6 +931,7 @@ const GradesRecords = () => {
                   <option value="pending">Pending</option>
                 </>
               )}
+
               {activeTab === 'history' && (
                 <>
                   <option value="passed">Passed</option>
@@ -837,6 +941,7 @@ const GradesRecords = () => {
                   <option value="incomplete">Incomplete</option>
                 </>
               )}
+
               {activeTab === 'attendance' && (
                 <>
                   <option value="present">Present</option>
@@ -872,46 +977,68 @@ const GradesRecords = () => {
               <tbody>
                 {paginatedRows.map((student) => {
                   const expanded = expandedStudentId === student.student_id;
+
                   return (
                     <React.Fragment key={student.student_id}>
                       <tr>
-                        <td data-label="Student #" className="gr-student-id">{student.student_number || '—'}</td>
+                        <td data-label="Student #" className="gr-student-id">
+                          {student.student_number || '—'}
+                        </td>
                         <td data-label="Student" className="gr-student-name">
                           <div className="gr-stack">
                             <span>{student.student_name}</span>
                             <span className="gr-muted">@{student.student_username}</span>
                           </div>
                         </td>
-                        <td data-label="Grade Level">{toGradeLabel(student.grade_level_label || student.grade_level)}</td>
+                        <td data-label="Grade Level">
+                          {toGradeLabel(student.grade_level_label || student.grade_level)}
+                        </td>
                         <td data-label="Section">{student.section_name}</td>
-                        <td data-label="Graded Subjects">{student.graded_subjects}/{student.total_subjects}</td>
+                        <td data-label="Graded Subjects">
+                          {student.graded_subjects}/{student.total_subjects}
+                        </td>
                         <td data-label="Average">
                           {student.average_grade !== null ? (
-                            <span className={gradeChipClass(student.average_grade)}>{student.average_grade}</span>
+                            <span className={gradeChipClass(student.average_grade)}>
+                              {student.average_grade}
+                            </span>
                           ) : (
                             <span className="gr-muted">—</span>
                           )}
                         </td>
                         <td data-label="Status">
-                          <span className={`gr-status-badge gr-status-${student.status}`}>{student.status}</span>
+                          <span className={`gr-status-badge gr-status-${student.status}`}>
+                            {student.status}
+                          </span>
                         </td>
                         <td data-label="History">
                           <div className="gr-stack">
-                            <span>{student.history_count} record{student.history_count === 1 ? '' : 's'}</span>
-                            <span className="gr-muted">{student.latest_history_year || 'No prior year'}</span>
+                            <span>
+                              {student.history_count} record{student.history_count === 1 ? '' : 's'}
+                            </span>
+                            <span className="gr-muted">
+                              {student.latest_history_year || 'No prior year'}
+                            </span>
                           </div>
                         </td>
                         <td data-label="Details">
-                          <button className="gr-btn-icon" onClick={() => setExpandedStudentId(expanded ? null : student.student_id)} title="Toggle subject breakdown">
+                          <button
+                            className="gr-btn-icon"
+                            onClick={() =>
+                              setExpandedStudentId(expanded ? null : student.student_id)
+                            }
+                            title="Toggle subject breakdown"
+                          >
                             {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                           </button>
                         </td>
                       </tr>
+
                       {expanded && (
                         <tr className="gr-expand-row">
                           <td colSpan={9}>
                             <div className="gr-subject-list">
-                              {student.subject_breakdown.map((subject) => (
+                              {(student.subject_breakdown || []).map((subject) => (
                                 <div key={subject.subject_id} className="gr-subject-card">
                                   <div className="gr-subject-top">
                                     <strong>{subject.subject_name}</strong>
@@ -919,7 +1046,9 @@ const GradesRecords = () => {
                                   </div>
                                   <div>
                                     {subject.quarter_grade !== null ? (
-                                      <span className={gradeChipClass(subject.quarter_grade)}>{subject.quarter_grade}</span>
+                                      <span className={gradeChipClass(subject.quarter_grade)}>
+                                        {subject.quarter_grade}
+                                      </span>
                                     ) : (
                                       <span className="gr-grade gr-grade-pending">No grade</span>
                                     )}
@@ -956,7 +1085,9 @@ const GradesRecords = () => {
                     <td data-label="Student" className="gr-student-name">
                       <div className="gr-stack">
                         <span>{record.student_name}</span>
-                        <span className="gr-muted">{record.student_number || '@' + record.student_username}</span>
+                        <span className="gr-muted">
+                          {record.student_number || '@' + record.student_username}
+                        </span>
                       </div>
                     </td>
                     <td data-label="Grade Level">{toGradeLabel(record.grade_level)}</td>
@@ -969,13 +1100,19 @@ const GradesRecords = () => {
                     </td>
                     <td data-label="Final Grade">
                       {record.final_grade !== null ? (
-                        <span className={gradeChipClass(record.final_grade)}>{record.final_grade}</span>
+                        <span className={gradeChipClass(record.final_grade)}>
+                          {record.final_grade}
+                        </span>
                       ) : (
                         <span className="gr-muted">—</span>
                       )}
                     </td>
                     <td data-label="Remarks">
-                      <span className={`gr-status-badge gr-status-${String(record.remarks || '').toLowerCase() || 'pending'}`}>
+                      <span
+                        className={`gr-status-badge gr-status-${String(
+                          record.remarks || ''
+                        ).toLowerCase() || 'pending'}`}
+                      >
                         {record.remarks || '—'}
                       </span>
                     </td>
@@ -1000,10 +1137,13 @@ const GradesRecords = () => {
               <tbody>
                 {paginatedRows.map((record) => {
                   const expanded = expandedAttendanceStudentId === record.student;
+
                   return (
                     <React.Fragment key={record.student}>
                       <tr>
-                        <td data-label="Student #" className="gr-student-id">{record.student_number || '—'}</td>
+                        <td data-label="Student #" className="gr-student-id">
+                          {record.student_number || '—'}
+                        </td>
                         <td data-label="Student" className="gr-student-name">
                           <div className="gr-stack">
                             <span>{record.student_name}</span>
@@ -1019,11 +1159,18 @@ const GradesRecords = () => {
                         </td>
                         <td data-label="Subjects">{record.total_subjects}</td>
                         <td data-label="Details">
-                          <button className="gr-btn-icon" onClick={() => setExpandedAttendanceStudentId(expanded ? null : record.student)} title="Toggle subject attendance details">
+                          <button
+                            className="gr-btn-icon"
+                            onClick={() =>
+                              setExpandedAttendanceStudentId(expanded ? null : record.student)
+                            }
+                            title="Toggle subject attendance details"
+                          >
                             {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                           </button>
                         </td>
                       </tr>
+
                       {expanded && (
                         <tr className="gr-expand-row">
                           <td colSpan={7}>
@@ -1036,7 +1183,9 @@ const GradesRecords = () => {
                                   </div>
                                   <div className="gr-stack">
                                     <span className="gr-muted">{subject.schedule_time}</span>
-                                    <span className={`gr-attendance-badge gr-att-${subject.status}`}>{subject.status}</span>
+                                    <span className={`gr-attendance-badge gr-att-${subject.status}`}>
+                                      {subject.status}
+                                    </span>
                                   </div>
                                 </div>
                               ))}
