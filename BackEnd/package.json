@@ -1,6 +1,5 @@
 {
-  "dependencies": {
-    "dompurify": "^3.3.3",
-    "react-quill": "^2.0.0"
-  }
+  "private": true,
+  "description": "Placeholder package.json: this Django backend does not use Node.js dependencies.",
+  "dependencies": {}
 }
