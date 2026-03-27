@@ -24,7 +24,7 @@ const ITEMS_PER_PAGE = 10;
 
 const GRADE_ORDER = {
   'Pre-Kinder': -1,
-  Kinder: 0,
+  'Kinder': 0,
   'Grade 1': 1,
   'Grade 2': 2,
   'Grade 3': 3,
