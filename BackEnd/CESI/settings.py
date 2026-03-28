@@ -118,6 +118,7 @@ FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware', 
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # ADD THIS LINE HERE
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -128,13 +129,14 @@ MIDDLEWARE = [
 ] # dev only
 ROOT_URLCONF = 'CESI.urls'
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     "162.159.140.98",
     "172.66.0.96",
-    "*",  # Temporary for testing; replace with deployed hostname in production.
+    "cesiportal-app-nypkd.ondigitalocean.app",
+    "*",  # Temporary for testing; replace with specific hostname in production.
 ]
 # CSRF / Session config for cross-origin dev
 CSRF_TRUSTED_ORIGINS = [
@@ -142,14 +144,13 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5174",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
-    # Add DigitalOcean frontend URL once available:
-    # "https://<your-app>.ondigitalocean.app",
+    "https://cesiportal-app-nypkd.ondigitalocean.app",
 ]
-CORS_ALLOW_ALL_ORIGINS = True  # Dev/testing only; set False in production.
+CORS_ALLOW_ALL_ORIGINS = False  # Set to False for production
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
-    # "https://<your-app>.ondigitalocean.app",
+    "https://cesiportal-app-nypkd.ondigitalocean.app",
 ]
 
 CORS_ALLOW_HEADERS = [
@@ -165,8 +166,8 @@ CORS_ALLOW_HEADERS = [
 # Allow session cookie to be sent on cross-origin requests (dev only)
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 
 
 
@@ -237,6 +238,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 AUTH_USER_MODEL = 'accounts.User'
 

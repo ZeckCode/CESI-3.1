@@ -26,3 +26,4 @@ gunicorn>=20.1,<21.0
 
 dj-database-url
 psycopg2-binary
+whitenoise[brotli]>=6.7.0
