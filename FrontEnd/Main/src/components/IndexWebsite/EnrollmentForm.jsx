@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { GRADE_AGE_RULES } from "../../config/EnrollmentConfig.js";
+import { apiFetch } from "../api/apiFetch";
 import "../IndexWebsiteCSS/EnrollmentForm.css";
-
-const API_BASE = "http://127.0.0.1:8000";
 
 /* ─────────────────────────────────────────────
    COMPUTE ENROLLMENT WINDOW FROM BACKEND DATA
@@ -89,7 +88,7 @@ const EnrollmentForm = ({ onClose }) => {
   const [settingsLoading, setSettingsLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/enrollment-settings/`)
+    apiFetch("/api/enrollment-settings/")
       .then((r) => r.json())
       .catch(() => null)
       .then((data) => {
@@ -379,7 +378,7 @@ const EnrollmentForm = ({ onClose }) => {
     if (otherDocumentFile) formData.append("other_document_file", otherDocumentFile);
 
     try {
-      const response = await fetch(`${API_BASE}/api/enrollments/`, {
+      const response = await apiFetch("/api/enrollments/", {
         method: "POST",
         body: formData,
       });

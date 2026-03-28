@@ -1151,8 +1151,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             required_missing.append("academic_year")
         if not enrollment.payment_mode:
             required_missing.append("payment_mode")
-        if not enrollment.parent_facebook:
-            required_missing.append("parent_facebook")
+        # parent_facebook is optional for admin approval
 
         if not (enrollment.email or enrollment.mobile_number or enrollment.telephone_number):
             required_missing.append("contact")
@@ -2429,8 +2428,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             required_missing.append("academic_year")
         if not enrollment.payment_mode:
             required_missing.append("payment_mode")
-        if not enrollment.parent_facebook:
-            required_missing.append("parent_facebook")
+        # parent_facebook is optional for admin approval
 
         if not (enrollment.email or enrollment.mobile_number or enrollment.telephone_number):
             required_missing.append("contact")
@@ -3615,8 +3613,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             required_missing.append("academic_year")
         if not enrollment.payment_mode:
             required_missing.append("payment_mode")
-        if not enrollment.parent_facebook:
-            required_missing.append("parent_facebook")
+        # parent_facebook is optional for admin approval
 
         if not (enrollment.email or enrollment.mobile_number or enrollment.telephone_number):
             required_missing.append("contact")
