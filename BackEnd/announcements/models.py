@@ -84,7 +84,9 @@ class AnnouncementMedia(models.Model):
             return super().save(*args, **kwargs)
 
         computed = False
-        # If Pillow is available and this is an image, compress to WebP and store bytes
+        # If Pillow is available and this is an image, compress and store bytes.
+        # Choose an output format that prioritizes broad client compatibility
+        # (JPEG/PNG) for common inputs, fall back to WebP for others.
         if self.file and Image is not None:
             ext = os.path.splitext(self.file.name)[1].lower()
             if ext in ALLOWED_IMAGE_EXTS:
@@ -95,22 +97,47 @@ class AnnouncementMedia(models.Model):
                         pass
 
                     img = Image.open(self.file)
-                    if img.mode in ("RGBA", "P"):
-                        img = img.convert("RGB")
+                    img_format = (img.format or "").upper()
 
-                    max_width = 1600
-                    if getattr(img, "width", None) and img.width > max_width:
-                        ratio = max_width / float(img.width)
-                        new_height = int(float(img.height) * ratio)
-                        img = img.resize((max_width, new_height), Image.ANTIALIAS)
+                    # Avoid re-encoding animated GIFs (preserve original file in storage)
+                    if img_format == "GIF" and getattr(img, "is_animated", False):
+                        # don't compute binary fallback for animated GIFs
+                        pass
+                    else:
+                        # Resize if very large
+                        max_width = 1600
+                        if getattr(img, "width", None) and img.width > max_width:
+                            ratio = max_width / float(img.width)
+                            new_height = int(float(img.height) * ratio)
+                            img = img.resize((max_width, new_height), Image.ANTIALIAS)
 
-                    output = BytesIO()
-                    img.save(output, format="WEBP", quality=80)
-                    output.seek(0)
-                    self.data = output.read()
-                    self.data_mime = "image/webp"
-                    self.original_filename = os.path.basename(self.file.name)
-                    computed = True
+                        # Decide output format for best compatibility
+                        if ext in (".jpg", ".jpeg") or img_format == "JPEG":
+                            out_format = "JPEG"
+                            mime = "image/jpeg"
+                            if img.mode in ("RGBA", "P"):
+                                img = img.convert("RGB")
+                        elif ext == ".png" or img_format == "PNG":
+                            out_format = "PNG"
+                            mime = "image/png"
+                        else:
+                            out_format = "WEBP"
+                            mime = "image/webp"
+                            if img.mode in ("RGBA", "P"):
+                                img = img.convert("RGB")
+
+                        output = BytesIO()
+                        save_kwargs = {"quality": 80}
+                        if out_format == "PNG":
+                            # PNG doesn't use quality, optimize instead
+                            save_kwargs = {"optimize": True}
+
+                        img.save(output, format=out_format, **save_kwargs)
+                        output.seek(0)
+                        self.data = output.read()
+                        self.data_mime = mime
+                        self.original_filename = os.path.basename(self.file.name)
+                        computed = True
                 except Exception:
                     pass
 

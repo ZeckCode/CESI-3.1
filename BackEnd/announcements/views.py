@@ -13,6 +13,7 @@ from .serializers import AnnouncementSerializer
 from .permissions import IsTeacherOrAdmin
 from django.shortcuts import get_object_or_404, redirect
 from django.http import HttpResponse, Http404
+import os
 
 
 class AnnouncementListCreate(APIView):
@@ -163,8 +164,25 @@ def announcement_media_raw(request, pk):
         # storage check failed — fall through to DB bytes
         pass
 
-    # If we have binary data stored in DB, stream it
+    # If we have binary data stored in DB, stream it with a helpful filename
     if media.data:
-        return HttpResponse(media.data, content_type=(media.data_mime or "application/octet-stream"))
+        mime = media.data_mime or "application/octet-stream"
+        # derive a sensible extension for content-disposition
+        mime_map = {
+            "image/webp": "webp",
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/gif": "gif",
+            "video/mp4": "mp4",
+            "video/webm": "webm",
+        }
+        ext = mime_map.get(mime, "")
+        base = media.original_filename or f"announcement-{media.pk}"
+        base_noext = os.path.splitext(base)[0]
+        filename = f"{base_noext}.{ext}" if ext else base
+
+        response = HttpResponse(media.data, content_type=mime)
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+        return response
 
     raise Http404("Media not available")
