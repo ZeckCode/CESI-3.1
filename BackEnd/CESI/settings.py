@@ -110,7 +110,7 @@ EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'cesi.support@gmail.com')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'placeholder-password')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'cesisupport123')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
