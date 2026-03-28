@@ -11,10 +11,28 @@ class AnnouncementMediaSerializer(serializers.ModelSerializer):
 
     def get_file_url(self, obj):
         request = self.context.get("request")
-        if not obj.file:
-            return None
-        url = obj.file.url
-        return request.build_absolute_uri(url) if request else url
+
+        # If storage file exists, prefer its URL
+        try:
+            if obj.file and obj.file.storage.exists(obj.file.name):
+                url = obj.file.url
+                return request.build_absolute_uri(url) if request else url
+        except Exception:
+            # storage check failed — fall back to DB bytes if available
+            pass
+
+        # If we have binary data stored in the DB, return the API streaming endpoint
+        if getattr(obj, "data", None):
+            if request:
+                return request.build_absolute_uri(f"/api/announcements/media/{obj.pk}/")
+            return f"/api/announcements/media/{obj.pk}/"
+
+        # As a last resort, return the file.url (may be an absolute or relative path)
+        if obj.file:
+            url = obj.file.url
+            return request.build_absolute_uri(url) if request else url
+
+        return None
 
 
 class AnnouncementSerializer(serializers.ModelSerializer):

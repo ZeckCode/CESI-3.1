@@ -19,6 +19,8 @@ from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.shortcuts import redirect
+from django.http import HttpResponse, Http404
 
 from accounts.models import User, UserProfile, Section
 from .models import EnrollmentSettings, Enrollment, EnrollmentDocument, ParentInfo
@@ -996,6 +998,22 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         serializer = EnrollmentDetailedSerializer(enrollment, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"], url_path="id_image", permission_classes=[AllowAny])
+    def id_image(self, request, pk=None):
+        enrollment = self.get_object()
+
+        # Prefer stored file when available
+        try:
+            if enrollment.id_image and enrollment.id_image.storage.exists(enrollment.id_image.name):
+                return redirect(enrollment.id_image.url)
+        except Exception:
+            pass
+
+        if getattr(enrollment, "id_image_data", None):
+            return HttpResponse(enrollment.id_image_data, content_type=(enrollment.id_image_mime or "image/webp"))
+
+        raise Http404("ID image not available")
 
     @action(detail=True, methods=["post"], url_path="documents/upload")
     def upload_document(self, request, pk=None):

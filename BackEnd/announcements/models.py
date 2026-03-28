@@ -1,7 +1,13 @@
 import os
+from io import BytesIO
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+
+try:
+    from PIL import Image
+except Exception:
+    Image = None
 
 User = get_user_model()
 
@@ -62,8 +68,65 @@ class AnnouncementMedia(models.Model):
         upload_to="announcements/",
         validators=[validate_media_file_extension, validate_file_size]
     )
+    # Optional binary fallback storage (compressed image bytes)
+    data = models.BinaryField(null=True, blank=True, editable=False)
+    data_mime = models.CharField(max_length=50, null=True, blank=True, editable=False)
+    original_filename = models.CharField(max_length=255, blank=True, null=True, editable=False)
     caption = models.CharField(max_length=255, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Media for {self.announcement_id}"
+
+    def save(self, *args, **kwargs):
+        # Avoid recursive double-save
+        if getattr(self, "_saving_binary", False):
+            return super().save(*args, **kwargs)
+
+        computed = False
+        # If Pillow is available and this is an image, compress to WebP and store bytes
+        if self.file and Image is not None:
+            ext = os.path.splitext(self.file.name)[1].lower()
+            if ext in ALLOWED_IMAGE_EXTS:
+                try:
+                    try:
+                        self.file.open()
+                    except Exception:
+                        pass
+
+                    img = Image.open(self.file)
+                    if img.mode in ("RGBA", "P"):
+                        img = img.convert("RGB")
+
+                    max_width = 1600
+                    if getattr(img, "width", None) and img.width > max_width:
+                        ratio = max_width / float(img.width)
+                        new_height = int(float(img.height) * ratio)
+                        img = img.resize((max_width, new_height), Image.ANTIALIAS)
+
+                    output = BytesIO()
+                    img.save(output, format="WEBP", quality=80)
+                    output.seek(0)
+                    self.data = output.read()
+                    self.data_mime = "image/webp"
+                    self.original_filename = os.path.basename(self.file.name)
+                    computed = True
+                except Exception:
+                    pass
+
+        # First save (will persist file field). If binary data was computed, ensure it's also persisted.
+        update_fields = kwargs.get("update_fields", None)
+        super().save(*args, **kwargs)
+
+        if computed:
+            # Persist binary fields even if caller provided limited update_fields
+            binary_fields = ["data", "data_mime", "original_filename"]
+            try:
+                self._saving_binary = True
+                if update_fields:
+                    new_update = set(update_fields) | set(binary_fields)
+                    super().save(update_fields=list(new_update))
+                else:
+                    super().save(update_fields=binary_fields)
+            finally:
+                self._saving_binary = False

@@ -11,6 +11,8 @@ from django.utils import timezone
 from .models import Announcement, AnnouncementMedia
 from .serializers import AnnouncementSerializer
 from .permissions import IsTeacherOrAdmin
+from django.shortcuts import get_object_or_404, redirect
+from django.http import HttpResponse, Http404
 
 
 class AnnouncementListCreate(APIView):
@@ -85,3 +87,22 @@ class AnnouncementListCreate(APIView):
             ).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+def announcement_media_raw(request, pk):
+    """Serve AnnouncementMedia bytes when storage file is missing, or redirect to storage URL."""
+    media = get_object_or_404(AnnouncementMedia, pk=pk)
+
+    # Prefer existing storage URL when available
+    try:
+        if media.file and media.file.storage.exists(media.file.name):
+            return redirect(media.file.url)
+    except Exception:
+        # storage check failed — fall through to DB bytes
+        pass
+
+    # If we have binary data stored in DB, stream it
+    if media.data:
+        return HttpResponse(media.data, content_type=(media.data_mime or "application/octet-stream"))
+
+    raise Http404("Media not available")

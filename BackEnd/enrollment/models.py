@@ -3,6 +3,13 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from accounts.models import Section
+import os
+from io import BytesIO
+
+try:
+    from PIL import Image
+except Exception:
+    Image = None
 
 
 class Enrollment(models.Model):
@@ -103,6 +110,10 @@ class Enrollment(models.Model):
 
     # Image
     id_image = models.ImageField(upload_to="enrollment_ids/", blank=True, null=True)
+    # Optional DB-backed compressed image
+    id_image_data = models.BinaryField(null=True, blank=True, editable=False)
+    id_image_mime = models.CharField(max_length=50, blank=True, null=True, editable=False)
+    id_image_filename = models.CharField(max_length=255, blank=True, null=True, editable=False)
 
     # Payment / Tracking
     payment_mode = models.CharField(
@@ -125,6 +136,56 @@ class Enrollment(models.Model):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} - {self.grade_level}"
+
+    def save(self, *args, **kwargs):
+        # Avoid recursive double-save
+        if getattr(self, "_saving_binary", False):
+            return super().save(*args, **kwargs)
+
+        computed = False
+        # Compress id_image to WebP and store in DB fields when Pillow available
+        if self.id_image and Image is not None:
+            try:
+                try:
+                    self.id_image.open()
+                except Exception:
+                    pass
+
+                img = Image.open(self.id_image)
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
+
+                max_width = 1600
+                if getattr(img, "width", None) and img.width > max_width:
+                    ratio = max_width / float(img.width)
+                    new_height = int(float(img.height) * ratio)
+                    img = img.resize((max_width, new_height), Image.ANTIALIAS)
+
+                output = BytesIO()
+                img.save(output, format="WEBP", quality=80)
+                output.seek(0)
+                self.id_image_data = output.read()
+                self.id_image_mime = "image/webp"
+                self.id_image_filename = os.path.basename(self.id_image.name)
+                computed = True
+            except Exception:
+                # don't block save on compression errors
+                pass
+
+        update_fields = kwargs.get("update_fields", None)
+        super().save(*args, **kwargs)
+
+        if computed:
+            binary_fields = ["id_image_data", "id_image_mime", "id_image_filename"]
+            try:
+                self._saving_binary = True
+                if update_fields:
+                    new_update = set(update_fields) | set(binary_fields)
+                    super().save(update_fields=list(new_update))
+                else:
+                    super().save(update_fields=binary_fields)
+            finally:
+                self._saving_binary = False
 
 
 class ParentInfo(models.Model):

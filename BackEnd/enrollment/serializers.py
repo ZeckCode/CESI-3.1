@@ -62,10 +62,32 @@ class EnrollmentSerializer(serializers.ModelSerializer):
     section_name = serializers.CharField(source="section.name", read_only=True)
     parent_info = ParentInfoSerializer(read_only=True)
     documents = EnrollmentDocumentSerializer(many=True, read_only=True)
+    id_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Enrollment
         fields = "__all__"
+
+    def get_id_image_url(self, obj):
+        request = self.context.get("request")
+        # Prefer storage URL when available
+        try:
+            if obj.id_image and obj.id_image.storage.exists(obj.id_image.name):
+                url = obj.id_image.url
+                return request.build_absolute_uri(url) if request else url
+        except Exception:
+            pass
+
+        if getattr(obj, "id_image_data", None):
+            if request:
+                return request.build_absolute_uri(f"/api/enrollments/{obj.pk}/id_image/")
+            return f"/api/enrollments/{obj.pk}/id_image/"
+
+        if obj.id_image:
+            url = obj.id_image.url
+            return request.build_absolute_uri(url) if request else url
+
+        return None
 
 
 class EnrollmentDetailedSerializer(serializers.ModelSerializer):
@@ -73,6 +95,7 @@ class EnrollmentDetailedSerializer(serializers.ModelSerializer):
     section_details = serializers.SerializerMethodField()
     parent_info = ParentInfoSerializer(read_only=True)
     documents = EnrollmentDocumentSerializer(many=True, read_only=True)
+    id_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Enrollment
@@ -84,6 +107,26 @@ class EnrollmentDetailedSerializer(serializers.ModelSerializer):
             "name": obj.section.name if obj.section else "No Section",
             "grade_level": obj.section.grade_level if obj.section else None,
         }
+
+    def get_id_image_url(self, obj):
+        request = self.context.get("request")
+        try:
+            if obj.id_image and obj.id_image.storage.exists(obj.id_image.name):
+                url = obj.id_image.url
+                return request.build_absolute_uri(url) if request else url
+        except Exception:
+            pass
+
+        if getattr(obj, "id_image_data", None):
+            if request:
+                return request.build_absolute_uri(f"/api/enrollments/{obj.pk}/id_image/")
+            return f"/api/enrollments/{obj.pk}/id_image/"
+
+        if obj.id_image:
+            url = obj.id_image.url
+            return request.build_absolute_uri(url) if request else url
+
+        return None
 
 
 class OldStudentLookupSerializer(serializers.Serializer):
