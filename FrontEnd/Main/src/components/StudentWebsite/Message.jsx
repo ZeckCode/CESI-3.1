@@ -88,9 +88,7 @@ const StudentMessage = () => {
       const token = getToken();
       let currentUserData = null;
       if (token) {
-        const userRes = await fetch("/api/accounts/me/detail/", {
-          headers: { Authorization: `Token ${token}` },
-        });
+        const userRes = await apiFetch("/api/accounts/me/detail/");
         if (userRes.ok) {
           currentUserData = await userRes.json();
           setCurrentUser(currentUserData);
@@ -99,12 +97,8 @@ const StudentMessage = () => {
 
       // Load lightweight dropdown options used by parent/student class chat creation.
       const [sectionsRes, subjectsRes] = await Promise.all([
-        fetch("/api/accounts/sections/", {
-          headers: { Authorization: `Token ${token}` },
-        }),
-        fetch("/api/accounts/subjects/", {
-          headers: { Authorization: `Token ${token}` },
-        }),
+        apiFetch("/api/accounts/sections/"),
+        apiFetch("/api/accounts/subjects/"),
       ]);
 
       if (sectionsRes.ok) {

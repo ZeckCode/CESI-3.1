@@ -17,6 +17,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import "../AdminWebsiteCSS/Sidebar.css";
+import { apiFetch } from "../api/apiFetch";
 import { useAuth } from "../Auth/useAuth";
 import { getToken } from "../Auth/auth";
 
@@ -170,13 +171,8 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
 
   const handleLogout = async () => {
     try {
-      const token = getToken();
-      await fetch("/api/accounts/logout/", {
+      await apiFetch("/api/accounts/logout/", {
         method: "POST",
-        credentials: "include",
-        headers: {
-          ...(token ? { Authorization: `Token ${token}` } : {}),
-        },
       });
     } catch {;}
 

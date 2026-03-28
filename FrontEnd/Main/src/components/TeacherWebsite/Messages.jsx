@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { apiFetch } from "../api/apiFetch";
 import "../TeacherWebsiteCSS/Message.css";
 import {
   listChats,
@@ -100,9 +101,7 @@ const Messages = () => {
       const token = getToken();
       let currentUserData = null;
       if (token) {
-        const userRes = await fetch("/api/accounts/me/detail/", {
-          headers: { Authorization: `Token ${token}` },
-        });
+        const userRes = await apiFetch("/api/accounts/me/detail/");
         if (userRes.ok) {
           currentUserData = await userRes.json();
           setCurrentUser(currentUserData);
@@ -113,12 +112,8 @@ const Messages = () => {
       setSchoolYear(sy);
 
       const [sectionsRes, subjectsRes] = await Promise.all([
-        fetch("/api/accounts/sections/", {
-          headers: { Authorization: `Token ${token}` },
-        }),
-        fetch("/api/accounts/subjects/", {
-          headers: { Authorization: `Token ${token}` },
-        }),
+        apiFetch("/api/accounts/sections/"),
+        apiFetch("/api/accounts/subjects/"),
       ]);
 
       if (sectionsRes.ok) {

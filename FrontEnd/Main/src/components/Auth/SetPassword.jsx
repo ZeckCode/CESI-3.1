@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../../config/api.js";
 import './SetPassword.css';
-
-const API_BASE = "http://127.0.0.1:8000";
 
 export default function SetPassword() {
   const { uidb64, token } = useParams();
@@ -29,7 +28,7 @@ export default function SetPassword() {
     setLoading(true);
     try {
       const res = await fetch(
-        `${API_BASE}/api/accounts/set-password/${uidb64}/${token}/`,
+        `${API_BASE_URL}/accounts/set-password/${uidb64}/${token}/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

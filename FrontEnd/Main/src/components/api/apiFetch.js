@@ -12,7 +12,32 @@
  *   // Parsed response directly
  *   const data = await apiFetchData('/api/grades/items/');
  */
+import { API_BASE_URL } from '../../config/api.js';
 import { getToken } from '../Auth/auth';
+
+/**
+ * Normalizes request URL by combining API_BASE_URL with a relative path.
+ * - If url is absolute (http/https), uses it as-is.
+ * - Otherwise, it prefixes API_BASE_URL.
+ * - Supports VITE_API_URL both with and without /api suffix.
+ */
+function resolveUrl(url) {
+  if (/^https?:\/\//i.test(url)) return url;
+
+  const base = API_BASE_URL.replace(/\/api\/?$/i, '').replace(/\/$/, '');
+
+  // Keep the endpoint simple: path can be '/api/...' or '/...'
+  let path = url.replace(/^\/+/, '');
+  if (path.toLowerCase().startsWith('api/')) {
+    path = path.slice(4);
+  }
+
+  const apiPrefix = API_BASE_URL.endsWith('/api') || API_BASE_URL.endsWith('/api/')
+    ? '/api'
+    : '';
+
+  return `${base}${apiPrefix}/${path}`.replace(/([^:]\/)\/+/g, '$1');
+}
 
 /**
  * Returns a headers object with the Authorization token (if present).
@@ -32,7 +57,8 @@ export function authHeaders(extra = {}) {
  */
 export async function apiFetch(url, options = {}) {
   const { headers: extraHeaders, ...rest } = options;
-  return fetch(url, {
+  const requestUrl = resolveUrl(url);
+  return fetch(requestUrl, {
     credentials: 'include',
     ...rest,
     headers: authHeaders(extraHeaders),

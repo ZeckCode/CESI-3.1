@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import { apiFetch } from "./components/api/apiFetch";
 
 import Home from "./components/IndexWebsite/Home";
 
@@ -43,9 +44,7 @@ export default function Homepage() {
 
     const syncSession = async () => {
       try {
-        const res = await fetch("/api/accounts/me/", {
-          credentials: "include",
-        });
+        const res = await apiFetch("/api/accounts/me/");
 
         if (res.ok) {
           const data = await res.json();
