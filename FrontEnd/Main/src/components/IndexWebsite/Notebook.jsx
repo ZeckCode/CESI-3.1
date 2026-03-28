@@ -4,6 +4,7 @@ import DOMPurify from "dompurify";
 import "../IndexWebsiteCSS/Notebook.css";
 import "../IndexWebsiteCSS/AnnouncementCard.css";
 import OrganizationalChart from "../AdminWebsite/OrganizationalChart";
+import { apiFetch } from "../api/apiFetch";
 import { API_BASE_URL } from "../../config/api";
 
 const API_BASE = ""; // keep for backwards-compat; prefer toAbsUrl below
@@ -52,6 +53,64 @@ const Notebook = ({ onClose, openEnrollment }) => {
     );
     return firstImage?.file || firstImage?.file_url || null;
   }
+
+  // Simple staff-only list for the notebook (masked usernames + subject labels)
+  const StaffList = () => {
+    const [staff, setStaff] = useState([]);
+    const [loadingStaff, setLoadingStaff] = useState(true);
+    const [staffError, setStaffError] = useState("");
+
+    useEffect(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          setLoadingStaff(true);
+          setStaffError("");
+          const [teachersRes, adminsRes] = await Promise.all([
+            apiFetch('/api/accounts/users/?role=TEACHER'),
+            apiFetch('/api/accounts/users/?role=ADMIN'),
+          ]);
+
+          const teachers = teachersRes && teachersRes.ok ? await teachersRes.json() : [];
+          const admins = adminsRes && adminsRes.ok ? await adminsRes.json() : [];
+
+          if (!mounted) return;
+          setStaff([...(Array.isArray(admins) ? admins : []), ...(Array.isArray(teachers) ? teachers : [])]);
+        } catch (err) {
+          console.error('Failed loading staff:', err);
+          if (mounted) setStaffError('Failed to load staff.');
+        } finally {
+          if (mounted) setLoadingStaff(false);
+        }
+      })();
+      return () => { mounted = false; };
+    }, []);
+
+    const maskUsername = (u) => {
+      if (!u) return '';
+      if (u.length <= 1) return '*';
+      return `${u[0]}****`;
+    };
+
+    if (loadingStaff) return <div>Loading staff...</div>;
+    if (staffError) return <div>{staffError}</div>;
+    if (!staff || staff.length === 0) return <div>No staff members found.</div>;
+
+    return (
+      <div className="staff-list">
+        {staff.map((u) => (
+          <div key={u.id} className="staff-item">
+            <div className="staff-name">{maskUsername(u.username || (u.first_name || ''))}</div>
+            <div className="staff-role-label">
+              {u.role === 'TEACHER'
+                ? (u.teacher_profile?.subject?.name ? `${u.teacher_profile.subject.name} teacher` : 'Teacher')
+                : 'Administrator'}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const content = {
     announcements: {
@@ -197,7 +256,7 @@ const Notebook = ({ onClose, openEnrollment }) => {
 
     "org-chart": {
       title: "Organizational Chart",
-      content: <OrganizationalChart />,
+      content: <StaffList />,
     },
   };
 
