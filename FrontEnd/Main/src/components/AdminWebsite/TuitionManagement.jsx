@@ -879,18 +879,7 @@ const TuitionManagement = () => {
                 />
               </div>
 
-              <div className="tm-form-group">
-                <label>Transaction Type</label>
-                <select
-                  name="transaction_type"
-                  value={formData.transaction_type}
-                  onChange={handleInputChange}
-                  className="tm-form-input"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="installment">Installment</option>
-                </select>
-              </div>
+
 
               <div className="tm-form-group">
                 <label>Payment Status</label>
