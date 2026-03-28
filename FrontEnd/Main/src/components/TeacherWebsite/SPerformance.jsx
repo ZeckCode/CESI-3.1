@@ -138,13 +138,24 @@ const SPerformance = () => {
         const raw = await res.json();
         const unique = Object.values(
           (Array.isArray(raw) ? raw : []).reduce((acc, item) => {
-            if (item && item.student_id != null) acc[item.student_id] = item;
+            if (!item || item.student_id == null) return acc;
+            const key = String(item.student_id).trim();
+            if (!key) return acc;
+            if (!acc[key]) {
+              acc[key] = item;
+            } else {
+              // Merge existing and new row to keep full computed props in case of partial duplicates
+              acc[key] = {
+                ...acc[key],
+                ...item,
+              };
+            }
             return acc;
           }, {})
         );
         if (unique.length !== (Array.isArray(raw) ? raw.length : 0)) {
           console.warn("SPerformance: removed duplicate student entries", {
-            original: raw.length,
+            original: Array.isArray(raw) ? raw.length : 0,
             unique: unique.length,
           });
         }

@@ -231,10 +231,21 @@ const Grade = () => {
       if (studentsRes.ok) {
         const data = await studentsRes.json();
         const studentsArray = Array.isArray(data) ? data : [];
+
         const uniqueStudents = Object.values(
           studentsArray.reduce((acc, student) => {
             if (!student || student.id == null) return acc;
-            if (!acc[student.id]) acc[student.id] = student;
+            const key = String(student.id).trim();
+            if (!key) return acc;
+
+            if (!acc[key]) {
+              acc[key] = student;
+            } else {
+              acc[key] = {
+                ...acc[key],
+                ...student,
+              };
+            }
             return acc;
           }, {})
         );
