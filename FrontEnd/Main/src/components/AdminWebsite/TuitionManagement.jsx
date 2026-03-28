@@ -56,6 +56,7 @@ const getErrorMessage = (error, fallback) => {
   if (error?.message) return error.message;
   return fallback;
 };
+
 const TuitionManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGrade, setFilterGrade] = useState('all');
@@ -79,7 +80,6 @@ const TuitionManagement = () => {
   const [saving, setSaving] = useState(false);
 
   const [toasts, setToasts] = useState([]);
-
 
   const addToast = useCallback((title, message, type = 'warning') => {
     const id = Date.now() + Math.random();
@@ -106,9 +106,6 @@ const TuitionManagement = () => {
     misc_aug: '',
     misc_nov: '',
     assessment: '300',
-    credit: '0',
-    transaction_type: 'cash',
-    payment_status: 'active',
     description: '',
     status: 'active',
     is_active: true,
@@ -128,9 +125,6 @@ const TuitionManagement = () => {
       misc_aug: '',
       misc_nov: '',
       assessment: '300',
-      credit: '0',
-      transaction_type: 'cash',
-      payment_status: 'active',
       description: '',
       status: 'active',
       is_active: true,
@@ -327,79 +321,79 @@ const TuitionManagement = () => {
   };
 
   const handleSave = async () => {
-  if (!formData.grade_key || !formData.grade_label) {
-    addToast('Missing Fields', 'Please select a grade first.', 'warning');
-    return;
-  }
-
-  try {
-    setSaving(true);
-
-    const cash = Number(formData.cash || 0);
-    const initial = Number(formData.initial || 0);
-    const monthly = Number(formData.monthly || 0);
-    const reservation_fee = Number(formData.reservation_fee || 0);
-    const misc_aug = Number(formData.misc_aug || 0);
-    const misc_nov = Number(formData.misc_nov || 0);
-    const assessment = Number(formData.assessment || 0);
-
-    const computedInstallment = initial + (monthly * 10);
-
-    const payload = {
-      grade_key: formData.grade_key,
-      grade_label: formData.grade_label,
-      cash,
-      installment: computedInstallment,
-      initial,
-      monthly,
-      reservation_fee,
-      misc_aug,
-      misc_nov,
-      assessment,
-      description: formData.description || '',
-      status: formData.status || 'active',
-      is_active: Boolean(formData.is_active),
-    };
-
-    if (modalMode === 'add') {
-      await apiFetchData(`${API}/api/finance/tuition-configs/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      addToast('Added', 'Tuition record added successfully.', 'success');
-    } else {
-      await apiFetchData(`${API}/api/finance/tuition-configs/${selectedFee.id}/`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      addToast('Updated', 'Tuition record updated successfully.', 'success');
+    if (!formData.grade_key || !formData.grade_label) {
+      addToast('Missing Fields', 'Please select a grade first.', 'warning');
+      return;
     }
 
-    setShowModal(false);
-    resetForm();
-    await loadTuitionConfigs();
-    await loadTuitionStats();
-  } catch (error) {
-    console.error('Save failed:', error);
+    try {
+      setSaving(true);
 
-    const serverMessage =
-      error?.data?.installment?.[0] ||
-      error?.data?.grade_key?.[0] ||
-      error?.data?.detail ||
-      error?.message ||
-      'Failed to save tuition record.';
+      const cash = Number(formData.cash || 0);
+      const initial = Number(formData.initial || 0);
+      const monthly = Number(formData.monthly || 0);
+      const reservation_fee = Number(formData.reservation_fee || 0);
+      const misc_aug = Number(formData.misc_aug || 0);
+      const misc_nov = Number(formData.misc_nov || 0);
+      const assessment = Number(formData.assessment || 0);
 
-    addToast('Save Failed', serverMessage, 'error');
-  } finally {
-    setSaving(false);
-  }
-};
+      const computedInstallment = initial + (monthly * 10);
+
+      const payload = {
+        grade_key: formData.grade_key,
+        grade_label: formData.grade_label,
+        cash,
+        installment: computedInstallment,
+        initial,
+        monthly,
+        reservation_fee,
+        misc_aug,
+        misc_nov,
+        assessment,
+        description: formData.description || '',
+        status: formData.status || 'active',
+        is_active: Boolean(formData.is_active),
+      };
+
+      if (modalMode === 'add') {
+        await apiFetchData(`${API}/api/finance/tuition-configs/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        addToast('Added', 'Tuition record added successfully.', 'success');
+      } else {
+        await apiFetchData(`${API}/api/finance/tuition-configs/${selectedFee.id}/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        addToast('Updated', 'Tuition record updated successfully.', 'success');
+      }
+
+      setShowModal(false);
+      resetForm();
+      await loadTuitionConfigs();
+      await loadTuitionStats();
+    } catch (error) {
+      console.error('Save failed:', error);
+
+      const serverMessage =
+        error?.data?.installment?.[0] ||
+        error?.data?.grade_key?.[0] ||
+        error?.data?.detail ||
+        error?.message ||
+        'Failed to save tuition record.';
+
+      addToast('Save Failed', serverMessage, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleExportData = () => {
     const data = getFilteredData();
-    
+
     if (data.length === 0) {
       addToast('Export', 'No data to export.', 'warning');
       return;
@@ -432,10 +426,11 @@ const TuitionManagement = () => {
       ];
     } else {
       csv = [
-        ['Grade Level', 'Cash Payment', 'Initial Payment', 'Monthly Payment', 'Reservation Fee', 'Misc (Aug)', 'Misc (Nov)', 'Assessment', 'Status', 'Description'].join(','),
+        ['Grade Level', 'Cash Payment', 'Installment Tuition', 'Initial Payment', 'Monthly Payment', 'Reservation Fee', 'Misc (Aug)', 'Misc (Nov)', 'Assessment', 'Status', 'Description'].join(','),
         ...data.map((fee) => [
           escapeCsv(fee.grade_label),
           escapeCsv(formatCurrency(fee.cash)),
+          escapeCsv(formatCurrency(fee.installment)),
           escapeCsv(formatCurrency(fee.initial)),
           escapeCsv(formatCurrency(fee.monthly)),
           escapeCsv(formatCurrency(fee.reservation_fee)),
@@ -457,7 +452,7 @@ const TuitionManagement = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
+
     addToast('Export Successful', `Exported ${data.length} ${viewMode === 'student' ? 'students' : 'fee structures'}.`, 'success');
   };
 
@@ -478,8 +473,6 @@ const TuitionManagement = () => {
       [name]: type === 'checkbox' ? checked : value,
     }));
   };
-
- 
 
   const filteredData = getFilteredData();
   const tmTotalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE) || 1;
@@ -780,26 +773,26 @@ const TuitionManagement = () => {
               </div>
 
               <div className="tm-form-group">
-              <label>Cash Tuition (₱)</label>
-              <input
-                type="number"
-                name="cash"
-                value={formData.cash}
-                onChange={handleInputChange}
-                className="tm-form-input"
-              />
-            </div>
+                <label>Cash Tuition (₱)</label>
+                <input
+                  type="number"
+                  name="cash"
+                  value={formData.cash}
+                  onChange={handleInputChange}
+                  className="tm-form-input"
+                />
+              </div>
 
-            <div className="tm-form-group">
-              <label>Installment Tuition (₱)</label>
-              <input
-                type="number"
-                name="installment"
-                value={Number(formData.initial || 0) + (Number(formData.monthly || 0) * 10)}
-                className="tm-form-input"
-                readOnly
-              />
-            </div>
+              <div className="tm-form-group">
+                <label>Installment Tuition (₱)</label>
+                <input
+                  type="number"
+                  name="installment"
+                  value={Number(formData.initial || 0) + (Number(formData.monthly || 0) * 10)}
+                  className="tm-form-input"
+                  readOnly
+                />
+              </div>
 
               <div className="tm-form-group">
                 <label>Initial Payment (₱)</label>
@@ -866,39 +859,6 @@ const TuitionManagement = () => {
                   className="tm-form-input"
                 />
               </div>
-
-              <div className="tm-form-group">
-                <label>Credit / Overpayment (₱)</label>
-                <input
-                  type="number"
-                  name="credit"
-                  value={formData.credit}
-                  onChange={handleInputChange}
-                  className="tm-form-input"
-                  placeholder="Amount paid above total due"
-                />
-              </div>
-
-
-
-              <div className="tm-form-group">
-                <label>Payment Status</label>
-                <select
-                  name="payment_status"
-                  value={formData.payment_status}
-                  onChange={handleInputChange}
-                  className="tm-form-input"
-                >
-                  <option value="active">Active</option>
-                  {formData.transaction_type === 'installment' && (
-                    <option value="pending">Pending</option>
-                  )}
-                  <option value="completed">Completed</option>
-                  <option value="overdue">Overdue</option>
-                </select>
-              </div>
-
-              
 
               <div className="tm-form-group">
                 <label>Status</label>
