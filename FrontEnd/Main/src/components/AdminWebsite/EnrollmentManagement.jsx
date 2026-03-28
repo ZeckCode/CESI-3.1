@@ -8,19 +8,10 @@ import {
 import StatCard, { StatsGrid } from "./StatCard";
 import Pagination from "./Pagination";
 import "../AdminWebsiteCSS/EnrollmentManagement.css";
-import { getToken } from "../Auth/auth";
+import { apiFetch } from "../api/apiFetch";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const API_BASE = "http://127.0.0.1:8000";
-
-function authHeaders(json = true) {
-  const token = getToken();
-  return {
-    ...(json ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-  };
-}
 
 /* ─────────────────────────────────────────────
    LABELS / HELPERS
@@ -668,11 +659,7 @@ export default function EnrollmentManagement() {
   const fetchEnrollments = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/enrollments/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/enrollments/');
       const data = await res.json().catch(() => []);
       if (!res.ok) throw new Error();
       const list = Array.isArray(data) ? data : [];
@@ -708,11 +695,7 @@ export default function EnrollmentManagement() {
   const fetchSettings = useCallback(async () => {
     setSettingsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/enrollment-settings/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/enrollment-settings/');
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error();
       setSettings(data);
@@ -731,11 +714,7 @@ export default function EnrollmentManagement() {
   const fetchSections = useCallback(async () => {
     setSectionsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/accounts/sections/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/accounts/sections/');
       const data = await res.json().catch(() => []);
       if (!res.ok) throw new Error();
       setSections(Array.isArray(data) ? data : []);
@@ -754,10 +733,9 @@ export default function EnrollmentManagement() {
         window_days: parseInt(draft.window_days, 10) || 7,
         academic_year: draft.academic_year.replace(/\s+/g, "") || null,
       };
-      const res = await fetch(`${API_BASE}/api/enrollment-settings/`, {
-        method: "PATCH",
-        headers: authHeaders(),
-        credentials: "include",
+      const res = await apiFetch('/api/enrollment-settings/', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
@@ -789,10 +767,9 @@ export default function EnrollmentManagement() {
     setDraft({ open_date: "", window_days: 7, academic_year: "" });
     setSettingsSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/api/enrollment-settings/`, {
-        method: "PATCH",
-        headers: authHeaders(),
-        credentials: "include",
+      const res = await apiFetch('/api/enrollment-settings/', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ open_date: null, window_days: 7, academic_year: null }),
       });
       const data = await res.json().catch(() => ({}));
@@ -816,10 +793,9 @@ export default function EnrollmentManagement() {
   }, [fetchSettings, fetchSections]);
 
   const callAction = async (id, actionName) => {
-    const res = await fetch(`${API_BASE}/api/enrollments/${id}/${actionName}/`, {
+    const res = await apiFetch(`/api/enrollments/${id}/${actionName}/`, {
       method: "POST",
-      headers: authHeaders(),
-      credentials: "include",
+      headers: { 'Content-Type': 'application/json' },
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || "Action failed.");
@@ -1261,12 +1237,10 @@ export default function EnrollmentManagement() {
       const payload = new FormData();
       if (row.raw?.section) payload.append("section", row.raw.section);
 
-      const token = getToken();
-      const res = await fetch(`${API_BASE}/api/enrollments/${id}/mark_active/`, {
+      const res = await apiFetch(`/api/enrollments/${id}/mark_active/`, {
         method: "POST",
-        headers: token ? { Authorization: `Token ${token}` } : {},
+        headers: { 'Content-Type': 'application/json' },
         body: payload,
-        credentials: "include",
       });
 
       const data = await res.json().catch(() => ({}));
@@ -1292,11 +1266,7 @@ export default function EnrollmentManagement() {
   const handleDeleteEnrollment = async (id) => {
     if (!window.confirm("Delete this enrollment?")) return;
     try {
-      const res = await fetch(`${API_BASE}/api/enrollments/${id}/`, {
-        method: "DELETE",
-        headers: authHeaders(false),
-        credentials: "include",
-      });
+      const res = await apiFetch(`/api/enrollments/${id}/`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       await fetchEnrollments();
       if (editingId === id) closeModal();
@@ -1349,10 +1319,9 @@ export default function EnrollmentManagement() {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/api/enrollments/${editingId}/`, {
+      const res = await apiFetch(`/api/enrollments/${editingId}/`, {
         method: "PATCH",
-        headers: authHeaders(),
-        credentials: "include",
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ academic_year: newYear }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1453,14 +1422,13 @@ export default function EnrollmentManagement() {
     };
 
     const url = editingId
-      ? `${API_BASE}/api/enrollments/${editingId}/`
-      : `${API_BASE}/api/enrollments/`;
+      ? `/api/enrollments/${editingId}/`
+      : '/api/enrollments/';
 
     try {
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: editingId ? "PATCH" : "POST",
-        headers: authHeaders(),
-        credentials: "include",
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
@@ -1499,11 +1467,7 @@ export default function EnrollmentManagement() {
   }, [normalized, editingId]);
 
   const refreshEnrollmentById = async (id) => {
-    const res = await fetch(`${API_BASE}/api/enrollments/${id}/`, {
-      method: "GET",
-      headers: authHeaders(),
-      credentials: "include",
-    });
+    const res = await apiFetch(`/api/enrollments/${id}/`);
 
     const data = await res.json().catch(() => null);
     if (!res.ok || !data) throw new Error("Failed to refresh enrollment.");
@@ -1539,11 +1503,8 @@ export default function EnrollmentManagement() {
       form.append("document_type", docUploadType);
       form.append("label", docUploadLabel.trim() || docUploadFile.name);
 
-      const token = getToken();
-      const res = await fetch(`${API_BASE}/api/enrollments/${editingId}/documents/upload/`, {
+      const res = await apiFetch(`/api/enrollments/${editingId}/documents/upload/`, {
         method: "POST",
-        headers: token ? { Authorization: `Token ${token}` } : {},
-        credentials: "include",
         body: form,
       });
 
@@ -1572,13 +1533,10 @@ export default function EnrollmentManagement() {
       form.append("document_type", editingDocType);
       if (editingDocFile) form.append("file", editingDocFile);
 
-      const token = getToken();
-      const res = await fetch(
-        `${API_BASE}/api/enrollments/${editingId}/documents/${editingDocId}/update/`,
+      const res = await apiFetch(
+        `/api/enrollments/${editingId}/documents/${editingDocId}/update/`,
         {
           method: "PATCH",
-          headers: token ? { Authorization: `Token ${token}` } : {},
-          credentials: "include",
           body: form,
         }
       );
@@ -1602,14 +1560,9 @@ export default function EnrollmentManagement() {
 
     setDocSaving(true);
     try {
-      const res = await fetch(
-        `${API_BASE}/api/enrollments/${editingId}/documents/${docId}/delete/`,
-        {
-          method: "DELETE",
-          headers: authHeaders(false),
-          credentials: "include",
-        }
-      );
+      const res = await apiFetch(`/api/enrollments/${editingId}/documents/${docId}/delete/`, {
+        method: "DELETE",
+      });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "Failed to delete document.");
@@ -1670,12 +1623,9 @@ export default function EnrollmentManagement() {
       const form = new FormData();
       form.append("id_image", idUploadFile);
 
-      const token = getToken();
-      const res = await fetch(`${API_BASE}/api/enrollments/${idUploadEnrollmentId}/upload-id-image/`, {
+      const res = await apiFetch(`/api/enrollments/${idUploadEnrollmentId}/upload-id-image/`, {
         method: "POST",
-        headers: token ? { Authorization: `Token ${token}` } : {},
         body: form,
-        credentials: "include",
       });
 
       const data = await res.json().catch(() => ({}));
