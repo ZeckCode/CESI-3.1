@@ -604,8 +604,11 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         if self.request.user.is_staff:
-            return ProofOfPayment.objects.all()
-        return ProofOfPayment.objects.filter(user=self.request.user)
+            return ProofOfPayment.objects.all().select_related('user')
+        return ProofOfPayment.objects.filter(user=self.request.user).select_related('user')
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
     
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
