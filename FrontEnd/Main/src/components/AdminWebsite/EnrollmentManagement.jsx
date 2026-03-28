@@ -1234,18 +1234,32 @@ export default function EnrollmentManagement() {
     if (!validateBeforeApprove(row)) return;
 
     try {
-      const payload = new FormData();
-      if (row.raw?.section) payload.append("section", row.raw.section);
+      const body = row.raw?.section ? { section: row.raw.section } : {};
 
       const res = await apiFetch(`/api/enrollments/${id}/mark_active/`, {
         method: "POST",
-        headers: { 'Content-Type': 'application/json' },
-        body: payload,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok)
-        throw new Error(data.detail || JSON.stringify(data) || "Approval failed");
+      let data = {};
+      let text = "";
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        text = await res.text().catch(() => "");
+      }
+
+      if (!res.ok) {
+        console.error("Approval failed response", { status: res.status, data, text });
+        throw new Error(
+          (data && data.detail) ||
+            (data && data.error) ||
+            text ||
+            JSON.stringify(data) ||
+            "Approval failed"
+        );
+      }
 
       await fetchEnrollments();
       addToast("Approved", "Enrollment approved successfully. \n May now be processed to ID.", "success");
