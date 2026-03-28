@@ -42,7 +42,11 @@ const computeEnrollmentWindow = (settings) => {
 
 const fmtDate = (date) =>
   date instanceof Date
-    ? date.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })
+    ? date.toLocaleDateString("en-PH", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
     : "—";
 
 const formatMoney = (value) => Number(value || 0).toLocaleString();
@@ -61,7 +65,9 @@ const EnrollmentClosed = ({ window_, onClose }) => (
       <div className="enrollment-closed__info">
         <div className="enrollment-closed__info-row">
           <span>📅 Last enrollment period</span>
-          <strong>{fmtDate(window_.openDate)} – {fmtDate(window_.closeDate)}</strong>
+          <strong>
+            {fmtDate(window_.openDate)} – {fmtDate(window_.closeDate)}
+          </strong>
         </div>
         <div className="enrollment-closed__info-row">
           <span>🗓 Next enrollment opens</span>
@@ -72,7 +78,9 @@ const EnrollmentClosed = ({ window_, onClose }) => (
         For concerns or late enrollment requests, please contact the school office directly.
       </p>
       {onClose && (
-        <button className="enrollment-closed__btn" onClick={onClose}>Back to Home</button>
+        <button className="enrollment-closed__btn" onClick={onClose}>
+          Back to Home
+        </button>
       )}
     </div>
   </div>
@@ -187,7 +195,7 @@ const EnrollmentForm = ({ onClose }) => {
     setTuitionLoading(true);
     setTuitionError("");
 
-    fetch(`${API_BASE}/api/finance/tuition-configs/by-grade/${tuitionKey}/`)
+    apiFetch(`/api/finance/tuition-configs/by-grade/${tuitionKey}/`)
       .then(async (res) => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -218,7 +226,14 @@ const EnrollmentForm = ({ onClose }) => {
   if (settingsLoading) {
     return (
       <div className="enrollment-container">
-        <div style={{ textAlign: "center", padding: "60px 20px", color: "#6b7280", fontSize: 14 }}>
+        <div
+          style={{
+            textAlign: "center",
+            padding: "60px 20px",
+            color: "#6b7280",
+            fontSize: 14,
+          }}
+        >
           Loading enrollment info…
         </div>
       </div>
@@ -266,16 +281,40 @@ const EnrollmentForm = ({ onClose }) => {
     if (!yyyyMMdd || !gradeCode) return null;
     const rule = GRADE_AGE_RULES[gradeCode];
     if (!rule) return null;
+
     const bd = new Date(yyyyMMdd + "T00:00:00");
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (bd >= today) return { ok: false, msg: "Birth date must be in the past." };
+
+    if (bd >= today) {
+      return { ok: false, msg: "Birth date must be in the past." };
+    }
+
     const age = calcAge(yyyyMMdd);
-    if (age < 3) return { ok: false, msg: "Student must be at least 3 years old." };
-    if (age > 18) return { ok: false, msg: "Student age exceeds the allowed school range." };
-    if (age < rule.min) return { ok: false, msg: `Student is too young for ${rule.label}. Minimum age is ${rule.min} (current age: ${age}).` };
-    if (age > rule.max) return { ok: false, msg: `Student is too old for ${rule.label}. Maximum age is ${rule.max} (current age: ${age}).` };
-    return { ok: true, msg: `Age ${age} is valid for ${rule.label} (allowed: ${rule.min}–${rule.max} yrs).` };
+
+    if (age < 3) {
+      return { ok: false, msg: "Student must be at least 3 years old." };
+    }
+    if (age > 18) {
+      return { ok: false, msg: "Student age exceeds the allowed school range." };
+    }
+    if (age < rule.min) {
+      return {
+        ok: false,
+        msg: `Student is too young for ${rule.label}. Minimum age is ${rule.min} (current age: ${age}).`,
+      };
+    }
+    if (age > rule.max) {
+      return {
+        ok: false,
+        msg: `Student is too old for ${rule.label}. Maximum age is ${rule.max} (current age: ${age}).`,
+      };
+    }
+
+    return {
+      ok: true,
+      msg: `Age ${age} is valid for ${rule.label} (allowed: ${rule.min}–${rule.max} yrs).`,
+    };
   };
 
   const ageValidation = validateAgeForGrade(birthDate, gradeLevel);
@@ -294,11 +333,12 @@ const EnrollmentForm = ({ onClose }) => {
 
     if (studentType !== "new") return;
 
-    const liveSettings = await fetch(`${API_BASE}/api/enrollment-settings/`)
+    const liveSettings = await apiFetch("/api/enrollment-settings/")
       .then((r) => r.json())
       .catch(() => null);
 
     const liveWindow = computeEnrollmentWindow(liveSettings);
+
     if (!liveWindow.isOpen) {
       alert("Enrollment has closed. Please try again during the next enrollment period.");
       return;
@@ -308,20 +348,32 @@ const EnrollmentForm = ({ onClose }) => {
       alert("Invalid submission.");
       return;
     }
+
     if (!gradeLevel) {
       alert("Please select a Grade Level.");
       return;
     }
+
     if (!birthDate) {
       alert("Please enter the student's Birth Date.");
       return;
     }
+
     if (ageValidation && !ageValidation.ok) {
       alert(ageValidation.msg);
       return;
     }
 
-    const lrnRequiredGrades = ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"];
+    const lrnRequiredGrades = [
+      "kinder",
+      "grade1",
+      "grade2",
+      "grade3",
+      "grade4",
+      "grade5",
+      "grade6",
+    ];
+
     if (lrnRequiredGrades.includes(gradeLevel)) {
       if (!lrn || lrn.trim() === "") {
         alert("LRN is required for this grade level (12 digits).");
@@ -360,19 +412,31 @@ const EnrollmentForm = ({ onClose }) => {
     formData.append("payment_mode", paymentMode);
     formData.append("remarks", "");
 
-    formData.append("parent_info.father_name", buildName(fatherFirst, fatherMiddle, fatherLast));
+    formData.append(
+      "parent_info.father_name",
+      buildName(fatherFirst, fatherMiddle, fatherLast)
+    );
     formData.append("parent_info.father_contact", fatherContact);
     formData.append("parent_info.father_occupation", fatherOccupation);
-    formData.append("parent_info.mother_name", buildName(motherFirst, motherMiddle, motherLast));
+
+    formData.append(
+      "parent_info.mother_name",
+      buildName(motherFirst, motherMiddle, motherLast)
+    );
     formData.append("parent_info.mother_contact", motherContact);
     formData.append("parent_info.mother_occupation", motherOccupation);
-    formData.append("parent_info.guardian_name", buildName(guardianFirst, guardianMiddle, guardianLast));
+
+    formData.append(
+      "parent_info.guardian_name",
+      buildName(guardianFirst, guardianMiddle, guardianLast)
+    );
     formData.append("parent_info.guardian_contact", guardianContact);
     formData.append("parent_info.guardian_relationship", guardianRelationship);
 
     if (form137File) formData.append("form_137_file", form137File);
     if (sf10File) formData.append("sf10_file", sf10File);
-    if (birthCertificateFile) formData.append("birth_certificate_file", birthCertificateFile);
+    if (birthCertificateFile)
+      formData.append("birth_certificate_file", birthCertificateFile);
     if (goodMoralFile) formData.append("good_moral_file", goodMoralFile);
     if (reportCardFile) formData.append("report_card_file", reportCardFile);
     if (otherDocumentFile) formData.append("other_document_file", otherDocumentFile);
@@ -405,7 +469,11 @@ const EnrollmentForm = ({ onClose }) => {
     <div className="enrollment-container">
       <h2>Enrollment Form</h2>
 
-      <div className={`enrollment-window-notice ${daysLeft === 1 ? "enrollment-window-notice--urgent" : ""}`}>
+      <div
+        className={`enrollment-window-notice ${
+          daysLeft === 1 ? "enrollment-window-notice--urgent" : ""
+        }`}
+      >
         <span></span>
         <span>
           Enrollment is open until <strong>{fmtDate(closeDate)}</strong>.{" "}
@@ -429,8 +497,14 @@ const EnrollmentForm = ({ onClose }) => {
         <h3>🎓 Academic Information</h3>
         <div className="form-grid">
           <div className="form-group">
-            <label>Student Type <span className="required">*</span></label>
-            <select value={studentType} onChange={(e) => setStudentType(e.target.value)} required>
+            <label>
+              Student Type <span className="required">*</span>
+            </label>
+            <select
+              value={studentType}
+              onChange={(e) => setStudentType(e.target.value)}
+              required
+            >
               <option value="">Select</option>
               <option value="new">New / Transferee</option>
               <option value="old">Old Student</option>
@@ -440,12 +514,31 @@ const EnrollmentForm = ({ onClose }) => {
           {studentType === "new" && (
             <>
               <div className="form-group">
-                <label>LRN {["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(gradeLevel) && <span className="required">*</span>}</label>
+                <label>
+                  LRN{" "}
+                  {[
+                    "kinder",
+                    "grade1",
+                    "grade2",
+                    "grade3",
+                    "grade4",
+                    "grade5",
+                    "grade6",
+                  ].includes(gradeLevel) && <span className="required">*</span>}
+                </label>
                 <input
                   value={lrn}
                   onChange={(e) => setLrn(e.target.value.replace(/\D/g, ""))}
                   placeholder={
-                    ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(gradeLevel)
+                    [
+                      "kinder",
+                      "grade1",
+                      "grade2",
+                      "grade3",
+                      "grade4",
+                      "grade5",
+                      "grade6",
+                    ].includes(gradeLevel)
                       ? "12 digits (required)"
                       : "Pre-Kinder students may leave blank"
                   }
@@ -454,7 +547,15 @@ const EnrollmentForm = ({ onClose }) => {
                 />
                 {lrn &&
                   lrn.length !== 12 &&
-                  ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"].includes(gradeLevel) && (
+                  [
+                    "kinder",
+                    "grade1",
+                    "grade2",
+                    "grade3",
+                    "grade4",
+                    "grade5",
+                    "grade6",
+                  ].includes(gradeLevel) && (
                     <div style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>
                       LRN must be exactly 12 digits ({lrn.length}/12)
                     </div>
@@ -462,7 +563,9 @@ const EnrollmentForm = ({ onClose }) => {
               </div>
 
               <div className="form-group">
-                <label>Education Level<span className="required">*</span></label>
+                <label>
+                  Education Level<span className="required">*</span>
+                </label>
                 <select
                   value={educationLevel}
                   onChange={(e) => {
@@ -480,7 +583,9 @@ const EnrollmentForm = ({ onClose }) => {
               </div>
 
               <div className="form-group">
-                <label>Grade Level<span className="required">*</span></label>
+                <label>
+                  Grade Level<span className="required">*</span>
+                </label>
                 <select
                   value={gradeLevel}
                   disabled={!educationLevel}
@@ -492,7 +597,8 @@ const EnrollmentForm = ({ onClose }) => {
                     const rule = GRADE_AGE_RULES[g.value];
                     return (
                       <option key={g.value} value={g.value}>
-                        {g.label}{rule ? ` (age ${rule.min}–${rule.max})` : ""}
+                        {g.label}
+                        {rule ? ` (age ${rule.min}–${rule.max})` : ""}
                       </option>
                     );
                   })}
@@ -503,8 +609,17 @@ const EnrollmentForm = ({ onClose }) => {
         </div>
 
         {!studentType && (
-          <div style={{ marginTop: 12, padding: 14, borderRadius: 10, background: "#f8fafc", color: "#475569" }}>
-            Select <strong>New / Transferee</strong> to fill out the full enrollment form, or select <strong>Old Student </strong>
+          <div
+            style={{
+              marginTop: 12,
+              padding: 14,
+              borderRadius: 10,
+              background: "#f8fafc",
+              color: "#475569",
+            }}
+          >
+            Select <strong>New / Transferee</strong> to fill out the full enrollment form,
+            or select <strong>Old Student </strong>
             to log in and continue re-enrollment in the Parent/Student Portal.
           </div>
         )}
@@ -513,7 +628,8 @@ const EnrollmentForm = ({ onClose }) => {
           <div style={{ marginTop: 18 }}>
             <h3>🔐 Old Student Re-enrollment</h3>
             <div style={{ marginBottom: 12, color: "#4b5563", fontSize: 14 }}>
-              Old students must log in to the Parent/Student Portal to continue re-enrollment.
+              Old students must log in to the Parent/Student Portal to continue
+              re-enrollment.
             </div>
 
             <div className="form-actions" style={{ marginTop: 18 }}>
@@ -540,23 +656,47 @@ const EnrollmentForm = ({ onClose }) => {
             <h3>👤 Student Information</h3>
             <div className="form-grid">
               <div className="form-group">
-                <label>Last Name <span className="required">*</span></label>
+                <label>
+                  Last Name <span className="required">*</span>
+                </label>
                 <input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
               </div>
               <div className="form-group">
-                <label>First Name <span className="required">*</span></label>
-                <input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+                <label>
+                  First Name <span className="required">*</span>
+                </label>
+                <input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                />
               </div>
               <div className="form-group">
-                <label>Middle Name <span className="required">*</span></label>
-                <input value={middleName} onChange={(e) => setMiddleName(e.target.value)} required />
+                <label>
+                  Middle Name <span className="required">*</span>
+                </label>
+                <input
+                  value={middleName}
+                  onChange={(e) => setMiddleName(e.target.value)}
+                  required
+                />
               </div>
               <div className="form-group">
-                <label>Birth Date <span className="required">*</span></label>
-                <input type="date" value={birthDate} max={maxBirthDate} onChange={(e) => setBirthDate(e.target.value)} required />
+                <label>
+                  Birth Date <span className="required">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={birthDate}
+                  max={maxBirthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                  required
+                />
               </div>
               <div className="form-group">
-                <label>Gender<span className="required">*</span></label>
+                <label>
+                  Gender<span className="required">*</span>
+                </label>
                 <select value={gender} onChange={(e) => setGender(e.target.value)} required>
                   <option value="">Select</option>
                   <option value="male">Male</option>
@@ -566,7 +706,13 @@ const EnrollmentForm = ({ onClose }) => {
             </div>
 
             {ageValidation && (
-              <div className={`age-validation-hint ${ageValidation.ok ? "age-validation-hint--ok" : "age-validation-hint--error"}`}>
+              <div
+                className={`age-validation-hint ${
+                  ageValidation.ok
+                    ? "age-validation-hint--ok"
+                    : "age-validation-hint--error"
+                }`}
+              >
                 <span>{ageValidation.ok ? "✓" : "✗"}</span>
                 <span>{ageValidation.msg}</span>
               </div>
@@ -588,11 +734,19 @@ const EnrollmentForm = ({ onClose }) => {
                       const rule = GRADE_AGE_RULES[g.value];
                       const age = calcAge(birthDate);
                       const isSelected = gradeLevel === g.value;
-                      const inRange = age !== null && rule && age >= rule.min && age <= rule.max;
+                      const inRange =
+                        age !== null && rule && age >= rule.min && age <= rule.max;
+
                       return (
                         <tr
                           key={g.value}
-                          className={isSelected ? (inRange ? "age-ref-row--valid" : "age-ref-row--invalid") : ""}
+                          className={
+                            isSelected
+                              ? inRange
+                                ? "age-ref-row--valid"
+                                : "age-ref-row--invalid"
+                              : ""
+                          }
                         >
                           <td>{g.label}</td>
                           <td>{rule?.min}</td>
@@ -608,7 +762,9 @@ const EnrollmentForm = ({ onClose }) => {
             <h3>📞 Contact Information</h3>
             <div className="form-grid">
               <div className="form-group">
-                <label>Email <span className="required">*</span></label>
+                <label>
+                  Email <span className="required">*</span>
+                </label>
                 <input
                   type="email"
                   value={email}
@@ -618,11 +774,15 @@ const EnrollmentForm = ({ onClose }) => {
                 />
               </div>
               <div className="form-group">
-                <label>Religion<span className="required">*</span></label>
+                <label>
+                  Religion<span className="required">*</span>
+                </label>
                 <input value={religion} onChange={(e) => setReligion(e.target.value)} required />
               </div>
               <div className="form-group">
-                <label>Mobile Number <span className="required">*</span></label>
+                <label>
+                  Mobile Number <span className="required">*</span>
+                </label>
                 <input
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
@@ -631,15 +791,23 @@ const EnrollmentForm = ({ onClose }) => {
                 />
               </div>
               <div className="form-group">
-                <label>Parent Facebook<span className="required">*</span></label>
-                <input value={parentFacebook} onChange={(e) => setParentFacebook(e.target.value)} required />
+                <label>
+                  Parent Facebook<span className="required">*</span>
+                </label>
+                <input
+                  value={parentFacebook}
+                  onChange={(e) => setParentFacebook(e.target.value)}
+                  required
+                />
               </div>
             </div>
 
             <h3>📍 Address</h3>
             <div className="form-grid">
               <div className="form-group form-group--full">
-                <label>House No. / Street<span className="required">*</span></label>
+                <label>
+                  House No. / Street<span className="required">*</span>
+                </label>
                 <input
                   value={street}
                   onChange={(e) => setStreet(e.target.value)}
@@ -648,7 +816,9 @@ const EnrollmentForm = ({ onClose }) => {
                 />
               </div>
               <div className="form-group">
-                <label>Barangay<span className="required">*</span></label>
+                <label>
+                  Barangay<span className="required">*</span>
+                </label>
                 <input
                   value={barangay}
                   onChange={(e) => setBarangay(e.target.value)}
@@ -657,7 +827,9 @@ const EnrollmentForm = ({ onClose }) => {
                 />
               </div>
               <div className="form-group">
-                <label>City / Municipality<span className="required">*</span></label>
+                <label>
+                  City / Municipality<span className="required">*</span>
+                </label>
                 <input
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
@@ -666,7 +838,9 @@ const EnrollmentForm = ({ onClose }) => {
                 />
               </div>
               <div className="form-group">
-                <label>Province<span className="required">*</span></label>
+                <label>
+                  Province<span className="required">*</span>
+                </label>
                 <input
                   value={province}
                   onChange={(e) => setProvince(e.target.value)}
@@ -675,7 +849,9 @@ const EnrollmentForm = ({ onClose }) => {
                 />
               </div>
               <div className="form-group">
-                <label>Region<span className="required">*</span></label>
+                <label>
+                  Region<span className="required">*</span>
+                </label>
                 <select value={region} onChange={(e) => setRegion(e.target.value)} required>
                   <option value="">Select Region</option>
                   <option value="NCR">NCR – National Capital Region</option>
@@ -698,7 +874,9 @@ const EnrollmentForm = ({ onClose }) => {
                 </select>
               </div>
               <div className="form-group">
-                <label>ZIP Code<span className="required">*</span></label>
+                <label>
+                  ZIP Code<span className="required">*</span>
+                </label>
                 <input
                   value={zipCode}
                   onChange={(e) => setZipCode(e.target.value)}
@@ -723,23 +901,43 @@ const EnrollmentForm = ({ onClose }) => {
             <div className="form-grid">
               <div className="form-group">
                 <label>First Name</label>
-                <input value={motherFirst} onChange={(e) => setMotherFirst(e.target.value)} placeholder="First name" />
+                <input
+                  value={motherFirst}
+                  onChange={(e) => setMotherFirst(e.target.value)}
+                  placeholder="First name"
+                />
               </div>
               <div className="form-group">
                 <label>Middle Name</label>
-                <input value={motherMiddle} onChange={(e) => setMotherMiddle(e.target.value)} placeholder="Middle name" />
+                <input
+                  value={motherMiddle}
+                  onChange={(e) => setMotherMiddle(e.target.value)}
+                  placeholder="Middle name"
+                />
               </div>
               <div className="form-group">
                 <label>Last Name</label>
-                <input value={motherLast} onChange={(e) => setMotherLast(e.target.value)} placeholder="Last name" />
+                <input
+                  value={motherLast}
+                  onChange={(e) => setMotherLast(e.target.value)}
+                  placeholder="Last name"
+                />
               </div>
               <div className="form-group">
                 <label>Mobile Number</label>
-                <input value={motherContact} onChange={(e) => setMotherContact(e.target.value)} placeholder="ex. 09123456789" />
+                <input
+                  value={motherContact}
+                  onChange={(e) => setMotherContact(e.target.value)}
+                  placeholder="ex. 09123456789"
+                />
               </div>
               <div className="form-group">
                 <label>Occupation</label>
-                <input value={motherOccupation} onChange={(e) => setMotherOccupation(e.target.value)} placeholder="Occupation" />
+                <input
+                  value={motherOccupation}
+                  onChange={(e) => setMotherOccupation(e.target.value)}
+                  placeholder="Occupation"
+                />
               </div>
             </div>
 
@@ -747,23 +945,43 @@ const EnrollmentForm = ({ onClose }) => {
             <div className="form-grid">
               <div className="form-group">
                 <label>First Name</label>
-                <input value={fatherFirst} onChange={(e) => setFatherFirst(e.target.value)} placeholder="First name" />
+                <input
+                  value={fatherFirst}
+                  onChange={(e) => setFatherFirst(e.target.value)}
+                  placeholder="First name"
+                />
               </div>
               <div className="form-group">
                 <label>Middle Name</label>
-                <input value={fatherMiddle} onChange={(e) => setFatherMiddle(e.target.value)} placeholder="Middle name" />
+                <input
+                  value={fatherMiddle}
+                  onChange={(e) => setFatherMiddle(e.target.value)}
+                  placeholder="Middle name"
+                />
               </div>
               <div className="form-group">
                 <label>Last Name</label>
-                <input value={fatherLast} onChange={(e) => setFatherLast(e.target.value)} placeholder="Last name" />
+                <input
+                  value={fatherLast}
+                  onChange={(e) => setFatherLast(e.target.value)}
+                  placeholder="Last name"
+                />
               </div>
               <div className="form-group">
                 <label>Mobile Number</label>
-                <input value={fatherContact} onChange={(e) => setFatherContact(e.target.value)} placeholder="ex. 09123456789" />
+                <input
+                  value={fatherContact}
+                  onChange={(e) => setFatherContact(e.target.value)}
+                  placeholder="ex. 09123456789"
+                />
               </div>
               <div className="form-group">
                 <label>Occupation</label>
-                <input value={fatherOccupation} onChange={(e) => setFatherOccupation(e.target.value)} placeholder="Occupation" />
+                <input
+                  value={fatherOccupation}
+                  onChange={(e) => setFatherOccupation(e.target.value)}
+                  placeholder="Occupation"
+                />
               </div>
             </div>
 
@@ -773,19 +991,35 @@ const EnrollmentForm = ({ onClose }) => {
             <div className="form-grid">
               <div className="form-group">
                 <label>First Name</label>
-                <input value={guardianFirst} onChange={(e) => setGuardianFirst(e.target.value)} placeholder="First name" />
+                <input
+                  value={guardianFirst}
+                  onChange={(e) => setGuardianFirst(e.target.value)}
+                  placeholder="First name"
+                />
               </div>
               <div className="form-group">
                 <label>Middle Name</label>
-                <input value={guardianMiddle} onChange={(e) => setGuardianMiddle(e.target.value)} placeholder="Middle name" />
+                <input
+                  value={guardianMiddle}
+                  onChange={(e) => setGuardianMiddle(e.target.value)}
+                  placeholder="Middle name"
+                />
               </div>
               <div className="form-group">
                 <label>Last Name</label>
-                <input value={guardianLast} onChange={(e) => setGuardianLast(e.target.value)} placeholder="Last name" />
+                <input
+                  value={guardianLast}
+                  onChange={(e) => setGuardianLast(e.target.value)}
+                  placeholder="Last name"
+                />
               </div>
               <div className="form-group">
                 <label>Mobile Number</label>
-                <input value={guardianContact} onChange={(e) => setGuardianContact(e.target.value)} placeholder="ex. 09123456789" />
+                <input
+                  value={guardianContact}
+                  onChange={(e) => setGuardianContact(e.target.value)}
+                  placeholder="ex. 09123456789"
+                />
               </div>
               <div className="form-group">
                 <label>Relationship to Student</label>
@@ -801,33 +1035,59 @@ const EnrollmentForm = ({ onClose }) => {
             <div className="form-grid">
               <div className="form-group">
                 <label>Form 137-E</label>
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setForm137File(e.target.files?.[0] || null)} />
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  onChange={(e) => setForm137File(e.target.files?.[0] || null)}
+                />
               </div>
               <div className="form-group">
                 <label>School Form 10 (SF10)</label>
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setSf10File(e.target.files?.[0] || null)} />
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  onChange={(e) => setSf10File(e.target.files?.[0] || null)}
+                />
               </div>
               <div className="form-group">
                 <label>Birth Certificate</label>
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setBirthCertificateFile(e.target.files?.[0] || null)} />
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  onChange={(e) => setBirthCertificateFile(e.target.files?.[0] || null)}
+                />
               </div>
               <div className="form-group">
                 <label>Good Moral Certificate</label>
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setGoodMoralFile(e.target.files?.[0] || null)} />
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  onChange={(e) => setGoodMoralFile(e.target.files?.[0] || null)}
+                />
               </div>
               <div className="form-group">
                 <label>Report Card</label>
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setReportCardFile(e.target.files?.[0] || null)} />
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  onChange={(e) => setReportCardFile(e.target.files?.[0] || null)}
+                />
               </div>
               <div className="form-group">
                 <label>Other Document</label>
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setOtherDocumentFile(e.target.files?.[0] || null)} />
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  onChange={(e) => setOtherDocumentFile(e.target.files?.[0] || null)}
+                />
               </div>
             </div>
 
             <h3>💰 Payment Information</h3>
             <div className="form-group">
-              <label>Payment Mode <span className="required">*</span></label>
+              <label>
+                Payment Mode <span className="required">*</span>
+              </label>
               <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} required>
                 <option value="">Select</option>
                 <option value="cash">Cash</option>
@@ -874,7 +1134,11 @@ const EnrollmentForm = ({ onClose }) => {
                     <div className="tuition-total">
                       <strong>Total (Cash)</strong>
                       <strong>
-                        ₱{formatMoney(Number(tuition.total_cash || 0) + (studentType === "new" ? Number(tuition.assessment || 0) : 0))}
+                        ₱
+                        {formatMoney(
+                          Number(tuition.total_cash || 0) +
+                            (studentType === "new" ? Number(tuition.assessment || 0) : 0)
+                        )}
                       </strong>
                     </div>
                   </>
@@ -915,7 +1179,11 @@ const EnrollmentForm = ({ onClose }) => {
                     <div className="tuition-total">
                       <strong>Total (Installment)</strong>
                       <strong>
-                        ₱{formatMoney(Number(tuition.total_installment || 0) + (studentType === "new" ? Number(tuition.assessment || 0) : 0))}
+                        ₱
+                        {formatMoney(
+                          Number(tuition.total_installment || 0) +
+                            (studentType === "new" ? Number(tuition.assessment || 0) : 0)
+                        )}
                       </strong>
                     </div>
                   </>
@@ -930,7 +1198,9 @@ const EnrollmentForm = ({ onClose }) => {
               >
                 Submit Enrollment
               </button>
-              <button type="button" className="secondary" onClick={onClose}>Cancel</button>
+              <button type="button" className="secondary" onClick={onClose}>
+                Cancel
+              </button>
             </div>
           </>
         )}
