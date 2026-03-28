@@ -24,7 +24,7 @@ def validate_media_file_extension(value):
         )
 
 def validate_file_size(value):
-    max_mb = 25  # change as you want
+    max_mb = 2  # enforce 2MB upload limit
     if value.size > max_mb * 1024 * 1024:
         raise ValidationError(f"File too large. Max size is {max_mb}MB.")
 
@@ -79,81 +79,5 @@ class AnnouncementMedia(models.Model):
         return f"Media for {self.announcement_id}"
 
     def save(self, *args, **kwargs):
-        # Avoid recursive double-save
-        if getattr(self, "_saving_binary", False):
-            return super().save(*args, **kwargs)
-
-        computed = False
-        # If Pillow is available and this is an image, compress and store bytes.
-        # Choose an output format that prioritizes broad client compatibility
-        # (JPEG/PNG) for common inputs, fall back to WebP for others.
-        if self.file and Image is not None:
-            ext = os.path.splitext(self.file.name)[1].lower()
-            if ext in ALLOWED_IMAGE_EXTS:
-                try:
-                    try:
-                        self.file.open()
-                    except Exception:
-                        pass
-
-                    img = Image.open(self.file)
-                    img_format = (img.format or "").upper()
-
-                    # Avoid re-encoding animated GIFs (preserve original file in storage)
-                    if img_format == "GIF" and getattr(img, "is_animated", False):
-                        # don't compute binary fallback for animated GIFs
-                        pass
-                    else:
-                        # Resize if very large
-                        max_width = 1600
-                        if getattr(img, "width", None) and img.width > max_width:
-                            ratio = max_width / float(img.width)
-                            new_height = int(float(img.height) * ratio)
-                            img = img.resize((max_width, new_height), Image.ANTIALIAS)
-
-                        # Decide output format for best compatibility
-                        if ext in (".jpg", ".jpeg") or img_format == "JPEG":
-                            out_format = "JPEG"
-                            mime = "image/jpeg"
-                            if img.mode in ("RGBA", "P"):
-                                img = img.convert("RGB")
-                        elif ext == ".png" or img_format == "PNG":
-                            out_format = "PNG"
-                            mime = "image/png"
-                        else:
-                            out_format = "WEBP"
-                            mime = "image/webp"
-                            if img.mode in ("RGBA", "P"):
-                                img = img.convert("RGB")
-
-                        output = BytesIO()
-                        save_kwargs = {"quality": 80}
-                        if out_format == "PNG":
-                            # PNG doesn't use quality, optimize instead
-                            save_kwargs = {"optimize": True}
-
-                        img.save(output, format=out_format, **save_kwargs)
-                        output.seek(0)
-                        self.data = output.read()
-                        self.data_mime = mime
-                        self.original_filename = os.path.basename(self.file.name)
-                        computed = True
-                except Exception:
-                    pass
-
-        # First save (will persist file field). If binary data was computed, ensure it's also persisted.
-        update_fields = kwargs.get("update_fields", None)
-        super().save(*args, **kwargs)
-
-        if computed:
-            # Persist binary fields even if caller provided limited update_fields
-            binary_fields = ["data", "data_mime", "original_filename"]
-            try:
-                self._saving_binary = True
-                if update_fields:
-                    new_update = set(update_fields) | set(binary_fields)
-                    super().save(update_fields=list(new_update))
-                else:
-                    super().save(update_fields=binary_fields)
-            finally:
-                self._saving_binary = False
+        # No compression or DB binary fallback: keep uploaded file as-is.
+        return super().save(*args, **kwargs)
