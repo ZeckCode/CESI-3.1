@@ -39,10 +39,23 @@ const paymentModeLabel = (value) => {
 
 const getErrorMessage = (error, fallback) => {
   if (error?.data?.detail) return error.data.detail;
+
+  if (error?.data && typeof error.data === 'object') {
+    const firstKey = Object.keys(error.data)[0];
+    const firstValue = error.data[firstKey];
+
+    if (Array.isArray(firstValue) && firstValue.length > 0) {
+      return firstValue[0];
+    }
+
+    if (typeof firstValue === 'string') {
+      return firstValue;
+    }
+  }
+
   if (error?.message) return error.message;
   return fallback;
 };
-
 const TuitionManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGrade, setFilterGrade] = useState('all');
@@ -67,9 +80,6 @@ const TuitionManagement = () => {
 
   const [toasts, setToasts] = useState([]);
 
-  const [proofFile, setProofFile] = useState(null);
-  const [proofPreview, setProofPreview] = useState(null);
-  const [uploadingProof, setUploadingProof] = useState(false);
 
   const addToast = useCallback((title, message, type = 'warning') => {
     const id = Date.now() + Math.random();
@@ -126,8 +136,6 @@ const TuitionManagement = () => {
       is_active: true,
     });
     setSelectedFee(null);
-    setProofFile(null);
-    setProofPreview(null);
   };
 
   const loadStudents = async () => {
@@ -319,57 +327,75 @@ const TuitionManagement = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.grade_key || !formData.grade_label) {
-      addToast('Missing Fields', 'Please select a grade first.', 'warning');
-      return;
+  if (!formData.grade_key || !formData.grade_label) {
+    addToast('Missing Fields', 'Please select a grade first.', 'warning');
+    return;
+  }
+
+  try {
+    setSaving(true);
+
+    const cash = Number(formData.cash || 0);
+    const initial = Number(formData.initial || 0);
+    const monthly = Number(formData.monthly || 0);
+    const reservation_fee = Number(formData.reservation_fee || 0);
+    const misc_aug = Number(formData.misc_aug || 0);
+    const misc_nov = Number(formData.misc_nov || 0);
+    const assessment = Number(formData.assessment || 0);
+
+    const computedInstallment = initial + (monthly * 10);
+
+    const payload = {
+      grade_key: formData.grade_key,
+      grade_label: formData.grade_label,
+      cash,
+      installment: computedInstallment,
+      initial,
+      monthly,
+      reservation_fee,
+      misc_aug,
+      misc_nov,
+      assessment,
+      description: formData.description || '',
+      status: formData.status || 'active',
+      is_active: Boolean(formData.is_active),
+    };
+
+    if (modalMode === 'add') {
+      await apiFetchData(`${API}/api/finance/tuition-configs/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      addToast('Added', 'Tuition record added successfully.', 'success');
+    } else {
+      await apiFetchData(`${API}/api/finance/tuition-configs/${selectedFee.id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      addToast('Updated', 'Tuition record updated successfully.', 'success');
     }
 
-    try {
-      setSaving(true);
+    setShowModal(false);
+    resetForm();
+    await loadTuitionConfigs();
+    await loadTuitionStats();
+  } catch (error) {
+    console.error('Save failed:', error);
 
-      const payload = {
-        grade_key: formData.grade_key,
-        grade_label: formData.grade_label,
-        cash: Number(formData.cash || 0),
-        installment: Number(formData.installment || 0),
-        initial: Number(formData.initial || 0),
-        monthly: Number(formData.monthly || 0),
-        reservation_fee: Number(formData.reservation_fee || 0),
-        misc_aug: Number(formData.misc_aug || 0),
-        misc_nov: Number(formData.misc_nov || 0),
-        assessment: Number(formData.assessment || 0),
-        description: formData.description,
-        status: formData.status,
-        is_active: Boolean(formData.is_active),
-      };
+    const serverMessage =
+      error?.data?.installment?.[0] ||
+      error?.data?.grade_key?.[0] ||
+      error?.data?.detail ||
+      error?.message ||
+      'Failed to save tuition record.';
 
-      if (modalMode === 'add') {
-        await apiFetchData(`${API}/api/finance/tuition-configs/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        addToast('Added', 'Tuition record added successfully.', 'success');
-      } else {
-        await apiFetchData(`${API}/api/finance/tuition-configs/${selectedFee.id}/`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        addToast('Updated', 'Tuition record updated successfully.', 'success');
-      }
-
-      setShowModal(false);
-      resetForm();
-      await loadTuitionConfigs();
-      await loadTuitionStats();
-    } catch (error) {
-      console.error('Save failed:', error);
-      addToast('Save Failed', getErrorMessage(error, 'Failed to save tuition record.'), 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
+    addToast('Save Failed', serverMessage, 'error');
+  } finally {
+    setSaving(false);
+  }
+};
 
   const handleExportData = () => {
     const data = getFilteredData();
@@ -453,42 +479,7 @@ const TuitionManagement = () => {
     }));
   };
 
-  const handleProofFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type (images and PDFs only)
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
-    if (!validTypes.includes(file.type)) {
-      addToast('Invalid File Type', 'Please upload an image or PDF file.', 'error');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      addToast('File Too Large', 'Maximum file size is 5MB.', 'error');
-      return;
-    }
-
-    setProofFile(file);
-
-    // Create preview for images
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setProofPreview(event.target?.result);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // For PDFs, show a generic icon
-      setProofPreview('PDF');
-    }
-  };
-
-  const removeProofFile = () => {
-    setProofFile(null);
-    setProofPreview(null);
-  };
+ 
 
   const filteredData = getFilteredData();
   const tmTotalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE) || 1;
@@ -789,26 +780,26 @@ const TuitionManagement = () => {
               </div>
 
               <div className="tm-form-group">
-                <label>Cash Tuition (₱)</label>
-                <input
-                  type="number"
-                  name="cash"
-                  value={formData.cash}
-                  onChange={handleInputChange}
-                  className="tm-form-input"
-                />
-              </div>
+              <label>Cash Tuition (₱)</label>
+              <input
+                type="number"
+                name="cash"
+                value={formData.cash}
+                onChange={handleInputChange}
+                className="tm-form-input"
+              />
+            </div>
 
-              <div className="tm-form-group">
-                <label>Installment Tuition (₱)</label>
-                <input
-                  type="number"
-                  name="installment"
-                  value={formData.installment}
-                  onChange={handleInputChange}
-                  className="tm-form-input"
-                />
-              </div>
+            <div className="tm-form-group">
+              <label>Installment Tuition (₱)</label>
+              <input
+                type="number"
+                name="installment"
+                value={Number(formData.initial || 0) + (Number(formData.monthly || 0) * 10)}
+                className="tm-form-input"
+                readOnly
+              />
+            </div>
 
               <div className="tm-form-group">
                 <label>Initial Payment (₱)</label>
@@ -918,84 +909,7 @@ const TuitionManagement = () => {
                 </select>
               </div>
 
-              <div className="tm-form-group">
-                <label>Proof of Payment</label>
-                <div style={{ marginTop: '8px' }}>
-                  {!proofPreview ? (
-                    <div style={{
-                      border: '2px dashed #cbd5e1',
-                      borderRadius: '8px',
-                      padding: '24px',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      backgroundColor: '#f8fafc',
-                      '&:hover': { borderColor: '#2196F3', backgroundColor: '#f0f7ff' }
-                    }} onClick={() => document.getElementById('proof-file-input')?.click()}>
-                      <div style={{ color: '#64748b', marginBottom: '8px' }}>
-                        📄 Click to upload or drag and drop
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-                        PNG, JPG, GIF or PDF (max. 5MB)
-                      </div>
-                      <input
-                        id="proof-file-input"
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={handleProofFileChange}
-                        style={{ display: 'none' }}
-                      />
-                    </div>
-                  ) : (
-                    <div style={{
-                      border: '2px solid #10b981',
-                      borderRadius: '8px',
-                      padding: '16px',
-                      backgroundColor: '#ecfdf5',
-                      position: 'relative'
-                    }}>
-                      {proofPreview === 'PDF' ? (
-                        <div style={{ textAlign: 'center', padding: '20px' }}>
-                          <div style={{ fontSize: '36px', marginBottom: '8px' }}>📄</div>
-                          <div style={{ fontSize: '14px', fontWeight: 600, color: '#065f46' }}>
-                            {proofFile?.name}
-                          </div>
-                        </div>
-                      ) : (
-                        <img
-                          src={proofPreview}
-                          alt="Proof Preview"
-                          style={{
-                            maxWidth: '100%',
-                            maxHeight: '200px',
-                            borderRadius: '6px',
-                            display: 'block',
-                            margin: '0 auto'
-                          }}
-                        />
-                      )}
-                      <button
-                        onClick={removeProofFile}
-                        style={{
-                          position: 'absolute',
-                          top: '8px',
-                          right: '8px',
-                          background: '#dc2626',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '4px 8px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          fontWeight: 600
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
+              
 
               <div className="tm-form-group">
                 <label>Status</label>

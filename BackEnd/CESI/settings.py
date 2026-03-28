@@ -111,11 +111,14 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 # EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'cesi.support@gmail.com')
 # EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'gmail_password')# Use environment variables for security 
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'cesi.support@gmail.com')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "cesi.support@gmail.com")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://cesiportal-app-nypkd.ondigitalocean.app/')
+FRONTEND_URL = os.environ.get(
+    "FRONTEND_URL",
+    "https://cesiportal-app-nypkd.ondigitalocean.app"
+)
 
 
 # CORS settings for development - adjust for production as needed
