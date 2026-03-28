@@ -71,9 +71,9 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "1/hour",         # general anonymous traffic (dev-friendly)
-        "user": "20/hour",        # authenticated users (avoid dashboard burst 429s)
-        "enrollment_public": "1/hour",  # STRICT: public enrollment submit
+        "anon": "200/hour",         # general anonymous traffic (dev-friendly)
+        "user": "200/hour",        # authenticated users (avoid dashboard burst 429s)
+        "enrollment_public": "3/hour",  # STRICT: public enrollment submit
     },
     
     # "DEFAULT_THROTTLE_RATES": {
