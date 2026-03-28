@@ -1,6 +1,7 @@
 # finance/serializers.py
 from decimal import Decimal
 from django.db.models import Sum
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import Transaction, TuitionConfig, ProofOfPayment
@@ -393,16 +394,45 @@ class TuitionConfigCreateSerializer(serializers.ModelSerializer):
 
         return attrs
 
+User = get_user_model()
+
 class ProofOfPaymentSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    student_username = serializers.SerializerMethodField()
+    student_grade = serializers.SerializerMethodField()
     proof_image_url = serializers.SerializerMethodField()
     
     class Meta:
         model = ProofOfPayment
         fields = [
-            'id', 'reference_number', 'description', 'proof_image',
-            'proof_image_url', 'status', 'admin_remarks', 'created_at'
+            'id', 'reference_number', 'description', 'proof_image', 
+            'proof_image_url', 'status', 'admin_remarks', 
+            'created_at', 'updated_at', 'student_name', 'student_username', 'student_grade'
         ]
-        read_only_fields = ['id', 'status', 'admin_remarks', 'created_at']
+        read_only_fields = ['id', 'status', 'admin_remarks', 'created_at', 'updated_at', 'student_name', 'student_username', 'student_grade']
+    
+    def get_student_name(self, obj):
+        try:
+            # Get the user's profile and combine first and last name
+            profile = obj.user.profile
+            first_name = profile.student_first_name or ''
+            last_name = profile.student_last_name or ''
+            full_name = f"{first_name} {last_name}".strip()
+            if full_name:
+                return full_name
+            return obj.user.username
+        except:
+            return obj.user.username
+    
+    def get_student_username(self, obj):
+        return obj.user.username
+    
+    def get_student_grade(self, obj):
+        try:
+            profile = obj.user.profile
+            return profile.grade_level or ''
+        except:
+            return ""
     
     def get_proof_image_url(self, obj):
         request = self.context.get('request')

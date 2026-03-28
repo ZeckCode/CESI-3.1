@@ -76,6 +76,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
               { id: "tuition_management", label: "Tuition Management" },
               { id: "transaction-history", label: "Transactions" },
               { id: "payment-reminders", label: "Payment Reminders" },
+              { id: "proof-of-payment", label: "Proof of Payment"},
             ],
           },
         ],
