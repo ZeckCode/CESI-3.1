@@ -11,7 +11,6 @@ import ClassManagement from "./ClassManagement";
 import Subjects from "./Subjects";
 import AssignTeachers from "./AssignTeachers";
 import GradesRecords from "./GradesRecords";
-import FloatingMessages from "./FloatingMessages";
 import CMSModule from "./CMSModule";
 import TuitionManagement from "./TuitionManagement";
 import AdminPasswordResetRequests from "./AdminPasswordResetRequests";
@@ -176,8 +175,6 @@ function AdminDashboard() {
 
         {renderContent()}
       </main>
-
-      <FloatingMessages />
 
       {showNotificationList && (
         <NotificationList
