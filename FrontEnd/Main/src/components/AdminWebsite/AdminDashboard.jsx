@@ -5,6 +5,7 @@ import Dashboard from "./Dashboard";
 import EnrollmentManagement from "./EnrollmentManagement";
 import TransactionHistory from "./TransactionHistory";
 import PaymentReminders from "./PaymentReminders";
+import AdminProofOfPayment from "./AdminProofOfPayment";
 import Reports from "./Reports";
 import UserManagement from "./UserManagement";
 import ClassManagement from "./ClassManagement";
@@ -79,6 +80,8 @@ function AdminDashboard() {
         return <TransactionHistory />;
       case "payment-reminders":
         return <PaymentReminders />;
+      case "proof-of-payment":
+        return <AdminProofOfPayment />;
       case "generate-reports":
         return <Reports />;
       case "users":
@@ -124,6 +127,7 @@ function AdminDashboard() {
       tuition_management: "Tuition Management",
       "transaction-history": "Transaction History",
       "payment-reminders": "Payment Reminders",
+      "proof-of-payment": "Proof of Payment",
       tuition: "Tuition Management",
       notifications: "SMS & Email",
       "password-reset-requests": "Password Reset Requests",
@@ -139,6 +143,7 @@ function AdminDashboard() {
       tuition_management: "Manage tuition fees and student billing.",
       "transaction-history": "View and manage all payment transactions.",
       "payment-reminders": "Send payment reminders to parents and guardians.",
+      "proof-of-payment": "Review and manage student proof of payment submissions.",
       grades: "View and manage student grades and attendance records.",
       users: "Manage system users and access permissions.",
       "org-chart": "View the school's administrative structure and staff hierarchy.",

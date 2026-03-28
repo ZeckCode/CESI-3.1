@@ -797,26 +797,67 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
               {performanceMetrics
                 .filter(student => selectedGradeLevel === "All" || student.gradeLevel === selectedGradeLevel)
                 .slice(0, 10)
-                .map((student, idx) => (
-                <div
-                  key={student.id || idx}
-                  className="dash-pending-item"
-                  title={`${student.studentName} - ${student.status}`}
-                >
-                  <div className="dash-pending-left">
-                    <div className="dash-pending-badge">
-                      <CheckCircle size={14} color={student.status === "Excellent" ? "#10b981" : student.status === "Good" ? "#f59e0b" : "#ef4444"} />
+                .map((student, idx) => {
+                  const rank = idx + 1;
+                  const scoreColor =
+                    student.performanceScore >= 80
+                      ? "#10b981"
+                      : student.performanceScore >= 70
+                      ? "#f59e0b"
+                      : student.performanceScore >= 60
+                      ? "#3b82f6"
+                      : "#ef4444";
+                  const rowBg =
+                    student.performanceScore >= 80
+                      ? "#ecfdf5"
+                      : student.performanceScore >= 70
+                      ? "#fffbeb"
+                      : student.performanceScore >= 60
+                      ? "#eff6ff"
+                      : "#fef2f2";
+
+                  return (
+                    <div
+                      key={student.id || idx}
+                      className="dash-pending-item"
+                      style={{ backgroundColor: rowBg }}
+                      title={`${student.studentName} - ${student.status}`}
+                    >
+                      <div className="dash-pending-left" style={{ alignItems: "center" }}>
+                        <div
+                          className="dash-rank-badge"
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: "50%",
+                            backgroundColor: "#eef2ff",
+                            color: "#3730a3",
+                            fontWeight: 700,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            marginRight: 8,
+                            fontSize: 12,
+                          }}
+                        >
+                          {rank}
+                        </div>
+                        <div className="dash-list-content">
+                          <span className="dash-list-title">{student.studentName}</span>
+                          <span className="dash-list-sub">{student.gradeLevel}</span>
+                        </div>
+                      </div>
+                      <div className="dash-pending-right">
+                        <span
+                          className="dash-pending-date"
+                          style={{ fontWeight: 600, color: scoreColor }}
+                        >
+                          {student.performanceScore}%
+                        </span>
+                      </div>
                     </div>
-                    <div className="dash-list-content">
-                      <span className="dash-list-title">{student.studentName}</span>
-                      <span className="dash-list-sub">{student.gradeLevel}</span>
-                    </div>
-                  </div>
-                  <div className="dash-pending-right">
-                    <span className="dash-pending-date" style={{ fontWeight: 600, color: "#6366f1" }}>{student.performanceScore}%</span>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
             </div>
           )}
         </div>
