@@ -134,8 +134,22 @@ const SPerformance = () => {
       const res = await apiFetch(
         `${API}/api/grades/section-performance/?section=${selectedSection}&quarter=${quarter}`
       );
-      if (res.ok) setPerformanceData(await res.json());
-      else setPerformanceData([]);
+      if (res.ok) {
+        const raw = await res.json();
+        const unique = Object.values(
+          (Array.isArray(raw) ? raw : []).reduce((acc, item) => {
+            if (item && item.student_id != null) acc[item.student_id] = item;
+            return acc;
+          }, {})
+        );
+        if (unique.length !== (Array.isArray(raw) ? raw.length : 0)) {
+          console.warn("SPerformance: removed duplicate student entries", {
+            original: raw.length,
+            unique: unique.length,
+          });
+        }
+        setPerformanceData(unique);
+      } else setPerformanceData([]);
     } catch (e) {
       console.error(e);
       setPerformanceData([]);

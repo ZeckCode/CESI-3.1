@@ -230,7 +230,25 @@ const Grade = () => {
 
       if (studentsRes.ok) {
         const data = await studentsRes.json();
-        setStudents(Array.isArray(data) ? data : []);
+        const studentsArray = Array.isArray(data) ? data : [];
+        const uniqueStudents = Object.values(
+          studentsArray.reduce((acc, student) => {
+            if (!student || student.id == null) return acc;
+            if (!acc[student.id]) acc[student.id] = student;
+            return acc;
+          }, {})
+        );
+
+        if (uniqueStudents.length !== studentsArray.length) {
+          console.warn("Grade.jsx: duplicate students removed", {
+            original: studentsArray.length,
+            unique: uniqueStudents.length,
+            section: selectedSection,
+            quarter,
+          });
+        }
+
+        setStudents(uniqueStudents);
       } else {
         setStudents([]);
       }

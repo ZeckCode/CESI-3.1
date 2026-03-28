@@ -869,11 +869,21 @@ def section_performance(request):
             "attendance_days_total": att["total"],
         })
 
-    results.sort(
+    # Deduplicate by student_id in case same student appears from multiple legacy sources
+    seen = set()
+    unique_results = []
+    for r in results:
+        sid = r.get("student_id")
+        if sid is None or sid in seen:
+            continue
+        seen.add(sid)
+        unique_results.append(r)
+
+    unique_results.sort(
         key=lambda x: x["quarter_grade"] if x["quarter_grade"] is not None else -1,
         reverse=True,
     )
-    return Response(results)
+    return Response(unique_results)
 
 
 @api_view(["GET"])
