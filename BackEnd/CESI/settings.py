@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'announcements',
     'rest_framework',
     
-    'rest_framework.authtoken',
+    'rest_framework.authtoken', # For token-based authentication
     'corsheaders',
     'accounts',
     'enrollment',
@@ -59,11 +59,11 @@ INSTALLED_APPS = [
 # DRF defaults
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.TokenAuthentication",
-        "CESI.authentication.CsrfExemptSessionAuthentication",
+        "rest_framework.authentication.TokenAuthentication", # Primary for API auth
+        "CESI.authentication.CsrfExemptSessionAuthentication", # For admin and session-based auth
     ],
      "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
+        "rest_framework.permissions.IsAuthenticated", # Default to authenticated users only; override with AllowAny for public endpoints
     ],
          "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
@@ -71,9 +71,9 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "300/hour",         # general anonymous traffic (dev-friendly)
-        "user": "2000/hour",        # authenticated users (avoid dashboard burst 429s)
-        "enrollment_public": "5/hour",  # STRICT: public enrollment submit
+        "anon": "1/hour",         # general anonymous traffic (dev-friendly)
+        "user": "20/hour",        # authenticated users (avoid dashboard burst 429s)
+        "enrollment_public": "1/hour",  # STRICT: public enrollment submit
     },
     
     # "DEFAULT_THROTTLE_RATES": {
@@ -109,10 +109,14 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'cesi.support@gmail.com')
+# EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'gmail_password')# Use environment variables for security 
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'cesi.support@gmail.com')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'cesisupport123')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+# FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://cesiportal-app-nypkd.ondigitalocean.app/')
+
 
 # CORS settings for development - adjust for production as needed
 MIDDLEWARE = [
