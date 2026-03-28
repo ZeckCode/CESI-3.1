@@ -914,12 +914,17 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             send_mail(
                 subject="Your Student Portal Account",
                 message=(
+                    f"Dear Parent/Guardian,\n\n"
+                    f"We have created a Student Portal account for you to access your child's enrollment information and transactions.\n\n"
+                    f""
                     f"Student: {enrollment.first_name} {enrollment.last_name}\n\n"
+                    
                     f"Username: {enrollment.parent_user.username}\n"
                     f"Email:    {enrollment.parent_user.email}\n\n"
                     f"Student Number: {self._get_effective_student_number(enrollment)}\n\n"
                     f"Set your password here:\n{reset_url}\n\n"
-                    "If you did not request this, ignore this email."
+                    
+                    "Welcome to the Student Portal! If you have any questions, please contact the school."
                 ),
                 from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost"),
                 recipient_list=[parent_email],

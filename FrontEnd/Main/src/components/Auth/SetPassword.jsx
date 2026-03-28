@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../../config/api.js";
-import './SetPassword.css';
+import "./SetPassword.css";
 
 export default function SetPassword() {
   const { uidb64, token } = useParams();
@@ -16,33 +16,40 @@ export default function SetPassword() {
     e.preventDefault();
     setMsg("");
 
+    if (!uidb64 || !token) {
+      setMsg("Invalid password setup link.");
+      return;
+    }
+
     if (password.length < 8) {
       setMsg("Password must be at least 8 characters.");
       return;
     }
+
     if (password !== password2) {
       setMsg("Passwords do not match.");
       return;
     }
 
     setLoading(true);
+
     try {
       const res = await fetch(
         `${API_BASE_URL}/accounts/set-password/${uidb64}/${token}/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password, password2 }),
+          body: JSON.stringify({
+            password,
+            password2,
+          }),
         }
       );
 
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setMsg(
-          data?.detail || "Failed to set password. The link may be invalid or expired."
-        );
-        setLoading(false);
+        setMsg(data?.detail || "Failed to set password.");
         return;
       }
 
@@ -51,10 +58,10 @@ export default function SetPassword() {
       }
 
       setMsg("✅ Password set successfully! Redirecting to login...");
-      setTimeout(() => navigate("/login"), 1000);
+      setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
       console.error(err);
-      setMsg("Network error. Check if backend is running.");
+      setMsg("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -74,6 +81,7 @@ export default function SetPassword() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Minimum 8 characters"
+              required
             />
           </div>
 
@@ -84,6 +92,7 @@ export default function SetPassword() {
               value={password2}
               onChange={(e) => setPassword2(e.target.value)}
               placeholder="Re-type password"
+              required
             />
           </div>
 
