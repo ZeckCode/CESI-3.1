@@ -11,17 +11,36 @@ def home(request):
 urlpatterns = [
     path('', home),  # root URL
     path('admin/', admin.site.urls),
-    path("api/announcements/", include("announcements.urls")),  # <-- announcements endpoints
-    
-    path('api/accounts/', include('accounts.urls')),  # <-- login endpoint
-    path('api/', include('enrollment.urls')),  # <-- enrollment endpoints
-    path('api/finance/', include('finance.urls')),  # <-- finance endpoints
-    path('api/grades/', include('grades.urls')),  # <-- grades endpoints
-    path('api/classmanagement/', include('classmanagement.urls')),  # <-- classmanagement endpoints
-    path('api/attendance/', include('attendance.urls')),  # <-- attendance endpoints
-    path('api/messaging/', include('messaging.urls')),  # <-- messaging endpoints
-    path("api/reminders/", include("reminders.urls")),  # <-- reminders endpoints
-    path('api/cms/', include('cmsmodule.urls')),  # <-- CMS endpoints
+
+    # API endpoint paths (for local and plain routing)
+    path('api/announcements/', include('announcements.urls')),
+    path('announcements/', include('announcements.urls')),
+
+    path('api/accounts/', include('accounts.urls')),
+    path('accounts/', include('accounts.urls')),
+
+    path('api/', include('enrollment.urls')),
+
+    path('api/finance/', include('finance.urls')),
+    path('finance/', include('finance.urls')),
+
+    path('api/grades/', include('grades.urls')),
+    path('grades/', include('grades.urls')),
+
+    path('api/classmanagement/', include('classmanagement.urls')),
+    path('classmanagement/', include('classmanagement.urls')),
+
+    path('api/attendance/', include('attendance.urls')),
+    path('attendance/', include('attendance.urls')),
+
+    path('api/messaging/', include('messaging.urls')),
+    path('messaging/', include('messaging.urls')),
+
+    path('api/reminders/', include('reminders.urls')),
+    path('reminders/', include('reminders.urls')),
+
+    path('api/cms/', include('cmsmodule.urls')),
+    path('cms/', include('cmsmodule.urls')),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
