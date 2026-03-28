@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "../AdminWebsiteCSS/CMSModule.css";
 import Pagination from './Pagination';
 import { useAuth } from "../Auth/useAuth";
+import { getToken } from "../Auth/auth";
 import { apiFetch } from "../api/apiFetch";
 import PageEditor from "./PageEditor";
 
