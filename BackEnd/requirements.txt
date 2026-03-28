@@ -23,3 +23,6 @@ django-quill-editor>=0.1.42
 # Frontend dependencies are in FrontEnd/Main/package.json and managed by npm/yarn.
 # Production Web Server
 gunicorn>=20.1,<21.0
+
+dj-database-url
+psycopg2-binary
