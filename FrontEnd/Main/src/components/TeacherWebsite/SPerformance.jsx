@@ -134,8 +134,33 @@ const SPerformance = () => {
       const res = await apiFetch(
         `${API}/api/grades/section-performance/?section=${selectedSection}&quarter=${quarter}`
       );
-      if (res.ok) setPerformanceData(await res.json());
-      else setPerformanceData([]);
+      if (res.ok) {
+        const raw = await res.json();
+        const unique = Object.values(
+          (Array.isArray(raw) ? raw : []).reduce((acc, item) => {
+            if (!item || item.student_id == null) return acc;
+            const key = String(item.student_id).trim();
+            if (!key) return acc;
+            if (!acc[key]) {
+              acc[key] = item;
+            } else {
+              // Merge existing and new row to keep full computed props in case of partial duplicates
+              acc[key] = {
+                ...acc[key],
+                ...item,
+              };
+            }
+            return acc;
+          }, {})
+        );
+        if (unique.length !== (Array.isArray(raw) ? raw.length : 0)) {
+          console.warn("SPerformance: removed duplicate student entries", {
+            original: Array.isArray(raw) ? raw.length : 0,
+            unique: unique.length,
+          });
+        }
+        setPerformanceData(unique);
+      } else setPerformanceData([]);
     } catch (e) {
       console.error(e);
       setPerformanceData([]);
@@ -179,9 +204,64 @@ const SPerformance = () => {
     }
   };
 
+  const displayPerformance = useMemo(() => {
+    const byId = {};
+    const noIdRows = [];
+
+    (performanceData || []).forEach((student) => {
+      if (!student) return;
+
+      if (student.student_id == null) {
+        noIdRows.push(student);
+        return;
+      }
+
+      const key = String(student.student_id).trim();
+      if (!key) {
+        noIdRows.push(student);
+        return;
+      }
+
+      if (!byId[key]) {
+        byId[key] = student;
+      } else {
+        byId[key] = { ...byId[key], ...student };
+      }
+    });
+
+    const mergedRows = [...Object.values(byId), ...noIdRows];
+
+    // Final fallback: collapse visually identical rows from mixed legacy sources.
+    const seenVisual = new Set();
+    const uniqueRows = mergedRows.filter((row) => {
+      const visualKey = [
+        String(row.student_name || "").trim().toLowerCase(),
+        row.quarter_grade ?? "null",
+        row.attendance_pct ?? "null",
+        row.activity_avg ?? "null",
+        row.quiz_avg ?? "null",
+        row.exam_avg ?? "null",
+        row.class_standing ?? "null",
+      ].join("|");
+
+      if (seenVisual.has(visualKey)) return false;
+      seenVisual.add(visualKey);
+      return true;
+    });
+
+    if (uniqueRows.length !== mergedRows.length) {
+      console.warn("SPerformance: removed visually duplicate rows", {
+        original: mergedRows.length,
+        unique: uniqueRows.length,
+      });
+    }
+
+    return uniqueRows;
+  }, [performanceData]);
+
   const stats = useMemo(() => {
-    const graded = performanceData.filter((s) => s.quarter_grade !== null);
-    const total = performanceData.length;
+    const graded = displayPerformance.filter((s) => s.quarter_grade !== null);
+    const total = displayPerformance.length;
     const gradedCount = graded.length;
     const classAvg = gradedCount
       ? graded.reduce((sum, s) => sum + s.quarter_grade, 0) / gradedCount
@@ -189,7 +269,7 @@ const SPerformance = () => {
     const topGrade = gradedCount ? Math.max(...graded.map((s) => s.quarter_grade)) : null;
     const passed = graded.filter((s) => s.quarter_grade >= 75).length;
     const failed = graded.filter((s) => s.quarter_grade < 75).length;
-    const atRiskList = performanceData
+    const atRiskList = displayPerformance
       .filter((s) => s.quarter_grade === null || s.quarter_grade < 75)
       .map((s) => ({
         ...s,
@@ -217,7 +297,7 @@ const SPerformance = () => {
     });
 
     return { total, classAvg, topGrade, passed, failed, atRiskList, topList, dist };
-  }, [performanceData]);
+  }, [displayPerformance]);
 
   const barData = {
     labels: Object.keys(stats.dist),
@@ -422,7 +502,7 @@ const SPerformance = () => {
         </div>
 
         <div className="spTableWrap">
-          {stats.atRiskList.length === 0 ? (
+          {displayPerformance.length === 0 ? (
             <div className="sp__empty sp__empty--padded">
               {stats.total === 0
                 ? "No students enrolled in this section."
