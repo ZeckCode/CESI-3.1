@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import Sidebar from "./Sidebar";
+import Sidebar from "./Sidebar"; // Match the capital 'S'
 import Header from "../AdminWebsite/Header";
-
 import Dashboard from "./Dashboard";
 import Profile from "./Profile";
 import Ledgers from "./Ledgers";
