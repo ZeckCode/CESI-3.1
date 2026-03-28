@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Plus, X, Edit2, Trash2, Settings, Calendar, FileText } from "lucide-react";
 import "../TeacherWebsiteCSS/Grade.css";
 import { apiFetch } from "../api/apiFetch";
@@ -131,6 +131,21 @@ const Grade = () => {
   const canPublish =
     !!currentSection && students.length > 0 && items.length > 0 && !isPublishing;
 
+  const displayStudents = useMemo(() => {
+    const seen = {};
+    (students || []).forEach((student) => {
+      if (!student || student.id == null) return;
+      const key = String(student.id).trim();
+      if (!key) return;
+      if (!seen[key]) {
+        seen[key] = student;
+      } else {
+        seen[key] = { ...seen[key], ...student };
+      }
+    });
+    return Object.values(seen);
+  }, [students]);
+
   // IMPORTANT FIX:
   // backend expects integer grade_level, not "grade4"/"kinder"
   const gradeLevel = gradeCodeToNumber(currentSection?.grade_level);
@@ -230,7 +245,36 @@ const Grade = () => {
 
       if (studentsRes.ok) {
         const data = await studentsRes.json();
-        setStudents(Array.isArray(data) ? data : []);
+        const studentsArray = Array.isArray(data) ? data : [];
+
+        const uniqueStudents = Object.values(
+          studentsArray.reduce((acc, student) => {
+            if (!student || student.id == null) return acc;
+            const key = String(student.id).trim();
+            if (!key) return acc;
+
+            if (!acc[key]) {
+              acc[key] = student;
+            } else {
+              acc[key] = {
+                ...acc[key],
+                ...student,
+              };
+            }
+            return acc;
+          }, {})
+        );
+
+        if (uniqueStudents.length !== studentsArray.length) {
+          console.warn("Grade.jsx: duplicate students removed", {
+            original: studentsArray.length,
+            unique: uniqueStudents.length,
+            section: selectedSection,
+            quarter,
+          });
+        }
+
+        setStudents(uniqueStudents);
       } else {
         setStudents([]);
       }
@@ -980,7 +1024,7 @@ const Grade = () => {
               </tr>
             </thead>
             <tbody>
-              {students.length === 0 && (
+              {displayStudents.length === 0 && (
                 <tr>
                   <td className="ge__td" colSpan={items.length + 4}>
                     {selectedSection
@@ -990,7 +1034,7 @@ const Grade = () => {
                 </tr>
               )}
 
-              {students.map((stu) => {
+              {displayStudents.map((stu) => {
                 const qg = quarterGrade(stu.id);
 
                 return (
