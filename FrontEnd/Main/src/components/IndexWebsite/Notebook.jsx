@@ -4,8 +4,17 @@ import DOMPurify from "dompurify";
 import "../IndexWebsiteCSS/Notebook.css";
 import "../IndexWebsiteCSS/AnnouncementCard.css";
 import OrganizationalChart from "../AdminWebsite/OrganizationalChart";
+import { API_BASE_URL } from "../../config/api";
 
-const API_BASE = ""; // use Vite proxy
+const API_BASE = ""; // keep for backwards-compat; prefer toAbsUrl below
+
+function toAbsUrl(path) {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  const base = String(API_BASE_URL || "").replace(/\/api\/?$/i, "").replace(/\/$/, "");
+  const p = String(path).replace(/^\/+/, "");
+  return `${base}/${p}`.replace(/([^:]\/)\/+/, "$1");
+}
 
 const Notebook = ({ onClose, openEnrollment }) => {
   const navigate = useNavigate();
@@ -35,10 +44,7 @@ const Notebook = ({ onClose, openEnrollment }) => {
 
   }, []);
 
-  function toAbsUrl(path) {
-    if (!path) return null;
-    return path.startsWith("http") ? path : `${API_BASE}${path}`;
-  }
+  // local helper used by components below
 
   function getFirstImagePath(a) {
     const firstImage = a?.media?.find((m) =>

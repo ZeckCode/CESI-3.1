@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "../TeacherWebsiteCSS/Dashboard.css";
 import { apiFetch } from "../api/apiFetch";
-
-const API_BASE = ""; // only needed if file/file_url returns /media/...
+import { API_BASE_URL } from "../../config/api";
 
 function toAbsUrl(path) {
   if (!path) return null;
-  return path.startsWith("http") ? path : `${API_BASE}${path}`;
+  if (/^https?:\/\//i.test(path)) return path;
+  const base = String(API_BASE_URL || "").replace(/\/api\/?$/i, "").replace(/\/$/, "");
+  const p = String(path).replace(/^\/+/, "");
+  return `${base}/${p}`.replace(/([^:]\/)\/+/, "$1");
 }
 
 function getFirstImagePath(a) {

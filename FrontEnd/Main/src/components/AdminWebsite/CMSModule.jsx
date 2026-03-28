@@ -4,6 +4,7 @@ import Pagination from './Pagination';
 import { useAuth } from "../Auth/useAuth";
 import { getToken } from "../Auth/auth";
 import { apiFetch } from "../api/apiFetch";
+import { API_BASE_URL } from "../../config/api";
 import PageEditor from "./PageEditor";
 
 function toLocalDatetimeInputValue(date = new Date()) {
@@ -24,13 +25,23 @@ function isAdmin(user) {
 // Image Modal Component
 function ImageModal({ isOpen, images, currentIndex, onClose, onNext, onPrev }) {
   if (!isOpen) return null;
-
   const currentImage = images[currentIndex];
-  const isVideo = currentImage?.file_url?.match(/\.(mp4|webm|ogg|mov)$/i) || 
-                  currentImage?.file?.match(/\.(mp4|webm|ogg|mov)$/i);
+
+  // Resolve absolute URL for media (handles both file and file_url)
+  const resolveMediaUrl = (pathOrUrl) => {
+    if (!pathOrUrl) return null;
+    if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+    const base = String(API_BASE_URL || '').replace(/\/api\/?$/i, '').replace(/\/$/, '');
+    const p = String(pathOrUrl).replace(/^\/+/, '');
+    return `${base}/${p}`.replace(/([^:]\/)\/+/, '$1');
+  };
+
+  const src = resolveMediaUrl(currentImage?.file_url || currentImage?.file);
+  const isVideo = Boolean(src && src.match(/\.(mp4|webm|ogg|mov)$/i));
 
   const handleDownload = async () => {
-    const url = currentImage.file_url || currentImage.file;
+    const url = src;
+    if (!url) return;
     try {
       const response = await fetch(url);
       const blob = await response.blob();
@@ -99,17 +110,18 @@ function MediaPreview({ media, onImageClick }) {
   return (
     <div className="cms-media-grid">
       {media.map((m, index) => {
-        const url = m.file_url || m.file;
-        const name = String(m.file || "").toLowerCase();
+        const raw = m.file_url || m.file;
+        const src = resolveMediaUrl(raw);
+        const name = String(m.file || m.file_url || "").toLowerCase();
 
-        if (!url) return null;
+        if (!src) return null;
 
         if (name.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
           return (
-            <img 
-              key={m.id} 
-              src={url} 
-              alt="" 
+            <img
+              key={m.id}
+              src={src}
+              alt=""
               className="cms-post-media"
               onClick={() => onImageClick(index)}
             />
@@ -118,19 +130,19 @@ function MediaPreview({ media, onImageClick }) {
 
         if (name.match(/\.(mp4|webm|ogg|mov)$/)) {
           return (
-            <video 
-              key={m.id} 
-              controls 
+            <video
+              key={m.id}
+              controls
               className="cms-post-media"
               onClick={() => onImageClick(index)}
             >
-              <source src={url} />
+              <source src={src} />
             </video>
           );
         }
 
         return (
-          <a key={m.id} href={url} target="_blank" rel="noreferrer">
+          <a key={m.id} href={src} target="_blank" rel="noreferrer">
             Open file
           </a>
         );
@@ -172,15 +184,16 @@ function PostDetailModal({ isOpen, post, onClose, onMediaClick }) {
               <h4>Media</h4>
               <div className="cms-media-grid">
                 {post.media.map((m, index) => {
-                  const url = m.file_url || m.file;
-                  const name = String(m.file || "").toLowerCase();
-                  if (!url) return null;
+                  const raw = m.file_url || m.file;
+                  const src = resolveMediaUrl(raw);
+                  const name = String(m.file || m.file_url || "").toLowerCase();
+                  if (!src) return null;
 
                   if (name.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
                     return (
                       <img
                         key={m.id}
-                        src={url}
+                        src={src}
                         alt=""
                         className="cms-post-media"
                         onClick={() => onMediaClick(index)}
@@ -196,13 +209,13 @@ function PostDetailModal({ isOpen, post, onClose, onMediaClick }) {
                         controls
                         onClick={() => onMediaClick(index)}
                       >
-                        <source src={url} />
+                        <source src={src} />
                       </video>
                     );
                   }
 
                   return (
-                    <a key={m.id} href={url} target="_blank" rel="noreferrer">
+                    <a key={m.id} href={src} target="_blank" rel="noreferrer">
                       Open file
                     </a>
                   );

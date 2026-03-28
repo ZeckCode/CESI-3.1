@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from "react";
 import "../IndexWebsiteCSS/AnnouncementCard.css";
-
-const API_BASE = "http://127.0.0.1:8000";
+import { API_BASE_URL } from "../../config/api";
 
 function toAbsUrl(pathOrUrl) {
   if (!pathOrUrl) return null;
-  return String(pathOrUrl).startsWith("http") ? pathOrUrl : `${API_BASE}${pathOrUrl}`;
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  const base = String(API_BASE_URL || "").replace(/\/api\/?$/i, "").replace(/\/$/, "");
+  const p = String(pathOrUrl).replace(/^\/+/, "");
+  return `${base}/${p}`.replace(/([^:]\/)\/+/, "$1");
 }
 
 function AnnouncementCard({ title, date, image, description, targetRole }) {
