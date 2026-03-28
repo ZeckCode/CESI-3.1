@@ -2,23 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import "../AdminWebsiteCSS/CMSModule.css";
 import Pagination from './Pagination';
 import { useAuth } from "../Auth/useAuth";
-import { getToken } from "../Auth/auth";
+import { apiFetch } from "../api/apiFetch";
 import PageEditor from "./PageEditor";
-
-const API_BASE = "http://127.0.0.1:8000";
 
 function toLocalDatetimeInputValue(date = new Date()) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
     date.getDate()
   )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-// Auto-detect JWT vs DRF Token
-function authHeader(token) {
-  if (!token) return {};
-  const isJwt = token.split(".").length === 3;
-  return { Authorization: `${isJwt ? "Bearer" : "Token"} ${token}` };
 }
 
 function isAdmin(user) {
@@ -322,10 +313,7 @@ export default function CMSModule() {
     setLoading(true);
 
     try {
-      const token = getToken();
-      const res = await fetch(`${API_BASE}/api/announcements/`, {
-        headers: authHeader(token),
-      });
+      const res = await apiFetch('/api/announcements/');
 
       if (!res.ok) throw new Error(await readError(res));
 
@@ -409,12 +397,11 @@ export default function CMSModule() {
 
     try {
       const url = editingPostId
-        ? `${API_BASE}/api/announcements/${editingPostId}/`
-        : `${API_BASE}/api/announcements/`;
+        ? `/api/announcements/${editingPostId}/`
+        : "/api/announcements/";
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: editingPostId ? "PUT" : "POST",
-        headers: authHeader(token),
         body: form,
       });
 
@@ -497,16 +484,9 @@ export default function CMSModule() {
 
   // Delete post with confirmation
   const handleDeletePost = async (postId) => {
-    const token = getToken();
-    if (!token) {
-      setError("No token found.");
-      return;
-    }
-
     try {
-      const res = await fetch(`${API_BASE}/api/announcements/${postId}/`, {
+      const res = await apiFetch(`/api/announcements/${postId}/`, {
         method: "DELETE",
-        headers: authHeader(token),
       });
 
       if (!res.ok) throw new Error(await readError(res));

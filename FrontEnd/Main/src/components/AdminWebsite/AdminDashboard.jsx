@@ -18,18 +18,8 @@ import AdminPasswordResetRequests from "./AdminPasswordResetRequests";
 import Messages from "./Messages";
 import OrganizationalChart from "./OrganizationalChart";
 import NotificationList from "./NotificationList";
-import { getToken } from "../Auth/auth";
+import { apiFetch } from "../api/apiFetch";
 import "../AdminWebsiteCSS/AdminDashboard.css";
-
-const API_BASE = "";
-
-const authHeaders = (extra = {}) => {
-  const token = getToken();
-  return {
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...extra,
-  };
-};
 
 function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
@@ -46,10 +36,7 @@ function AdminDashboard() {
 
     const loadUnreadReminders = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/reminders/?type=PAYMENT`, {
-          credentials: "include",
-          headers: authHeaders(),
-        });
+        const res = await apiFetch("/api/reminders/?type=PAYMENT");
 
         if (!res.ok) throw new Error("Failed to load reminders");
 

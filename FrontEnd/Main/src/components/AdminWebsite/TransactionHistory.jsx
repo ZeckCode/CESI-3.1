@@ -8,19 +8,9 @@ import {
 import * as XLSX from 'xlsx';
 import '../AdminWebsiteCSS/TransactionHistory.css';
 import Pagination from './Pagination';
-import { getToken } from '../Auth/auth';
+import { apiFetch } from '../api/apiFetch';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-
-const API_BASE = '';
-
-const authHeaders = (extra = {}) => {
-  const token = getToken();
-  return {
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...extra,
-  };
-};
 
 const TRANSACTION_TYPES = [
   { value: 'TUITION', label: 'Tuition Fee' },
@@ -171,10 +161,7 @@ const TransactionHistory = () => {
       if (filterStatus !== 'all') params.append('status', filterStatus.toUpperCase());
       if (filterEntryType !== 'all') params.append('entry_type', filterEntryType.toUpperCase());
 
-      const res = await fetch(`${API_BASE}/api/finance/transactions/?${params.toString()}`, {
-        credentials: 'include',
-        headers: authHeaders(),
-      });
+      const res = await apiFetch(`/api/finance/transactions/?${params.toString()}`);
 
       if (!res.ok) throw new Error('Failed to load transactions');
       const data = await res.json();
@@ -187,10 +174,7 @@ const TransactionHistory = () => {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/finance/transactions/stats/`, {
-        credentials: 'include',
-        headers: authHeaders(),
-      });
+      const res = await apiFetch('/api/finance/transactions/stats/');
       if (!res.ok) return;
       const data = await res.json();
       setStats({
@@ -215,10 +199,7 @@ const TransactionHistory = () => {
   const searchParents = useCallback(async (query) => {
     setParentLoading(true);
     try {
-      const res = await fetch(
-        `${API_BASE}/api/finance/parents/?search=${encodeURIComponent(query)}`,
-        { credentials: 'include', headers: authHeaders() }
-      );
+      const res = await apiFetch(`/api/finance/parents/?search=${encodeURIComponent(query)}`);
 
       if (!res.ok) {
         setParentOptions([]);
@@ -355,13 +336,12 @@ const TransactionHistory = () => {
 
       const isEdit = !!editingTxn;
       const url = isEdit
-        ? `${API_BASE}/api/finance/transactions/${editingTxn.id}/`
-        : `${API_BASE}/api/finance/transactions/`;
+        ? `/api/finance/transactions/${editingTxn.id}/`
+        : '/api/finance/transactions/';
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: isEdit ? 'PUT' : 'POST',
-        credentials: 'include',
-        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
@@ -393,11 +373,7 @@ const TransactionHistory = () => {
 
     setDeleting(true);
     try {
-      const res = await fetch(`${API_BASE}/api/finance/transactions/${deleteTarget.id}/`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: authHeaders(),
-      });
+      const res = await apiFetch(`/api/finance/transactions/${deleteTarget.id}/`, { method: 'DELETE' });
 
       if (!res.ok && res.status !== 204) {
         throw new Error('Failed to delete');
@@ -416,11 +392,7 @@ const TransactionHistory = () => {
   const sendReminder = async (transactionId) => {
     setSendingReminderId(transactionId);
     try {
-      const res = await fetch(`${API_BASE}/api/reminders/payments/${transactionId}/send/`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: authHeaders(),
-      });
+      const res = await apiFetch(`/api/reminders/payments/${transactionId}/send/`, { method: 'POST' });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Failed to send reminder.');
@@ -436,11 +408,7 @@ const TransactionHistory = () => {
   const sendBulkReminders = async () => {
     setSendingBulk(true);
     try {
-      const res = await fetch(`${API_BASE}/api/reminders/payments/send-bulk/`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: authHeaders(),
-      });
+      const res = await apiFetch('/api/reminders/payments/send-bulk/', { method: 'POST' });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Failed to send bulk reminders.');

@@ -3,9 +3,7 @@ import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import DOMPurify from "dompurify";
 import "../AdminWebsiteCSS/CMSModule.css";
-import { getToken } from "../Auth/auth";
-
-const API_BASE = "http://127.0.0.1:8000";
+import { apiFetch } from "../api/apiFetch";
 
 // Basic formatting modules for React Quill
 const modules = {
@@ -45,7 +43,7 @@ export default function PageEditor({ endpoint, title, fields }) {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/cms/${endpoint}/`);
+      const res = await apiFetch(`/api/cms/${endpoint}/`);
       if (!res.ok) throw new Error("Failed to load data");
       const json = await res.json();
       
@@ -68,12 +66,10 @@ export default function PageEditor({ endpoint, title, fields }) {
       setError("");
       setSuccess("");
       
-      const token = getToken();
-      const res = await fetch(`${API_BASE}/api/cms/${endpoint}/`, {
+      const res = await apiFetch(`/api/cms/${endpoint}/`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Token ${token}`,
         },
         body: JSON.stringify(data),
       });

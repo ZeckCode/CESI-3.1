@@ -4,17 +4,7 @@ import StatCard, { StatsGrid } from './StatCard';
 import '../AdminWebsiteCSS/ClassManagement.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { getToken } from '../Auth/auth';
-
-const API_BASE = 'http://127.0.0.1:8000';
-
-function authHeaders(json = true) {
-  const token = getToken();
-  return {
-    ...(json ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-  };
-}
+import { apiFetch } from '../api/apiFetch';
 
 // Helper function for academic year expiry
 const getAcademicYearExpiry = (academicYear) => {
@@ -98,11 +88,7 @@ const Reports = () => {
   // -----------------------------
   const fetchAcademicYear = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/enrollment-settings/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/enrollment-settings/');
       const data = await res.json();
       setCurrentAcademicYear(data.academic_year || getCurrentAcademicYear());
       console.log('Academic year loaded:', data.academic_year);
@@ -117,11 +103,7 @@ const Reports = () => {
   // -----------------------------
   const fetchEnrollmentStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/enrollments/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/enrollments/');
       const enrollments = await res.json();
       const list = Array.isArray(enrollments) ? enrollments : [];
       
@@ -142,11 +124,7 @@ const Reports = () => {
 
   const fetchTransactionStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/finance/transactions/stats/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/finance/transactions/stats/');
       const data = await res.json();
       setTransactionStats({
         total_billed: data.total_billed || 0,
@@ -161,16 +139,8 @@ const Reports = () => {
   const fetchClassStats = async () => {
     try {
       const [sectionsRes, subjectsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/accounts/sections/`, {
-          method: "GET",
-          headers: authHeaders(),
-          credentials: "include",
-        }),
-        fetch(`${API_BASE}/api/accounts/subjects/`, {
-          method: "GET",
-          headers: authHeaders(),
-          credentials: "include",
-        })
+        apiFetch('/api/accounts/sections/'),
+        apiFetch('/api/accounts/subjects/')
       ]);
       
       const sections = await sectionsRes.json();
@@ -195,11 +165,7 @@ const Reports = () => {
 
   const fetchTeacherStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/accounts/users/?role=TEACHER`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/accounts/users/?role=TEACHER');
       const teachers = await res.json();
       const teachersList = Array.isArray(teachers) ? teachers : [];
       
@@ -219,11 +185,7 @@ const Reports = () => {
   const fetchAttendanceStats = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const res = await fetch(`${API_BASE}/api/attendance/records/?date=${today}`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch(`/api/attendance/records/?date=${today}`);
       const records = await res.json();
       const recordsList = Array.isArray(records) ? records : [];
       
@@ -246,11 +208,7 @@ const Reports = () => {
 
   const fetchGradeStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/grades/admin-monitoring/?quarter=1`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/grades/admin-monitoring/?quarter=1');
       const data = await res.json();
       const summary = data.summary || {};
       
@@ -267,11 +225,7 @@ const Reports = () => {
 
   const fetchHistoryStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/grades/academic-history/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/grades/academic-history/');
       const history = await res.json();
       const historyList = Array.isArray(history) ? history : [];
       

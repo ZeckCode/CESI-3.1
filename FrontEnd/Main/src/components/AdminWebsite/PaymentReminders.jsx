@@ -9,18 +9,8 @@ import {
   CheckCircle,
   DollarSign,
 } from "lucide-react";
-import { getToken } from "../Auth/auth";
+import { apiFetch } from "../api/apiFetch";
 import "../AdminWebsiteCSS/PaymentReminders.css";
-
-const API_BASE = "";
-
-const authHeaders = (extra = {}) => {
-  const token = getToken();
-  return {
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...extra,
-  };
-};
 
 const PaymentReminders = () => {
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -34,10 +24,7 @@ const PaymentReminders = () => {
   const loadReminders = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/reminders/?type=PAYMENT`, {
-        credentials: "include",
-        headers: authHeaders(),
-      });
+      const res = await apiFetch("/api/reminders/?type=PAYMENT");
 
       if (!res.ok) throw new Error("Failed to load reminders");
 
@@ -87,14 +74,9 @@ const PaymentReminders = () => {
 
     setSendingId(transactionId);
     try {
-      const res = await fetch(
-        `${API_BASE}/api/reminders/payments/${transactionId}/send/`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: authHeaders(),
-        }
-      );
+      const res = await apiFetch(`/api/reminders/payments/${transactionId}/send/`, {
+        method: "POST",
+      });
 
       const data = await res.json().catch(() => ({}));
 
@@ -115,10 +97,8 @@ const PaymentReminders = () => {
   const sendBulkReminders = async () => {
     setSendingBulk(true);
     try {
-      const res = await fetch(`${API_BASE}/api/reminders/payments/send-bulk/`, {
-        method: "POST",
-        credentials: "include",
-        headers: authHeaders(),
+      const res = await apiFetch('/api/reminders/payments/send-bulk/', {
+        method: 'POST',
       });
 
       const data = await res.json().catch(() => ({}));
