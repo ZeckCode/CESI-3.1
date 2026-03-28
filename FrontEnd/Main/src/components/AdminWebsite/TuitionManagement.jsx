@@ -426,7 +426,7 @@ const TuitionManagement = () => {
       ];
     } else {
       csv = [
-        ['Grade Level', 'Cash Payment', 'Installment Tuition', 'Initial Payment', 'Monthly Payment', 'Reservation Fee', 'Misc (Aug)', 'Misc (Nov)', 'Assessment', 'Status', 'Description'].join(','),
+        ['Grade Level', 'Cash Payment', 'Installment Tuition', 'Initial Payment', 'Monthly Payment', 'Reservation Fee', 'Misc (Aug)', 'Misc (Nov)', 'Assessment', 'Total Cash', 'Total Installment', 'Status', 'Description'].join(','),
         ...data.map((fee) => [
           escapeCsv(fee.grade_label),
           escapeCsv(formatCurrency(fee.cash)),
@@ -437,6 +437,8 @@ const TuitionManagement = () => {
           escapeCsv(formatCurrency(fee.misc_aug)),
           escapeCsv(formatCurrency(fee.misc_nov)),
           escapeCsv(formatCurrency(fee.assessment)),
+          escapeCsv(formatCurrency(fee.total_cash)),
+          escapeCsv(formatCurrency(fee.total_installment)),
           escapeCsv(fee.is_active ? 'Active' : 'Inactive'),
           escapeCsv(fee.description),
         ].join(','))
@@ -629,7 +631,9 @@ const TuitionManagement = () => {
                     <th>Installment</th>
                     <th>Initial</th>
                     <th>Monthly</th>
+                    <th>Reservation Fee</th>
                     <th>Total Cash</th>
+                    <th>Total Installment</th>
                     <th>Status</th>
                     <th>Updated</th>
                     <th>Actions</th>
@@ -641,7 +645,7 @@ const TuitionManagement = () => {
             <tbody>
               {(viewMode === 'student' ? loadingStudents : loadingFees) ? (
                 <tr>
-                  <td colSpan={viewMode === 'student' ? 10 : 9} className="tm-no-data">
+                  <td colSpan={viewMode === 'student' ? 10 : 11} className="tm-no-data">
                     <p>Loading...</p>
                   </td>
                 </tr>
@@ -681,7 +685,9 @@ const TuitionManagement = () => {
                         <td className="tm-table-cell">{formatCurrency(item.installment)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.initial)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.monthly)}</td>
+                        <td className="tm-table-cell">{formatCurrency(item.reservation_fee)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.total_cash)}</td>
+                        <td className="tm-table-cell">{formatCurrency(item.total_installment)}</td>
                         <td className="tm-table-cell">
                           <span className={`tm-status tm-status-${normalizeStatus(item.status)}`}>
                             {String(item.status || '').charAt(0).toUpperCase() + String(item.status || '').slice(1)}
@@ -712,7 +718,7 @@ const TuitionManagement = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={viewMode === 'student' ? 10 : 9} className="tm-no-data">
+                  <td colSpan={viewMode === 'student' ? 10 : 11} className="tm-no-data">
                     <AlertCircle size={24} />
                     <p>No records found</p>
                   </td>
