@@ -204,8 +204,23 @@ const SPerformance = () => {
     }
   };
 
+  const displayPerformance = useMemo(() => {
+    const seen = {};
+    (performanceData || []).forEach((student) => {
+      if (!student || student.student_id == null) return;
+      const key = String(student.student_id).trim();
+      if (!key) return;
+      if (!seen[key]) {
+        seen[key] = student;
+      } else {
+        seen[key] = { ...seen[key], ...student };
+      }
+    });
+    return Object.values(seen);
+  }, [performanceData]);
+
   const stats = useMemo(() => {
-    const graded = performanceData.filter((s) => s.quarter_grade !== null);
+    const graded = displayPerformance.filter((s) => s.quarter_grade !== null);
     const total = performanceData.length;
     const gradedCount = graded.length;
     const classAvg = gradedCount
@@ -447,7 +462,7 @@ const SPerformance = () => {
         </div>
 
         <div className="spTableWrap">
-          {stats.atRiskList.length === 0 ? (
+          {displayPerformance.length === 0 ? (
             <div className="sp__empty sp__empty--padded">
               {stats.total === 0
                 ? "No students enrolled in this section."

@@ -131,6 +131,21 @@ const Grade = () => {
   const canPublish =
     !!currentSection && students.length > 0 && items.length > 0 && !isPublishing;
 
+  const displayStudents = useMemo(() => {
+    const seen = {};
+    (students || []).forEach((student) => {
+      if (!student || student.id == null) return;
+      const key = String(student.id).trim();
+      if (!key) return;
+      if (!seen[key]) {
+        seen[key] = student;
+      } else {
+        seen[key] = { ...seen[key], ...student };
+      }
+    });
+    return Object.values(seen);
+  }, [students]);
+
   // IMPORTANT FIX:
   // backend expects integer grade_level, not "grade4"/"kinder"
   const gradeLevel = gradeCodeToNumber(currentSection?.grade_level);
@@ -1009,7 +1024,7 @@ const Grade = () => {
               </tr>
             </thead>
             <tbody>
-              {students.length === 0 && (
+              {displayStudents.length === 0 && (
                 <tr>
                   <td className="ge__td" colSpan={items.length + 4}>
                     {selectedSection
@@ -1019,7 +1034,7 @@ const Grade = () => {
                 </tr>
               )}
 
-              {students.map((stu) => {
+              {displayStudents.map((stu) => {
                 const qg = quarterGrade(stu.id);
 
                 return (

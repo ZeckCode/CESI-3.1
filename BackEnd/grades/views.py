@@ -825,15 +825,17 @@ def section_performance(request):
             name = " ".join(
                 p for p in [stu.profile.student_first_name or "", stu.profile.student_last_name or ""] if p
             ).strip()
-        students_map[stu.id] = name or stu.username
+        key = str(stu.id)
+        students_map[key] = name or stu.username
 
     for p in UserProfile.objects.filter(
         section_id=section_id,
         user__role="PARENT_STUDENT",
         user__status="ACTIVE",
     ).select_related("user"):
-        if p.user_id not in students_map:
-            students_map[p.user_id] = " ".join(
+        key = str(p.user_id)
+        if key not in students_map:
+            students_map[key] = " ".join(
                 pt for pt in [p.student_first_name or "", p.student_last_name or ""] if pt
             ).strip() or p.user.username
 
