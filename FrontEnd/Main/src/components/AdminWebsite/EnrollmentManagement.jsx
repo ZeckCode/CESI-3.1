@@ -2097,9 +2097,7 @@ export default function EnrollmentManagement() {
                       ? `Promotion Enrollment — ${gradeLabel(formData.grade_level)}`
                       : "New Enrollment Record"}
                 </h2>
-                <div className="enrollment-modal-subtitle">
-                  Review, edit, approve, or decline the enrollment record.
-                </div>
+                
               </div>
 
               <button type="button" className="enrollment-modal-close" onClick={closeModal}>
