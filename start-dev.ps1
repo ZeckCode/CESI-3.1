@@ -38,7 +38,7 @@ $VenvScripts   = Join-Path $VenvDir "Scripts"
 $ActivateScript = Join-Path $VenvScripts "Activate.ps1"
 $VenvPython    = Join-Path $VenvScripts "python.exe"
 $VenvPip       = Join-Path $VenvScripts "pip.exe"
-$ReqFile       = Join-Path $ProjectRoot "requirements.txt"
+$ReqFile       = Join-Path $BackendDir "requirements.txt"
 
 # --- Helper functions ---
 function Write-Step  { param($msg) Write-Host "`n>> $msg" -ForegroundColor Cyan }
