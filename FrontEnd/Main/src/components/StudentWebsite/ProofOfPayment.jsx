@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { apiFetch } from "../api/apiFetch";
-import "../StudentWebsiteCSS/ProofOfPayment.css"; // You'll need to create this CSS file
+import "../StudentWebsiteCSS/ProofOfPayment.css"; 
 
 const formatCurrency = (value) =>
   `₱${Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
+const formatFullName = (...parts) =>
+parts
+  .filter(Boolean)
+  .map((p) => String(p).trim())
+  .filter(Boolean)
+  .join(" ");
 
 const statusPillStyle = (status) => {
   const normalized = String(status || "").toLowerCase();
@@ -29,16 +36,36 @@ export default function ProofOfPayment() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [studentData, setStudentData] = useState(null);
   const [formData, setFormData] = useState({
     reference_number: "",
     description: "",
     proof_image: null,
   });
 
-  // Fetch existing proof of payment submissions
   useEffect(() => {
     fetchPayments();
+    fetchStudentProfile(); 
   }, []);
+
+  const fetchStudentProfile = async () => {
+  try {
+    const endpoints = ["/api/accounts/me-detail/", "/api/accounts/me/detail/"];
+    
+    for (const endpoint of endpoints) {
+      const response = await apiFetch(endpoint);
+      if (response.ok) {
+        const data = await response.json();
+        setStudentData(data);
+        return;
+      }
+    }
+    
+    console.log("Could not fetch profile from endpoints");
+  } catch (err) {
+    console.error("Error fetching profile:", err);
+  }
+};
 
   const fetchPayments = async () => {
     try {
@@ -59,11 +86,24 @@ export default function ProofOfPayment() {
     }
   };
 
+  const getStudentName = () => {
+    if (!studentData) return "Loading...";
+    const p = studentData?.profile || {};
+    const e = studentData?.enrollment || {};
+    
+    const name = formatFullName(
+      p.student_first_name || e.first_name,
+      p.student_middle_name || e.middle_name,
+      p.student_last_name || e.last_name
+    );
+    
+    return name || studentData?.username || "Student";
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
     if (name === "reference_number") {
-      // Only allow numbers
       const numbersOnly = value.replace(/[^0-9]/g, "");
       setFormData(prev => ({ ...prev, [name]: numbersOnly }));
     } else {
@@ -74,14 +114,12 @@ export default function ProofOfPayment() {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file type
       const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/heic'];
       if (!validTypes.includes(file.type)) {
         setError("Please upload a valid image file (JPEG, PNG, or HEIC)");
         return;
       }
       
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setError("File size must be less than 5MB");
         return;
@@ -95,7 +133,6 @@ export default function ProofOfPayment() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate form
     if (!formData.reference_number.trim()) {
       setError("Reference number is required");
       return;
@@ -115,7 +152,7 @@ export default function ProofOfPayment() {
       setError("Proof of payment image is required");
       return;
     }
-    
+
     try {
       setSubmitting(true);
       setError(null);
@@ -141,15 +178,12 @@ export default function ProofOfPayment() {
         description: "",
         proof_image: null,
       });
-      
-      // Reset file input
+
       const fileInput = document.getElementById("proof_image");
       if (fileInput) fileInput.value = "";
       
-      // Refresh the list
       fetchPayments();
       
-      // Clear success message after 5 seconds
       setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
       console.error("Error submitting payment:", err);
@@ -173,9 +207,7 @@ export default function ProofOfPayment() {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
-    // If it's already a full URL, return it
     if (imagePath.startsWith("http")) return imagePath;
-    // Otherwise, prepend the API base URL
     return `${process.env.REACT_APP_API_URL || ""}${imagePath}`;
   };
 
@@ -200,6 +232,18 @@ export default function ProofOfPayment() {
           )}
           
           <form onSubmit={handleSubmit} className="proof-form">
+            <div className="form-group">
+              <label className="form-label">
+                Student Name
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                value={getStudentName()}
+                disabled
+                style={{ background: "#f3f4f6", cursor: "not-allowed" }}
+              />
+            </div>
             <div className="form-group">
               <label htmlFor="reference_number" className="form-label">
                 Reference Number <span className="required">*</span>
