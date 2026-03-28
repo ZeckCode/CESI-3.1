@@ -1,4 +1,4 @@
-import { getToken } from "../Auth/Auth";
+import { getToken } from "../Auth/auth";
 
 const API_BASE = "";  // use Vite proxy
 
