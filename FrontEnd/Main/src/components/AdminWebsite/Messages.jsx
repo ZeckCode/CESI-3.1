@@ -177,7 +177,8 @@ const AdminMessages = () => {
 
       setSelectedFlagModal(null);
       setFlagAdminNotes("");
-      setFlagRestrictionDuration(24);
+      setFlagRestrictionHours(24);
+      setFlagRestrictionMinutes(0);
       setFlagRestrictionType("TEMP_MUTE");
     } catch (err) {
       setError("Failed to take action on flag");
