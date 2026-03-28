@@ -20,6 +20,7 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
 
     path('api/', include('enrollment.urls')),
+    path('', include('enrollment.urls')),
 
     path('api/finance/', include('finance.urls')),
     path('finance/', include('finance.urls')),
