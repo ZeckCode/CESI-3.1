@@ -157,11 +157,12 @@ class ChatViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Check if chat already exists
+            # Check if chat already exists (either direction)
             existing = Chat.objects.filter(
-                chat_type='INDIVIDUAL',
-                creator=request.user,
-                participant_two=participant_two
+                chat_type='INDIVIDUAL'
+            ).filter(
+                (Q(creator=request.user, participant_two=participant_two) |
+                 Q(creator=participant_two, participant_two=request.user))
             ).first()
             if existing:
                 # Ensure both users are in ChatMember (in case they were somehow removed)
@@ -830,15 +831,23 @@ class ChatRequestViewSet(viewsets.ModelViewSet):
             )
 
         # Create individual chat if it doesn't exist
-        chat, created = Chat.objects.get_or_create(
-            chat_type='INDIVIDUAL',
-            creator=request.user,
-            participant_two=recipient,
-            defaults={'school_year': request.data.get('school_year', '')}
-        )
+        # Look for existing individual chat in either direction
+        chat = Chat.objects.filter(chat_type='INDIVIDUAL').filter(
+            (Q(creator=request.user, participant_two=recipient) |
+             Q(creator=recipient, participant_two=request.user))
+        ).first()
 
-        # Add members
-        if created:
+        created = False
+        if not chat:
+            chat = Chat.objects.create(
+                chat_type='INDIVIDUAL',
+                creator=request.user,
+                participant_two=recipient,
+                school_year=request.data.get('school_year', '')
+            )
+            created = True
+
+            # Add members for newly created chat
             ChatMember.objects.get_or_create(chat=chat, user=request.user)
             ChatMember.objects.get_or_create(chat=chat, user=recipient)
 

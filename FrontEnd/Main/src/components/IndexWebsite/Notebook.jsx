@@ -254,10 +254,6 @@ const Notebook = ({ onClose, openEnrollment }) => {
       ),
     },
 
-    "org-chart": {
-      title: "Organizational Chart",
-      content: <StaffList />,
-    },
   };
 
   return (
