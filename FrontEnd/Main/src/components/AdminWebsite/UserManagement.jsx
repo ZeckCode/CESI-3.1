@@ -81,38 +81,82 @@ const UserManagement = () => {
   const [savingStudent, setSavingStudent] = useState(false);
 
   // ── fetchers ──
+  // Helper to accept either raw array responses or paginated { results: [...] }
+  const parseListResponse = async (res) => {
+    try {
+      const contentType = (res.headers && res.headers.get ? res.headers.get('content-type') : '') || '';
+      let data = null;
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null);
+      } else {
+        data = await res.text().catch(() => null);
+      }
+
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.results)) return data.results;
+      if (data && Array.isArray(data.data)) return data.data;
+      if (data && Array.isArray(data.items)) return data.items;
+      // Unexpected shape: log for debugging and return empty list
+      console.warn('parseListResponse: unexpected response shape', data);
+      return [];
+    } catch (err) {
+      console.error('parseListResponse error', err);
+      return [];
+    }
+  };
+
   const fetchStudents = useCallback(async () => {
     try {
       const res = await apiFetch('/api/accounts/users/?role=PARENT_STUDENT');
-      if (res.ok) setStudents(await res.json());
+      if (res.ok) setStudents(await parseListResponse(res));
+      else {
+        const err = await res.json().catch(() => null);
+        console.error('fetchStudents failed', res.status, err);
+      }
     } catch (e) { console.error(e); }
   }, []);
 
   const fetchTeachers = useCallback(async () => {
     try {
       const res = await apiFetch('/api/accounts/users/?role=TEACHER');
-      if (res.ok) setTeachers(await res.json());
+      if (res.ok) setTeachers(await parseListResponse(res));
+      else {
+        const err = await res.json().catch(() => null);
+        console.error('fetchTeachers failed', res.status, err);
+      }
     } catch (e) { console.error(e); }
   }, []);
 
   const fetchActiveEnrollments = useCallback(async () => {
     try {
       const res = await apiFetch('/api/enrollments/?status=ACTIVE');
-      if (res.ok) setActiveEnrollments(await res.json());
+      if (res.ok) setActiveEnrollments(await parseListResponse(res));
+      else {
+        const err = await res.json().catch(() => null);
+        console.error('fetchActiveEnrollments failed', res.status, err);
+      }
     } catch (e) { console.error(e); }
   }, []);
 
   const fetchSubjects = useCallback(async () => {
     try {
       const res = await apiFetch('/api/accounts/subjects/');
-      if (res.ok) setSubjects(await res.json());
+      if (res.ok) setSubjects(await parseListResponse(res));
+      else {
+        const err = await res.json().catch(() => null);
+        console.error('fetchSubjects failed', res.status, err);
+      }
     } catch (e) { console.error(e); }
   }, []);
 
   const fetchSections = useCallback(async () => {
     try {
       const res = await apiFetch('/api/accounts/sections/');
-      if (res.ok) setSections(await res.json());
+      if (res.ok) setSections(await parseListResponse(res));
+      else {
+        const err = await res.json().catch(() => null);
+        console.error('fetchSections failed', res.status, err);
+      }
     } catch (e) { console.error(e); }
   }, []);
 
