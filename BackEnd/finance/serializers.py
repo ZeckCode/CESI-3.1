@@ -191,24 +191,13 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
 
         amount = Decimal(str(amount or '0'))
 
+
         if payment_mode == 'cash':
-            expected = Decimal(str(tuition.total_cash or 0))
-
+            # Partial cash payments are now allowed. Only check for positive amount (already checked above).
             if entry_type == 'CREDIT' and item == 'PAYMENT':
-                if amount != expected:
-                    raise serializers.ValidationError({
-                        'amount': f'Cash payment must equal the full total cash amount: {expected}.'
-                    })
-
                 if due_date:
                     raise serializers.ValidationError({
                         'due_date': 'Due date is not allowed for cash payment entries.'
-                    })
-
-            if entry_type == 'DEBIT' and item == 'REGISTRATION':
-                if amount != expected:
-                    raise serializers.ValidationError({
-                        'amount': f'Cash billing entry must equal the full total cash amount: {expected}.'
                     })
 
         elif payment_mode == 'installment':

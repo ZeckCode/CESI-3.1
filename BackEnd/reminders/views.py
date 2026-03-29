@@ -1,3 +1,57 @@
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def send_paid_notification(request, transaction_id):
+    if not is_admin(request.user):
+        return Response(
+            {"detail": "Only admin can send paid notifications."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        transaction = Transaction.objects.select_related("parent").get(pk=transaction_id)
+    except Transaction.DoesNotExist:
+        return Response(
+            {"detail": "Transaction not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    recipient = transaction.parent
+    amount = getattr(transaction, "amount", None)
+    transaction_type = getattr(transaction, "transaction_type", "Payment")
+    reference_number = getattr(transaction, "reference_number", "N/A")
+    student_name = getattr(transaction, "student_name", "your child")
+
+    title = f"Payment Received - {transaction_type}"
+    message = (
+        f"Good news! We have received your payment for {student_name}.\n"
+        f"Reference No: {reference_number}.\n"
+        f"Amount paid: ₱{amount}.\n"
+        f"Thank you for settling your bill."
+    ).strip()
+
+    reminder = Reminder.objects.create(
+        recipient=recipient,
+        sender=request.user,
+        title=title,
+        message=message,
+        reminder_type="PAID",
+        transaction=transaction,
+        is_read=False,
+    )
+    print("[PAID NOTIFICATION SENT]")
+    print("Reminder created:")
+    print("Recipient:", recipient.username)
+    print("Transaction ID:", transaction.id)
+    print("Title:", title)
+    print("Message:", message)
+
+    return Response(
+        {
+            "detail": "Payment notification sent successfully.",
+            "reminder": ReminderSerializer(reminder).data,
+        },
+        status=status.HTTP_201_CREATED,
+    )
 #Reminders views.py
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes

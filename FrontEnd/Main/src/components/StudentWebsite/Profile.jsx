@@ -6,7 +6,6 @@ import { getToken } from "../Auth/auth";
 const API_BASE = "";
 
 const PROFILE_ENDPOINTS = [
-  "/api/accounts/me-detail/",
   "/api/accounts/me/detail/",
 ];
 
