@@ -194,5 +194,5 @@ function AdminDashboard() {
     </div>
   );
 }
-
-export default AdminDashboard;
+// AdminDashboard.jsx
+export default AdminDashboard; 
