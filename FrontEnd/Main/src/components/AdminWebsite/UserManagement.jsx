@@ -865,7 +865,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                           </select>
                         ) : tp?.section ? sectionLabel(tp.section) : '—'}
                       </td>
-                      <td><span className={`status-badge ${u.status.toLowerCase()}`}>{u.status}</span></td>
+                      <td><span className={`user-status-badge ${u.status.toLowerCase()}`}>{u.status}</span></td>
                       <td>
                         <div className="action-buttons">
                           {isEditing ? (

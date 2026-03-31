@@ -348,8 +348,8 @@
   text-decoration: underline;
 }
 
-/* ========== STATUS BADGES ========== */
-.status-badge {
+/* ========== user-status BADGES ========== */
+.user-status-badge {
   display: inline-block;
   padding: 6px 12px;
   border-radius: 20px;
@@ -359,17 +359,17 @@
   letter-spacing: 0.3px;
 }
 
-.status-badge.active {
+.user-status-badge.active {
   background: #d1fae5;
   color: #065f46;
 }
 
-.status-badge.inactive {
+.user-status-badge.inactive {
   background: #fee2e2;
   color: #7f1d1d;
 }
 
-.status-badge.on\ leave {
+.user-status-badge.on\ leave {
   background: #fef3c7;
   color: #92400e;
 }
@@ -518,7 +518,7 @@
     font-size: 11px;
   }
 
-  .status-badge {
+  .user-status-badge {
     padding: 4px 8px;
     font-size: 10px;
   }

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Notebook from './Notebook';
 import logo from "../../assets/CESI-logo.jpg";
 import backgroundImage from "../../assets/CESI-cover.png";
-import EnrollmentForm from './EnrollmentForm';
+import EnrollmentForm from './enrollment/EnrollmentForm';
 
 
 function App() {

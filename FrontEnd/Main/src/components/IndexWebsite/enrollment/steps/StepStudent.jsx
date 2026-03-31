@@ -1,0 +1,231 @@
+// StepStudent.jsx
+import React from "react";
+import FieldError from "../FieldError";
+import { RELIGION_OPTIONS } from "../constants";
+import { onlyDigits } from "../helpers";
+
+const StepStudent = ({
+  form,
+  setForm,
+  errors,
+  registerFieldRef,
+  ageValidation,
+  maxBirthDate,
+  onNext,
+  onBack,
+}) => {
+  return (
+    <div className="step-card">
+      <h3>👤 Student Information</h3>
+
+      <div className="form-grid">
+        <div className="form-group">
+          <label>Last Name <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("lastName")}
+            value={form.lastName}
+            onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
+          />
+          <FieldError error={errors.lastName} />
+        </div>
+
+        <div className="form-group">
+          <label>First Name <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("firstName")}
+            value={form.firstName}
+            onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
+          />
+          <FieldError error={errors.firstName} />
+        </div>
+
+        <div className="form-group">
+          <label>Middle Name <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("middleName")}
+            value={form.middleName}
+            onChange={(e) => setForm((prev) => ({ ...prev, middleName: e.target.value }))}
+          />
+          <FieldError error={errors.middleName} />
+        </div>
+
+        <div className="form-group">
+          <label>Birth Date <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("birthDate")}
+            type="date"
+            value={form.birthDate}
+            max={maxBirthDate}
+            onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
+          />
+          <FieldError error={errors.birthDate} />
+        </div>
+
+        <div className="form-group">
+          <label>Gender <span className="required">*</span></label>
+          <select
+            ref={registerFieldRef("gender")}
+            value={form.gender}
+            onChange={(e) => setForm((prev) => ({ ...prev, gender: e.target.value }))}
+          >
+            <option value="">Select</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+          <FieldError error={errors.gender} />
+        </div>
+
+        <div className="form-group">
+          <label>Email <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("email")}
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+          />
+          <FieldError error={errors.email} />
+        </div>
+
+        <div className="form-group">
+          <label>Religion <span className="required">*</span></label>
+          <select
+            ref={registerFieldRef("religion")}
+            value={form.religion}
+            onChange={(e) => setForm((prev) => ({ ...prev, religion: e.target.value }))}
+          >
+            <option value="">Select</option>
+            {RELIGION_OPTIONS.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+          <FieldError error={errors.religion} />
+        </div>
+
+        <div className="form-group">
+          <label>Mobile Number <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("mobile")}
+            value={form.mobile}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                mobile: onlyDigits(e.target.value, 11),
+              }))
+            }
+            placeholder="09XXXXXXXXX"
+            inputMode="numeric"
+          />
+          <div className="field-counter">{form.mobile.length}/11</div>
+          <FieldError error={errors.mobile} />
+        </div>
+
+        <div className="form-group">
+          <label>Parent Facebook</label>
+          <input
+            value={form.parentFacebook}
+            onChange={(e) => setForm((prev) => ({ ...prev, parentFacebook: e.target.value }))}
+            placeholder="Optional"
+          />
+        </div>
+      </div>
+
+      {ageValidation && (
+        <div
+          className={`age-validation-hint ${
+            ageValidation.ok ? "age-validation-hint--ok" : "age-validation-hint--error"
+          }`}
+        >
+          <span>{ageValidation.ok ? "✓" : "✗"}</span>
+          <span>{ageValidation.msg}</span>
+        </div>
+      )}
+
+      <h3>📍 Address</h3>
+      <div className="form-grid">
+        <div className="form-group form-group--full">
+          <label>House No. / Street <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("street")}
+            value={form.street}
+            onChange={(e) => setForm((prev) => ({ ...prev, street: e.target.value }))}
+          />
+          <FieldError error={errors.street} />
+        </div>
+
+        <div className="form-group">
+          <label>Barangay <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("barangay")}
+            value={form.barangay}
+            onChange={(e) => setForm((prev) => ({ ...prev, barangay: e.target.value }))}
+          />
+          <FieldError error={errors.barangay} />
+        </div>
+
+        <div className="form-group">
+          <label>City / Municipality <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("city")}
+            value={form.city}
+            onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
+          />
+          <FieldError error={errors.city} />
+        </div>
+
+        <div className="form-group">
+          <label>Province <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("province")}
+            value={form.province}
+            onChange={(e) => setForm((prev) => ({ ...prev, province: e.target.value }))}
+          />
+          <FieldError error={errors.province} />
+        </div>
+
+        <div className="form-group">
+          <label>Region <span className="required">*</span></label>
+          <select
+            ref={registerFieldRef("region")}
+            value={form.region}
+            onChange={(e) => setForm((prev) => ({ ...prev, region: e.target.value }))}
+          >
+            <option value="">Select Region</option>
+            <option value="NCR">NCR – National Capital Region</option>
+            <option value="Region I">Region I – Ilocos Region</option>
+            <option value="Region II">Region II – Cagayan Valley</option>
+            <option value="Region III">Region III – Central Luzon</option>
+            <option value="Region IV-A">Region IV-A – CALABARZON</option>
+            <option value="Region IV-B">Region IV-B – MIMAROPA</option>
+            <option value="Region V">Region V – Bicol Region</option>
+            <option value="Region VI">Region VI – Western Visayas</option>
+            <option value="Region VII">Region VII – Central Visayas</option>
+            <option value="Region VIII">Region VIII – Eastern Visayas</option>
+            <option value="Region IX">Region IX – Zamboanga Peninsula</option>
+            <option value="Region X">Region X – Northern Mindanao</option>
+            <option value="Region XI">Region XI – Davao Region</option>
+            <option value="Region XII">Region XII – SOCCSKSARGEN</option>
+            <option value="Region XIII">Region XIII – Caraga</option>
+            <option value="CAR">CAR – Cordillera Administrative Region</option>
+            <option value="BARMM">BARMM – Bangsamoro</option>
+          </select>
+          <FieldError error={errors.region} />
+        </div>
+      </div>
+
+ 
+
+      <div className="form-actions">
+        <button type="button" className="secondary" onClick={onBack}>
+          Back
+        </button>
+        <button type="button" onClick={onNext}>
+          Next
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default StepStudent;

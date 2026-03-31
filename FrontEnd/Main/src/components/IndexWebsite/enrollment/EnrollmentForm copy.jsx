@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { GRADE_AGE_RULES } from "../../config/EnrollmentConfig.js";
-import { apiFetch } from "../api/apiFetch";
+import { GRADE_AGE_RULES } from "../../../config/EnrollmentConfig.js";
+import { apiFetch } from "../../api/apiFetch.js";
 import "../IndexWebsiteCSS/EnrollmentForm.css";
 
 /* ─────────────────────────────────────────────

@@ -1,0 +1,211 @@
+// StepPayment.jsx
+import React from "react";
+import FieldError from "../FieldError";
+import { formatMoney } from "../helpers";
+
+const StepPayment = ({
+  form,
+  setForm,
+  files,
+  setFiles,
+  errors,
+  registerFieldRef,
+  tuition,
+  tuitionLoading,
+  tuitionError,
+  studentType,
+}) => {
+  const handleFileChange = (key) => (e) => {
+    const file = e.target.files?.[0] || null;
+    setFiles((prev) => ({
+      ...prev,
+      [key]: file,
+    }));
+  };
+
+  return (
+    <>
+      <h3>💰 Payment Information</h3>
+
+      <div className="payment-policies">
+        <h4>Payment Policies</h4>
+        <ul>
+          <li>Please select your preferred payment mode and payment method.</li>
+          <li>For online payments, proof of payment is required before submission.</li>
+          <li>Submitted payment information is subject to school verification.</li>
+          <li>Enrollment processing may be delayed if payment details are incomplete.</li>
+        </ul>
+      </div>
+
+      <div className="form-grid">
+        <div className="form-group">
+          <label>
+            Payment Mode <span className="required">*</span>
+          </label>
+          <select
+            ref={registerFieldRef("paymentMode")}
+            value={form.paymentMode}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                paymentMode: e.target.value,
+              }))
+            }
+          >
+            <option value="">Select</option>
+            <option value="cash">Cash</option>
+            <option value="installment">Installment</option>
+          </select>
+          <FieldError error={errors.paymentMode} />
+        </div>
+
+        <div className="form-group">
+          <label>
+            Payment Method <span className="required">*</span>
+          </label>
+          <select
+            ref={registerFieldRef("paymentMethod")}
+            value={form.paymentMethod}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                paymentMethod: e.target.value,
+              }))
+            }
+          >
+            <option value="">Select</option>
+            <option value="onsite">Onsite Payment</option>
+            <option value="online">Online Payment</option>
+          </select>
+          <FieldError error={errors.paymentMethod} />
+        </div>
+
+        {form.paymentMethod === "online" && (
+          <div className="form-group form-group--full">
+            <label>
+              Proof of Payment <span className="required">*</span>
+            </label>
+            <input
+              ref={registerFieldRef("paymentProofFile")}
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf"
+              onChange={handleFileChange("paymentProofFile")}
+            />
+            {files.paymentProofFile && (
+              <div className="file-name">{files.paymentProofFile.name}</div>
+            )}
+            <FieldError error={errors.paymentProofFile} />
+          </div>
+        )}
+      </div>
+
+      {(tuitionLoading || tuitionError || tuition) && (
+        <div className="tuition-box">
+          <h3>📊 Tuition Breakdown</h3>
+
+          {tuitionLoading && (
+            <div className="tuition-row">
+              <span>Loading tuition configuration...</span>
+            </div>
+          )}
+
+          {!tuitionLoading && tuitionError && (
+            <div className="tuition-row tuition-row--error">
+              <span>{tuitionError}</span>
+            </div>
+          )}
+
+          {!tuitionLoading && tuition && form.paymentMode === "cash" && (
+            <>
+              <div className="tuition-row">
+                <span>Tuition Fee (Cash)</span>
+                <span>₱{formatMoney(tuition.cash)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Miscellaneous (August)</span>
+                <span>₱{formatMoney(tuition.misc_aug)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Miscellaneous (November)</span>
+                <span>₱{formatMoney(tuition.misc_nov)}</span>
+              </div>
+
+              {studentType === "new" && (
+                <div className="tuition-row">
+                  <span>Assessment Fee</span>
+                  <span>₱{formatMoney(tuition.assessment)}</span>
+                </div>
+              )}
+
+              <div className="tuition-total">
+                <strong>Total (Cash)</strong>
+                <strong>
+                  ₱
+                  {formatMoney(
+                    Number(tuition.total_cash || 0) +
+                      (studentType === "new" ? Number(tuition.assessment || 0) : 0)
+                  )}
+                </strong>
+              </div>
+            </>
+          )}
+
+          {!tuitionLoading && tuition && form.paymentMode === "installment" && (
+            <>
+              <div className="tuition-row">
+                <span>Tuition Fee (Installment)</span>
+                <span>₱{formatMoney(tuition.installment)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Initial Payment</span>
+                <span>₱{formatMoney(tuition.initial)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Reservation Fee</span>
+                <span>₱{formatMoney(tuition.reservation_fee)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Monthly Payment</span>
+                <span>₱{formatMoney(tuition.monthly)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Miscellaneous (August)</span>
+                <span>₱{formatMoney(tuition.misc_aug)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Miscellaneous (November)</span>
+                <span>₱{formatMoney(tuition.misc_nov)}</span>
+              </div>
+
+              {studentType === "new" && (
+                <div className="tuition-row">
+                  <span>Assessment Fee</span>
+                  <span>₱{formatMoney(tuition.assessment)}</span>
+                </div>
+              )}
+
+              <div className="tuition-total">
+                <strong>Total (Installment)</strong>
+                <strong>
+                  ₱
+                  {formatMoney(
+                    Number(tuition.total_installment || 0) +
+                      (studentType === "new" ? Number(tuition.assessment || 0) : 0)
+                  )}
+                </strong>
+              </div>
+            </>
+          )}
+
+          {!tuitionLoading && tuition && !form.paymentMode && (
+            <div className="tuition-row">
+              <span>Select a payment mode to view the breakdown.</span>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+};
+
+export default StepPayment;
