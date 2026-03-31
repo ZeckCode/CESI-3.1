@@ -112,6 +112,15 @@ export default function EnrollmentManagement() {
   const [declineReason, setDeclineReason] = useState("");
   const [declineSubmitting, setDeclineSubmitting] = useState(false);
 
+  // Payment Proof States
+  const [proofs, setProofs] = useState([]);
+  const [loadingProofs, setLoadingProofs] = useState(false);
+  const [paymentProofModalOpen, setPaymentProofModalOpen] = useState(false);
+  const [selectedProofId, setSelectedProofId] = useState(null);
+  const [approvalRemarks, setApprovalRemarks] = useState("");
+  const [isApprovingProof, setIsApprovingProof] = useState(false);
+  const [isRejectingProof, setIsRejectingProof] = useState(false);
+
   const addToast = useCallback((title, message, type = "warning") => {
     const id = Date.now() + Math.random();
     setToasts((prev) => {
@@ -183,11 +192,28 @@ export default function EnrollmentManagement() {
     }
   }, []);
 
+  const fetchProofs = useCallback(async () => {
+    setLoadingProofs(true);
+    try {
+      const res = await apiFetch("/api/finance/proof-of-payments/?status=pending");
+      const data = await res.json().catch(() => []);
+      if (!res.ok) throw new Error();
+
+      setProofs(Array.isArray(data) ? data : []);
+    } catch {
+      addToast("Load Failed", "Failed to load payment proofs.", "error");
+      setProofs([]);
+    } finally {
+      setLoadingProofs(false);
+    }
+  }, [addToast]);
+
   useEffect(() => {
     fetchEnrollments();
     fetchSettings();
     fetchSections();
-  }, [fetchSettings, fetchSections]);
+    fetchProofs();
+  }, [fetchSettings, fetchSections, fetchProofs]);
 
   const callAction = async (id, actionName, payload = null) => {
     const res = await apiFetch(`/api/enrollments/${id}/${actionName}/`, {
@@ -210,6 +236,70 @@ export default function EnrollmentManagement() {
     if (!res.ok || !data) throw new Error("Failed to refresh enrollment.");
 
     setEnrollments((prev) => prev.map((item) => (item.id === id ? data : item)));
+  };
+
+  const handleApproveProof = async () => {
+    if (!selectedProofId) return;
+    
+    setIsApprovingProof(true);
+    try {
+      const res = await apiFetch(
+        `/api/finance/proof-of-payments/${selectedProofId}/approve/`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ remarks: approvalRemarks }),
+        }
+      );
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        addToast("Approval Failed", data.detail || "Failed to approve proof.", "error");
+        return;
+      }
+
+      addToast("Approved", "Payment proof has been approved.", "success");
+      setPaymentProofModalOpen(false);
+      setApprovalRemarks("");
+      await fetchProofs();
+      await fetchEnrollments();
+    } catch (error) {
+      addToast("Error", error.message || "Failed to approve proof.", "error");
+    } finally {
+      setIsApprovingProof(false);
+    }
+  };
+
+  const handleRejectProof = async () => {
+    if (!selectedProofId) return;
+    
+    setIsRejectingProof(true);
+    try {
+      const res = await apiFetch(
+        `/api/finance/proof-of-payments/${selectedProofId}/reject/`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ remarks: approvalRemarks }),
+        }
+      );
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        addToast("Rejection Failed", data.detail || "Failed to reject proof.", "error");
+        return;
+      }
+
+      addToast("Rejected", "Payment proof has been rejected.", "success");
+      setPaymentProofModalOpen(false);
+      setApprovalRemarks("");
+      await fetchProofs();
+      await fetchEnrollments();
+    } catch (error) {
+      addToast("Error", error.message || "Failed to reject proof.", "error");
+    } finally {
+      setIsRejectingProof(false);
+    }
   };
 
   const normalized = useMemo(
@@ -1456,6 +1546,136 @@ export default function EnrollmentManagement() {
         </div>
       )}
 
+      {/* Payment Proof Section */}
+      {proofs.length > 0 && (
+        <div style={{
+          background: "#f8fafc",
+          border: "1px solid #e2e8f0",
+          borderRadius: 8,
+          padding: 20,
+          marginTop: 20,
+          marginBottom: 20,
+        }}>
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 16,
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#1e293b" }}>
+              Pending Payment Proofs ({proofs.length})
+            </div>
+            <button
+              className="btn-icon"
+              onClick={fetchProofs}
+              title="Refresh proofs"
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
+
+          {loadingProofs ? (
+            <div style={{ textAlign: "center", padding: "20px", color: "#64748b" }}>
+              Loading proofs...
+            </div>
+          ) : (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: 16,
+            }}>
+              {proofs.map((proof) => (
+                <div
+                  key={proof.id}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                    padding: 12,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                  onClick={() => {
+                    setSelectedProofId(proof.id);
+                    setPaymentProofModalOpen(true);
+                  }}
+                >
+                  <div style={{
+                    fontSize: 12,
+                    color: "#64748b",
+                    marginBottom: 4,
+                  }}>
+                    {proof.student_name || "Unknown Student"}
+                  </div>
+                  <div style={{
+                    fontSize: 13,
+                    color: "#475569",
+                    marginBottom: 8,
+                    fontWeight: 500,
+                  }}>
+                    {proof.reference_number}
+                  </div>
+                  {proof.proof_image_url ? (
+                    <img
+                      src={proof.proof_image_url}
+                      alt="Payment proof"
+                      style={{
+                        width: "100%",
+                        height: 120,
+                        objectFit: "cover",
+                        borderRadius: 4,
+                        marginBottom: 8,
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: "100%",
+                      height: 120,
+                      background: "#f1f5f9",
+                      borderRadius: 4,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 8,
+                      color: "#94a3b8",
+                      fontSize: 12,
+                    }}>
+                      No image
+                    </div>
+                  )}
+                  <div style={{
+                    display: "flex",
+                    gap: 6,
+                    fontSize: 11,
+                  }}>
+                    <span style={{
+                      background: "#fef3c7",
+                      color: "#92400e",
+                      padding: "2px 6px",
+                      borderRadius: 3,
+                    }}>
+                      {proof.status}
+                    </span>
+                    <span style={{
+                      color: "#64748b",
+                      fontSize: 10,
+                    }}>
+                      {new Date(proof.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="enrollment-controls">
         <div className="search-box">
           <Search size={16} />
@@ -1703,6 +1923,233 @@ export default function EnrollmentManagement() {
         }}
         onUpload={handleUploadIdImage}
       />
+
+      {/* Payment Proof Approval Modal */}
+      {paymentProofModalOpen && selectedProofId && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }} onClick={() => setPaymentProofModalOpen(false)}>
+          <div style={{
+            background: "#fff",
+            borderRadius: 8,
+            boxShadow: "0 10px 40px rgba(0, 0, 0, 0.2)",
+            maxWidth: 600,
+            width: "90%",
+            maxHeight: "80vh",
+            overflow: "auto",
+            padding: 24,
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 20,
+              borderBottom: "1px solid #e2e8f0",
+              paddingBottom: 16,
+            }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#1e293b" }}>
+                Review Payment Proof
+              </h3>
+              <button
+                onClick={() => setPaymentProofModalOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: 20,
+                  cursor: "pointer",
+                  color: "#64748b",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {(() => {
+              const proof = proofs.find(p => p.id === selectedProofId);
+              if (!proof) return <div>Proof not found</div>;
+
+              return (
+                <div>
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{
+                      display: "block",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#64748b",
+                      textTransform: "uppercase",
+                      marginBottom: 4,
+                    }}>
+                      Student Name
+                    </label>
+                    <div style={{ fontSize: 14, color: "#1e293b" }}>
+                      {proof.student_name || "N/A"}
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{
+                      display: "block",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#64748b",
+                      textTransform: "uppercase",
+                      marginBottom: 4,
+                    }}>
+                      Reference Number
+                    </label>
+                    <div style={{ fontSize: 14, color: "#1e293b" }}>
+                      {proof.reference_number}
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{
+                      display: "block",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#64748b",
+                      textTransform: "uppercase",
+                      marginBottom: 8,
+                    }}>
+                      Payment Proof Image
+                    </label>
+                    {proof.proof_image_url ? (
+                      <img
+                        src={proof.proof_image_url}
+                        alt="Payment proof"
+                        style={{
+                          width: "100%",
+                          maxHeight: 300,
+                          objectFit: "contain",
+                          borderRadius: 6,
+                          border: "1px solid #e2e8f0",
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: "100%",
+                        height: 200,
+                        background: "#f1f5f9",
+                        borderRadius: 6,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#94a3b8",
+                      }}>
+                        No image available
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{
+                      display: "block",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#64748b",
+                      textTransform: "uppercase",
+                      marginBottom: 4,
+                    }}>
+                      Admin Remarks
+                    </label>
+                    <textarea
+                      value={approvalRemarks}
+                      onChange={(e) => setApprovalRemarks(e.target.value)}
+                      placeholder="Enter remarks (optional)"
+                      style={{
+                        width: "100%",
+                        padding: 10,
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 4,
+                        fontSize: 13,
+                        fontFamily: "inherit",
+                        minHeight: 80,
+                        resize: "vertical",
+                      }}
+                    />
+                  </div>
+
+                  <div style={{
+                    display: "flex",
+                    gap: 12,
+                    marginTop: 24,
+                    borderTop: "1px solid #e2e8f0",
+                    paddingTop: 16,
+                  }}>
+                    <button
+                      onClick={() => setPaymentProofModalOpen(false)}
+                      style={{
+                        flex: 1,
+                        padding: "10px 16px",
+                        border: "1px solid #e2e8f0",
+                        background: "#f8fafc",
+                        borderRadius: 4,
+                        fontSize: 13,
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        color: "#475569",
+                        transition: "all 0.2s",
+                      }}
+                      onHover={(e) => {
+                        e.currentTarget.style.background = "#f1f5f9";
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleRejectProof}
+                      disabled={isRejectingProof}
+                      style={{
+                        flex: 1,
+                        padding: "10px 16px",
+                        border: "1px solid #fca5a5",
+                        background: "#fee2e2",
+                        borderRadius: 4,
+                        fontSize: 13,
+                        fontWeight: 500,
+                        cursor: isRejectingProof ? "not-allowed" : "pointer",
+                        color: "#dc2626",
+                        opacity: isRejectingProof ? 0.6 : 1,
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      {isRejectingProof ? "Rejecting..." : "Reject"}
+                    </button>
+                    <button
+                      onClick={handleApproveProof}
+                      disabled={isApprovingProof}
+                      style={{
+                        flex: 1,
+                        padding: "10px 16px",
+                        border: "1px solid #86efac",
+                        background: "#dcfce7",
+                        borderRadius: 4,
+                        fontSize: 13,
+                        fontWeight: 500,
+                        cursor: isApprovingProof ? "not-allowed" : "pointer",
+                        color: "#16a34a",
+                        opacity: isApprovingProof ? 0.6 : 1,
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      {isApprovingProof ? "Approving..." : "Approve"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       <DeclineDialog
         declineDialogOpen={declineDialogOpen}

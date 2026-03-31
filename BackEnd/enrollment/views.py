@@ -452,9 +452,31 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     label=label,
                 )
 
+    def _create_proof_of_payment(self, enrollment, proof_file):
+        """Create a ProofOfPayment record from enrollment proof file."""
+        if not proof_file:
+            return
+        
+        from finance.models import ProofOfPayment
+        ProofOfPayment.objects.create(
+            user=enrollment.parent_user or enrollment.student,
+            reference_number=f"ENROLL-{enrollment.id}",
+            description=f"Payment proof for {enrollment.first_name} {enrollment.last_name} - AY {enrollment.academic_year}",
+            proof_image=proof_file,
+            status='pending'
+        )
+
     def perform_create(self, serializer):
         enrollment = serializer.save()
-        self._save_optional_documents(enrollment, self.request.FILES)
+        files = serializer.context.get('_files', {})
+        self._save_optional_documents(enrollment, files)
+        self._create_proof_of_payment(enrollment, files.get('payment_proof_file'))
+
+    def perform_update(self, serializer):
+        enrollment = serializer.save()
+        files = serializer.context.get('_files', {})
+        self._save_optional_documents(enrollment, files)
+        self._create_proof_of_payment(enrollment, files.get('payment_proof_file'))
 
     def generate_student_number(self):
         year = timezone.now().year

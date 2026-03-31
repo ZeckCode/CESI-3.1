@@ -156,6 +156,14 @@ class OldStudentLookupSerializer(serializers.Serializer):
 class EnrollmentCreateSerializer(serializers.ModelSerializer):
     parent_info = ParentInfoSerializer(required=False)
     website = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    student_photo = serializers.ImageField(required=False, allow_null=True, write_only=True)
+    payment_proof_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    form_137_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    sf10_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    birth_certificate_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    good_moral_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    report_card_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    other_document_file = serializers.FileField(required=False, allow_null=True, write_only=True)
 
     class Meta:
         model = Enrollment
@@ -281,6 +289,14 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop("website", None)
         parent_data = validated_data.pop("parent_info", None)
+        student_photo = validated_data.pop("student_photo", None)
+        payment_proof_file = validated_data.pop("payment_proof_file", None)
+        form_137_file = validated_data.pop("form_137_file", None)
+        sf10_file = validated_data.pop("sf10_file", None)
+        birth_certificate_file = validated_data.pop("birth_certificate_file", None)
+        good_moral_file = validated_data.pop("good_moral_file", None)
+        report_card_file = validated_data.pop("report_card_file", None)
+        other_document_file = validated_data.pop("other_document_file", None)
 
         public_user, created = User.objects.get_or_create(
             username="public_user",
@@ -293,20 +309,19 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         )
 
         updated_fields = []
-
         if not public_user.email:
             public_user.email = "public@school.com"
             updated_fields.append("email")
-
         if public_user.role not in ["ADMIN", "TEACHER", "PARENT_STUDENT"]:
             public_user.role = "PARENT_STUDENT"
             updated_fields.append("role")
-
         if updated_fields:
             public_user.save(update_fields=updated_fields)
 
         validated_data["student"] = public_user
         validated_data["status"] = "PENDING"
+        if student_photo:
+            validated_data["id_image"] = student_photo
 
         possible_duplicate = Enrollment.objects.filter(
             first_name__iexact=validated_data.get("first_name"),
@@ -322,15 +337,35 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             ).strip(" |")
 
         enrollment = super().create(validated_data)
-
         if parent_data:
             ParentInfo.objects.create(enrollment=enrollment, **parent_data)
 
+        # Store files for perform_create to handle
+        self.context['_files'] = {
+            'payment_proof_file': payment_proof_file,
+            'form_137_file': form_137_file,
+            'sf10_file': sf10_file,
+            'birth_certificate_file': birth_certificate_file,
+            'good_moral_file': good_moral_file,
+            'report_card_file': report_card_file,
+            'other_document_file': other_document_file,
+        }
         return enrollment
 
     def update(self, instance, validated_data):
         validated_data.pop("website", None)
         parent_data = validated_data.pop("parent_info", None)
+        student_photo = validated_data.pop("student_photo", None)
+        payment_proof_file = validated_data.pop("payment_proof_file", None)
+        form_137_file = validated_data.pop("form_137_file", None)
+        sf10_file = validated_data.pop("sf10_file", None)
+        birth_certificate_file = validated_data.pop("birth_certificate_file", None)
+        good_moral_file = validated_data.pop("good_moral_file", None)
+        report_card_file = validated_data.pop("report_card_file", None)
+        other_document_file = validated_data.pop("other_document_file", None)
+
+        if student_photo:
+            validated_data["id_image"] = student_photo
 
         instance = super().update(instance, validated_data)
 
@@ -340,6 +375,16 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
                 defaults=parent_data
             )
 
+        # Store files for perform_update to handle
+        self.context['_files'] = {
+            'payment_proof_file': payment_proof_file,
+            'form_137_file': form_137_file,
+            'sf10_file': sf10_file,
+            'birth_certificate_file': birth_certificate_file,
+            'good_moral_file': good_moral_file,
+            'report_card_file': report_card_file,
+            'other_document_file': other_document_file,
+        }
         return instance
 
 
