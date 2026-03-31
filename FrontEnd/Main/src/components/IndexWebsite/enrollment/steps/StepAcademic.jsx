@@ -49,32 +49,7 @@ const StepAcademic = ({
 
         {form.studentType === "new" && (
           <>
-            <div className="form-group">
-              <label>
-                LRN {lrnRequired && <span className="required">*</span>}
-              </label>
-              <input
-                ref={registerFieldRef("lrn")}
-                value={form.lrn}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    lrn: e.target.value.replace(/\D/g, "").slice(0, 12),
-                  }))
-                }
-                placeholder={
-                  lrnRequired
-                    ? "12 digits (required)"
-                    : "Pre-Kinder students may leave blank"
-                }
-                maxLength={12}
-                inputMode="numeric"
-              />
-              <div className="field-counter">{form.lrn.length}/12</div>
-              <FieldError error={errors.lrn} />
-            </div>
-
-            <div className="form-group">
+           <div className="form-group">
               <label>
                 Education Level <span className="required">*</span>
               </label>
@@ -95,6 +70,35 @@ const StepAcademic = ({
               </select>
               <FieldError error={errors.educationLevel} />
             </div>
+
+            <div className="form-group">
+              <label>
+                LRN {lrnRequired && <span className="required">*</span>}
+                {form.lrn.length}/12
+              </label>
+              {/* <div className="field-counter"></div> */}
+              <input
+                ref={registerFieldRef("lrn")}
+                value={form.lrn}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    lrn: e.target.value.replace(/\D/g, "").slice(0, 12),
+                  }))
+                }
+                placeholder={
+                  lrnRequired
+                    ? "12 digits (required)"
+                    : "Pre-Kinder students may leave blank"
+                }
+                maxLength={12}
+                inputMode="numeric"
+              />
+              
+              <FieldError error={errors.lrn} />
+            </div>
+
+           
 
             <div className="form-group">
               <label>
