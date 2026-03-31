@@ -330,7 +330,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 academic_year=academic_year,
                 payment_mode=payment_mode,
                 lrn=profile.lrn or latest_enrollment.lrn,
-                student_number=None,  # old students keep permanent number in UserProfile
+                student_number=None,
                 first_name=student_first_name,
                 middle_name=student_middle_name,
                 last_name=student_last_name,
@@ -758,11 +758,11 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _sync_enrollment_to_profile(enrollment):
-        parent_user = enrollment.parent_user
-        if not parent_user:
+        portal_user = enrollment.parent_user
+        if not portal_user:
             return
 
-        profile = UserProfile.objects.filter(user=parent_user).first()
+        profile = UserProfile.objects.filter(user=portal_user).first()
         if not profile:
             return
 
@@ -805,14 +805,14 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         return parent_first_name, parent_last_name
 
-    def _sync_parent_user_and_profile(self, enrollment, create_if_missing=False, uploaded_id_image=None):
-        parent_email = (enrollment.email or "").strip().lower()
-        parent_user = enrollment.parent_user
+    def _sync_student_user_and_profile(self, enrollment, create_if_missing=False, uploaded_id_image=None):
+        student_email = (enrollment.email or "").strip().lower()
+        portal_user = enrollment.parent_user
 
-        if not parent_user and create_if_missing and parent_email:
-            parent_user = User.objects.filter(email__iexact=parent_email).first()
+        if not portal_user and create_if_missing and student_email:
+            portal_user = User.objects.filter(email__iexact=student_email).first()
 
-            if not parent_user:
+            if not portal_user:
                 raw_last = (enrollment.last_name or "").strip().lower()
                 raw_first = (enrollment.first_name or "").strip().lower()
 
@@ -828,37 +828,37 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     i += 1
                     username = f"{base_local}{i}@cesi.edu.ph"
 
-                parent_user = User.objects.create(
+                portal_user = User.objects.create(
                     username=username,
-                    email=parent_email,
+                    email=student_email,
                     role="PARENT_STUDENT",
                     status="ACTIVE",
                     is_active=True,
                 )
-                parent_user.set_unusable_password()
-                parent_user.save()
+                portal_user.set_unusable_password()
+                portal_user.save()
 
-            enrollment.parent_user = parent_user
+            enrollment.parent_user = portal_user
             enrollment.save(update_fields=["parent_user"])
 
-        if not parent_user:
+        if not portal_user:
             return
 
         grade_code = (enrollment.grade_level or "").strip()
         parent_first_name, parent_last_name = self._get_parent_names_from_enrollment(enrollment)
 
-        if parent_email and parent_user.email != parent_email:
+        if student_email and portal_user.email != student_email:
             email_taken = (
-                User.objects.filter(email__iexact=parent_email)
-                .exclude(pk=parent_user.pk)
+                User.objects.filter(email__iexact=student_email)
+                .exclude(pk=portal_user.pk)
                 .exists()
             )
             if not email_taken:
-                parent_user.email = parent_email
-                parent_user.save(update_fields=["email"])
+                portal_user.email = student_email
+                portal_user.save(update_fields=["email"])
 
         profile, created = UserProfile.objects.get_or_create(
-            user=parent_user,
+            user=portal_user,
             defaults={
                 "student_first_name": enrollment.first_name or "",
                 "student_middle_name": enrollment.middle_name or "",
@@ -902,9 +902,9 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         profile.save()
 
-    def _send_parent_portal_email(self, enrollment, parent_email):
+    def _send_student_portal_email(self, enrollment, recipient_email):
         if not enrollment.parent_user:
-            return False, "No parent user linked."
+            return False, "No portal user linked."
 
         uidb64 = urlsafe_base64_encode(force_bytes(enrollment.parent_user.pk))
         token = default_token_generator.make_token(enrollment.parent_user)
@@ -914,45 +914,72 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         try:
             send_mail(
-                subject="Your Student Portal Account",
+                subject="Enrollment Approved - Student Portal Account",
                 message=(
                     f"Dear Parent/Guardian,\n\n"
-                    f"We have created a Student Portal account for you to access your child's enrollment information and transactions.\n\n"
-                    f""
-                    f"Student: {enrollment.first_name} {enrollment.last_name}\n\n"
-                    
-                    f"Username: {enrollment.parent_user.username}\n"
-                    f"Email:    {enrollment.parent_user.email}\n\n"
-                    f"Student Number: {self._get_effective_student_number(enrollment)}\n\n"
-                    f"Set your password here:\n{reset_url}\n\n"
-                    
-                    "Welcome to the Student Portal! If you have any questions, please contact the school."
+                    f"Congratulations and welcome to Caloocan Evangelical School Inc. (CESI)!\n\n"
+                    f"We are pleased to inform you that the enrollment of "
+                    f"{enrollment.first_name} {enrollment.last_name} "
+                    f"for Academic Year {enrollment.academic_year} has been approved.\n\n"
+                    f"A Student Portal account has been prepared for your family with the following details:\n\n"
+                    f"Student Name   : {enrollment.first_name} {enrollment.last_name}\n"
+                    f"Student Number : {self._get_effective_student_number(enrollment)}\n"
+                    f"Username       : {enrollment.parent_user.username}\n\n"
+                    f"To activate your account and set your password, please use the link below:\n"
+                    f"{reset_url}\n\n"
+                    f"Once your password is set, you may log in anytime to view your child's enrollment records and stay updated on school transactions.\n\n"
+                    f"If you have any questions or need assistance, please do not hesitate to contact the school.\n\n"
+                    f"Thank you for being part of the CESI community.\n\n"
+                    f"Sincerely,\n"
+                    f"Caloocan Evangelical School Inc.\n"
+                    f"Admissions Office"
                 ),
                 from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost"),
-                recipient_list=[parent_email],
+                recipient_list=[recipient_email],
                 fail_silently=False,
             )
             return True, None
         except Exception as e:
-            logger.exception("Failed to send parent portal email for enrollment %s", enrollment.pk)
+            logger.exception("Failed to send student portal email for enrollment %s", enrollment.pk)
             return False, str(e)
 
-    def _send_promotion_email(self, enrollment, parent_email, grade_code):
+    def _send_promotion_email(self, enrollment, recipient_email, grade_code):
+        grade_labels = {
+            "prek": "Pre-Kinder",
+            "kinder": "Kinder",
+            "grade1": "Grade 1",
+            "grade2": "Grade 2",
+            "grade3": "Grade 3",
+            "grade4": "Grade 4",
+            "grade5": "Grade 5",
+            "grade6": "Grade 6",
+        }
+        pretty_grade = grade_labels.get((grade_code or "").lower(), grade_code)
+
         try:
             send_mail(
                 subject="Student Promotion Confirmed",
-                message=(
-                    f"Dear Parent/Guardian,\n\n"
-                    f"This is to confirm that {enrollment.first_name} {enrollment.last_name} "
-                    f"has been successfully promoted.\n\n"
-                    f"New Grade Level : {grade_code}\n"
-                    f"Academic Year   : {enrollment.academic_year}\n"
-                    f"Student No.     : {self._get_effective_student_number(enrollment)}\n\n"
-                    f"You may log in to the Student Portal to view the updated enrollment.\n\n"
-                    "If you have any questions, please contact the school."
-                ),
+               message=(
+                        f"Dear Parent/Guardian,\n\n"
+                        f"Congratulations and warm greetings from Caloocan Evangelical School Inc. (CESI)!\n\n"
+                        f"We are delighted to inform you that "
+                        f"{enrollment.first_name} {enrollment.last_name} "
+                        f"has successfully been promoted and approved for the upcoming academic year.\n\n"
+                        f"Please find the updated student information below:\n\n"
+                        f"Student Name   : {enrollment.first_name} {enrollment.last_name}\n"
+                        f"New Grade Level: {pretty_grade}\n"
+                        f"Academic Year  : {enrollment.academic_year}\n"
+                        f"Student Number : {self._get_effective_student_number(enrollment)}\n\n"
+                        f"You may now log in to the Student Portal to view the updated enrollment record.\n\n"
+                        f"We look forward to another year of growth and learning with your child at CESI.\n\n"
+                        f"Should you have any questions or need assistance, please do not hesitate to contact the school.\n\n"
+                        f"Thank you for your continued trust and support.\n\n"
+                        f"Sincerely,\n"
+                        f"Caloocan Evangelical School Inc.\n"
+                        f"Admissions Office"
+                    ),
                 from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost"),
-                recipient_list=[parent_email],
+                recipient_list=[recipient_email],
                 fail_silently=False,
             )
             return True, None
@@ -960,6 +987,49 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             logger.exception("Failed to send promotion email for enrollment %s", enrollment.pk)
             return False, str(e)
 
+    def _send_declined_email(self, enrollment, recipient_email, decline_reason=""):
+        grade_labels = {
+            "prek": "Pre-Kinder",
+            "kinder": "Kinder",
+            "grade1": "Grade 1",
+            "grade2": "Grade 2",
+            "grade3": "Grade 3",
+            "grade4": "Grade 4",
+            "grade5": "Grade 5",
+            "grade6": "Grade 6",
+        }
+        pretty_grade = grade_labels.get((enrollment.grade_level or "").lower(), enrollment.grade_level)
+
+        reason_block = ""
+        if decline_reason:
+            reason_block = f"Reason        : {decline_reason}\n\n"
+
+        try:
+            send_mail(
+                subject="Enrollment Application Declined",
+                message=(
+                    f"Dear Parent/Guardian,\n\n"
+                    f"Good day.\n\n"
+                    f"We regret to inform you that the enrollment application of "
+                    f"{enrollment.first_name} {enrollment.last_name} "
+                    f"for Academic Year {enrollment.academic_year} has been declined.\n\n"
+                    f"Student Name  : {enrollment.first_name} {enrollment.last_name}\n"
+                    f"Grade Level   : {pretty_grade}\n"
+                    f"Academic Year : {enrollment.academic_year}\n"
+                    f"Status        : {enrollment.status}\n"
+                    f"{reason_block}"
+                    f"For clarification or further assistance regarding this application, "
+                    f"please contact the school directly.\n\n"
+                    f"Thank you."
+                ),
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost"),
+                recipient_list=[recipient_email],
+                fail_silently=False,
+            )
+            return True, None
+        except Exception as e:
+            logger.exception("Failed to send declined email for enrollment %s", enrollment.pk)
+            return False, str(e)
     def perform_update(self, serializer):
         enrollment = serializer.save()
         uploaded_id_image = self.request.FILES.get("id_image")
@@ -970,7 +1040,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         self._save_optional_documents(enrollment, self.request.FILES)
 
-        self._sync_parent_user_and_profile(
+        self._sync_student_user_and_profile(
             enrollment,
             create_if_missing=False,
             uploaded_id_image=uploaded_id_image,
@@ -1003,7 +1073,6 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     def id_image(self, request, pk=None):
         enrollment = self.get_object()
 
-        # Prefer stored file when available
         try:
             if enrollment.id_image and enrollment.id_image.storage.exists(enrollment.id_image.name):
                 return redirect(enrollment.id_image.url)
@@ -1136,25 +1205,57 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def mark_dropped(self, request, pk=None):
-        enrollment = self.get_object()
-        enrollment.status = "DROPPED"
-        enrollment.completed_at = timezone.now()
+            enrollment = self.get_object()
 
-        note = "DECLINED BY ADMIN"
-        enrollment.remarks = (enrollment.remarks or "").strip()
-        enrollment.remarks = f"{enrollment.remarks} | {note}".strip(" |")
-        enrollment.save()
+            decline_reason = (
+                request.data.get("reason")
+                or request.data.get("remarks")
+                or ""
+            ).strip()
 
-        if enrollment.parent_user_id:
-            profile = UserProfile.objects.filter(user=enrollment.parent_user).first()
-            if profile:
-                profile.section = None
-                profile.save(update_fields=["section"])
+            enrollment.status = "DROPPED"
+            enrollment.completed_at = timezone.now()
 
-        serializer = self.get_serializer(enrollment)
-        return Response(serializer.data)
+            note = "DECLINED BY ADMIN"
 
-    @action(detail=True, methods=["post"])
+            base_remarks = (enrollment.remarks or "").strip()
+            if "DECLINED BY ADMIN" in base_remarks:
+                base_remarks = base_remarks.split("DECLINED BY ADMIN")[0].strip(" |")
+
+            if decline_reason:
+                decline_note = f"{note} | REASON: {decline_reason}"
+            else:
+                decline_note = note
+
+            enrollment.remarks = f"{base_remarks} | {decline_note}".strip(" |")
+            enrollment.save()
+
+            if enrollment.parent_user_id:
+                profile = UserProfile.objects.filter(user=enrollment.parent_user).first()
+                if profile:
+                    profile.section = None
+                    profile.save(update_fields=["section"])
+
+            email_sent = None
+            email_error = None
+
+            recipient_email = (enrollment.email or "").strip().lower()
+            if recipient_email:
+                email_sent, email_error = self._send_declined_email(
+                    enrollment,
+                    recipient_email,
+                    decline_reason=decline_reason,
+                )
+
+            serializer = self.get_serializer(enrollment)
+            data = serializer.data
+            data["email_sent"] = email_sent
+            data["decline_reason"] = decline_reason
+            if email_error:
+                data["email_error"] = "Enrollment updated, but email sending failed."
+            return Response(data)
+    
+    @action(detail=True, methods=["post"])    
     def mark_active(self, request, pk=None):
         enrollment = self.get_object()
 
@@ -1213,7 +1314,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             )
 
         is_promotion = (enrollment.student_type or "").strip().lower() == "old"
-        parent_email = (enrollment.email or "").strip().lower()
+        recipient_email = (enrollment.email or "").strip().lower()
         uploaded_id_image = request.FILES.get("id_image")
 
         section_id = request.data.get("section")
@@ -1269,15 +1370,15 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
             enrollment.save(update_fields=update_fields)
 
-            if parent_email:
-                existing_user = User.objects.filter(email__iexact=parent_email).first()
+            if recipient_email:
+                existing_user = User.objects.filter(email__iexact=recipient_email).first()
                 had_existing_user = existing_user is not None
 
                 if existing_user and not enrollment.parent_user:
                     enrollment.parent_user = existing_user
                     enrollment.save(update_fields=["parent_user"])
 
-                self._sync_parent_user_and_profile(
+                self._sync_student_user_and_profile(
                     enrollment,
                     create_if_missing=True,
                     uploaded_id_image=uploaded_id_image,
@@ -1287,11 +1388,11 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 if enrollment.parent_user:
                     if is_promotion and had_existing_user:
                         email_sent, email_error = self._send_promotion_email(
-                            enrollment, parent_email, grade_code
+                            enrollment, recipient_email, grade_code
                         )
                     else:
-                        email_sent, email_error = self._send_parent_portal_email(
-                            enrollment, parent_email
+                        email_sent, email_error = self._send_student_portal_email(
+                            enrollment, recipient_email
                         )
 
             self._sync_enrollment_to_profile(enrollment)

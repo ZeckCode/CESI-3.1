@@ -88,6 +88,15 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(url) if request else url
 
         return None
+    
+    def get_decline_reason(self, obj):
+        if not obj.remarks:
+            return ""
+
+        if "REASON:" in obj.remarks:
+            return obj.remarks.split("REASON:")[-1].strip()
+
+        return ""
 
 
 class EnrollmentDetailedSerializer(serializers.ModelSerializer):
