@@ -19,6 +19,7 @@ import {
 } from "./validators";
 import EnrollmentClosed from "./EnrollmentClosed";
 import EnrollmentStepper from "./EnrollmentStepper";
+import EnrollmentConfirmationModal from "./EnrollmentConfirmationModal";
 import StepPrivacy from "./steps/StepPrivacy";
 import StepInstructions from "./steps/StepInstructions";
 import StepAcademic from "./steps/StepAcademic";
@@ -27,6 +28,7 @@ import StepFamily from "./steps/StepFamily";
 import StepDocuments from "./steps/StepDocuments";
 import StepPayment from "./steps/StepPayment";
 import "../../IndexWebsiteCSS/enrollment/EnrollmentForm.css";
+import "../../IndexWebsiteCSS/enrollment/EnrollmentConfirmationModal.css";
 
 const EnrollmentForm = ({ onClose }) => {
   const navigate = useNavigate();
@@ -36,6 +38,9 @@ const EnrollmentForm = ({ onClose }) => {
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
+  const [submittedName, setSubmittedName] = useState("");
 
   const [form, setForm] = useState({
     studentType: "",
@@ -385,8 +390,9 @@ const EnrollmentForm = ({ onClose }) => {
         return;
       }
 
-      alert("Enrollment submitted successfully!");
-      if (onClose) onClose();
+      setSubmittedEmail(form.email);
+      setSubmittedName(`${form.firstName} ${form.lastName}`);
+      setShowConfirmationModal(true);
     } catch (err) {
       setSubmitError("Network error. Check if backend is running.");
     } finally {
@@ -539,6 +545,17 @@ const EnrollmentForm = ({ onClose }) => {
           </div>
         )}
       </form>
+
+      {showConfirmationModal && (
+        <EnrollmentConfirmationModal
+          email={submittedEmail}
+          name={submittedName}
+          onClose={() => {
+            setShowConfirmationModal(false);
+            if (onClose) onClose();
+          }}
+        />
+      )}
     </div>
   );
 };
