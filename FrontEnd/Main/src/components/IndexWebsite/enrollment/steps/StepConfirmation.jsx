@@ -4,8 +4,7 @@ const StepConfirmation = ({ email, name, onClose }) => {
   return (
     <div className="step-confirmation">
       <div className="confirmation-header">
-        <div className="success-icon">✅</div>
-        <h2>Enrollment Submitted Successfully!</h2>
+        <h2>✅ Enrollment Submitted Successfully!</h2>
       </div>
       
       <div className="confirmation-body">
