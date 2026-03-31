@@ -28,7 +28,7 @@ export function exportToPDF(enrollments, stats, window_) {
     ["Active/Enrolled", String(stats.active)],
     ["Pending", String(stats.pending)],
     ["Declined/Dropped", String(stats.dropped)],
-    ["Expired", String(stats.expired)],
+    // ["Expired", String(stats.expired)],
     [
       "Enrollment Status",
       window_.isOpen ? `Open (${window_.daysLeft} days left)` : "Closed",
@@ -62,7 +62,7 @@ export function exportToPDF(enrollments, stats, window_) {
     enrollment.enrollmentDate
       ? new Date(enrollment.enrollmentDate).toLocaleDateString()
       : "—",
-    enrollment.statusText + (enrollment.expired ? " (Expired)" : ""),
+    enrollment.statusText,
     enrollment.fee === "cash" || enrollment.fee === "Paid"
       ? "Cash"
       : "Installment",

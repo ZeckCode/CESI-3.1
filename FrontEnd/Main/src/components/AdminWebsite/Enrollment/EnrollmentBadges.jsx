@@ -18,25 +18,19 @@ const badgeStyle = (map, key) => ({
   ...(map[key] || { background: "#f3f4f6", color: "#6b7280" }),
 });
 
-export function StatusBadge({ code, expired }) {
-  const displayCode =
-    expired && code !== "DROPPED" && code !== "COMPLETED" ? "EXPIRED" : code;
-
+export function StatusBadge({ code }) {
   const icon =
-    displayCode === "EXPIRED" ? (
-      <AlertTriangle size={12} />
-    ) : displayCode === "ACTIVE" || displayCode === "COMPLETED" ? (
+    code === "ACTIVE" || code === "COMPLETED" ? (
       <CheckCircle size={12} />
-    ) : displayCode === "DROPPED" ? (
+    ) : code === "DROPPED" ? (
       <XCircle size={12} />
     ) : (
       <Clock size={12} />
     );
-
   return (
-    <span style={badgeStyle(STATUS_STYLES, displayCode)}>
+    <span style={badgeStyle(STATUS_STYLES, code)}>
       {icon}
-      {statusLabel(displayCode)}
+      {statusLabel(code)}
     </span>
   );
 }

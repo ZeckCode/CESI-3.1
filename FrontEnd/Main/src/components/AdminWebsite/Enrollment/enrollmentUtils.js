@@ -19,14 +19,12 @@ export const statusLabel = (s) =>
       PENDING: "Pending",
       DROPPED: "Dropped",
       COMPLETED: "Completed",
-      EXPIRED: "Expired",
     }[s] || s || ""
   );
 
-export const matchesStatusFilter = (filterStatus, statusText, isExpired) => {
-  if (filterStatus === "Expired") return isExpired;
-  if (filterStatus === "All") return !isExpired;
-  return !isExpired && statusText === filterStatus;
+export const matchesStatusFilter = (filterStatus, statusText) => {
+  if (filterStatus === "All") return true;
+  return statusText === filterStatus;
 };
 
 export const GRADE_AGE_RULES = {

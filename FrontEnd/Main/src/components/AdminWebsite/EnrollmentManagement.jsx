@@ -38,8 +38,6 @@ import {
   getNextGrade,
   advanceAcademicYear,
   validateAgeForGrade,
-  isEnrollmentExpired,
-  formatExpiryDate,
   fmtDate,
   computeEnrollmentWindow,
   splitFullName,
@@ -78,7 +76,7 @@ export default function EnrollmentManagement() {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState(emptyForm());
   const [modalStatus, setModalStatus] = useState(null);
-  const [modalExpired, setModalExpired] = useState(false);
+  // Removed expired feature
   const [editingAcademicYear, setEditingAcademicYear] = useState(false);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -142,33 +140,7 @@ export default function EnrollmentManagement() {
       const res = await apiFetch("/api/enrollments/");
       const data = await res.json().catch(() => []);
       if (!res.ok) throw new Error();
-
-      const list = Array.isArray(data) ? data : [];
-      setEnrollments(list);
-
-      const expiredList = list.filter(
-        (e) =>
-          isEnrollmentExpired(e.academic_year) &&
-          e.status !== "DROPPED" &&
-          e.status !== "COMPLETED"
-      );
-
-      if (expiredList.length > 0) {
-        const names = expiredList
-          .slice(0, 3)
-          .map((e) => `${e.first_name} ${e.last_name}`)
-          .join(", ");
-        const more =
-          expiredList.length > 3 ? ` and ${expiredList.length - 3} more` : "";
-
-        addToast(
-          `${expiredList.length} Expired Enrollment${
-            expiredList.length > 1 ? "s" : ""
-          }`,
-          `${names}${more} — academic year has ended.`,
-          "warning"
-        );
-      }
+      setEnrollments(Array.isArray(data) ? data : []);
     } catch {
       addToast("Load Failed", "Failed to load enrollments.", "error");
       setEnrollments([]);
@@ -245,11 +217,6 @@ export default function EnrollmentManagement() {
     () =>
       enrollments.map((e) => {
         const statusCode = String(e.status || "PENDING").toUpperCase();
-        const expired =
-          isEnrollmentExpired(e.academic_year) &&
-          statusCode !== "DROPPED" &&
-          statusCode !== "COMPLETED";
-
         return {
           id: e.id,
           raw: e,
@@ -264,7 +231,6 @@ export default function EnrollmentManagement() {
           enrollmentDate: e.enrolled_at || e.created_at || null,
           statusCode,
           statusText: statusLabel(statusCode),
-          expired,
           academicYear: e.academic_year || "",
           fee: e.payment_mode || "Pending",
           parentName:
@@ -286,7 +252,6 @@ export default function EnrollmentManagement() {
 
   const filteredEnrollments = useMemo(() => {
     const s = searchTerm.toLowerCase().trim();
-
     return normalized.filter((row) => {
       const matchesSearch =
         !s ||
@@ -294,13 +259,8 @@ export default function EnrollmentManagement() {
         row.parentName.toLowerCase().includes(s) ||
         String(row.phone).toLowerCase().includes(s) ||
         String(row.sectionName).toLowerCase().includes(s);
-
-      const matchesStatus = matchesStatusFilter(
-        filterStatus,
-        row.statusText,
-        row.expired
-      );
-
+      const matchesStatus =
+        filterStatus === "All" || row.statusText === filterStatus;
       return matchesSearch && matchesStatus;
     });
   }, [normalized, searchTerm, filterStatus]);
@@ -319,12 +279,9 @@ export default function EnrollmentManagement() {
   const stats = useMemo(
     () => ({
       total: normalized.length,
-      active: normalized.filter((e) => e.statusCode === "ACTIVE" && !e.expired)
-        .length,
-      pending: normalized.filter((e) => e.statusCode === "PENDING" && !e.expired)
-        .length,
+      active: normalized.filter((e) => e.statusCode === "ACTIVE").length,
+      pending: normalized.filter((e) => e.statusCode === "PENDING").length,
       dropped: normalized.filter((e) => e.statusCode === "DROPPED").length,
-      expired: normalized.filter((e) => e.expired).length,
     }),
     [normalized]
   );
@@ -366,8 +323,7 @@ export default function EnrollmentManagement() {
     return Array.isArray(row?.raw?.documents) ? row.raw.documents : [];
   }, [normalized, editingId]);
 
-  const isReadOnly =
-    (modalMode === "view" && editingId !== null) || modalExpired;
+  const isReadOnly = (modalMode === "view" && editingId !== null);
 
   const getMissingFieldsForApproval = useCallback((row) => {
     const e = row?.raw || {};
@@ -436,28 +392,6 @@ export default function EnrollmentManagement() {
 
   const openModal = (row, mode = "view") => {
     const e = row.raw;
-    const expired =
-      isEnrollmentExpired(e.academic_year) &&
-      e.status !== "DROPPED" &&
-      e.status !== "COMPLETED";
-
-    if (mode === "edit" && expired) {
-      addToast(
-        "Enrollment Expired",
-        `${e.first_name} ${e.last_name}'s enrollment ended on ${formatExpiryDate(
-          e.academic_year
-        )}. Editing is blocked.`,
-        "error"
-      );
-      mode = "view";
-    }
-
-    setEditingId(e.id);
-    setModalMode(mode);
-    setModalStatus(e.status || "PENDING");
-    setModalExpired(expired);
-    setEditingAcademicYear(false);
-
     const inferredEdu =
       e.education_level ||
       (["prek", "kinder"].includes(e.grade_level)
@@ -467,12 +401,14 @@ export default function EnrollmentManagement() {
           )
         ? "elementary"
         : "");
-
     const father = splitFullName(e?.parent_info?.father_name || "");
     const mother = splitFullName(e?.parent_info?.mother_name || "");
     const guardian = splitFullName(e?.parent_info?.guardian_name || "");
     const addr = splitAddress(e.address || "");
-
+    setEditingId(e.id);
+    setModalMode(mode);
+    setModalStatus(e.status || "PENDING");
+    setEditingAcademicYear(false);
     setFormData({
       ...emptyForm(),
       first_name: e.first_name || "",
@@ -518,7 +454,6 @@ export default function EnrollmentManagement() {
         guardian_relationship: e?.parent_info?.guardian_relationship || "",
       },
     });
-
     setModalOpen(true);
   };
 
@@ -526,7 +461,6 @@ export default function EnrollmentManagement() {
     setEditingId(null);
     setModalMode("edit");
     setModalStatus(null);
-    setModalExpired(false);
     setEditingAcademicYear(false);
     setFormData({ ...emptyForm(), academic_year: window_.academicYear });
     setModalOpen(true);
@@ -537,14 +471,11 @@ export default function EnrollmentManagement() {
     setModalMode("view");
     setEditingId(null);
     setModalStatus(null);
-    setModalExpired(false);
     setEditingAcademicYear(false);
-
     setDocUploadFile(null);
     setDocUploadType("other");
     setDocUploadLabel("");
     setDocSaving(false);
-
     setEditingDocId(null);
     setEditingDocLabel("");
     setEditingDocType("other");
@@ -993,12 +924,7 @@ export default function EnrollmentManagement() {
       return;
     }
 
-    if (isEnrollmentExpired(formData.academic_year)) {
-      const confirmed = window.confirm(
-        `Warning: AY "${formData.academic_year}" has already ended.\n\nDo you still want to save?`
-      );
-      if (!confirmed) return;
-    }
+    // Removed expired check on save
 
     let normalizedMobile = null;
     if (formData.mobile_number?.trim()) {
@@ -1362,18 +1288,7 @@ export default function EnrollmentManagement() {
             }
             subtitleType="negative"
           />
-          <StatCard
-            label="Expired"
-            value={stats.expired}
-            icon={<UserX size={20} />}
-            color="purple"
-            subtitle={
-              stats.total
-                ? `${Math.round((stats.expired / stats.total) * 100)}% of total`
-                : "—"
-            }
-            subtitleType="negative"
-          />
+          {/* Expired stat removed */}
           <StatCard
             label="Enrollment"
             value={window_.isOpen ? `Open · ${window_.daysLeft}d left` : "Closed"}
@@ -1617,7 +1532,7 @@ export default function EnrollmentManagement() {
 
             <tbody>
               {paginatedEnrollments.map((row) => (
-                <tr key={row.id} style={row.expired ? { background: "#fcf7ff" } : {}}>
+                <tr key={row.id}>
                   <td style={{ textAlign: "center", width: 40 }}>
                     <input
                       type="checkbox"
@@ -1638,7 +1553,7 @@ export default function EnrollmentManagement() {
                   </td>
 
                   <td>
-                    <StatusBadge code={row.statusCode} expired={row.expired} />
+                    <StatusBadge code={row.statusCode} />
                   </td>
 
                   <td>
@@ -1650,11 +1565,7 @@ export default function EnrollmentManagement() {
                   </td>
 
                   <td>
-                    {row.expired ? (
-                      <span className="table-inline-status table-inline-status--expired">
-                        <AlertTriangle size={13} /> Expired
-                      </span>
-                    ) : row.statusCode === "PENDING" ? (
+                    {row.statusCode === "PENDING" ? (
                       <div className="approve-decline-group">
                         <button className="btn-approve" onClick={() => handleApprove(row.id)}>
                           <CheckCircle size={12} /> Approve
@@ -1682,28 +1593,18 @@ export default function EnrollmentManagement() {
 
                   <td>
                     <div className="action-buttons" style={{ justifyContent: "flex-start" }}>
-                      <button
+                      {/* <button
                         className="btn-edit"
                         title="View"
                         onClick={() => openModal(row, "view")}
                       >
                         <Edit2 size={14} />
-                      </button>
+                      </button> */}
 
                       <button
                         className="btn-edit"
-                        title={row.expired ? "Editing blocked — enrollment expired" : "Edit"}
-                        onClick={() => !row.expired && openModal(row, "edit")}
-                        disabled={row.expired}
-                        style={
-                          row.expired
-                            ? {
-                                opacity: 0.35,
-                                cursor: "not-allowed",
-                                pointerEvents: "none",
-                              }
-                            : {}
-                        }
+                        title="Edit"
+                        onClick={() => openModal(row, "edit")}
                       >
                         <Edit2 size={14} />
                       </button>

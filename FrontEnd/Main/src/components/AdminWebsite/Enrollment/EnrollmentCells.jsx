@@ -8,11 +8,6 @@ export function StudentCell({ row }) {
       <div style={{ fontSize: 11, color: "#64748b" }}>
         AY {row.academicYear || "—"} · {row.sectionName || "No section"}
       </div>
-      {row.expired && (
-        <div style={{ fontSize: 11, color: "#7e22ce", fontWeight: 700 }}>
-          Expired · {formatExpiryDate(row.academicYear)}
-        </div>
-      )}
     </div>
   );
 }

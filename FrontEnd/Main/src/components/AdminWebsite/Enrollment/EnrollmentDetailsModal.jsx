@@ -69,49 +69,7 @@ export default function EnrollmentDetailsModal({
           </button>
         </div>
 
-        {modalExpired && (
-          <div className="enrollment-highlight-note" style={{ marginBottom: 18 }}>
-            <strong>Enrollment Expired.</strong> This enrollment ended on{" "}
-            <strong>{formatExpiryDate(formData.academic_year)}</strong>. Editing is
-            disabled until the academic year is updated.
-
-            {editingAcademicYear ? (
-              <div
-                style={{
-                  marginTop: 12,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  flexWrap: "wrap",
-                }}
-              >
-                <input
-                  name="academic_year"
-                  value={formData.academic_year}
-                  onChange={onInputChange}
-                  placeholder="e.g. 2025-2026"
-                  className="settings-panel__input"
-                  style={{ width: 160 }}
-                />
-                <button className="btn-primary" onClick={onSaveAcademicYear}>
-                  <CheckCircle size={13} /> Save
-                </button>
-                <button className="btn-secondary" onClick={() => setEditingAcademicYear(false)}>
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <div style={{ marginTop: 10 }}>
-                <button
-                  className="btn-secondary"
-                  onClick={() => setEditingAcademicYear(true)}
-                >
-                  <Edit2 size={13} /> Edit Academic Year
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Expired modal note removed */}
 
         {!editingId && formData.student_type === "old" && formData.grade_level && (
           <div className="enrollment-soft-note" style={{ marginBottom: 18 }}>
@@ -833,7 +791,7 @@ export default function EnrollmentDetailsModal({
             Close
           </button>
 
-          {editingId && !modalExpired && modalStatus === "PENDING" && (
+          {editingId && modalStatus === "PENDING" && (
             <>
               <button className="btn-approve" onClick={onApprove}>
                 <CheckCircle size={13} /> Approve
@@ -844,7 +802,7 @@ export default function EnrollmentDetailsModal({
             </>
           )}
 
-          {modalMode === "edit" && !modalExpired && (
+          {modalMode === "edit" && (
             <button className="btn-primary" onClick={onSaveEnrollment}>
               {editingId ? "Save Changes" : "Create Enrollee"}
             </button>

@@ -4,7 +4,6 @@ export const FILTER_OPTIONS = [
   { value: "Pending", label: "Pending" },
   { value: "Dropped", label: "Dropped" },
   { value: "Completed", label: "Completed" },
-  { value: "Expired", label: "Expired" },
 ];
 
 export const DOCUMENT_TYPE_OPTIONS = [
@@ -21,7 +20,6 @@ export const STATUS_STYLES = {
   PENDING: { background: "#fef3c7", color: "#92400e" },
   DROPPED: { background: "#fee2e2", color: "#7f1d1d" },
   COMPLETED: { background: "#dbeafe", color: "#1e40af" },
-  EXPIRED: { background: "#f3e8ff", color: "#6b21a8" },
 };
 
 export const FEE_STYLES = {
