@@ -115,7 +115,7 @@ const StepStudent = ({
         </div>
 
         <div className="form-group">
-          <label>Mobile Number <span className="required">*</span></label>
+          <label>Mobile Number <span className="required">* {form.mobile.length}/11</span></label>
           <input
             ref={registerFieldRef("mobile")}
             value={form.mobile}
@@ -128,7 +128,7 @@ const StepStudent = ({
             placeholder="09XXXXXXXXX"
             inputMode="numeric"
           />
-          <div className="field-counter">{form.mobile.length}/11</div>
+          {/* <div className="field-counter"></div> */}
           <FieldError error={errors.mobile} />
         </div>
 

@@ -31,7 +31,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
           />
         </div>
         <div className="form-group">
-          <label>Mobile Number</label>
+          <label>Mobile Number {form.motherContact.length}/11</label>
           <input
             ref={registerFieldRef("motherContact")}
             value={form.motherContact}
@@ -44,7 +44,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
             placeholder="09XXXXXXXXX"
             inputMode="numeric"
           />
-          <div className="field-counter">{form.motherContact.length}/11</div>
+          {/* <div className="field-counter"></div> */}
           <FieldError error={errors.motherContact} />
         </div>
         <div className="form-group">
@@ -80,7 +80,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
           />
         </div>
         <div className="form-group">
-          <label>Mobile Number</label>
+          <label>Mobile Number {form.fatherContact.length}/11</label>
           <input
             ref={registerFieldRef("fatherContact")}
             value={form.fatherContact}
@@ -93,7 +93,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
                placeholder="09XXXXXXXXX"
             inputMode="numeric"
           />
-          <div className="field-counter">{form.fatherContact.length}/11</div>
+          {/* <div className="field-counter">{form.fatherContact.length}/11</div> */}
           <FieldError error={errors.fatherContact} />
         </div>
         <div className="form-group">
@@ -129,7 +129,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
           />
         </div>
         <div className="form-group">
-          <label>Mobile Number</label>
+          <label>Mobile Number {form.guardianContact.length}/11</label>
           <input
             ref={registerFieldRef("guardianContact")}
             value={form.guardianContact}
@@ -142,7 +142,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
             placeholder="09XXXXXXXXX"
             inputMode="numeric"
           />
-          <div className="field-counter">{form.guardianContact.length}/11</div>
+          {/* <div className="field-counter">{form.guardianContact.length}/11</div> */}
           <FieldError error={errors.guardianContact} />
         </div>
         <div className="form-group">
