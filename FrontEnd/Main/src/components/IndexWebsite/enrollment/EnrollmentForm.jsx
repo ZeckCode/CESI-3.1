@@ -19,7 +19,6 @@ import {
 } from "./validators";
 import EnrollmentClosed from "./EnrollmentClosed";
 import EnrollmentStepper from "./EnrollmentStepper";
-import EnrollmentConfirmationModal from "./EnrollmentConfirmationModal";
 import StepPrivacy from "./steps/StepPrivacy";
 import StepInstructions from "./steps/StepInstructions";
 import StepAcademic from "./steps/StepAcademic";
@@ -27,6 +26,7 @@ import StepStudent from "./steps/StepStudent";
 import StepFamily from "./steps/StepFamily";
 import StepDocuments from "./steps/StepDocuments";
 import StepPayment from "./steps/StepPayment";
+import StepConfirmation from "./steps/StepConfirmation";
 import "../../IndexWebsiteCSS/enrollment/EnrollmentForm.css";
 
 const EnrollmentForm = ({ onClose }) => {
@@ -37,7 +37,6 @@ const EnrollmentForm = ({ onClose }) => {
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [submittedName, setSubmittedName] = useState("");
 
@@ -391,7 +390,7 @@ const EnrollmentForm = ({ onClose }) => {
 
       setSubmittedEmail(form.email);
       setSubmittedName(`${form.firstName} ${form.lastName}`);
-      setShowConfirmationModal(true);
+      setCurrentStep(STEP_KEYS.CONFIRMATION);
     } catch (err) {
       setSubmitError("Network error. Check if backend is running.");
     } finally {
@@ -543,18 +542,15 @@ const EnrollmentForm = ({ onClose }) => {
             </button>
           </div>
         )}
-      </form>
 
-      {showConfirmationModal && (
-        <EnrollmentConfirmationModal
-          email={submittedEmail}
-          name={submittedName}
-          onClose={() => {
-            setShowConfirmationModal(false);
-            if (onClose) onClose();
-          }}
-        />
-      )}
+        {currentStep === STEP_KEYS.CONFIRMATION && (
+          <StepConfirmation
+            email={submittedEmail}
+            name={submittedName}
+            onClose={onClose}
+          />
+        )}
+      </form>
     </div>
   );
 };

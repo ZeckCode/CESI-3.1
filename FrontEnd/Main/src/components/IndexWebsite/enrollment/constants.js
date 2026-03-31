@@ -7,6 +7,7 @@ export const STEP_KEYS = {
   FAMILY: 4,
   DOCUMENTS: 5,
   PAYMENT: 6,
+  CONFIRMATION: 7,
 };
 
 export const RELIGION_OPTIONS = [
