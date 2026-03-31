@@ -20,9 +20,9 @@ export default function IdUploadModal({
       <div className="modal-content" style={{ maxWidth: 460, width: "92vw" }}>
         <div className="enrollment-modal-header">
           <div className="enrollment-modal-title-wrap">
-            <h2>Upload Student ID Image</h2>
+            <h2>Upload Student 1x1 Image</h2>
             <div className="enrollment-modal-subtitle">
-              Upload or replace the student's ID image after enrollment approval.
+              Upload or replace the student's 1x1 image after enrollment approval.
             </div>
           </div>
 
@@ -67,9 +67,9 @@ export default function IdUploadModal({
               onChange={onSelectImage}
               style={{ display: "none" }}
             />
-            <div style={{ fontSize: 28, marginBottom: 8 }}>🪪</div>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>📸</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
-              Click to upload student ID image
+              Click to upload student 1x1 image
             </div>
             <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
               PNG, JPG up to 5MB
