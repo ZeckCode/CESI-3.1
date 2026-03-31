@@ -81,7 +81,7 @@ export const validateStudentStep = (data) => {
 
   if (!data.mobile.trim()) errors.mobile = "Mobile number is required.";
   else if (!normalizePHMobile(data.mobile)) {
-    errors.mobile = "Enter a valid PH mobile number (09XXXXXXXXX).";
+    errors.mobile = "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
   }
 
   if (!data.street.trim()) errors.street = "Street is required.";
@@ -97,15 +97,15 @@ export const validateFamilyStep = ({ motherContact, fatherContact, guardianConta
   const errors = {};
 
   if (motherContact && !normalizePHMobile(motherContact)) {
-    errors.motherContact = "Enter a valid PH mobile number.";
+    errors.motherContact = "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
   }
 
   if (fatherContact && !normalizePHMobile(fatherContact)) {
-    errors.fatherContact = "Enter a valid PH mobile number.";
+    errors.fatherContact = "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
   }
 
   if (guardianContact && !normalizePHMobile(guardianContact)) {
-    errors.guardianContact = "Enter a valid PH mobile number.";
+    errors.guardianContact = "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
   }
 
   return errors;

@@ -41,8 +41,10 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
                 motherContact: onlyDigits(e.target.value, 11),
               }))
             }
+            placeholder="09XXXXXXXXX"
             inputMode="numeric"
           />
+          <div className="field-counter">{form.motherContact.length}/11</div>
           <FieldError error={errors.motherContact} />
         </div>
         <div className="form-group">
@@ -88,8 +90,10 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
                 fatherContact: onlyDigits(e.target.value, 11),
               }))
             }
+               placeholder="09XXXXXXXXX"
             inputMode="numeric"
           />
+          <div className="field-counter">{form.fatherContact.length}/11</div>
           <FieldError error={errors.fatherContact} />
         </div>
         <div className="form-group">
@@ -135,8 +139,10 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
                 guardianContact: onlyDigits(e.target.value, 11),
               }))
             }
+            placeholder="09XXXXXXXXX"
             inputMode="numeric"
           />
+          <div className="field-counter">{form.guardianContact.length}/11</div>
           <FieldError error={errors.guardianContact} />
         </div>
         <div className="form-group">
