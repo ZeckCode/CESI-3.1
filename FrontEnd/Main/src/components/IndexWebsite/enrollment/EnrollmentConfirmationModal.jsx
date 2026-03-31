@@ -1,5 +1,5 @@
 import React from "react";
-import "./EnrollmentConfirmationModal.css";
+import "../../IndexWebsiteCSS/enrollment/EnrollmentConfirmationModal.css";
 
 const EnrollmentConfirmationModal = ({ email, name, onClose }) => {
   return (
