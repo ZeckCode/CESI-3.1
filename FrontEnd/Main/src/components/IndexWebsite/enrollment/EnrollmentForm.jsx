@@ -28,7 +28,6 @@ import StepFamily from "./steps/StepFamily";
 import StepDocuments from "./steps/StepDocuments";
 import StepPayment from "./steps/StepPayment";
 import "../../IndexWebsiteCSS/enrollment/EnrollmentForm.css";
-import "../../IndexWebsiteCSS/enrollment/EnrollmentConfirmationModal.css";
 
 const EnrollmentForm = ({ onClose }) => {
   const navigate = useNavigate();
