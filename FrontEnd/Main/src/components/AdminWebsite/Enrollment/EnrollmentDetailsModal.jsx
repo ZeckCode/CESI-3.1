@@ -64,7 +64,6 @@ export default function EnrollmentDetailsModal({
           </button>
         </div>
 
-        {/* Expired modal note removed */}
 
         {!editingId && formData.student_type === "old" && formData.grade_level && (
           <div className="enrollment-soft-note" style={{ marginBottom: 18 }}>

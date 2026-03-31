@@ -76,7 +76,6 @@ export default function EnrollmentManagement() {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState(emptyForm());
   const [modalStatus, setModalStatus] = useState(null);
-  // Removed expired feature
   const [editingAcademicYear, setEditingAcademicYear] = useState(false);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -821,13 +820,7 @@ export default function EnrollmentManagement() {
       await fetchEnrollments();
       setEditingAcademicYear(false);
 
-      if (!nowExpired) {
-        addToast(
-          "Academic Year Updated",
-          `Enrollment is now active for ${newYear}.`,
-          "success"
-        );
-      }
+      
     } catch {
       addToast("Save Failed", "Could not update academic year.", "error");
     }
@@ -921,7 +914,7 @@ export default function EnrollmentManagement() {
       return;
     }
 
-    // Removed expired check on save
+  
 
     let normalizedMobile = null;
     if (formData.mobile_number?.trim()) {
@@ -1285,7 +1278,7 @@ export default function EnrollmentManagement() {
             }
             subtitleType="negative"
           />
-          {/* Expired stat removed */}
+          
           <StatCard
             label="Enrollment"
             value={window_.isOpen ? `Open · ${window_.daysLeft}d left` : "Closed"}
@@ -1694,7 +1687,6 @@ export default function EnrollmentManagement() {
         todayISO={todayISO}
         gradeLabel={gradeLabel}
         validateAgeForGrade={validateAgeForGrade}
-        formatExpiryDate={formatExpiryDate}
         DOCUMENT_TYPE_OPTIONS={DOCUMENT_TYPE_OPTIONS}
         GRADE_AGE_RULES={GRADE_AGE_RULES}
       />

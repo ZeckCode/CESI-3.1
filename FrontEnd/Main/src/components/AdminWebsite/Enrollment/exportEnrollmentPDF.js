@@ -28,7 +28,6 @@ export function exportToPDF(enrollments, stats, window_) {
     ["Active/Enrolled", String(stats.active)],
     ["Pending", String(stats.pending)],
     ["Declined/Dropped", String(stats.dropped)],
-    // ["Expired", String(stats.expired)],
     [
       "Enrollment Status",
       window_.isOpen ? `Open (${window_.daysLeft} days left)` : "Closed",
