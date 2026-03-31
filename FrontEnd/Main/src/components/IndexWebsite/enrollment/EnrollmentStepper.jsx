@@ -1,17 +1,18 @@
 // EnrollmentStepper.jsx
 import React from "react";
+import { STEP_KEYS } from "./constants";
+
+const steps = [
+  "Privacy",
+  "Instructions",
+  "Academic",
+  "Student",
+  "Family",
+  "Documents",
+  "Payment",
+];
 
 const EnrollmentStepper = ({ currentStep }) => {
-  const steps = [
-    "Privacy",
-    "Instructions",
-    "Academic",
-    "Student",
-    "Family",
-    "Documents",
-    "Payment",
-  ];
-
   return (
     <div className="stepper">
       {steps.map((label, index) => {
@@ -21,9 +22,9 @@ const EnrollmentStepper = ({ currentStep }) => {
         return (
           <div
             key={label}
-            className={`stepper__item ${isActive ? "is-active" : ""} ${
-              isDone ? "is-done" : ""
-            }`}
+            className={`stepper__item ${
+              isActive ? "is-active" : ""
+            } ${isDone ? "is-done" : ""}`}
           >
             <span className="stepper__circle">{index + 1}</span>
             <small>{label}</small>
@@ -35,4 +36,3 @@ const EnrollmentStepper = ({ currentStep }) => {
 };
 
 export default EnrollmentStepper;
-

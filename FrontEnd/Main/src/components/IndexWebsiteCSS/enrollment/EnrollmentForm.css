@@ -542,7 +542,76 @@ font-size: 25px;
 
 
 
+/* Enrollment Stepper */
+.stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0 32px;
+  justify-content: center;
+}
 
+.stepper__item {
+  min-width: 88px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.stepper__circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.stepper__item.is-active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.stepper__item.is-active .stepper__circle {
+  background: #2563eb;
+  color: #fff;
+}
+
+.stepper__item.is-done {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.stepper__item.is-done .stepper__circle {
+  background: #22c55e;
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .stepper {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .stepper {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 
 
 
