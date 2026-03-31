@@ -195,7 +195,7 @@ export default function EnrollmentManagement() {
   const fetchProofs = useCallback(async () => {
     setLoadingProofs(true);
     try {
-      const res = await apiFetch("/api/finance/proof-of-payments/?status=pending");
+      const res = await apiFetch("/api/finance/proof-of-payments/");
       const data = await res.json().catch(() => []);
       if (!res.ok) throw new Error();
 
@@ -322,6 +322,9 @@ export default function EnrollmentManagement() {
           statusText: statusLabel(statusCode),
           academicYear: e.academic_year || "",
           fee: e.payment_mode || "Pending",
+          paymentMode: e.payment_mode || "—",
+          paymentMethod: e.payment_method || "—",
+          paymentProof: proofs.find(p => p.enrollment_id === e.id) || null,
           parentName:
             e?.parent_info?.guardian_name ||
             e?.parent_info?.mother_name ||
@@ -336,7 +339,7 @@ export default function EnrollmentManagement() {
             "(not set)",
         };
       }),
-    [enrollments, sections]
+    [enrollments, sections, proofs]
   );
 
   const filteredEnrollments = useMemo(() => {
@@ -1546,136 +1549,6 @@ export default function EnrollmentManagement() {
         </div>
       )}
 
-      {/* Payment Proof Section */}
-      {proofs.length > 0 && (
-        <div style={{
-          background: "#f8fafc",
-          border: "1px solid #e2e8f0",
-          borderRadius: 8,
-          padding: 20,
-          marginTop: 20,
-          marginBottom: 20,
-        }}>
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 16,
-          }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#1e293b" }}>
-              Pending Payment Proofs ({proofs.length})
-            </div>
-            <button
-              className="btn-icon"
-              onClick={fetchProofs}
-              title="Refresh proofs"
-            >
-              <RefreshCw size={16} />
-            </button>
-          </div>
-
-          {loadingProofs ? (
-            <div style={{ textAlign: "center", padding: "20px", color: "#64748b" }}>
-              Loading proofs...
-            </div>
-          ) : (
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-              gap: 16,
-            }}>
-              {proofs.map((proof) => (
-                <div
-                  key={proof.id}
-                  style={{
-                    background: "#fff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: 6,
-                    padding: 12,
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                  onClick={() => {
-                    setSelectedProofId(proof.id);
-                    setPaymentProofModalOpen(true);
-                  }}
-                >
-                  <div style={{
-                    fontSize: 12,
-                    color: "#64748b",
-                    marginBottom: 4,
-                  }}>
-                    {proof.student_name || "Unknown Student"}
-                  </div>
-                  <div style={{
-                    fontSize: 13,
-                    color: "#475569",
-                    marginBottom: 8,
-                    fontWeight: 500,
-                  }}>
-                    {proof.reference_number}
-                  </div>
-                  {proof.proof_image_url ? (
-                    <img
-                      src={proof.proof_image_url}
-                      alt="Payment proof"
-                      style={{
-                        width: "100%",
-                        height: 120,
-                        objectFit: "cover",
-                        borderRadius: 4,
-                        marginBottom: 8,
-                      }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: "100%",
-                      height: 120,
-                      background: "#f1f5f9",
-                      borderRadius: 4,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginBottom: 8,
-                      color: "#94a3b8",
-                      fontSize: 12,
-                    }}>
-                      No image
-                    </div>
-                  )}
-                  <div style={{
-                    display: "flex",
-                    gap: 6,
-                    fontSize: 11,
-                  }}>
-                    <span style={{
-                      background: "#fef3c7",
-                      color: "#92400e",
-                      padding: "2px 6px",
-                      borderRadius: 3,
-                    }}>
-                      {proof.status}
-                    </span>
-                    <span style={{
-                      color: "#64748b",
-                      fontSize: 10,
-                    }}>
-                      {new Date(proof.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="enrollment-controls">
         <div className="search-box">
           <Search size={16} />
@@ -1734,6 +1607,8 @@ export default function EnrollmentManagement() {
                 <th>Enrollment Date</th>
                 <th>Status</th>
                 <th>Fee Status</th>
+                <th>Payment Method</th>
+                <th>Payment Proof</th>
                 <th>Parent / Guardian</th>
                 <th>Approve / Decline</th>
                 <th>Actions</th>
@@ -1768,6 +1643,103 @@ export default function EnrollmentManagement() {
 
                   <td>
                     <FeeBadge fee={row.fee} />
+                  </td>
+
+                  <td>
+                    <div style={{ fontSize: 12, color: "#475569", fontWeight: 500 }}>
+                      {row.paymentMethod === "online" ? (
+                        <span style={{ background: "#dbeafe", color: "#1e40af", padding: "3px 8px", borderRadius: 3, display: "inline-block" }}>
+                          Online
+                        </span>
+                      ) : row.paymentMethod === "onsite" ? (
+                        <span style={{ background: "#e0e7ff", color: "#4338ca", padding: "3px 8px", borderRadius: 3, display: "inline-block" }}>
+                          Onsite
+                        </span>
+                      ) : (
+                        <span style={{ color: "#94a3b8" }}>—</span>
+                      )}
+                      {" "}
+                      {row.paymentMode === "cash" ? (
+                        <span style={{ background: "#fef3c7", color: "#92400e", padding: "3px 8px", borderRadius: 3, display: "inline-block", marginLeft: 4 }}>
+                          Cash
+                        </span>
+                      ) : row.paymentMode === "installment" ? (
+                        <span style={{ background: "#fce7f3", color: "#831843", padding: "3px 8px", borderRadius: 3, display: "inline-block", marginLeft: 4 }}>
+                          Installment
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
+
+                  <td>
+                    {row.paymentProof ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          cursor: "pointer",
+                        }}
+                        onClick={() => {
+                          setSelectedProofId(row.paymentProof.id);
+                          setPaymentProofModalOpen(true);
+                        }}
+                      >
+                        {row.paymentProof.proof_image_url ? (
+                          <img
+                            src={row.paymentProof.proof_image_url}
+                            alt="Payment proof"
+                            style={{
+                              width: 40,
+                              height: 40,
+                              objectFit: "cover",
+                              borderRadius: 3,
+                              border: "1px solid #e2e8f0",
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: 40,
+                              height: 40,
+                              background: "#f1f5f9",
+                              borderRadius: 3,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 10,
+                              color: "#94a3b8",
+                            }}
+                          >
+                            No IMG
+                          </div>
+                        )}
+                        <span
+                          style={{
+                            fontSize: 11,
+                            padding: "2px 6px",
+                            background:
+                              row.paymentProof.status === "approved"
+                                ? "#dcfce7"
+                                : row.paymentProof.status === "rejected"
+                                ? "#fee2e2"
+                                : "#fef3c7",
+                            color:
+                              row.paymentProof.status === "approved"
+                                ? "#16a34a"
+                                : row.paymentProof.status === "rejected"
+                                ? "#dc2626"
+                                : "#92400e",
+                            borderRadius: 3,
+                            fontWeight: 500,
+                          }}
+                        >
+                          {row.paymentProof.status}
+                        </span>
+                      </div>
+                    ) : (
+                      <span style={{ color: "#94a3b8", fontSize: 12 }}>No proof</span>
+                    )}
                   </td>
 
                   <td>

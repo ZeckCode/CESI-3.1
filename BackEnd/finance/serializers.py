@@ -390,19 +390,49 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
     student_username = serializers.SerializerMethodField()
     student_grade = serializers.SerializerMethodField()
     proof_image_url = serializers.SerializerMethodField()
+    enrollment_id = serializers.SerializerMethodField()
     
     class Meta:
         model = ProofOfPayment
         fields = [
             'id', 'reference_number', 'description', 'proof_image', 
             'proof_image_url', 'status', 'admin_remarks', 
-            'created_at', 'updated_at', 'student_name', 'student_username', 'student_grade'
+            'created_at', 'updated_at', 'student_name', 'student_username', 'student_grade', 'enrollment_id'
         ]
-        read_only_fields = ['id', 'status', 'admin_remarks', 'created_at', 'updated_at', 'student_name', 'student_username', 'student_grade']
+        read_only_fields = ['id', 'status', 'admin_remarks', 'created_at', 'updated_at', 'student_name', 'student_username', 'student_grade', 'enrollment_id']
+    
+    def _get_enrollment(self, obj):
+        """Helper to fetch enrollment from reference_number"""
+        try:
+            from enrollment.models import Enrollment
+            if obj.reference_number and obj.reference_number.startswith('ENROLL-'):
+                enroll_id = int(obj.reference_number.split('-')[1])
+                return Enrollment.objects.get(id=enroll_id)
+        except Exception:
+            pass
+        return None
+    
+    def get_enrollment_id(self, obj):
+        """Extract enrollment ID from reference number"""
+        try:
+            if obj.reference_number and obj.reference_number.startswith('ENROLL-'):
+                return int(obj.reference_number.split('-')[1])
+        except Exception:
+            pass
+        return None
     
     def get_student_name(self, obj):
+        """Get actual student name from enrollment, fall back to user profile"""
+        enrollment = self._get_enrollment(obj)
+        if enrollment:
+            first_name = enrollment.first_name or ''
+            last_name = enrollment.last_name or ''
+            full_name = f"{first_name} {last_name}".strip()
+            if full_name:
+                return full_name
+        
+        # Fallback to user profile
         try:
-            # Get the user's profile and combine first and last name
             profile = obj.user.profile
             first_name = profile.student_first_name or ''
             last_name = profile.student_last_name or ''
@@ -417,6 +447,20 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
         return obj.user.username
     
     def get_student_grade(self, obj):
+        """Get grade from enrollment"""
+        enrollment = self._get_enrollment(obj)
+        if enrollment:
+            from enrollment.views import EnrollmentViewSet
+            # Grading label mapping
+            grade_labels = {
+                'prek': 'Pre-K', 'kinder': 'Kinder',
+                'grade1': 'Grade 1', 'grade2': 'Grade 2', 'grade3': 'Grade 3',
+                'grade4': 'Grade 4', 'grade5': 'Grade 5', 'grade6': 'Grade 6'
+            }
+            grade_code = (enrollment.grade_level or '').lower()
+            return grade_labels.get(grade_code, enrollment.grade_level or '')
+        
+        # Fallback to user profile
         try:
             profile = obj.user.profile
             return profile.grade_level or ''
