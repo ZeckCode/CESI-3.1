@@ -429,9 +429,9 @@
   background: white;
   padding: 0;
   border-radius: 18px;
-  width: 90%;
-  max-width: 1100px;
-  max-height: 90vh;
+  width: 95%;
+  max-width: 1300px;
+  max-height: 92vh;
   overflow-y: auto;
   overflow-x: hidden;
   animation: slideUp 0.25s ease;
@@ -486,7 +486,7 @@
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 24px;
   width: 100%;
   max-width: 100%;
 }
@@ -502,27 +502,28 @@
 }
 
 .form-group label {
-  margin-bottom: 7px;
-  font-size: 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
   font-weight: 600;
   color: #374151;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
 }
 
 .form-group input,
 .form-group select {
   width: 100%;
   max-width: 100%;
-  padding: 13px 15px;
+  padding: 15px 16px;
   border: 1.5px solid #e5e8f0;
   border-radius: 9px;
-  font-size: 14px;
+  font-size: 15px;
   font-family: 'DM Sans', sans-serif;
   color: #1f2937;
   background: white;
   transition: border-color 0.2s;
   box-sizing: border-box;
+  line-height: 1.5;
 }
 
 .form-group input:focus,
@@ -573,13 +574,13 @@
 
 /* ========== ENROLLMENT MODAL HEADER ========== */
 .enrollment-modal-header {
-  padding: 32px 40px;
+  padding: 40px 56px;
   background: linear-gradient(135deg, #f8f9fc 0%, #eff2ff 100%);
   border-bottom: 2px solid #e5e8f0;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  gap: 20px;
 }
 
 .enrollment-modal-title-wrap {
@@ -627,10 +628,10 @@
 /* ========== ENROLLMENT MODAL GRID & SECTIONS ========== */
 .enrollment-modal-grid {
   flex: 1;
-  padding: 36px;
+  padding: 48px 56px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 40px;
   overflow-y: auto;
   width: 100%;
   max-width: 100%;
@@ -640,7 +641,7 @@
 .enrollment-details-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   padding-bottom: 0;
   border-bottom: none;
   width: 100%;
@@ -670,17 +671,17 @@
 }
 
 .enrollment-details-section__header span:first-child {
-  font-size: 20px;
+  font-size: 24px;
   line-height: 1;
 }
 
 .enrollment-details-section__title {
   font-family: 'Syne', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: #1a1d2e;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
 }
 
 .enrollment-details-section__body {
@@ -691,13 +692,15 @@
 
 /* ========== PARENT SECTION LABELS ========== */
 .parent-section-label {
-  margin: 0 0 14px 0;
-  font-size: 12px;
+  margin: 28px 0 18px 0;
+  font-size: 13px;
   font-weight: 700;
   color: #4f6ef7;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  padding-bottom: 8px;
+  letter-spacing: 0.5px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e0e7ff;
+}
   border-bottom: 2px solid #eff2ff;
 }
 
