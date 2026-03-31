@@ -59,7 +59,18 @@ const StepStudent = ({
             onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
           />
           <FieldError error={errors.birthDate} />
+           {ageValidation && (
+        <div
+          className={`age-validation-hint ${
+            ageValidation.ok ? "age-validation-hint--ok" : "age-validation-hint--error"
+          }`}
+        >
+          <span>{ageValidation.ok ? "✓" : "✗"}</span>
+          <span>{ageValidation.msg}</span>
         </div>
+      )}
+        </div>
+        
 
         <div className="form-group">
           <label>Gender <span className="required">*</span></label>
@@ -131,16 +142,7 @@ const StepStudent = ({
         </div>
       </div>
 
-      {ageValidation && (
-        <div
-          className={`age-validation-hint ${
-            ageValidation.ok ? "age-validation-hint--ok" : "age-validation-hint--error"
-          }`}
-        >
-          <span>{ageValidation.ok ? "✓" : "✗"}</span>
-          <span>{ageValidation.msg}</span>
-        </div>
-      )}
+     
 
       <h3>📍 Address</h3>
       <div className="form-grid">
