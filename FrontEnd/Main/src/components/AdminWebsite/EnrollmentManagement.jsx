@@ -819,8 +819,6 @@ export default function EnrollmentManagement() {
       }
 
       await fetchEnrollments();
-      const nowExpired = isEnrollmentExpired(newYear);
-      setModalExpired(nowExpired);
       setEditingAcademicYear(false);
 
       if (!nowExpired) {
@@ -857,7 +855,6 @@ export default function EnrollmentManagement() {
     setEditingId(null);
     setModalMode("edit");
     setModalStatus(null);
-    setModalExpired(false);
     setEditingAcademicYear(false);
 
     setFormData({
@@ -1662,7 +1659,6 @@ export default function EnrollmentManagement() {
         modalMode={modalMode}
         formData={formData}
         modalStatus={modalStatus}
-        modalExpired={modalExpired}
         editingAcademicYear={editingAcademicYear}
         isReadOnly={isReadOnly}
         sectionsLoading={sectionsLoading}

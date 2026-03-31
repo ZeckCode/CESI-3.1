@@ -93,33 +93,7 @@ export const validateAgeForGrade = (birthDate, gradeCode) => {
   return true;
 };
 
-export const getAcademicYearExpiry = (academicYear) => {
-  if (!academicYear) return null;
 
-  const parts = String(academicYear).split("-");
-  if (parts.length !== 2) return null;
-
-  const endYear = parseInt(parts[1], 10);
-  if (Number.isNaN(endYear)) return null;
-
-  return new Date(endYear, 2, 31, 23, 59, 59);
-};
-
-export const isEnrollmentExpired = (academicYear) => {
-  const expiry = getAcademicYearExpiry(academicYear);
-  return expiry ? new Date() > expiry : false;
-};
-
-export const formatExpiryDate = (academicYear) => {
-  const expiry = getAcademicYearExpiry(academicYear);
-  if (!expiry) return "—";
-
-  return expiry.toLocaleDateString("en-PH", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-};
 
 export const fmtDate = (date) =>
   date instanceof Date

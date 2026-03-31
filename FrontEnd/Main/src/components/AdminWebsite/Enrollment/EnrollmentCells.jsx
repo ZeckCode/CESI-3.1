@@ -1,5 +1,4 @@
 import React from "react";
-import { formatExpiryDate } from "./enrollmentUtils";
 
 export function StudentCell({ row }) {
   return (
