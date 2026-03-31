@@ -6,16 +6,16 @@ import "../IndexWebsiteCSS/AnnouncementCard.css";
 import OrganizationalChart from "../AdminWebsite/OrganizationalChart";
 import { apiFetch } from "../api/apiFetch";
 import { API_BASE_URL } from "../../config/api";
-import "leaflet/dist/leaflet.css";
+
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 
 // Fix for default marker icons in Leaflet with React
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
-  iconUrl: require("leaflet/dist/images/marker-icon.png"),
-  shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
 const API_BASE = ""; // keep for backwards-compat; prefer toAbsUrl below
