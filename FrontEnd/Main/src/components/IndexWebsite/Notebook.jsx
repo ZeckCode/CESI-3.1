@@ -6,6 +6,17 @@ import "../IndexWebsiteCSS/AnnouncementCard.css";
 import OrganizationalChart from "../AdminWebsite/OrganizationalChart";
 import { apiFetch } from "../api/apiFetch";
 import { API_BASE_URL } from "../../config/api";
+import "leaflet/dist/leaflet.css";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+
+// Fix for default marker icons in Leaflet with React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
+  iconUrl: require("leaflet/dist/images/marker-icon.png"),
+  shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
+});
 
 const API_BASE = ""; // keep for backwards-compat; prefer toAbsUrl below
 
@@ -111,6 +122,73 @@ const Notebook = ({ onClose, openEnrollment }) => {
       </div>
     );
   };
+
+  // Free Map Component using OpenStreetMap
+const FreeMap = ({ address }) => {
+  const [coordinates, setCoordinates] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!address) {
+      setLoading(false);
+      return;
+    }
+
+    // Using Nominatim (OpenStreetMap's free geocoding service)
+    const geocodeAddress = async () => {
+      try {
+        setLoading(true);
+        const encodedAddress = encodeURIComponent(address);
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`
+        );
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+          setCoordinates({
+            lat: parseFloat(data[0].lat),
+            lng: parseFloat(data[0].lon),
+          });
+        } else {
+          setError("Location not found");
+        }
+      } catch (err) {
+        setError("Error loading map");
+        console.error("Geocoding error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    geocodeAddress();
+  }, [address]);
+
+  if (loading) return <p>Loading map...</p>;
+  if (error) return <p style={{ color: "red" }}>{error}</p>;
+  if (!coordinates) return <p>No location available</p>;
+
+  return (
+    <div className="free-map-container">
+      <MapContainer
+        center={[coordinates.lat, coordinates.lng]}
+        zoom={15}
+        style={{ height: "400px", width: "100%", borderRadius: "8px" }}
+        scrollWheelZoom={false}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <Marker position={[coordinates.lat, coordinates.lng]}>
+          <Popup>
+            {address}
+          </Popup>
+        </Marker>
+      </MapContainer>
+    </div>
+  );
+};
 
   const content = {
     announcements: {
@@ -248,6 +326,10 @@ const Notebook = ({ onClose, openEnrollment }) => {
             <strong>Address:</strong> {(cmsData.contact && cmsData.contact.address) ? cmsData.contact.address : "#47 P. Zamora St. Caloocan City, Metro Manila"}
           </p>
 
+{/* Free Map Section */}
+      <h3>📍 Location Map</h3>
+      <FreeMap address={(cmsData.contact && cmsData.contact.address) || "#47 P. Zamora St. Caloocan City, Metro Manila"} />
+      
           <h3>💬 Social Media</h3>
           <p>Facebook: <a href={(cmsData.contact && cmsData.contact.facebook_link) ? cmsData.contact.facebook_link : "https://facebook.com/cesicaloocan"} target="_blank" rel="noopener noreferrer">@cesicaloocan</a></p>
         </>
