@@ -381,7 +381,7 @@ export default function EnrollmentManagement() {
     if (!e.student_type) missing.push("Student Type");
     if (!e.academic_year) missing.push("Academic Year");
     if (!e.payment_mode) missing.push("Payment Mode");
-    if (!e.parent_facebook?.trim()) missing.push("Parent Facebook");
+    // if (!e.parent_facebook?.trim()) missing.push("Parent Facebook");
 
     const hasStudentContact =
       e.email?.trim() || e.mobile_number?.trim() || e.telephone_number?.trim();
@@ -664,7 +664,7 @@ export default function EnrollmentManagement() {
     ) {
       missing.push("At least one contact (Email, Mobile, or Telephone)");
     }
-    if (!formData.parent_facebook?.trim()) missing.push("Parent Facebook");
+    // if (!formData.parent_facebook?.trim()) missing.push("Parent Facebook");
     if (!formData.payment_mode) missing.push("Payment Mode");
 
     const lrnRequiredGrades = [

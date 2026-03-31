@@ -914,7 +914,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         try:
             send_mail(
-                subject="Enrollment Approved - Student Portal Account",
+                subject="Enrollment Application Status - Student Portal Account",
                 message=(
                     f"Dear Parent/Guardian,\n\n"
                     f"Congratulations and welcome to Caloocan Evangelical School Inc. (CESI)!\n\n"
@@ -1006,21 +1006,25 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         try:
             send_mail(
-                subject="Enrollment Application Declined",
+                subject="Enrollment Application Status - Caloocan Evangelical School Inc.",
                 message=(
                     f"Dear Parent/Guardian,\n\n"
-                    f"Good day.\n\n"
-                    f"We regret to inform you that the enrollment application of "
+                    f"Thank you for entrusting Caloocan Evangelical School Inc. (CESI) with your child's education.\n\n"
+                    f"After careful review of the application submitted for "
                     f"{enrollment.first_name} {enrollment.last_name} "
-                    f"for Academic Year {enrollment.academic_year} has been declined.\n\n"
-                    f"Student Name  : {enrollment.first_name} {enrollment.last_name}\n"
-                    f"Grade Level   : {pretty_grade}\n"
-                    f"Academic Year : {enrollment.academic_year}\n"
-                    f"Status        : {enrollment.status}\n"
+                    f"for Academic Year {enrollment.academic_year}, we regret to inform you that the enrollment application cannot be accommodated at this time.\n\n"
+                    f"Application Details:\n\n"
+                    f"Student Name   : {enrollment.first_name} {enrollment.last_name}\n"
+                    f"Grade Level    : {pretty_grade}\n"
+                    f"Academic Year  : {enrollment.academic_year}\n"
                     f"{reason_block}"
-                    f"For clarification or further assistance regarding this application, "
-                    f"please contact the school directly.\n\n"
-                    f"Thank you."
+                    f"We understand that this may be disappointing news, and we appreciate your interest in CESI.\n\n"
+                    f"Should you have any questions or require further clarification regarding this decision, please feel free to contact the Admissions Office.\n\n"
+                    f"We wish your child continued success in their educational journey.\n\n"
+                    f"Thank you for your understanding.\n\n"
+                    f"Sincerely,\n"
+                    f"Caloocan Evangelical School Inc.\n"
+                    f"Admissions Office"
                 ),
                 from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost"),
                 recipient_list=[recipient_email],
@@ -1238,7 +1242,11 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
             email_sent = None
             email_error = None
-
+            
+            print("user:", request.user)
+            print("is_authenticated:", request.user.is_authenticated)
+            print("is_staff:", getattr(request.user, "is_staff", None))
+            print("auth:", request.auth)
             recipient_email = (enrollment.email or "").strip().lower()
             if recipient_email:
                 email_sent, email_error = self._send_declined_email(
