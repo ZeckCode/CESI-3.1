@@ -678,15 +678,7 @@ export default function StudentReenrollment() {
     <div className="profile-content">
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
-      <div className="profile-hero-card">
-        <div className="hero-text">
-          <h1 className="student-name">Student enrollment</h1>
-          <p className="student-lrn">
-            Review and update your information before submitting your
-            enrollment application.
-          </p>
-        </div>
-      </div>
+     
 
       <div
         style={{

@@ -210,7 +210,7 @@ export default function StudentMain() {
       messages: "View and send messages.",
       reminders: "View payment reminders and important updates.",
       enrollment: enrollmentOpen
-        ? "The Enrollment Period is Open."
+        ? "The Enrollment Period is Open. \n\n Please review your information and submit your application."
         : "Enrollment is currently unavailable.",
     };
     return subtitles[activeMenu] || "Welcome back!";
