@@ -1273,15 +1273,17 @@
     margin-bottom: 0;
     border: none;
     border-radius: 12px;
-    padding: 14px;
+    padding: 16px;
     background: white;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     overflow: visible;
+    border-left: 4px solid #5BA3C7;
   }
   
   .enrollments-table tbody tr:hover {
     background: white;
-    box-shadow: 0 3px 12px rgba(0,0,0,0.10);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    border-left-color: #357ABD;
   }
   
   /* Hide table header */
@@ -1301,10 +1303,11 @@
   
   /* Student name - prominent */
   .enrollments-table tbody tr > td:first-child {
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: 700;
+    font-size: 15px;
     color: #1a1d2e;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+    letter-spacing: 0.2px;
   }
   
   .enrollments-table tbody tr > td:first-child::before {
@@ -1319,10 +1322,11 @@
   .enrollments-table tbody tr > td:nth-child(8) {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     padding: 0;
     margin-right: 6px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     border-bottom: none;
   }
   
@@ -1334,13 +1338,13 @@
     display: none;
   }
   
-  /* Info rows - smaller text */
+  /* Info rows - smaller text with labels */
   .enrollments-table tbody tr > td {
     display: grid;
     grid-column: 1;
-    font-size: 12px;
+    font-size: 13px;
     color: #6b7280;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
   
   .enrollments-table tbody tr > td::before {
@@ -1349,8 +1353,8 @@
     color: #9ca3af;
     font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
-    margin-bottom: 3px;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
     display: block;
   }
   
@@ -1389,11 +1393,14 @@
   
   /* Status badges styling */
   .status-badge, .fee-badge {
-    padding: 5px 10px;
-    font-size: 10px;
-    min-height: 26px;
+    padding: 6px 12px;
+    font-size: 11px;
+    min-height: 28px;
     border-radius: 6px;
     white-space: nowrap;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
   }
   
   .modal-content { width: 98%; max-width: 100%; padding: 0; }
@@ -1458,10 +1465,18 @@
   
   /* Mobile card improvements */
   .enrollments-table tbody tr { 
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     border-radius: 10px;
-    padding: 12px;
+    padding: 14px;
     gap: 10px;
+    border-left: 4px solid #5BA3C7;
+  }
+
+  .enrollments-table tbody tr > td:first-child {
+    font-weight: 700;
+    font-size: 14px;
+    color: #1a1d2e;
+    margin-bottom: 10px;
   }
   
   .enrollments-table tbody tr td { 
@@ -1474,11 +1489,13 @@
     font-size: 9px;
     margin-bottom: 3px;
     font-weight: 600;
+    color: #9ca3af;
   }
   
   .enrollments-table tbody tr td:last-child {
     padding: 0;
     gap: 6px;
+    grid-row: 1;
   }
   
   .action-menu-container {
@@ -1486,10 +1503,16 @@
   }
   
   .action-view-button, .action-menu-toggle {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     font-size: 14px;
     border-radius: 8px;
+  }
+
+  .status-badge, .fee-badge {
+    padding: 5px 10px;
+    font-size: 10px;
+    border-radius: 6px;
   }
   
   .action-menu-dropdown {

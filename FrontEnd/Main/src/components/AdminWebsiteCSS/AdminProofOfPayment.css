@@ -544,6 +544,10 @@
 
 /* ── Mobile (<768px) ── */
 @media (max-width: 768px) {
+  .admin-proof-modal-overlay {
+    padding: 12px;
+  }
+
   .admin-proof-wrapper {
     padding: 1rem;
   }
@@ -599,8 +603,10 @@
   }
 
   .admin-proof-modal {
-    width: 95%;
-    max-width: 95vw;
+    width: 90%;
+    max-width: 90vw;
+    max-height: 85vh;
+    box-sizing: border-box;
   }
 
   .admin-proof-search-input,
@@ -611,6 +617,10 @@
 
 /* ── Small Mobile (<600px) ── */
 @media (max-width: 600px) {
+  .admin-proof-modal-overlay {
+    padding: 10px;
+  }
+
   .admin-proof-wrapper {
     padding: 12px;
   }
@@ -702,11 +712,30 @@
   .admin-proof-modal {
     width: 100%;
     max-width: 100%;
+    padding: 1rem;
+    max-height: 90vh;
+    box-sizing: border-box;
+  }
+
+  .admin-proof-modal-header {
+    padding: 0;
+    margin-bottom: 1rem;
+  }
+
+  .admin-proof-modal-close {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+
+  .admin-proof-modal-body {
+    padding: 0;
   }
 
   .admin-proof-modal-actions {
     flex-direction: column;
     gap: 8px;
+    padding: 0;
   }
 
   .btn-approve,
@@ -790,6 +819,13 @@
   .admin-proof-modal {
     width: 100%;
     padding: 1rem;
+    max-height: 95vh;
+    box-sizing: border-box;
+    border-radius: 8px;
+  }
+
+  .admin-proof-modal-overlay {
+    padding: 8px;
   }
 
   .admin-proof-modal h3 {

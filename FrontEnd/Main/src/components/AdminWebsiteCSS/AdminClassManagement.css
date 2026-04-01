@@ -1031,6 +1031,10 @@
 }
 
 @media (max-width: 768px) {
+  .admin-modal-overlay {
+    padding: 12px;
+  }
+
   .admin-class-management {
     padding: 14px;
   }
@@ -1045,6 +1049,25 @@
 
   .admin-form-row {
     grid-template-columns: 1fr;
+  }
+
+  .admin-modal-content {
+    width: 90%;
+    max-width: 600px;
+    padding: 18px;
+    max-height: 85vh;
+    box-sizing: border-box;
+  }
+
+  .admin-modal-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .admin-modal-close-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
   }
 
   .admin-classes-grid {
@@ -1101,12 +1124,42 @@
 }
 
 @media (max-width: 480px) {
+  .admin-modal-overlay {
+    padding: 8px;
+  }
+
   .admin-class-management {
     padding: 10px;
   }
 
   .admin-class-management .unified-stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-modal-content {
+    width: 100%;
+    max-width: 100%;
+    padding: 14px;
+    max-height: 90vh;
+    box-sizing: border-box;
+    border-radius: 10px;
+  }
+
+  .admin-modal-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .admin-modal-header h2 {
+    font-size: 18px;
+  }
+
+  .admin-modal-close-btn {
+    align-self: flex-end;
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
   }
 
   .admin-tabs-container {
@@ -1122,11 +1175,6 @@
     grid-template-columns: 1fr;
   }
 
-  .admin-modal-content {
-    width: 95%;
-    padding: 20px;
-  }
-
   .admin-schedule-table th,
   .admin-schedule-table td {
     font-size: 12px;
@@ -1135,6 +1183,17 @@
 
   .admin-subjects-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-form-group {
+    margin-bottom: 14px;
+  }
+
+  .admin-form-group input,
+  .admin-form-group select,
+  .admin-form-group textarea {
+    font-size: 14px;
+    padding: 10px;
   }
 }
 
