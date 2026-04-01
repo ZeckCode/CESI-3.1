@@ -912,9 +912,9 @@ export default function Ledgers() {
                                 fontWeight: 700,
                               }}
                             >
-                              <td colSpan="3" style={{ textAlign: "right", display: "none" }}>
-                                TOTAL:
-                              </td>
+                              <td style={{ textAlign: "left" }}></td>
+                              <td style={{ textAlign: "left" }}></td>
+                              <td style={{ textAlign: "left" }}>TOTAL:</td>
                               <td style={{ textAlign: "right" }} data-label="Total Due">
                                 {formatCurrency(
                                   (student.installments || []).reduce(

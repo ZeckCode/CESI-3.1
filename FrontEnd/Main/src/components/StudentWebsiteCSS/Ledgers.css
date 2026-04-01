@@ -326,6 +326,11 @@
   font-size: 0.95rem;
 }
 
+.ledger-table tfoot td:first-child,
+.ledger-table tfoot td:nth-child(2) {
+  border-right: 1px solid #dee2e6;
+}
+
 .ledger-table tfoot td::before {
   display: none;
 }
@@ -419,6 +424,14 @@
   }
 
   .ledger-table tfoot td {
+    display: none;
+  }
+
+  /* Show only the total cells on mobile */
+  .ledger-table tfoot td:nth-child(3),
+  .ledger-table tfoot td[data-label="Total Due"],
+  .ledger-table tfoot td[data-label="Total Paid"],
+  .ledger-table tfoot td[data-label="Total Balance"] {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -431,8 +444,21 @@
     font-size: 0.95rem;
   }
 
-  .ledger-table tfoot td:first-child {
-    display: none;
+  /* Hide empty cells (1st, 2nd, 7th) on mobile */
+  .ledger-table tfoot td:nth-child(1),
+  .ledger-table tfoot td:nth-child(2),
+  .ledger-table tfoot td:nth-child(7) {
+    display: none !important;
+  }
+
+  .ledger-table tfoot td:nth-child(3)::before {
+    content: "TOTAL";
+    font-weight: 700;
+    color: #64748b;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
   }
 
   .ledger-table tfoot td::before {
@@ -734,6 +760,14 @@
 
   .ledger-table tfoot td::before {
     font-size: 0.75rem;
+  }
+
+  /* Ensure total label displays properly */
+  .ledger-table tfoot td:nth-child(3),
+  .ledger-table tfoot td[data-label="Total Due"],
+  .ledger-table tfoot td[data-label="Total Paid"],
+  .ledger-table tfoot td[data-label="Total Balance"] {
+    padding: 0.65rem 0.75rem !important;
   }
 }
 
