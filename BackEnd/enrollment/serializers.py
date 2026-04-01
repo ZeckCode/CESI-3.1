@@ -379,22 +379,22 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             ParentInfo.objects.create(enrollment=enrollment, **parent_data)
 
         # Create Proof of Payment if file was uploaded
-        if payment_proof_file:
-            from finance.models import ProofOfPayment
+        # if payment_proof_file:
+        #     from finance.models import ProofOfPayment
             
-            # Get reference number from form or generate one
-            reference_number = validated_data.get('reference_number') or f"ENR-{enrollment.id}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        #     # Get reference number from form or generate one
+        #     reference_number = validated_data.get('reference_number') or f"ENR-{enrollment.id}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
             
-            ProofOfPayment.objects.create(
-                user=public_user,
-                enrollment=enrollment,
-                reference_number=reference_number,
-                description="Enrollment Initial Payment",  # Base description
-                proof_image=payment_proof_file,
-                payment_type='enrollment',  # Mark as enrollment payment
-                source='enrollment_form',   # Mark source as enrollment form
-                status='pending'
-            )
+        #     ProofOfPayment.objects.create(
+        #         user=public_user,
+        #         enrollment=enrollment,
+        #         reference_number=reference_number,
+        #         description="Enrollment Initial Payment",  # Base description
+        #         proof_image=payment_proof_file,
+        #         payment_type='enrollment',  # Mark as enrollment payment
+        #         source='enrollment_form',   # Mark source as enrollment form
+        #         status='pending'
+        #     )
             
         # Store files for perform_create to handle
         self.context['_files'] = {
