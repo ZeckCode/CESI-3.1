@@ -16,7 +16,7 @@ import {
   Search, Filter, Download, FileDown, 
   CheckCircle, Clock,
   Plus, X, ChevronDown, ChevronUp, Edit2, Trash2,
-  Bell, Receipt
+  Bell, Wallet
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import '../AdminWebsiteCSS/TransactionHistory.css';
@@ -753,7 +753,7 @@ const TransactionHistory = () => {
           <div className="th-stat-card th-stat-blue">
             <div className="th-stat-header">
               <span className="th-stat-label">Total Billed</span>
-              <Receipt size={24} className="th-stat-icon" />
+              <Wallet size={24} className="th-stat-icon" />
             </div>
             <div className="th-stat-value">{formatCurrency(stats.total_billed)}</div>
             <div className="th-stat-change positive">Ledger debits</div>
