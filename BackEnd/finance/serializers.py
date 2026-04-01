@@ -391,31 +391,20 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
     student_grade = serializers.SerializerMethodField()
     proof_image_url = serializers.SerializerMethodField()
     enrollment_id = serializers.SerializerMethodField()
-    enrollment_details = serializers.SerializerMethodField()
     
     class Meta:
-            model = ProofOfPayment
-            fields = [
-                'id', 'reference_number', 'description', 'proof_image', 
-                'proof_image_url', 'status', 'admin_remarks', 
-                'created_at', 'updated_at', 'student_name', 'student_username', 
-                'student_grade', 'enrollment_id', 'enrollment_details'  
-            ]
-            read_only_fields = ['id', 'status', 'admin_remarks', 'created_at', 
-                            'updated_at', 'student_name', 'student_username', 
-                            'student_grade', 'enrollment_id', 'enrollment_details']
+        model = ProofOfPayment
+        fields = [
+            'id', 'reference_number', 'description', 'proof_image', 
+            'proof_image_url', 'status', 'admin_remarks', 
+            'created_at', 'updated_at', 'student_name', 'student_username', 'student_grade', 'enrollment_id'
+        ]
+        read_only_fields = ['id', 'status', 'admin_remarks', 'created_at', 'updated_at', 'student_name', 'student_username', 'student_grade', 'enrollment_id']
     
     def _get_enrollment(self, obj):
-        """Try to find enrollment by user first, then by reference number"""
+        """Helper to fetch enrollment from reference_number"""
         try:
             from enrollment.models import Enrollment
-            
-            # First try: get enrollment by user (most reliable)
-            enrollment = Enrollment.objects.filter(user=obj.user).order_by('-created_at').first()
-            if enrollment:
-                return enrollment
-            
-            # Second try: extract from reference number if it starts with ENROLL-
             if obj.reference_number and obj.reference_number.startswith('ENROLL-'):
                 enroll_id = int(obj.reference_number.split('-')[1])
                 return Enrollment.objects.get(id=enroll_id)
@@ -423,26 +412,17 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
             pass
         return None
     
-    
     def get_enrollment_id(self, obj):
-        enrollment = self._get_enrollment(obj)
-        return enrollment.id if enrollment else None
-    
-    def get_enrollment_details(self, obj):
-        enrollment = self._get_enrollment(obj)
-        if enrollment:
-            return {
-                'id': enrollment.id,
-                'first_name': enrollment.first_name,
-                'last_name': enrollment.last_name,
-                'grade_level': enrollment.grade_level,
-                'status': enrollment.status,
-                'academic_year': enrollment.academic_year,
-            }
+        """Extract enrollment ID from reference number"""
+        try:
+            if obj.reference_number and obj.reference_number.startswith('ENROLL-'):
+                return int(obj.reference_number.split('-')[1])
+        except Exception:
+            pass
         return None
     
     def get_student_name(self, obj):
-        # First try: get from enrollment
+        """Get actual student name from enrollment, fall back to user profile"""
         enrollment = self._get_enrollment(obj)
         if enrollment:
             first_name = enrollment.first_name or ''
@@ -450,49 +430,42 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
             full_name = f"{first_name} {last_name}".strip()
             if full_name:
                 return full_name
-            
-        # Second try: get from user profile
+        
+        # Fallback to user profile
         try:
             profile = obj.user.profile
-            first_name = getattr(profile, 'student_first_name', '') or ''
-            last_name = getattr(profile, 'student_last_name', '') or ''
+            first_name = profile.student_first_name or ''
+            last_name = profile.student_last_name or ''
             full_name = f"{first_name} {last_name}".strip()
             if full_name:
                 return full_name
+            return obj.user.username
         except:
-            pass
-        
-        # Final fallback: username
-        return obj.user.username
+            return obj.user.username
     
     def get_student_username(self, obj):
         return obj.user.username
     
     def get_student_grade(self, obj):
-        # First try: get from enrollment
+        """Get grade from enrollment"""
         enrollment = self._get_enrollment(obj)
-        if enrollment and enrollment.grade_level:
-            # Convert grade code to label if needed
+        if enrollment:
+            from enrollment.views import EnrollmentViewSet
+            # Grading label mapping
             grade_labels = {
-                'prek': 'Pre-K',
-                'kinder': 'Kinder',
-                'grade1': 'Grade 1',
-                'grade2': 'Grade 2',
-                'grade3': 'Grade 3',
-                'grade4': 'Grade 4',
-                'grade5': 'Grade 5',
-                'grade6': 'Grade 6',
+                'prek': 'Pre-K', 'kinder': 'Kinder',
+                'grade1': 'Grade 1', 'grade2': 'Grade 2', 'grade3': 'Grade 3',
+                'grade4': 'Grade 4', 'grade5': 'Grade 5', 'grade6': 'Grade 6'
             }
-            grade_code = enrollment.grade_level.lower()
-            return grade_labels.get(grade_code, enrollment.grade_level)
+            grade_code = (enrollment.grade_level or '').lower()
+            return grade_labels.get(grade_code, enrollment.grade_level or '')
         
-        # Second try: get from user profile
+        # Fallback to user profile
         try:
             profile = obj.user.profile
             return profile.grade_level or ''
         except:
-            pass
-        return ""
+            return ""
     
     def get_proof_image_url(self, obj):
         request = self.context.get('request')

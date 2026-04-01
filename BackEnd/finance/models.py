@@ -217,14 +217,6 @@ class ProofOfPayment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    enrollment = models.ForeignKey(
-        'enrollment.Enrollment',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='payment_proofs'
-    )
-    
     class Meta:
         ordering = ['-created_at']
     
