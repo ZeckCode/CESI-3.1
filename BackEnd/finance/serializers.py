@@ -392,17 +392,29 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
     proof_image_url = serializers.SerializerMethodField()
     enrollment_id = serializers.SerializerMethodField()
     
+    # Add these new fields
+    payment_type = serializers.CharField(read_only=True)
+    source = serializers.CharField(read_only=True)
+    
     class Meta:
         model = ProofOfPayment
         fields = [
             'id', 'reference_number', 'description', 'proof_image', 
             'proof_image_url', 'status', 'admin_remarks', 
-            'created_at', 'updated_at', 'student_name', 'student_username', 'student_grade', 'enrollment_id'
+            'created_at', 'updated_at', 'student_name', 'student_username', 
+            'student_grade', 'enrollment_id', 'payment_type', 'source'  # Added payment_type and source
         ]
-        read_only_fields = ['id', 'status', 'admin_remarks', 'created_at', 'updated_at', 'student_name', 'student_username', 'student_grade', 'enrollment_id']
+        read_only_fields = ['id', 'status', 'admin_remarks', 'created_at', 'updated_at', 
+                           'student_name', 'student_username', 'student_grade', 
+                           'enrollment_id', 'payment_type', 'source']
     
     def _get_enrollment(self, obj):
-        """Helper to fetch enrollment from reference_number"""
+        """Helper to fetch enrollment from reference_number or direct relation"""
+        # First check if enrollment is directly linked
+        if hasattr(obj, 'enrollment') and obj.enrollment:
+            return obj.enrollment
+        
+        # Fallback to parsing reference number
         try:
             from enrollment.models import Enrollment
             if obj.reference_number and obj.reference_number.startswith('ENROLL-'):
@@ -413,7 +425,10 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
         return None
     
     def get_enrollment_id(self, obj):
-        """Extract enrollment ID from reference number"""
+        """Extract enrollment ID"""
+        if hasattr(obj, 'enrollment') and obj.enrollment:
+            return obj.enrollment.id
+        
         try:
             if obj.reference_number and obj.reference_number.startswith('ENROLL-'):
                 return int(obj.reference_number.split('-')[1])
@@ -423,6 +438,7 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
     
     def get_student_name(self, obj):
         """Get actual student name from enrollment, fall back to user profile"""
+        # For enrollment payments, get from linked enrollment
         enrollment = self._get_enrollment(obj)
         if enrollment:
             first_name = enrollment.first_name or ''
@@ -450,8 +466,7 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
         """Get grade from enrollment"""
         enrollment = self._get_enrollment(obj)
         if enrollment:
-            from enrollment.views import EnrollmentViewSet
-            # Grading label mapping
+            # Grade label mapping
             grade_labels = {
                 'prek': 'Pre-K', 'kinder': 'Kinder',
                 'grade1': 'Grade 1', 'grade2': 'Grade 2', 'grade3': 'Grade 3',

@@ -1689,76 +1689,53 @@ const handleApprove = async (id) => {
                   </td>
 
                   <td>
-  {row.paymentProof ? (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-        cursor: "pointer",
-      }}
-      onClick={() => {
-        // Open image overlay directly without modal
-        setImageViewerOpen(true);
-        setSelectedImageUrl(row.paymentProof.proof_image_url);
-      }}
-    >
-      {row.paymentProof.proof_image_url ? (
-        <>
-          <img
-            src={row.paymentProof.proof_image_url}
-            alt="Payment proof"
-            style={{
-              width: "50px",
-              height: "50px",
-              objectFit: "cover",
-              borderRadius: "4px",
-              border: "1px solid #e2e8f0",
-            }}
-          />
-          <button
-            style={{
-              background: "#f1f5f9",
-              border: "none",
-              borderRadius: "4px",
-              padding: "4px 8px",
-              fontSize: "12px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setImageViewerOpen(true);
-              setSelectedImageUrl(row.paymentProof.proof_image_url);
-            }}
-          >
-            <Eye size={14} /> View
-          </button>
-        </>
-      ) : (
-        <div
-          style={{
-            width: "50px",
-            height: "50px",
-            background: "#f1f5f9",
-            borderRadius: "4px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "10px",
-            color: "#94a3b8",
-          }}
-        >
-          No IMG
-        </div>
-      )}
-    </div>
-  ) : (
-    <span style={{ color: "#94a3b8", fontSize: "12px" }}>No proof</span>
-  )}
-</td>
+                  {row.paymentProof ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => {
+                        setImageViewerOpen(true);
+                        setSelectedImageUrl(row.paymentProof.proof_image_url);
+                      }}
+                    >
+                      {row.paymentProof.proof_image_url ? (
+                        <img
+                          src={row.paymentProof.proof_image_url}
+                          alt="Payment proof"
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            objectFit: "cover",
+                            borderRadius: "4px",
+                            border: "1px solid #e2e8f0",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            background: "#f1f5f9",
+                            borderRadius: "4px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "10px",
+                            color: "#94a3b8",
+                          }}
+                        >
+                          No IMG
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span style={{ color: "#94a3b8", fontSize: "12px" }}>No proof</span>
+                  )}
+                  </td>
 
                   <td>
                     <ParentCell row={row} />

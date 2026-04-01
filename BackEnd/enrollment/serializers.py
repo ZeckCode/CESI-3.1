@@ -100,13 +100,40 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         return ""
     
     def get_payment_proof(self, obj):
-        if hasattr(obj, 'payment_proof'):
-            return {
-                'id': obj.payment_proof.id,
-                'status': obj.payment_proof.status,
-                'proof_image_url': obj.payment_proof.proof_image.url if obj.payment_proof.proof_image else None,
-                'reference_number': obj.payment_proof.reference_number,
-            }
+        try:
+            # Try to get payment proof by enrollment relation
+            if hasattr(obj, 'payment_proof'):
+                proof = obj.payment_proof
+                return {
+                    'id': proof.id,
+                    'status': proof.status,
+                    'proof_image_url': proof.proof_image.url if proof.proof_image else None,
+                    'reference_number': proof.reference_number,
+                    'payment_type': proof.payment_type,
+                    'source': proof.source,
+                }
+        except:
+            pass
+        
+        # Fallback: try by reference number format
+        try:
+            from finance.models import ProofOfPayment
+            proof = ProofOfPayment.objects.filter(
+                reference_number=f"ENROLL-{obj.id}",
+                payment_type='enrollment'
+            ).first()
+            if proof:
+                return {
+                    'id': proof.id,
+                    'status': proof.status,
+                    'proof_image_url': proof.proof_image.url if proof.proof_image else None,
+                    'reference_number': proof.reference_number,
+                    'payment_type': proof.payment_type,
+                    'source': proof.source,
+                }
+        except:
+            pass
+        
         return None
 
 
@@ -351,6 +378,24 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         if parent_data:
             ParentInfo.objects.create(enrollment=enrollment, **parent_data)
 
+        # Create Proof of Payment if file was uploaded
+        if payment_proof_file:
+            from finance.models import ProofOfPayment
+            
+            # Get reference number from form or generate one
+            reference_number = validated_data.get('reference_number') or f"ENR-{enrollment.id}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+            
+            ProofOfPayment.objects.create(
+                user=public_user,
+                enrollment=enrollment,
+                reference_number=reference_number,
+                description="Enrollment Initial Payment",  # Base description
+                proof_image=payment_proof_file,
+                payment_type='enrollment',  # Mark as enrollment payment
+                source='enrollment_form',   # Mark source as enrollment form
+                status='pending'
+            )
+            
         # Store files for perform_create to handle
         self.context['_files'] = {
             'payment_proof_file': payment_proof_file,

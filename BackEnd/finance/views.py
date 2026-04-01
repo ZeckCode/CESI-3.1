@@ -603,15 +603,20 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        if self.request.user.is_staff:
-            queryset = ProofOfPayment.objects.all().select_related('user')
+        if self.request.user.is_staff or self.request.user.role == 'ADMIN':
+            queryset = ProofOfPayment.objects.all().select_related('user', 'enrollment')
         else:
-            queryset = ProofOfPayment.objects.filter(user=self.request.user).select_related('user')
+            queryset = ProofOfPayment.objects.filter(user=self.request.user).select_related('user', 'enrollment')
         
         # Filter by status if provided
         status = self.request.query_params.get('status')
         if status:
             queryset = queryset.filter(status=status)
+        
+        # Filter by payment type if provided
+        payment_type = self.request.query_params.get('payment_type')
+        if payment_type:
+            queryset = queryset.filter(payment_type=payment_type)
         
         return queryset
     
@@ -619,7 +624,13 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
         return {'request': self.request}
     
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        # For student portal submissions (installment payments)
+        serializer.save(
+            user=self.request.user,
+            payment_type='installment',
+            source='student_portal',
+            status='pending'
+        )
     
     @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAdminUser])
     def approve(self, request, pk=None):
@@ -627,6 +638,13 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
         proof.status = 'approved'
         proof.admin_remarks = request.data.get('remarks', '')
         proof.save()
+        
+        # If this is an enrollment payment, also update enrollment status
+        if proof.payment_type == 'enrollment' and proof.enrollment:
+            if proof.enrollment.status == 'PENDING':
+                proof.enrollment.status = 'ACTIVE'
+                proof.enrollment.save()
+        
         return Response({'status': 'approved', 'message': 'Payment proof approved'})
     
     @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAdminUser])
@@ -635,4 +653,12 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
         proof.status = 'rejected'
         proof.admin_remarks = request.data.get('remarks', '')
         proof.save()
+        
+        # If this is an enrollment payment, also update enrollment status
+        if proof.payment_type == 'enrollment' and proof.enrollment:
+            if proof.enrollment.status == 'PENDING':
+                proof.enrollment.status = 'DROPPED'
+                proof.enrollment.remarks = f"Payment proof rejected: {request.data.get('remarks', 'No reason provided')}"
+                proof.enrollment.save()
+        
         return Response({'status': 'rejected', 'message': 'Payment proof rejected'})

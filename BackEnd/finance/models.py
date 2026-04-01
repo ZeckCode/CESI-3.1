@@ -193,7 +193,19 @@ class TuitionConfig(models.Model):
         return f"{self.grade_label} Tuition"
 
 
+# finance/models.py - Add these fields to your ProofOfPayment model
+
 class ProofOfPayment(models.Model):
+    PAYMENT_TYPE_CHOICES = [
+        ('enrollment', 'Enrollment Initial Payment'),
+        ('installment', 'Installment Payment'),
+    ]
+    
+    SOURCE_CHOICES = [
+        ('enrollment_form', 'Enrollment Form'),
+        ('student_portal', 'Student Portal'),
+    ]
+    
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('approved', 'Approved'),
@@ -205,6 +217,29 @@ class ProofOfPayment(models.Model):
         on_delete=models.CASCADE,
         related_name='proof_of_payments'
     )
+    
+    # ADD THESE TWO NEW FIELDS
+    payment_type = models.CharField(
+        max_length=20,
+        choices=PAYMENT_TYPE_CHOICES,
+        default='installment'
+    )
+    source = models.CharField(
+        max_length=50,
+        choices=SOURCE_CHOICES,
+        blank=True,
+        null=True
+    )
+    
+    # Optional: Link to enrollment
+    enrollment = models.ForeignKey(
+        'enrollment.Enrollment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payment_proof'
+    )
+    
     reference_number = models.CharField(max_length=100)
     description = models.TextField()
     proof_image = models.ImageField(upload_to='proofs/%Y/%m/%d/')

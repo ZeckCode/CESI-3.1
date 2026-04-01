@@ -34,7 +34,7 @@ export default function AdminProofOfPayment() {
   const [remarks, setRemarks] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [actionType, setActionType] = useState("");
-  const [imageOverlay, setImageOverlay] = useState(null); // New state for image overlay
+  const [imageOverlay, setImageOverlay] = useState(null);
 
   useEffect(() => {
     fetchPayments();
@@ -51,14 +51,28 @@ export default function AdminProofOfPayment() {
       
       const data = await response.json();
       
-      // Transform data to ensure proper description format
-      const transformedData = (Array.isArray(data) ? data : []).map(payment => ({
-        ...payment,
-        // Format description as "Enrollment Initial Payment - [Student Name]"
-        formatted_description: `Enrollment Initial Payment - ${getStudentDisplayName(payment)}`,
-        // Keep original description as fallback
-        original_description: payment.description
-      }));
+      // Transform data to format description based on type
+      const transformedData = (Array.isArray(data) ? data : []).map(payment => {
+        // Check if this is an enrollment initial payment
+        const isEnrollmentPayment = payment.payment_type === "enrollment" || 
+                                     payment.description?.toLowerCase().includes("enrollment initial payment") ||
+                                     payment.source === "enrollment_form";
+        
+        let formatted_description = payment.description;
+        
+        if (isEnrollmentPayment) {
+          // Format as "Enrollment Initial Payment - [Student Name]"
+          const studentName = getStudentDisplayName(payment);
+          formatted_description = `Enrollment Initial Payment - ${studentName}`;
+        }
+        
+        return {
+          ...payment,
+          formatted_description,
+          is_enrollment_payment: isEnrollmentPayment,
+          original_description: payment.description
+        };
+      });
       
       setPayments(transformedData);
     } catch (err) {
@@ -187,6 +201,7 @@ export default function AdminProofOfPayment() {
                   <th>Student</th>
                   <th>Reference Number</th>
                   <th>Description</th>
+                  <th>Type</th>
                   <th>Submitted Date</th>
                   <th>Status</th>
                   <th>Proof Image</th>
@@ -210,9 +225,46 @@ export default function AdminProofOfPayment() {
                     <td>{payment.reference_number}</td>
                     <td>
                       <div className="admin-proof-description">
-                        {/* Use formatted description */}
-                        {payment.formatted_description || payment.description}
+                        {payment.formatted_description}
+                        {payment.is_enrollment_payment && (
+                          <span style={{
+                            display: "inline-block",
+                            marginLeft: "8px",
+                            fontSize: "10px",
+                            background: "#dbeafe",
+                            color: "#1e40af",
+                            padding: "2px 6px",
+                            borderRadius: "12px",
+                          }}>
+                            Initial Payment
+                          </span>
+                        )}
                       </div>
+                    </td>
+                    <td>
+                      {payment.is_enrollment_payment ? (
+                        <span style={{
+                          background: "#e0e7ff",
+                          color: "#4338ca",
+                          padding: "4px 8px",
+                          borderRadius: "12px",
+                          fontSize: "11px",
+                          fontWeight: "500",
+                        }}>
+                          Enrollment Fee
+                        </span>
+                      ) : (
+                        <span style={{
+                          background: "#f3e8ff",
+                          color: "#6b21a5",
+                          padding: "4px 8px",
+                          borderRadius: "12px",
+                          fontSize: "11px",
+                          fontWeight: "500",
+                        }}>
+                          Installment
+                        </span>
+                      )}
                     </td>
                     <td>{formatDate(payment.created_at)}</td>
                     <td>
@@ -226,7 +278,6 @@ export default function AdminProofOfPayment() {
                     <td>
                       {payment.proof_image && (
                         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                          {/* Thumbnail preview */}
                           <img
                             src={getImageUrl(payment.proof_image)}
                             alt="Payment proof thumbnail"
@@ -319,6 +370,9 @@ export default function AdminProofOfPayment() {
               <p>
                 <strong>Reference Number:</strong> {selectedPayment?.reference_number}
               </p>
+              <p>
+                <strong>Description:</strong> {selectedPayment?.formatted_description}
+              </p>
               
               {/* Show proof image in modal for review */}
               {selectedPayment?.proof_image && (
@@ -335,7 +389,9 @@ export default function AdminProofOfPayment() {
                       objectFit: "contain",
                       borderRadius: "4px",
                       border: "1px solid #e2e8f0",
+                      cursor: "pointer",
                     }}
+                    onClick={() => openImageOverlay(getImageUrl(selectedPayment.proof_image))}
                   />
                 </div>
               )}
@@ -394,7 +450,7 @@ export default function AdminProofOfPayment() {
           </div>
         )}
 
-        {/* Image Overlay - not modal, just overlay */}
+        {/* Image Overlay */}
         {imageOverlay && (
           <div
             onClick={closeImageOverlay}
