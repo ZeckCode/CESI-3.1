@@ -285,8 +285,12 @@
   color: var(--text);
   transition: var(--transition-base);
   box-shadow: var(--shadow-sm);
+}
+
+.ge__toolbar .ge__weightsBtn:last-of-type {
   margin-left: auto;
 }
+
 .ge__weightsBtn:hover { 
   border-color: var(--primary);
   color: var(--primary-dark);

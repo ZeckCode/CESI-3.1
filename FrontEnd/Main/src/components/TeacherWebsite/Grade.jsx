@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, X, Edit2, Trash2, Settings, Calendar, FileText } from "lucide-react";
+import { Plus, X, Edit2, Trash2, Settings, Calendar, FileText, Printer } from "lucide-react";
 import "../TeacherWebsiteCSS/Grade.css";
 import { apiFetch } from "../api/apiFetch";
 
@@ -748,6 +748,359 @@ const Grade = () => {
     }
   };
 
+  const handlePrintGradeSheet = () => {
+    if (!currentSection || displayStudents.length === 0) {
+      alert("Please select a section with students before printing.");
+      return;
+    }
+
+    if (!teacherSubject) {
+      alert("Unable to determine subject information.");
+      return;
+    }
+
+    const printWindow = window.open("", "", "width=1200,height=900");
+
+    const schoolYearText = schoolYear
+      ? `S.Y. ${schoolYear.name || `${schoolYear.start_year}-${schoolYear.end_year}`}`
+      : "N/A";
+
+    const currentDate = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    // Build grade rows for each student
+    const gradeRowsHTML = displayStudents
+      .map((student) => {
+        const activityItems = itemsByCategory("ACTIVITY");
+        const quizItems = itemsByCategory("QUIZ");
+        const examItems = itemsByCategory("EXAM");
+
+        const activityHTML = activityItems
+          .map((item) => {
+            const score = getScore(student.id, item.id);
+            return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
+          })
+          .join("");
+
+        const quizHTML = quizItems
+          .map((item) => {
+            const score = getScore(student.id, item.id);
+            return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
+          })
+          .join("");
+
+        const examHTML = examItems
+          .map((item) => {
+            const score = getScore(student.id, item.id);
+            return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
+          })
+          .join("");
+
+        const actAvg = categoryAvg(student.id, "ACTIVITY");
+        const quizAvg = categoryAvg(student.id, "QUIZ");
+        const examAvg = categoryAvg(student.id, "EXAM");
+        const cs = getCS(student.id);
+        const qg = quarterGrade(student.id);
+        const status = qg !== null ? (qg >= 75 ? "PASSED" : "FAILED") : "—";
+        const statusColor = qg !== null ? (qg >= 75 ? "#047857" : "#dc2626") : "#6b7280";
+
+        return `
+          <tr>
+            <td style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${student.student_name}</td>
+            ${activityHTML}
+            <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0f9ff;">${actAvg !== null ? actAvg.toFixed(1) : "—"}%</td>
+            ${quizHTML}
+            <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f3f0ff;">${quizAvg !== null ? quizAvg.toFixed(1) : "—"}%</td>
+            ${examHTML}
+            <td style="text-align: center; font-size: 12px; font-weight: 600; background: #fef2f2;">${examAvg !== null ? examAvg.toFixed(1) : "—"}%</td>
+            <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0fdf4;">${cs !== null ? cs.toFixed(1) : "—"}</td>
+            <td style="text-align: center; font-size: 12px; font-weight: 700; background: #fffbeb;">
+              ${qg !== null ? qg.toFixed(2) : "—"}
+            </td>
+            <td style="text-align: center; font-size: 11px; color: white; font-weight: 600; background: ${statusColor}; padding: 4px 8px;">
+              ${status}
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const activityHeaderHTML = itemsByCategory("ACTIVITY")
+      .map((item, idx) => `<th style="font-size: 11px; padding: 8px 4px;">A${idx + 1}<br/>/${item.total_score}</th>`)
+      .join("");
+
+    const quizHeaderHTML = itemsByCategory("QUIZ")
+      .map((item, idx) => `<th style="font-size: 11px; padding: 8px 4px;">Q${idx + 1}<br/>/${item.total_score}</th>`)
+      .join("");
+
+    const examHeaderHTML = itemsByCategory("EXAM")
+      .map((item, idx) => `<th style="font-size: 11px; padding: 8px 4px;">E${idx + 1}<br/>/${item.total_score}</th>`)
+      .join("");
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grade Sheet</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: white;
+      color: #1f2937;
+      line-height: 1.4;
+    }
+
+    .print-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 30px;
+    }
+
+    .print-header {
+      text-align: center;
+      margin-bottom: 25px;
+      border-bottom: 2px solid #1f2937;
+      padding-bottom: 15px;
+    }
+
+    .print-header h1 {
+      font-size: 26px;
+      font-weight: 800;
+      margin-bottom: 6px;
+      letter-spacing: -0.5px;
+    }
+
+    .print-header .metadata {
+      display: flex;
+      justify-content: center;
+      gap: 25px;
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .metadata-item {
+      display: flex;
+      gap: 3px;
+      align-items: center;
+    }
+
+    .metadata-label {
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 20px 0 10px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #1f2937;
+      border-bottom: 2px solid #5ba3c7;
+      padding-bottom: 6px;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+      font-size: 11px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-box {
+      width: 30px;
+      height: 20px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 10px;
+    }
+
+    .table-wrapper {
+      margin-bottom: 30px;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border: 1px solid #d5d5d5;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    th {
+      background: #1f2937;
+      color: white;
+      padding: 10px 8px;
+      text-align: center;
+      font-weight: 700;
+      border-bottom: 1px solid #374151;
+      font-size: 11px;
+    }
+
+    th.student-col {
+      text-align: left;
+    }
+
+    td {
+      padding: 8px 6px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    tr:last-child td {
+      border-bottom: 1px solid #d5d5d5;
+    }
+
+    .footer {
+      margin-top: 25px;
+      padding-top: 15px;
+      border-top: 1px solid #e5e7eb;
+      text-align: center;
+      color: #6b7280;
+      font-size: 11px;
+    }
+
+    .breakdown-info {
+      font-size: 11px;
+      color: #6b7280;
+      margin-bottom: 15px;
+      background: #f9fafb;
+      padding: 10px 12px;
+      border-radius: 4px;
+      border-left: 3px solid #5ba3c7;
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+      .print-container {
+        padding: 20px;
+      }
+      .table-wrapper {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-container">
+    <div class="print-header">
+      <h1>GRADE SHEET</h1>
+      <div class="metadata">
+        <div class="metadata-item">
+          <span class="metadata-label">Subject:</span>
+          <span>${teacherSubject?.subject_name || "N/A"}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="metadata-label">Section:</span>
+          <span>${currentSection?.name || "N/A"}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="metadata-label">Quarter:</span>
+          <span>${quarter}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="metadata-label">${schoolYearText}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="metadata-label">Generated:</span>
+          <span>${currentDate}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Grade Category Weights</div>
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-box" style="background: #3b82f6;">A</div>
+        <span>Activities: ${weights.activity_weight}%</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-box" style="background: #8b5cf6;">Q</div>
+        <span>Quizzes: ${weights.quiz_weight}%</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-box" style="background: #ef4444;">E</div>
+        <span>Exams: ${weights.exam_weight}%</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-box" style="background: #10b981;">CS</div>
+        <span>Class Standing: ${weights.class_standing_weight}%</span>
+      </div>
+    </div>
+
+    <div class="breakdown-info">
+      <strong>Grade Calculation:</strong> Category averages are calculated as (total points earned ÷ total points possible) × 100%. 
+      Quarter grade is the weighted average of all categories with available grades.
+    </div>
+
+    <div class="section-title">Student Grade Breakdown</div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th class="student-col">Student Name</th>
+            ${activityHeaderHTML}
+            <th style="background: #0f52ba; font-size: 11px; padding: 8px 4px;">Act Avg %</th>
+            ${quizHeaderHTML}
+            <th style="background: #6f42c1; font-size: 11px; padding: 8px 4px;">Quiz Avg %</th>
+            ${examHeaderHTML}
+            <th style="background: #dc2626; font-size: 11px; padding: 8px 4px;">Exam Avg %</th>
+            <th style="background: #059669; font-size: 11px; padding: 8px 4px;">Class Standing</th>
+            <th style="background: #b45309; font-size: 11px; padding: 8px 4px;">Q${quarter} Grade</th>
+            <th style="font-size: 11px; padding: 8px 4px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${gradeRowsHTML}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      <p>This grade sheet is confidential and for official use only.</p>
+      <p>For inquiries regarding grades, please consult with your teacher during office hours.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+  };
+
+
   const weightTotal =
     Number(tempWeights.activity_weight || 0) +
     Number(tempWeights.quiz_weight || 0) +
@@ -819,6 +1172,20 @@ const Grade = () => {
           title="Adjust weights"
         >
           <Settings size={14} /> Weights
+        </button>
+
+        <button
+          className="ge__weightsBtn"
+          onClick={handlePrintGradeSheet}
+          disabled={!selectedSection || displayStudents.length === 0}
+          title="Print grade sheet with breakdown"
+          style={
+            selectedSection && displayStudents.length > 0
+              ? { backgroundColor: "#7c3aed", color: "white", borderColor: "#7c3aed" }
+              : { opacity: 0.6, cursor: "not-allowed" }
+          }
+        >
+          <Printer size={14} /> Print Grade Sheet
         </button>
 
         <button
