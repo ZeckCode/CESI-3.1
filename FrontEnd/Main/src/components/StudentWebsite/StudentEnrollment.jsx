@@ -164,12 +164,11 @@ const splitAddress = (address = "") => {
     city: parts[2] || "",
     province: parts[3] || "",
     region: parts[4] || "",
-    zip_code: parts[5] || "",
   };
 };
 
-const buildAddress = ({ street, barangay, city, province, region, zipCode }) =>
-  [street, barangay, city, province, region, zipCode]
+const buildAddress = ({ street, barangay, city, province, region}) =>
+  [street, barangay, city, province, region]
     .map((p) => String(p || "").trim())
     .filter(Boolean)
     .join(", ");
@@ -204,7 +203,6 @@ export default function StudentReenrollment() {
   const [city, setCity] = useState("");
   const [province, setProvince] = useState("");
   const [region, setRegion] = useState("");
-  const [zipCode, setZipCode] = useState("");
 
   const [paymentProofFile, setPaymentProofFile] = useState(null);
   const [form137File, setForm137File] = useState(null);
@@ -294,7 +292,6 @@ export default function StudentReenrollment() {
         setCity(parsedAddress.city);
         setProvince(parsedAddress.province);
         setRegion(parsedAddress.region);
-        setZipCode(parsedAddress.zip_code);
       } catch (e) {
         const msg = e.message || "Failed to load reenrollment data.";
         setError(msg);
@@ -498,11 +495,7 @@ export default function StudentReenrollment() {
     if (!city.trim()) errors.push("City / Municipality is required.");
     if (!province.trim()) errors.push("Province is required.");
     if (!region.trim()) errors.push("Region is required.");
-    if (!zipCode.trim()) {
-      errors.push("ZIP Code is required.");
-    } else if (!/^\d{4}$/.test(zipCode.trim())) {
-      errors.push("ZIP Code must be exactly 4 digits.");
-    }
+    
 
     if (!paymentMethod.trim()) {
       errors.push("Please select a payment method.");
@@ -548,7 +541,6 @@ export default function StudentReenrollment() {
     city,
     province,
     region,
-    zipCode,
     paymentMethod,
     paymentMode,
     paymentProofFile,
@@ -598,7 +590,6 @@ export default function StudentReenrollment() {
           city,
           province,
           region,
-          zipCode,
         })
       );
       form.append("payment_method", paymentMethod);
@@ -782,7 +773,7 @@ export default function StudentReenrollment() {
             <InfoRow
               label="Address"
               value={
-                buildAddress({ street, barangay, city, province, region, zipCode }) || "—"
+                buildAddress({ street, barangay, city, province, region}) || "—"
               }
             />
             <InfoRow
@@ -996,22 +987,7 @@ export default function StudentReenrollment() {
               </select>
             </div>
 
-            <div className="form-group">
-              <label>
-                ZIP Code<span className="required">*</span>
-              </label>
-              <input
-                value={zipCode}
-                onChange={(e) =>
-                  setZipCode(e.target.value.replace(/\D/g, "").slice(0, 4))
-                }
-                placeholder="e.g. 1400"
-                maxLength={4}
-                inputMode="numeric"
-                disabled={!eligibility.eligible}
-                required
-              />
-            </div>
+           
           </div>
 
           <div className="info-entry entry-border edit-mode">
