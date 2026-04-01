@@ -277,38 +277,25 @@ export default function AdminProofOfPayment() {
                     </td>
                     <td>
                       {payment.proof_image && (
-                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                          <img
-                            src={getImageUrl(payment.proof_image)}
-                            alt="Payment proof thumbnail"
-                            style={{
-                              width: "40px",
-                              height: "40px",
-                              objectFit: "cover",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              border: "1px solid #e2e8f0",
-                            }}
-                            onClick={() => openImageOverlay(getImageUrl(payment.proof_image))}
-                          />
-                          <button
-                            onClick={() => openImageOverlay(getImageUrl(payment.proof_image))}
-                            className="admin-proof-view-image"
-                            style={{
-                              padding: "4px 8px",
-                              fontSize: "12px",
-                              background: "#f1f5f9",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                            }}
-                          >
-                            <Eye size={14} /> View
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => openImageOverlay(getImageUrl(payment.proof_image))}
+                          className="admin-proof-view-image"
+                          style={{
+                            padding: "6px 12px",
+                            fontSize: "12px",
+                            background: "#dbeafe",
+                            border: "1px solid #0ea5e9",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            color: "#0369a1",
+                            fontWeight: "500",
+                          }}
+                        >
+                          <Eye size={14} /> View
+                        </button>
                       )}
                     </td>
                     <td data-label="Actions">
