@@ -438,7 +438,7 @@ export default function Ledgers() {
                             fontWeight: 800,
                             color: "#1d4ed8",
                             fontSize: "1rem",
-                            marginBottom: "0.4rem",
+                            marginBottom: "0.8rem",
                           }}
                         >
                           {buildLedgerGroupTitle(group) || "Ledger Record"}
@@ -446,27 +446,30 @@ export default function Ledgers() {
 
                         <div
                           style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: "0.85rem",
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: "1rem",
                             fontSize: "0.82rem",
                             color: "#64748b",
                           }}
+                          className="ledger-group-info"
                         >
-                          <span>
-                            Semester: <strong>{group.semester || "—"}</strong>
-                          </span>
-                          <span>
-                            Total Billed:{" "}
-                            <strong>{formatCurrency(group.totalDebit)}</strong>
-                          </span>
-                          <span>
-                            Total Paid:{" "}
-                            <strong>{formatCurrency(group.totalCredit)}</strong>
-                          </span>
-                          <span>
-                            Balance: <strong>{formatCurrency(group.balance)}</strong>
-                          </span>
+                          <div>
+                            <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Semester</div>
+                            <div style={{ fontWeight: 700, color: "#1e293b" }}>{group.semester || "—"}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Total Billed</div>
+                            <div style={{ fontWeight: 700, color: "#1e293b" }}>{formatCurrency(group.totalDebit)}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Total Paid</div>
+                            <div style={{ fontWeight: 700, color: "#16a34a" }}>{formatCurrency(group.totalCredit)}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Balance</div>
+                            <div style={{ fontWeight: 700, color: group.balance > 0 ? "#dc2626" : "#16a34a" }}>{formatCurrency(group.balance)}</div>
+                          </div>
                         </div>
                       </div>
 

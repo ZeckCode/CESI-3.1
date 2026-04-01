@@ -664,6 +664,35 @@
     grid-template-columns: 1fr !important;
     gap: 0.75rem;
   }
+
+  /* Ledger group header - improve mobile layout */
+  .ledger-group-header {
+    padding: 1rem !important;
+  }
+
+  .ledger-group-info {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .ledger-group-info > div {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Account Ledger group card styling - mobile */
+  .ledger-group-card {
+    margin-bottom: 1rem !important;
+  }
+
+  .ledger-group-header {
+    padding: 1rem 1.25rem !important;
+  }
+
+  /* Hide table header on mobile */
+  .ledger-accounting thead {
+    display: none;
+  }
 }
 
 /* ─────── Medium Screens (480px - 768px) ─────── */
