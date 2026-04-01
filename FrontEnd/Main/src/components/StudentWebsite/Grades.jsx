@@ -4,12 +4,15 @@ import {
 } from 'lucide-react';
 import "../StudentWebsiteCSS/Grades.css";
 import { apiFetch } from "../api/apiFetch";
+import PreviewModal from "../PreviewModal";
 
 const Grades = () => {
   const [grades, setGrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [schoolYear, setSchoolYear] = useState("");
   const [studentName, setStudentName] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -81,7 +84,19 @@ const Grades = () => {
   };
 
   const handleExport = () => {
-    window.print();
+    const exportData = grades.map((g) => ({
+      'Subject': g.subject_name || '—',
+      'Quarter 1': g.q1_grade ?? '—',
+      'Quarter 2': g.q2_grade ?? '—',
+      'Quarter 3': g.q3_grade ?? '—',
+      'Quarter 4': g.q4_grade ?? '—',
+      'Final Grade': g.final_grade ?? '—',
+      'Remarks': g.remarks || '—',
+      'Teacher': g.teacher_name || '—',
+    }));
+
+    setPreviewData(exportData);
+    setShowPreview(true);
   };
 
   return (
@@ -220,6 +235,14 @@ const Grades = () => {
           )}
         </div>
       </section>
+
+      <PreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        title={`Grade Report - ${studentName}`}
+        data={previewData}
+        filename="Grades"
+      />
     </main>
   );
 };

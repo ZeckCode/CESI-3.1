@@ -19,6 +19,7 @@ import * as XLSX from 'xlsx';
 import Pagination from './Pagination';
 import { apiFetchData } from '../api/apiFetch';
 import '../AdminWebsiteCSS/GradesRecords.css';
+import PreviewModal from '../PreviewModal';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -129,6 +130,9 @@ const GradesRecords = () => {
   const [gradeMonitoring, setGradeMonitoring] = useState({ summary: {}, students: [], quarter: 1 });
   const [historyRecords, setHistoryRecords] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
+
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState([]);
 
   const filterGradeValue = useMemo(() => {
     if (filterGrade === 'all') return null;
@@ -517,6 +521,57 @@ const GradesRecords = () => {
   const totalPages = Math.max(1, Math.ceil(activeRows.length / ITEMS_PER_PAGE));
   const paginatedRows = activeRows.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
+  const handleOpenPreview = () => {
+    try {
+      let previewData = [];
+
+      if (activeTab === 'grades') {
+        previewData = filteredStudents.map((row) => ({
+          'Student Number': row.student_number || '—',
+          'Student Name': row.student_name,
+          'Grade Level': toGradeLabel(row.grade_level_label || row.grade_level),
+          Section: row.section_name,
+          'Graded Subjects': `${row.graded_subjects}/${row.total_subjects}`,
+          'Average Grade': row.average_grade ?? '—',
+          Status: row.status,
+          'History Count': row.history_count,
+        }));
+      } else if (activeTab === 'history') {
+        previewData = filteredHistory.map((row) => ({
+          'School Year': row.school_year,
+          'Student Name': row.student_name,
+          'Student Number': row.student_number || '—',
+          'Grade Level': toGradeLabel(row.grade_level),
+          Section: row.section_name || '—',
+          Subject: row.subject_name,
+          'Subject Code': row.subject_code || '—',
+          'Final Grade': row.final_grade ?? '—',
+          Remarks: row.remarks || '—',
+          Teacher: row.teacher_name || '—',
+        }));
+      } else if (activeTab === 'attendance') {
+        previewData = filteredAttendanceStudents.map((row) => ({
+          Date: selectedDate,
+          'Student Number': row.student_number || '—',
+          'Student Name': row.student_name,
+          'Grade Level': toGradeLabel(row.grade_level),
+          Section: row.section_name || '—',
+          'Overall Status': row.overall_status,
+          Present: row.present,
+          Late: row.late,
+          Excused: row.excused,
+          Absent: row.absent,
+        }));
+      }
+
+      setPreviewData(previewData);
+      setShowPreview(true);
+    } catch (err) {
+      console.error('Error opening preview:', err);
+      alert('Failed to open preview. Please try again.');
+    }
+  };
+
   const exportCurrentView = () => {
     try {
       const wb = XLSX.utils.book_new();
@@ -840,9 +895,9 @@ const GradesRecords = () => {
               />
             )}
 
-            <button className="gr-btn-primary" onClick={exportCurrentView} disabled={loading}>
+            <button className="gr-btn-primary" onClick={handleOpenPreview} disabled={loading}>
               <Download size={18} />
-              Export
+              View & Export
             </button>
           </div>
         </div>
@@ -1209,6 +1264,14 @@ const GradesRecords = () => {
           />
         </div>
       </section>
+
+      <PreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        title={`Grades Records - ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
+        data={previewData}
+        filename={`GradesRecords_${activeTab}`}
+      />
     </main>
   );
 };

@@ -8,6 +8,7 @@ import Pagination from './Pagination';
 import '../AdminWebsiteCSS/TuitionManagement.css';
 import { apiFetchData } from '../api/apiFetch';
 import Toast from '../Global/Toast';
+import PreviewModal from '../PreviewModal';
 
 const API = '';
 
@@ -80,6 +81,9 @@ const TuitionManagement = () => {
   const [saving, setSaving] = useState(false);
 
   const [toasts, setToasts] = useState([]);
+
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState([]);
 
   const addToast = useCallback((title, message, type = 'warning') => {
     const id = Date.now() + Math.random();
@@ -391,6 +395,50 @@ const TuitionManagement = () => {
     }
   };
 
+  const handleOpenPreview = () => {
+    const data = getFilteredData();
+
+    if (data.length === 0) {
+      addToast('Preview', 'No data to preview.', 'warning');
+      return;
+    }
+
+    let previewData = [];
+    if (viewMode === 'student') {
+      previewData = data.map((student) => ({
+        'Student Number': student.studentNumber,
+        'Student Name': student.studentName,
+        'Grade Level': student.gradeLevel,
+        'Payment Mode': paymentModeLabel(student.paymentMode),
+        'Parent/Guardian': student.parentName,
+        'Contact Number': student.contactNumber,
+        'Tuition Fee': formatCurrency(student.totalDue),
+        'Total Paid': formatCurrency(student.totalPaid),
+        'Remaining Balance': formatCurrency(student.remainingBalance),
+        'Account Status': student.accountStatus,
+      }));
+    } else {
+      previewData = data.map((fee) => ({
+        'Grade Level': fee.grade_label,
+        'Cash Payment': formatCurrency(fee.cash),
+        'Installment Tuition': formatCurrency(fee.installment),
+        'Initial Payment': formatCurrency(fee.initial),
+        'Monthly Payment': formatCurrency(fee.monthly),
+        'Reservation Fee': formatCurrency(fee.reservation_fee),
+        'Misc (Aug)': formatCurrency(fee.misc_aug),
+        'Misc (Nov)': formatCurrency(fee.misc_nov),
+        'Assessment': formatCurrency(fee.assessment),
+        'Total Cash': formatCurrency(fee.total_cash),
+        'Total Installment': formatCurrency(fee.total_installment),
+        'Status': fee.is_active ? 'Active' : 'Inactive',
+        'Description': fee.description,
+      }));
+    }
+
+    setPreviewData(previewData);
+    setShowPreview(true);
+  };
+
   const handleExportData = () => {
     const data = getFilteredData();
 
@@ -585,9 +633,9 @@ const TuitionManagement = () => {
             />
           </div>
 
-          <button className="tm-btn-export" onClick={handleExportData}>
+          <button className="tm-btn-export" onClick={handleOpenPreview}>
             <Download size={18} />
-            Export
+            View & Export
           </button>
 
           <div className="tm-filter-group">
@@ -915,6 +963,14 @@ const TuitionManagement = () => {
           </div>
         </div>
       )}
+
+      <PreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        title={`Tuition ${viewMode === 'student' ? 'Profiles' : 'Fee Structure'}`}
+        data={previewData}
+        filename={`Tuition_${viewMode}`}
+      />
     </main>
   );
 };

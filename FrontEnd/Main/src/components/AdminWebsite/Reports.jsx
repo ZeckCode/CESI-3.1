@@ -5,6 +5,7 @@ import '../AdminWebsiteCSS/ClassManagement.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { apiFetch } from '../api/apiFetch';
+import PreviewModal from '../PreviewModal';
 
 // Helper function for academic year expiry
 const getAcademicYearExpiry = (academicYear) => {
@@ -80,6 +81,9 @@ const Reports = () => {
   });
   
   const [loading, setLoading] = useState(true);
+
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewAction, setPreviewAction] = useState(null); // 'link' will be the report file
   
   const now = new Date();
 
@@ -531,7 +535,9 @@ const Reports = () => {
   // DOWNLOAD FUNCTION
   // -----------------------------
   const handleDownload = (report) => {
-    exportReportToPDF(report);
+    // For Reports component, we show a preview modal with download/print options
+    setPreviewAction(report);
+    setShowPreview(true);
   };
 
   // -----------------------------
@@ -737,6 +743,74 @@ const Reports = () => {
         }
       `}</style>
 
+      {showPreview && previewAction && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9000
+        }} onClick={() => setShowPreview(false)}>
+          <div style={{
+            background: 'white',
+            borderRadius: '8px',
+            padding: '30px',
+            maxWidth: '500px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          }} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ marginTop: 0 }}>Report Preview</h2>
+            <div style={{ marginBottom: '20px', fontSize: '14px', color: '#555' }}>
+              <p><strong>Type:</strong> {previewAction.type}</p>
+              <p><strong>Generated:</strong> {new Date(previewAction.date).toLocaleString()}</p>
+              {previewAction.description && <p><strong>Description:</strong> {previewAction.description}</p>}
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowPreview(false)} style={{
+                padding: '10px 20px',
+                background: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}>
+                Close
+              </button>
+              <button onClick={() => {
+                window.open(previewAction.link, '_blank');
+                setShowPreview(false);
+              }} style={{
+                padding: '10px 20px',
+                background: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}>
+                Download
+              </button>
+              <button onClick={() => {
+                window.open(previewAction.link);
+                setTimeout(() => { window.print(); }, 500);
+                setShowPreview(false);
+              }} style={{
+                padding: '10px 20px',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}>
+                Print
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

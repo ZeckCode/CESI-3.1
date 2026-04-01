@@ -643,3 +643,404 @@
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
 }
+
+/* ========== COMPREHENSIVE MOBILE RESPONSIVE DESIGN ========== */
+
+/* Mobile: 600px and below */
+@media (max-width: 600px) {
+  .msg {
+    padding: 10px;
+    min-height: 100vh;
+  }
+
+  .msg__top {
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .msg__title {
+    font-size: 1.1rem;
+    font-weight: 800;
+  }
+
+  .msg__newBtn {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    gap: 6px;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .msg__shell {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    border-radius: 12px;
+  }
+
+  .msg__listPane {
+    display: none;
+    position: fixed;
+    left: 0;
+    top: 60px;
+    width: 80%;
+    height: calc(100vh - 60px);
+    border-right: 1px solid var(--border);
+    border-bottom: 0;
+    z-index: 999;
+    background: white;
+    border-radius: 0;
+  }
+
+  .msg__listPane.active {
+    display: flex;
+  }
+
+  .msg__searchBar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .msg__searchInput {
+    padding: 8px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+
+  .msg__scroll {
+    max-height: calc(100vh - 180px);
+  }
+
+  .msg__sectionTitle {
+    padding: 8px 12px;
+    font-size: 10px;
+  }
+
+  .msgItem {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .msgItem__avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 12px;
+  }
+
+  .msgItem__name {
+    font-size: 13px;
+  }
+
+  .msgItem__time {
+    font-size: 11px;
+  }
+
+  .msgItem__preview {
+    font-size: 12px;
+  }
+
+  .msg__chatPane {
+    min-height: calc(100vh - 80px);
+  }
+
+  .chatHead {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .chatHead__avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+
+  .chatHead__name {
+    font-size: 14px;
+  }
+
+  .chatHead__status {
+    font-size: 11px;
+  }
+
+  .chatHead__actions {
+    gap: 6px;
+  }
+
+  .iconBtn {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .chatBody {
+    padding: 12px;
+    gap: 10px;
+    max-height: calc(100vh - 220px);
+  }
+
+  .bubbleWrap {
+    max-width: 85%;
+  }
+
+  .bubbleMeta {
+    font-size: 10px;
+    margin: 0 0 4px 8px;
+  }
+
+  .bubble {
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+  }
+
+  .bubbleTime {
+    margin-top: 4px;
+    margin-left: 8px;
+    font-size: 10px;
+  }
+
+  .bubbleTime--right {
+    margin-right: 8px;
+  }
+
+  .chatInput {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .chatInput__field {
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .chatInput__send {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    font-size: 18px;
+  }
+
+  .pending-requests-bar {
+    padding: 12px;
+    gap: 10px;
+    max-height: 300px;
+  }
+
+  .pending-requests-bar-header {
+    padding: 10px 12px;
+    font-size: 11px;
+    gap: 6px;
+  }
+
+  .request-item {
+    padding: 10px 12px;
+    gap: 8px;
+    border-left-width: 3px;
+  }
+
+  .request-info-main {
+    font-size: 13px;
+  }
+
+  .request-info-sub {
+    font-size: 11px;
+  }
+
+  .request-time-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .request-message {
+    font-size: 12px;
+    padding: 8px 10px;
+    border-left-width: 2px;
+  }
+
+  .request-actions {
+    gap: 6px;
+  }
+
+  .request-btn {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+}
+
+/* Small Mobile: 480px and below */
+@media (max-width: 480px) {
+  .msg {
+    padding: 8px;
+  }
+
+  .msg__top {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .msg__title {
+    font-size: 1rem;
+  }
+
+  .msg__newBtn {
+    padding: 7px 10px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+  }
+
+  .msg__shell {
+    border-radius: 10px;
+  }
+
+  .msg__listPane {
+    width: 75%;
+  }
+
+  .msg__searchBar {
+    padding: 8px 10px;
+  }
+
+  .msg__searchInput {
+    padding: 7px 9px;
+    font-size: 11px;
+  }
+
+  .msg__sectionTitle {
+    padding: 7px 10px;
+    font-size: 9px;
+  }
+
+  .msgItem {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .msgItem__avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 11px;
+  }
+
+  .msgItem__name {
+    font-size: 12px;
+  }
+
+  .msgItem__time {
+    font-size: 10px;
+  }
+
+  .msgItem__preview {
+    font-size: 11px;
+  }
+
+  .chatHead {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .chatHead__avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .chatHead__name {
+    font-size: 13px;
+  }
+
+  .chatHead__status {
+    font-size: 10px;
+  }
+
+  .chatHead__actions {
+    gap: 4px;
+  }
+
+  .iconBtn {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+  }
+
+  .chatBody {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .bubbleWrap {
+    max-width: 90%;
+  }
+
+  .bubbleMeta {
+    font-size: 9px;
+    margin: 0 0 3px 6px;
+  }
+
+  .bubble {
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+
+  .bubbleTime {
+    margin-top: 3px;
+    margin-left: 6px;
+    font-size: 9px;
+  }
+
+  .bubbleTime--right {
+    margin-right: 6px;
+  }
+
+  .chatInput {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .chatInput__field {
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .chatInput__send {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+  }
+
+  .pending-requests-bar {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .pending-requests-bar-header {
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+
+  .request-item {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .request-info-main {
+    font-size: 12px;
+  }
+
+  .request-info-sub {
+    font-size: 10px;
+  }
+
+  .request-message {
+    font-size: 11px;
+    padding: 7px 9px;
+  }
+
+  .request-btn {
+    padding: 5px 8px;
+    font-size: 9px;
+  }
+}

@@ -24,6 +24,7 @@ import Pagination from './Pagination';
 import { apiFetch } from '../api/apiFetch';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import PreviewModal from '../PreviewModal';
 
 const TRANSACTION_TYPES = [
   { value: 'TUITION', label: 'Tuition Fee' },
@@ -166,6 +167,10 @@ const TransactionHistory = () => {
 
   const [sendingReminderId, setSendingReminderId] = useState(null);
   const [sendingBulk, setSendingBulk] = useState(false);
+
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState([]);
+  const [previewType, setPreviewType] = useState('summary'); // 'summary' or 'details'
 
   const fetchTransactions = useCallback(async () => {
     try {
@@ -550,6 +555,34 @@ const TransactionHistory = () => {
     doc.save(`transaction_report_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
+  const handleOpenPreview = () => {
+    try {
+      // Prepare summary data
+      const summaryData = groupedTransactions.map((group) => ({
+        'Date': group.latest_date || '—',
+        'Enrollment ID': group.enrollment_id || '—',
+        'Student Number': group.student_number,
+        'Student Name': group.student_name,
+        'School Year': group.school_year || '—',
+        'Semester': group.semester || '—',
+        'Grade Level': group.grade_level || '—',
+        'Student Type': formatStudentType(group.student_type),
+        'Payment Mode': formatPaymentMode(group.payment_mode),
+        'Total Debit': Number(group.total_debit || 0),
+        'Total Credit': Number(group.total_credit || 0),
+        'Balance': Number(group.balance || 0),
+        'Status': group.account_status,
+      }));
+
+      setPreviewData(summaryData);
+      setPreviewType('summary');
+      setShowPreview(true);
+    } catch (err) {
+      console.error('Error opening preview:', err);
+      alert('Failed to open preview. Please try again.');
+    }
+  };
+
   const handleExportData = () => {
     try {
       // Prepare summary data
@@ -802,13 +835,8 @@ const TransactionHistory = () => {
               <Bell size={18} /> {sendingBulk ? 'Sending...' : 'Send Bulk Reminders'}
             </button>
 
-            <button className="th-btn-primary" onClick={handleExportData}>
-              <Download size={18} /> Export to Excel
-            </button>
-
-            <button className="th-btn-primary" onClick={() => exportToPDF(groupedTransactions, stats)}
-              title="Export to PDF">
-              <FileDown size={18} /> Export to PDF
+            <button className="th-btn-primary" onClick={handleOpenPreview}>
+              <Download size={18} /> View & Export
             </button>
           </div>
         </div>
@@ -1300,6 +1328,14 @@ const TransactionHistory = () => {
           </div>
         </div>
       )}
+
+      <PreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        title={`Transaction History Report - ${previewType === 'summary' ? 'Summary' : 'Details'}`}
+        data={previewData}
+        filename="Transaction_History"
+      />
     </main>
   );
 };
