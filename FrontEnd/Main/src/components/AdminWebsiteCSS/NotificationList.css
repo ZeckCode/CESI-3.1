@@ -387,28 +387,162 @@
 }
 
 /* Responsive */
-@media (max-width: 640px) {
+/* ── Tablet (768px - 1024px) ── */
+@media (max-width: 1024px) {
   .notification-overlay {
-    padding: 70px 10px 10px 10px;
+    padding: 70px 12px 10px 12px;
+  }
+
+  .notification-panel {
+    max-width: 90%;
+    max-height: 70vh;
+  }
+
+  .notification-item {
+    padding: 12px;
+  }
+
+  .notification-time {
+    font-size: 12px;
+  }
+}
+
+/* ── Mobile (<768px) ── */
+@media (max-width: 768px) {
+  .notification-overlay {
+    padding: 66px 10px 10px 10px;
   }
 
   .notification-panel {
     max-width: none;
-    max-height: 60vh;
-    margin: 0 10px 0 10px;
+    max-height: 65vh;
+    margin: 0 8px;
   }
 
   .notification-panel.expanded {
     max-width: none;
     max-height: 90vh;
-    margin: 0 10px 0 10px;
+    margin: 0 8px;
   }
 
   .notification-panel::before {
-    right: 30px;
+    right: 24px;
+  }
+
+  .notification-item {
+    padding: 12px;
+  }
+
+  .notification-avatar {
+    width: 40px;
+    height: 40px;
   }
 
   .notification-item-actions {
     opacity: 1;
+  }
+
+  .notification-content h4 {
+    font-size: 13px;
+  }
+
+  .notification-time {
+    font-size: 12px;
+  }
+}
+
+/* ── Small Mobile (<640px) ── */
+@media (max-width: 640px) {
+  .notification-overlay {
+    padding: 60px 8px 10px 8px;
+  }
+
+  .notification-panel {
+    max-width: none;
+    max-height: 60vh;
+    margin: 0 6px;
+  }
+
+  .notification-panel.expanded {
+    max-width: none;
+    max-height: 90vh;
+    margin: 0 6px;
+  }
+
+  .notification-panel::before {
+    right: 20px;
+  }
+
+  .notification-item {
+    padding: 11px;
+  }
+
+  .notification-avatar {
+    width: 38px;
+    height: 38px;
+    font-size: 13px;
+  }
+
+  .notification-item-actions {
+    opacity: 1;
+  }
+
+  .notification-content h4 {
+    font-size: 12px;
+  }
+
+  .notification-time {
+    font-size: 11px;
+  }
+}
+
+/* ── Ultra Mobile (<480px) ── */
+@media (max-width: 480px) {
+  .notification-overlay {
+    padding: 56px 6px 10px 6px;
+  }
+
+  .notification-panel {
+    max-width: none;
+    max-height: 55vh;
+    margin: 0 4px;
+  }
+
+  .notification-panel.expanded {
+    max-width: none;
+    max-height: 90vh;
+    margin: 0 4px;
+  }
+
+  .notification-panel::before {
+    right: 16px;
+  }
+
+  .notification-item {
+    padding: 10px;
+  }
+
+  .notification-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+
+  .notification-content h4 {
+    font-size: 11px;
+  }
+
+  .notification-content p {
+    font-size: 12px;
+  }
+
+  .notification-time {
+    font-size: 10px;
+  }
+
+  .notification-item-actions button {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
   }
 }

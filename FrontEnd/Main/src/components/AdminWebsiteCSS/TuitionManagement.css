@@ -581,6 +581,42 @@
 }
 
 /* Responsive Design */
+/* ── Tablet (768px - 1024px) ── */
+@media (max-width: 1024px) {
+  .tuition-management-main {
+    padding: 18px;
+  }
+
+  .tm-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .tm-stat-card {
+    padding: 14px;
+  }
+
+  .tm-stat-value {
+    font-size: 1.5rem;
+  }
+
+  .tm-section-title {
+    font-size: 1.25rem;
+  }
+
+  .tm-button-group {
+    gap: 10px;
+  }
+
+  .tm-btn-primary,
+  .tm-btn-secondary,
+  .tm-view-toggle {
+    padding: 0.65rem 1.25rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* ── Mobile (<768px) ── */
 @media (max-width: 768px) {
   .tuition-management-main {
     padding: 1rem;
@@ -588,6 +624,20 @@
 
   .tm-stats-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .tm-stat-card {
+    padding: 12px;
+  }
+
+  .tm-stat-value {
+    font-size: 1.5rem;
+  }
+
+  .tm-stat-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .tm-section-header {
@@ -598,6 +648,7 @@
   .tm-button-group {
     width: 100%;
     flex-direction: column;
+    gap: 8px;
   }
 
   .tm-button-group button {
@@ -607,14 +658,21 @@
 
   .tm-filters-container {
     flex-direction: column;
+    gap: 10px;
   }
 
   .tm-search-box {
     min-width: 100%;
+    flex: 1;
+  }
+
+  .tm-filter-select {
+    width: 100%;
   }
 
   .tm-table-container {
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .tm-table {
@@ -623,19 +681,32 @@
 
   .tm-modal {
     width: 95%;
+    max-width: 95vw;
+  }
+
+  .tm-modal-header {
+    padding: 1rem;
+  }
+
+  .tm-modal-body {
+    padding: 1rem;
+  }
+
+  .tm-modal-footer {
+    padding: 1rem;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tm-form-input,
+  .tm-filter-select,
+  .tm-search-input {
+    font-size: 16px;
   }
 }
 
+/* ── Small Mobile (<600px) ── */
 @media (max-width: 600px) {
-  .tm-table { border: 0; }
-  .tm-table thead { display: none; }
-  .tm-table tbody tr { display: block; margin-bottom: 0.75rem; border: 1px solid rgba(15,23,42,0.04); border-radius: 8px; padding: 0.5rem; background: white; }
-  .tm-table tbody tr td { display: flex; justify-content: space-between; padding: 0.6rem 0.5rem; border-bottom: 1px dashed rgba(15,23,42,0.03); }
-  .tm-table tbody tr td:last-child { border-bottom: 0; }
-  .tm-search-box { min-width: 0; }
-}
-
-@media (max-width: 479px) {
   .tuition-management-main {
     padding: 12px;
   }
@@ -646,31 +717,110 @@
   }
 
   .tm-stat-card {
-    padding: 12px;
-  }
-
-  .tm-stat-header {
-    margin-bottom: 12px;
-  }
-
-  .tm-stat-label {
-    font-size: 12px;
+    padding: 10px;
   }
 
   .tm-stat-value {
-    font-size: 24px;
-  }
-
-  .tm-stat-change {
-    font-size: 12px;
+    font-size: 1.25rem;
   }
 
   .tm-section-title {
-    font-size: 18px;
+    font-size: 1.1rem;
+  }
+
+  .tm-button-group {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tm-btn-primary,
+  .tm-btn-secondary,
+  .tm-view-toggle {
+    width: 100%;
+    padding: 0.6rem 1rem;
+    font-size: 0.75rem;
+    justify-content: center;
+  }
+
+  .tm-filters-container {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tm-search-box {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .tm-search-input,
+  .tm-filter-select {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    font-size: 14px;
+  }
+
+  .tm-table {
+    font-size: 13px;
+  }
+
+  .tm-table th {
+    padding: 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .tm-table-cell {
+    padding: 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .tm-modal {
+    width: 100%;
+  }
+
+  .tm-action-btn {
+    padding: 0.4rem;
+    border-radius: 0.3rem;
+  }
+}
+
+/* ── Ultra Mobile (<480px) ── */
+@media (max-width: 479px) {
+  .tuition-management-main {
+    padding: 10px;
+  }
+
+  .tm-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .tm-stat-card {
+    padding: 10px;
+  }
+
+  .tm-stat-header {
+    margin-bottom: 8px;
+  }
+
+  .tm-stat-label {
+    font-size: 11px;
+  }
+
+  .tm-stat-value {
+    font-size: 1.125rem;
+  }
+
+  .tm-stat-change {
+    font-size: 10px;
+  }
+
+  .tm-section-title {
+    font-size: 1rem;
   }
 
   .tm-section-subtitle {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .tm-button-group {
@@ -683,21 +833,77 @@
   .tm-view-toggle {
     width: 100%;
     justify-content: center;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.7rem;
   }
 
   .tm-filters-container {
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
 
   .tm-search-box,
   .tm-filter-group {
     width: 100%;
-    gap: 8px;
+    gap: 6px;
   }
 
   .tm-search-input,
   .tm-filter-select {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    font-size: 14px;
+  }
+
+  .tm-table {
+    min-width: 600px;
+    font-size: 12px;
+  }
+
+  .tm-table th {
+    padding: 0.6rem;
+    font-size: 0.7rem;
+  }
+
+  .tm-table-cell {
+    padding: 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .tm-modal {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0.5rem;
+  }
+
+  .tm-modal-header {
+    padding: 0.9rem;
+  }
+
+  .tm-modal-body {
+    padding: 0.9rem;
+  }
+
+  .tm-modal-footer {
+    padding: 0.9rem;
+    flex-direction: column;
+  }
+
+  .tm-form-input,
+  .tm-filter-select,
+  .tm-search-input {
+    font-size: 14px;
+  }
+
+  .tm-action-btn {
+    padding: 0.35rem;
+  }
+
+  .tm-status {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.65rem;
+  }
+}
     padding: 8px;
     font-size: 13px;
   }

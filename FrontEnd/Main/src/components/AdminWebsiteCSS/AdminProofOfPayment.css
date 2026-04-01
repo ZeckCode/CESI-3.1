@@ -506,37 +506,166 @@
 }
 
 /* Responsive */
+/* ── Tablet (768px - 1024px) ── */
+@media (max-width: 1024px) {
+  .admin-proof-wrapper {
+    padding: 18px;
+  }
+
+  .admin-proof-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .admin-proof-stat-card {
+    padding: 14px;
+  }
+
+  .admin-proof-stat-value {
+    font-size: 1.5rem;
+  }
+
+  .admin-proof-title {
+    font-size: 1.25rem;
+  }
+
+  .admin-proof-section-title {
+    font-size: 1.1rem;
+  }
+
+  .admin-proof-filters-container {
+    gap: 12px;
+  }
+
+  .admin-proof-search-box {
+    min-width: 250px;
+  }
+}
+
+/* ── Mobile (<768px) ── */
 @media (max-width: 768px) {
   .admin-proof-wrapper {
     padding: 1rem;
   }
 
+  .admin-proof-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .admin-proof-title {
+    font-size: 1.25rem;
+  }
+
   .admin-proof-stats-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .admin-proof-stat-card {
+    padding: 12px;
+  }
+
+  .admin-proof-stat-value {
+    font-size: 1.5rem;
+  }
+
+  .admin-proof-section-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .admin-proof-filters-container {
     flex-direction: column;
+    gap: 10px;
   }
 
   .admin-proof-search-box {
     min-width: 100%;
+    flex: 1;
+  }
+
+  .admin-proof-search-input,
+  .admin-proof-filter-select {
+    width: 100%;
   }
 
   .admin-proof-table-container {
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-proof-table {
+    min-width: 800px;
+  }
+
+  .admin-proof-modal {
+    width: 95%;
+    max-width: 95vw;
+  }
+
+  .admin-proof-search-input,
+  .admin-proof-filter-select {
+    font-size: 16px;
   }
 }
 
+/* ── Small Mobile (<600px) ── */
 @media (max-width: 600px) {
+  .admin-proof-wrapper {
+    padding: 12px;
+  }
+
+  .admin-proof-title {
+    font-size: 1.1rem;
+  }
+
+  .admin-proof-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .admin-proof-stat-card {
+    padding: 10px;
+  }
+
+  .admin-proof-stat-value {
+    font-size: 1.25rem;
+  }
+
+  .admin-proof-stat-label {
+    font-size: 0.75rem;
+  }
+
+  .admin-proof-section-title {
+    font-size: 1rem;
+  }
+
+  .admin-proof-filters-container {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .admin-proof-search-box {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .admin-proof-search-input,
+  .admin-proof-filter-select {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    font-size: 14px;
+  }
+
   .admin-proof-table {
     border: 0;
+    font-size: 13px;
   }
-  
+
   .admin-proof-table thead {
     display: none;
   }
-  
+
   .admin-proof-table tbody tr {
     display: block;
     margin-bottom: 0.75rem;
@@ -545,7 +674,7 @@
     padding: 0.75rem;
     background: white;
   }
-  
+
   .admin-proof-table tbody tr td {
     display: flex;
     justify-content: space-between;
@@ -553,23 +682,154 @@
     border-bottom: 1px dashed rgba(15, 23, 42, 0.05);
     gap: 1rem;
   }
-  
+
   .admin-proof-table tbody tr td:last-child {
     border-bottom: 0;
   }
-  
+
   .admin-proof-table td::before {
     content: attr(data-label);
     font-weight: 600;
     color: #475569;
     min-width: 100px;
+    font-size: 0.75rem;
   }
-  
+
   .admin-proof-description {
     max-width: 100%;
   }
-  
-  .admin-proof-actions {
-    justify-content: flex-end;
+
+  .admin-proof-modal {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .admin-proof-modal-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-approve,
+  .btn-reject,
+  .btn-cancel {
+    width: 100%;
+  }
+
+  .action-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .admin-proof-status-badge {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.65rem;
+  }
+}
+
+/* ── Ultra Mobile (<480px) ── */
+@media (max-width: 480px) {
+  .admin-proof-wrapper {
+    padding: 10px;
+  }
+
+  .admin-proof-title {
+    font-size: 1rem;
+  }
+
+  .admin-proof-subtitle {
+    font-size: 0.75rem;
+  }
+
+  .admin-proof-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .admin-proof-stat-card {
+    padding: 10px;
+  }
+
+  .admin-proof-stat-value {
+    font-size: 1.125rem;
+  }
+
+  .admin-proof-stat-label {
+    font-size: 0.7rem;
+  }
+
+  .admin-proof-section-title {
+    font-size: 0.95rem;
+  }
+
+  .admin-proof-filters-container {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .admin-proof-search-input,
+  .admin-proof-filter-select {
+    padding: 0.55rem 0.7rem;
+    font-size: 14px;
+  }
+
+  .admin-proof-table {
+    min-width: 600px;
+    font-size: 12px;
+  }
+
+  .admin-proof-table th {
+    padding: 0.6rem;
+    font-size: 0.7rem;
+  }
+
+  .admin-proof-table td {
+    padding: 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .admin-proof-modal {
+    width: 100%;
+    padding: 1rem;
+  }
+
+  .admin-proof-modal h3 {
+    font-size: 1.1rem;
+  }
+
+  .admin-proof-modal-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-approve,
+  .btn-reject,
+  .btn-cancel {
+    width: 100%;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.7rem;
+  }
+
+  .action-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 0.9rem;
+  }
+
+  .approve-icon,
+  .reject-icon {
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0.05);
+  }
+
+  .admin-proof-student-name {
+    font-size: 0.8rem;
+  }
+
+  .admin-proof-student-grade {
+    font-size: 0.65rem;
+  }
+
+  .admin-proof-description {
+    font-size: 0.75rem;
+    max-width: 100%;
   }
 }
