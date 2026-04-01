@@ -72,7 +72,7 @@ export default function TableActionMenu({
 
       {/* Dropdown Menu Toggle */}
       <button
-        className="action-menu-toggle"
+        className={`action-menu-toggle ${open ? "active" : ""}`}
         onClick={() => setOpen(!open)}
         title="More options"
         aria-label="More actions"
@@ -81,57 +81,55 @@ export default function TableActionMenu({
       </button>
 
       {/* Dropdown Menu */}
-      {open && (
-        <div className="action-menu-dropdown">
-          {/* Edit */}
+      <div className={`action-menu-dropdown ${open ? "show" : ""}`}>
+        {/* Edit */}
+        <button
+          className="action-menu-item"
+          onClick={handleEdit}
+          title="Edit enrollment"
+        >
+          <Edit2 size={14} />
+          <span>Edit</span>
+        </button>
+
+        {/* Delete */}
+        <button
+          className="action-menu-item action-menu-item--danger"
+          onClick={handleDelete}
+          title="Delete enrollment"
+        >
+          <Trash2 size={14} />
+          <span>Delete</span>
+        </button>
+
+        {/* Upload ID */}
+        {row.statusCode === "ACTIVE" && (
           <button
             className="action-menu-item"
-            onClick={handleEdit}
-            title="Edit enrollment"
+            onClick={handleIdUpload}
+            title="Upload ID image"
           >
-            <Edit2 size={14} />
-            <span>Edit</span>
+            <Upload size={14} />
+            <span>Upload ID</span>
           </button>
+        )}
 
-          {/* Delete */}
+        {/* Promote */}
+        {hasPromote && (
           <button
-            className="action-menu-item action-menu-item--danger"
-            onClick={handleDelete}
-            title="Delete enrollment"
+            className="action-menu-item"
+            onClick={handlePromote}
+            title={`Promote to ${gradeLabel(
+              getNextGrade(row.raw.grade_level).next
+            )}`}
           >
-            <Trash2 size={14} />
-            <span>Delete</span>
+            <ArrowUpCircle size={14} />
+            <span>
+              Promote {gradeLabel(getNextGrade(row.raw.grade_level).next)}
+            </span>
           </button>
-
-          {/* Upload ID */}
-          {row.statusCode === "ACTIVE" && (
-            <button
-              className="action-menu-item"
-              onClick={handleIdUpload}
-              title="Upload ID image"
-            >
-              <Upload size={14} />
-              <span>Upload ID</span>
-            </button>
-          )}
-
-          {/* Promote */}
-          {hasPromote && (
-            <button
-              className="action-menu-item"
-              onClick={handlePromote}
-              title={`Promote to ${gradeLabel(
-                getNextGrade(row.raw.grade_level).next
-              )}`}
-            >
-              <ArrowUpCircle size={14} />
-              <span>
-                Promote {gradeLabel(getNextGrade(row.raw.grade_level).next)}
-              </span>
-            </button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
