@@ -968,10 +968,6 @@ const handleApprove = async (id) => {
     }
   };
 
-  const handleDecline = (id) => {
-    openDeclineDialog(id);
-  };
-
   const handleDeleteEnrollment = async (id) => {
     if (!window.confirm("Delete this enrollment?")) return;
 
