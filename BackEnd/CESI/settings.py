@@ -154,7 +154,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:5174",
     "https://cesiportal-app-nypkd.ondigitalocean.app",
 ]
-CORS_ALLOW_ALL_ORIGINS = False  # Set to False for production
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
