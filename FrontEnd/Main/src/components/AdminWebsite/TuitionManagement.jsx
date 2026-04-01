@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Search, Filter, Download, Plus, Edit2, Trash2,
-  DollarSign, AlertCircle, CheckCircle, ToggleLeft, ToggleRight
+  Users, Split, AlertCircle, CheckCircle, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import Pagination from './Pagination';
 import '../AdminWebsiteCSS/TuitionManagement.css';
@@ -495,7 +495,7 @@ const TuitionManagement = () => {
               <span className="tm-stat-label">
                 {viewMode === 'student' ? 'Total Students' : 'Grade Levels'}
               </span>
-              <DollarSign size={24} className="tm-stat-icon" />
+              <Users size={24} className="tm-stat-icon" />
             </div>
             <div className="tm-stat-value">
               {viewMode === 'student' ? stats.totalStudents : stats.totalConfigs}
@@ -525,7 +525,7 @@ const TuitionManagement = () => {
               <span className="tm-stat-label">
                 {viewMode === 'student' ? 'Installment Mode' : 'Avg Total Cash'}
               </span>
-              <DollarSign size={24} className="tm-stat-icon" />
+              <Split size={24} className="tm-stat-icon" />
             </div>
             <div className="tm-stat-value">
               {viewMode === 'student' ? stats.installmentCount : formatCurrency(stats.avgTotalCash)}

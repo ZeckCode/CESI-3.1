@@ -7,7 +7,7 @@ import {
   AlertCircle,
   Clock,
   CheckCircle,
-  DollarSign,
+  Wallet,
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
 import "../AdminWebsiteCSS/PaymentReminders.css";
@@ -124,7 +124,7 @@ const PaymentReminders = () => {
           <div className="pr-stat-card pr-stat-blue">
             <div className="pr-stat-header">
               <span className="pr-stat-label">Total Outstanding</span>
-              <DollarSign size={24} className="pr-stat-icon" />
+              <Wallet size={24} className="pr-stat-icon" />
             </div>
             <div className="pr-stat-value">₱{totalOutstanding.toLocaleString()}</div>
             <div className="pr-stat-change">Based on reminder-linked transactions</div>

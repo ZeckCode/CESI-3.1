@@ -21,7 +21,7 @@ import {
 import {
   Users,
   Calendar,
-  DollarSign,
+  Wallet,
   Bell,
   ClipboardCheck,
   Clock,
@@ -658,7 +658,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
 
         <div className="dash-stat-md dash-stat-md--green">
           <div className="dash-stat-icon dash-stat-icon--green">
-            <DollarSign size={22} />
+            <Wallet size={22} />
           </div>
           <div className="dash-stat-info">
             <span className="dash-stat-value">
