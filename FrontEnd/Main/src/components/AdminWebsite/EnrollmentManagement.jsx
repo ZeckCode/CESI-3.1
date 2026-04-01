@@ -17,6 +17,7 @@ import {
   UserMinus,
   UserX,
   Users,
+  Eye,
 } from "lucide-react";
 
 import StatCard, { StatsGrid } from "./StatCard";
@@ -1987,6 +1988,11 @@ const handleApprove = async (id) => {
                           objectFit: "contain",
                           borderRadius: 6,
                           border: "1px solid #e2e8f0",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => {
+                          setImageViewerOpen(true);
+                          setSelectedImageUrl(proof.proof_image_url);
                         }}
                       />
                     ) : (
@@ -2054,9 +2060,6 @@ const handleApprove = async (id) => {
                         color: "#475569",
                         transition: "all 0.2s",
                       }}
-                      onHover={(e) => {
-                        e.currentTarget.style.background = "#f1f5f9";
-                      }}
                     >
                       Cancel
                     </button>
@@ -2099,55 +2102,57 @@ const handleApprove = async (id) => {
                       {isApprovingProof ? "Approving..." : "Approve"}
                     </button>
                   </div>
-                  {imageViewerOpen && selectedImageUrl && (
-  <div
-    onClick={() => setImageViewerOpen(false)}
-    style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: "rgba(0, 0, 0, 0.9)",
-      zIndex: 9999,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      cursor: "pointer",
-    }}
-  >
-    <button
-      onClick={() => setImageViewerOpen(false)}
-      style={{
-        position: "absolute",
-        top: "20px",
-        right: "20px",
-        background: "none",
-        border: "none",
-        color: "white",
-        cursor: "pointer",
-        zIndex: 10000,
-      }}
-    >
-      <XCircle size={32} />
-    </button>
-    <img
-      src={selectedImageUrl}
-      alt="Payment proof"
-      style={{
-        maxWidth: "90vw",
-        maxHeight: "90vh",
-        objectFit: "contain",
-        borderRadius: "8px",
-      }}
-      onClick={(e) => e.stopPropagation()}
-    />
-  </div>
-)}
                 </div>
               );
             })()}
           </div>
+        </div>
+      )}
+
+      {/* Image Overlay - Place this OUTSIDE all modals */}
+      {imageViewerOpen && selectedImageUrl && (
+        <div
+          onClick={() => setImageViewerOpen(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.9)",
+            zIndex: 10000, // Higher than modals
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <button
+            onClick={() => setImageViewerOpen(false)}
+            style={{
+              position: "absolute",
+              top: "20px",
+              right: "20px",
+              background: "none",
+              border: "none",
+              color: "white",
+              cursor: "pointer",
+              zIndex: 10001,
+            }}
+          >
+            <XCircle size={32} />
+          </button>
+          <img
+            src={selectedImageUrl}
+            alt="Payment proof full view"
+            style={{
+              maxWidth: "90vw",
+              maxHeight: "90vh",
+              objectFit: "contain",
+              borderRadius: "8px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
 
