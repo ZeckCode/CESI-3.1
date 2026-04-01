@@ -202,17 +202,19 @@ class ScheduleListCreate(generics.ListCreateAPIView):
             base = base.exclude(pk=exclude_id)
 
         conflicts = []
-        
-        # Teacher conflict (skip for free periods without a teacher)
+
+        # Teacher conflict (skip for entries without a teacher)
         if data.get("teacher"):
             teacher_conflict = base.filter(teacher=data["teacher"]).first()
             if teacher_conflict:
                 conflicts.append({
                     "type": "teacher",
-                    "message": f"Teacher {data['teacher'].username} already has "
-                              f"{getattr(teacher_conflict.subject, 'name', 'No subject')} at "
-                              f"{teacher_conflict.start_time:%H:%M}–{teacher_conflict.end_time:%H:%M} "
-                              f"on {teacher_conflict.get_day_of_week_display()}"
+                    "message": (
+                        f"Teacher {data['teacher'].username} already has "
+                        f"{getattr(teacher_conflict.subject, 'name', 'No subject')} at "
+                        f"{teacher_conflict.start_time:%H:%M}–{teacher_conflict.end_time:%H:%M} "
+                        f"on {teacher_conflict.get_day_of_week_display()}"
+                    )
                 })
 
         # Section conflict
@@ -220,30 +222,36 @@ class ScheduleListCreate(generics.ListCreateAPIView):
         if section_conflict:
             conflicts.append({
                 "type": "section",
-                "message": f"Section {data['section'].name} already has "
-                          f"{section_conflict.subject.name} at "
-                          f"{section_conflict.start_time:%H:%M}–{section_conflict.end_time:%H:%M} "
-                          f"on {section_conflict.get_day_of_week_display()}"
+                "message": (
+                    f"Section {data['section'].name} already has "
+                    f"{getattr(section_conflict.subject, 'name', 'No subject')} at "
+                    f"{section_conflict.start_time:%H:%M}–{section_conflict.end_time:%H:%M} "
+                    f"on {section_conflict.get_day_of_week_display()}"
+                )
             })
 
-        # Room conflict (if room is specified)
+        # Room conflict
         room = data.get("room")
         if room:
             room_conflict = base.filter(room=room).first()
             if room_conflict:
                 conflicts.append({
                     "type": "room",
-                    "message": f"Room {room.code} is already booked for "
-                              f"{room_conflict.section.name} ({getattr(room_conflict.subject, 'name', 'No subject')}) at "
+                    "message": (
+                        f"Room {room.code} is already booked for "
+                        f"{room_conflict.section.name} "
+                        f"({getattr(room_conflict.subject, 'name', 'No subject')}) at "
+                        f"{room_conflict.start_time:%H:%M}–{room_conflict.end_time:%H:%M} "
+                        f"on {room_conflict.get_day_of_week_display()}"
+                    )
                 })
 
         if conflicts:
             return {
                 "message": " | ".join([c["message"] for c in conflicts]),
-                "details": conflicts
+                "details": conflicts,
             }
         return None
-
 
 class ScheduleDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Schedule.objects.select_related("teacher", "subject", "section", "room", "school_year").all()

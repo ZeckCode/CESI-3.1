@@ -65,7 +65,7 @@ REST_FRAMEWORK = {
      "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated", # Default to authenticated users only; override with AllowAny for public endpoints
     ],
-         "DEFAULT_THROTTLE_CLASSES": [
+        "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
         "rest_framework.throttling.ScopedRateThrottle",
