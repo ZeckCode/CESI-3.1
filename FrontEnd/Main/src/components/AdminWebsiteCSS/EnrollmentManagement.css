@@ -856,15 +856,13 @@
   .settings-panel__fields { grid-template-columns: 1fr; }
   .action-buttons { gap: 2px; }
   
-  /* Show action menu on tablet and smaller */
-  .action-menu-toggle {
-    display: flex;
+  /* Hide individual action buttons on mobile, show dropdown toggle */
+  .action-menu-button {
+    display: none;
   }
   
-  /* Hide regular action buttons on mobile */
-  .action-buttons .btn-edit,
-  .action-buttons .btn-delete {
-    display: none;
+  .action-menu-toggle {
+    display: inline-flex;
   }
   
   .modal-content { width: 95%; max-width: 700px; }
@@ -965,13 +963,12 @@
 /* ========== ACTION MENU (RESPONSIVE) ========== */
 .action-menu-container {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
 }
 
 .action-menu-toggle {
-  display: none;
-  align-items: center;
-  justify-content: center;
   width: 36px;
   height: 36px;
   border: 1px solid #e5e8f0;
@@ -982,12 +979,26 @@
   transition: all 0.2s;
   padding: 0;
   font-size: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .action-menu-toggle:hover {
   border-color: #4f6ef7;
   color: #4f6ef7;
   background: #f0f3ff;
+}
+
+/* Desktop action buttons - shown on desktop, hidden on mobile */
+.action-menu-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .action-menu-dropdown {

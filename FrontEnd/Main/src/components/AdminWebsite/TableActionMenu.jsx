@@ -51,10 +51,49 @@ export default function TableActionMenu({
   return (
     <div
       ref={menuRef}
-      style={{ position: "relative", display: "inline-block" }}
+      style={{ position: "relative", display: "inline-flex", gap: "6px", alignItems: "center" }}
       className="action-menu-container"
     >
-      {/* Toggle Button */}
+      {/* Desktop: Individual Buttons (hidden on mobile via CSS) */}
+      <button
+        className="action-menu-button btn-edit"
+        onClick={handleEdit}
+        title="Edit"
+      >
+        <Edit2 size={14} />
+      </button>
+
+      <button
+        className="action-menu-button btn-delete"
+        onClick={handleDelete}
+        title="Delete"
+      >
+        <Trash2 size={14} />
+      </button>
+
+      {row.statusCode === "ACTIVE" && (
+        <button
+          className="action-menu-button btn-edit"
+          onClick={handleIdUpload}
+          title="Upload ID Image"
+        >
+          ID
+        </button>
+      )}
+
+      {hasPromote && (
+        <button
+          className="action-menu-button btn-promote"
+          onClick={handlePromote}
+          title={`Promote to ${gradeLabel(
+            getNextGrade(row.raw.grade_level).next
+          )}`}
+        >
+          <ArrowUpCircle size={14} />
+        </button>
+      )}
+
+      {/* Mobile: Dropdown Menu Toggle (shown only on mobile via CSS) */}
       <button
         className="action-menu-toggle"
         onClick={() => setOpen(!open)}
