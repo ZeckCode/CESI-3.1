@@ -356,16 +356,6 @@ export default function StudentInfoTab({
             />
           </div>
         </div>
-
-        <div className="form-group">
-          <label>ZIP Code</label>
-          <input
-            name="zip_code"
-            value={formData.zip_code}
-            onChange={onInputChange}
-            disabled={isReadOnly}
-          />
-        </div>
       </div>
 
       {/* Payment Information */}

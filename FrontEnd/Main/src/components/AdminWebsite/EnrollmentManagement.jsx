@@ -539,7 +539,6 @@ export default function EnrollmentManagement() {
       city: addr.city,
       province: addr.province,
       region: addr.region,
-      zip_code: addr.zip_code,
       remarks: e.remarks || "",
       parent_info: {
         father_first: father.first,
@@ -683,6 +682,33 @@ export default function EnrollmentManagement() {
     }
   };
 
+  const scrollToFirstMissingField = (fieldName) => {
+    // Map field names to input name attributes
+    const fieldMap = {
+      "Last Name": "last_name",
+      "First Name": "first_name",
+      "Birth Date": "birth_date",
+      "Grade Level": "grade_level",
+      "Education Level": "education_level",
+      "Student Type": "student_type",
+      "Academic Year": "academic_year",
+      "Payment Mode": "payment_mode",
+      "LRN": "lrn",
+    };
+
+    const inputName = fieldMap[fieldName] || fieldName.toLowerCase().replace(/\s+/g, "_");
+    const inputField = document.querySelector(`input[name="${inputName}"], select[name="${inputName}"], textarea[name="${inputName}"]`);
+    
+    if (inputField) {
+      inputField.scrollIntoView({ behavior: "smooth", block: "center" });
+      inputField.focus();
+      inputField.style.borderColor = "#ef4444";
+      setTimeout(() => {
+        inputField.style.borderColor = "";
+      }, 2000);
+    }
+  };
+
   const validateCreate = () => {
     const missing = [];
 
@@ -723,6 +749,9 @@ export default function EnrollmentManagement() {
 
     if (missing.length) {
       addToast("Missing Required Fields", missing.join(", "), "error");
+      if (missing.length > 0) {
+        scrollToFirstMissingField(missing[0]);
+      }
       return false;
     }
 
@@ -763,7 +792,9 @@ const handleApprove = async (id) => {
     }
 
     await fetchEnrollments();
-    await fetchProofs(); // Refresh proofs to get updated status
+    
+    // Auto-approve the payment proof if it exists
+    await autoApprovePaymentProof(id);
     
     addToast(
       "Approved",
@@ -830,7 +861,10 @@ const handleApprove = async (id) => {
       setModalMode("view");
     }
 
-    await fetchProofs(); // Refresh proofs to get updated status
+    await fetchEnrollments();
+    
+    // Auto-reject the payment proof if it exists
+    await autoRejectPaymentProof(declineTargetId, trimmedReason);
     
     addToast(
       "Enrollment Declined",
@@ -851,6 +885,88 @@ const handleApprove = async (id) => {
     setDeclineSubmitting(false);
   }
 };
+
+  const handleDecline = (id) => {
+    openDeclineDialog(id);
+  };
+
+  const autoApprovePaymentProof = async (enrollmentId) => {
+    try {
+      // Find the proof of payment for this enrollment
+      const proof = proofs.find(p => p.enrollment_id === enrollmentId);
+      
+      if (!proof) {
+        console.log(`No payment proof found for enrollment ${enrollmentId}`);
+        return;
+      }
+
+      // If already approved, no need to update
+      if (proof.status && String(proof.status).toLowerCase() === "approved") {
+        return;
+      }
+
+      // Auto-approve the payment proof
+      const res = await apiFetch(
+        `/api/finance/proof-of-payments/${proof.id}/approve/`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            remarks: "Auto-approved when enrollment was approved" 
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Failed to auto-approve payment proof:", errorData);
+        return;
+      }
+
+      await fetchProofs();
+    } catch (err) {
+      console.error("Error auto-approving payment proof:", err);
+    }
+  };
+
+  const autoRejectPaymentProof = async (enrollmentId, declineReason = "") => {
+    try {
+      // Find the proof of payment for this enrollment
+      const proof = proofs.find(p => p.enrollment_id === enrollmentId);
+      
+      if (!proof) {
+        console.log(`No payment proof found for enrollment ${enrollmentId}`);
+        return;
+      }
+
+      // If already rejected, no need to update
+      if (proof.status && String(proof.status).toLowerCase() === "rejected") {
+        return;
+      }
+
+      // Auto-reject the payment proof
+      const res = await apiFetch(
+        `/api/finance/proof-of-payments/${proof.id}/reject/`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            remarks: `Auto-rejected when enrollment was declined${declineReason ? ": " + declineReason : ""}`
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Failed to auto-reject payment proof:", errorData);
+        return;
+      }
+
+      await fetchProofs();
+    } catch (err) {
+      console.error("Error auto-rejecting payment proof:", err);
+    }
+  };
 
   const handleDecline = (id) => {
     openDeclineDialog(id);
@@ -978,7 +1094,6 @@ const handleApprove = async (id) => {
       city: addr.city,
       province: addr.province,
       region: addr.region,
-      zip_code: addr.zip_code,
       education_level: nextEdu,
       grade_level: next,
       academic_year: nextYear,
@@ -1988,34 +2103,6 @@ const handleApprove = async (id) => {
                     )}
                   </div>
 
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{
-                      display: "block",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#64748b",
-                      textTransform: "uppercase",
-                      marginBottom: 4,
-                    }}>
-                      Admin Remarks
-                    </label>
-                    <textarea
-                      value={approvalRemarks}
-                      onChange={(e) => setApprovalRemarks(e.target.value)}
-                      placeholder="Enter remarks (optional)"
-                      style={{
-                        width: "100%",
-                        padding: 10,
-                        border: "1px solid #e2e8f0",
-                        borderRadius: 4,
-                        fontSize: 13,
-                        fontFamily: "inherit",
-                        minHeight: 80,
-                        resize: "vertical",
-                      }}
-                    />
-                  </div>
-
                   <div style={{
                     display: "flex",
                     gap: 12,
@@ -2026,57 +2113,18 @@ const handleApprove = async (id) => {
                     <button
                       onClick={() => setPaymentProofModalOpen(false)}
                       style={{
-                        flex: 1,
                         padding: "10px 16px",
-                        border: "1px solid #e2e8f0",
-                        background: "#f8fafc",
+                        border: "1px solid #0ea5e9",
+                        background: "#e0f2fe",
                         borderRadius: 4,
                         fontSize: 13,
                         fontWeight: 500,
                         cursor: "pointer",
-                        color: "#475569",
+                        color: "#0369a1",
                         transition: "all 0.2s",
                       }}
                     >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleRejectProof}
-                      disabled={isRejectingProof}
-                      style={{
-                        flex: 1,
-                        padding: "10px 16px",
-                        border: "1px solid #fca5a5",
-                        background: "#fee2e2",
-                        borderRadius: 4,
-                        fontSize: 13,
-                        fontWeight: 500,
-                        cursor: isRejectingProof ? "not-allowed" : "pointer",
-                        color: "#dc2626",
-                        opacity: isRejectingProof ? 0.6 : 1,
-                        transition: "all 0.2s",
-                      }}
-                    >
-                      {isRejectingProof ? "Rejecting..." : "Reject"}
-                    </button>
-                    <button
-                      onClick={handleApproveProof}
-                      disabled={isApprovingProof}
-                      style={{
-                        flex: 1,
-                        padding: "10px 16px",
-                        border: "1px solid #86efac",
-                        background: "#dcfce7",
-                        borderRadius: 4,
-                        fontSize: 13,
-                        fontWeight: 500,
-                        cursor: isApprovingProof ? "not-allowed" : "pointer",
-                        color: "#16a34a",
-                        opacity: isApprovingProof ? 0.6 : 1,
-                        transition: "all 0.2s",
-                      }}
-                    >
-                      {isApprovingProof ? "Approving..." : "Approve"}
+                      Close
                     </button>
                   </div>
                 </div>
