@@ -1801,48 +1801,27 @@ const handleApprove = async (id) => {
 
                   <td>
                   {row.paymentProof ? (
-                    <div
+                    <button
                       style={{
+                        padding: "6px 12px",
+                        fontSize: "12px",
+                        background: "#dbeafe",
+                        border: "1px solid #0ea5e9",
+                        borderRadius: "4px",
+                        cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
-                        gap: "8px",
-                        cursor: "pointer",
+                        gap: "4px",
+                        color: "#0369a1",
+                        fontWeight: "500",
                       }}
                       onClick={() => {
                         setImageViewerOpen(true);
                         setSelectedImageUrl(row.paymentProof.proof_image_url);
                       }}
                     >
-                      {row.paymentProof.proof_image_url ? (
-                        <img
-                          src={row.paymentProof.proof_image_url}
-                          alt="Payment proof"
-                          style={{
-                            width: "40px",
-                            height: "40px",
-                            objectFit: "cover",
-                            borderRadius: "4px",
-                            border: "1px solid #e2e8f0",
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: "40px",
-                            height: "40px",
-                            background: "#f1f5f9",
-                            borderRadius: "4px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "10px",
-                            color: "#94a3b8",
-                          }}
-                        >
-                          No IMG
-                        </div>
-                      )}
-                    </div>
+                      <Eye size={14} /> View
+                    </button>
                   ) : (
                     <span style={{ color: "#94a3b8", fontSize: "12px" }}>No proof</span>
                   )}
