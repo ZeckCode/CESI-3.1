@@ -313,12 +313,12 @@ const Grade = () => {
     const s = scores.find(
       (sc) => Number(sc.student) === Number(studentId) && Number(sc.grade_item) === Number(itemId)
     );
-    return s ? s.score : null;
+    return s ? Number(s.score) : null;
   };
 
   const getCS = (studentId) => {
     const c = classStandings.find((cs) => Number(cs.student) === Number(studentId));
-    return c ? c.score : null;
+    return c ? Number(c.score) : null;
   };
 
   const categoryAvg = (studentId, cat) => {
@@ -349,9 +349,9 @@ const Grade = () => {
     const cs = getCS(studentId);
 
     const parts = [];
-    if (actAvg !== null) parts.push({ avg: actAvg, w: Number(weights.activity_weight) || 0 });
-    if (quizAvg !== null) parts.push({ avg: quizAvg, w: Number(weights.quiz_weight) || 0 });
-    if (examAvg !== null) parts.push({ avg: examAvg, w: Number(weights.exam_weight) || 0 });
+    if (actAvg !== null) parts.push({ avg: Number(actAvg), w: Number(weights.activity_weight) || 0 });
+    if (quizAvg !== null) parts.push({ avg: Number(quizAvg), w: Number(weights.quiz_weight) || 0 });
+    if (examAvg !== null) parts.push({ avg: Number(examAvg), w: Number(weights.exam_weight) || 0 });
     if (cs !== null) parts.push({ avg: Number(cs), w: Number(weights.class_standing_weight) || 0 });
 
     if (!parts.length) return null;
@@ -805,21 +805,29 @@ const Grade = () => {
             const examAvg = categoryAvg(student.id, "EXAM");
             const cs = getCS(student.id);
             const qg = quarterGrade(student.id);
-            const status = qg !== null ? (qg >= 75 ? "PASSED" : "FAILED") : "—";
-            const statusColor = qg !== null ? (qg >= 75 ? "#047857" : "#dc2626") : "#6b7280";
+            
+            // Ensure values are numbers
+            const actAvgNum = actAvg !== null ? Number(actAvg) : null;
+            const quizAvgNum = quizAvg !== null ? Number(quizAvg) : null;
+            const examAvgNum = examAvg !== null ? Number(examAvg) : null;
+            const csNum = cs !== null ? Number(cs) : null;
+            const qgNum = qg !== null ? Number(qg) : null;
+            
+            const status = qgNum !== null ? (qgNum >= 75 ? "PASSED" : "FAILED") : "—";
+            const statusColor = qgNum !== null ? (qgNum >= 75 ? "#047857" : "#dc2626") : "#6b7280";
 
             return `
               <tr>
                 <td style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${student.student_name}</td>
                 ${activityHTML}
-                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0f9ff;">${actAvg !== null ? Number(actAvg).toFixed(1) : "—"}%</td>
+                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0f9ff;">${actAvgNum !== null ? actAvgNum.toFixed(1) : "—"}%</td>
                 ${quizHTML}
-                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f3f0ff;">${quizAvg !== null ? Number(quizAvg).toFixed(1) : "—"}%</td>
+                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f3f0ff;">${quizAvgNum !== null ? quizAvgNum.toFixed(1) : "—"}%</td>
                 ${examHTML}
-                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #fef2f2;">${examAvg !== null ? Number(examAvg).toFixed(1) : "—"}%</td>
-                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0fdf4;">${cs !== null ? Number(cs).toFixed(1) : "—"}</td>
+                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #fef2f2;">${examAvgNum !== null ? examAvgNum.toFixed(1) : "—"}%</td>
+                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0fdf4;">${csNum !== null ? csNum.toFixed(1) : "—"}</td>
                 <td style="text-align: center; font-size: 12px; font-weight: 700; background: #fffbeb;">
-                  ${qg !== null ? Number(qg).toFixed(2) : "—"}
+                  ${qgNum !== null ? qgNum.toFixed(2) : "—"}
                 </td>
                 <td style="text-align: center; font-size: 11px; color: white; font-weight: 600; background: ${statusColor}; padding: 4px 8px;">
                   ${status}
