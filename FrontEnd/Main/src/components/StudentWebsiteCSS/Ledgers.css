@@ -311,6 +311,9 @@
 /* Responsive */
 @media (max-width: 768px) {
   .ledger-wrapper { flex-direction: column; }
+  .ledger-content { padding: 1rem; }
+  
+  /* Generic table responsive */
   .ledger-table thead { display: none; }
   .ledger-table td {
     display: flex;
@@ -329,6 +332,134 @@
   .ledger-accounting td[data-label="Payment (₱)"]::before,
   .ledger-accounting td[data-label="Balance"]::before {
     content: attr(data-label) ": ";
+  }
+
+  /* ── Mobile: Tuition Installments ─────────────────────── */
+  .ledger-table tbody tr {
+    display: block;
+    margin-bottom: 1.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+
+  .ledger-table tbody td {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem !important;
+    border: none !important;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+  }
+
+  .ledger-table tbody td:last-child {
+    border-bottom: none !important;
+  }
+
+  .ledger-table tbody td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: #64748b;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Hide # column label on mobile */
+  .ledger-table tbody td:first-child::before {
+    content: "Item #";
+  }
+
+  /* Status pill on mobile */
+  .ledger-table tbody td:last-child {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem !important;
+    border-bottom: none !important;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  /* Mobile table footer */
+  .ledger-table tfoot tr {
+    display: block;
+    margin-top: 0.5rem;
+    border: none !important;
+    border-top: 2px solid #dbeafe !important;
+    background: #f8fafc !important;
+    padding: 1rem;
+    border-radius: 0 0 0.75rem 0.75rem;
+  }
+
+  .ledger-table tfoot td {
+    display: block;
+    padding: 0.5rem 0 !important;
+    border: none !important;
+    text-align: right;
+    font-weight: 700;
+  }
+
+  .ledger-table tfoot td:first-child {
+    display: none;
+  }
+
+  .ledger-table tfoot td::before {
+    content: attr(data-label) ": ";
+    float: left;
+    font-weight: 700;
+    color: #64748b;
+  }
+
+  /* Summary cards - better spacing on mobile */
+  .ledger-summary-row {
+    gap: 1rem;
+  }
+
+  .ledger-sumCard {
+    padding: 1.25rem;
+    border-radius: 0.5rem;
+  }
+
+  .ledger-sumCard__value {
+    font-size: 1.5rem;
+  }
+
+  .ledger-sumCard__label {
+    font-size: 0.8rem;
+  }
+
+  /* Tuition installment student header - stack vertically */
+  .ledger-section {
+    border-radius: 0.5rem;
+  }
+
+  .section-header {
+    padding: 1rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  /* Summary cards for tuition installments */
+  .tabbed-summary-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem;
+  }
+}
+
+/* ─────── Medium Screens (480px - 768px) ─────── */
+@media (min-width: 480px) and (max-width: 768px) {
+  .ledger-content { padding: 1.25rem; }
+  
+  .ledger-tab {
+    padding: 0.7rem 1.2rem;
+    font-size: 0.9rem;
+  }
+
+  .tabbed-summary-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem;
   }
 }
 
@@ -474,6 +605,7 @@
   display: flex;
   gap: 0.5rem;
   border-bottom: 2px solid var(--border-color);
+  overflow-x: auto;
 }
 
 .ledger-tab {
@@ -486,6 +618,7 @@
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 0.95rem;
+  white-space: nowrap;
 }
 
 .ledger-tab:hover {
@@ -497,6 +630,58 @@
   color: #000000;
   border-bottom-color: #000000;
 }
+
+/* ─────── Extra-Small Screens (< 480px) ─────── */
+@media (max-width: 480px) {
+  .ledger-content { padding: 0.75rem; }
+  
+  .ledger-tab {
+    padding: 0.65rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .ledger-sumCard {
+    padding: 1rem;
+  }
+
+  .ledger-sumCard__value {
+    font-size: 1.25rem;
+  }
+
+  .ledger-sumCard__label {
+    font-size: 0.75rem;
+  }
+
+  .section-header {
+    font-size: 0.85rem;
+    padding: 0.8rem;
+  }
+
+  .ledger-table tbody tr {
+    margin-bottom: 1rem;
+  }
+
+  .ledger-table tbody td {
+    grid-template-columns: 90px 1fr;
+    gap: 0.25rem;
+    padding: 0.65rem !important;
+    font-size: 0.85rem;
+  }
+
+  .ledger-table tbody td::before {
+    font-size: 0.7rem;
+  }
+
+  .status-pill {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.65rem;
+  }
+
+  .tabbed-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 
 .ledger-tab i {
   margin-right: 0.25rem;

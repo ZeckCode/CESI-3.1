@@ -684,6 +684,7 @@ export default function Ledgers() {
                           alignItems: "flex-start",
                           gap: "2rem",
                           flexWrap: "wrap",
+                          flexDirection: "row",
                         }}
                       >
                         <div>
@@ -703,22 +704,25 @@ export default function Ledgers() {
                             fontSize: "0.85rem",
                             color: "#64748b",
                             textAlign: "right",
+                            display: "grid",
+                            gridTemplateColumns: "auto auto",
+                            gap: "0 1.5rem",
                           }}
                         >
+                          <div>Grade:</div>
                           <div>
-                            Grade:{" "}
                             <strong>
                               {gradeLevelLabel(student.grade_level) || "—"}
                             </strong>
                           </div>
+                          <div>Mode:</div>
                           <div>
-                            Mode:{" "}
                             <strong>
                               {paymentModeLabel(student.payment_mode) || "—"}
                             </strong>
                           </div>
+                          <div>Status:</div>
                           <div>
-                            Status:{" "}
                             <strong
                               style={{
                                 color:
@@ -742,6 +746,7 @@ export default function Ledgers() {
                         gap: "1rem",
                         marginBottom: "1.5rem",
                       }}
+                      className="tabbed-summary-grid"
                     >
                       <div
                         style={{
@@ -757,6 +762,9 @@ export default function Ledgers() {
                             fontSize: "0.75rem",
                             color: "#64748b",
                             marginBottom: "0.5rem",
+                            fontWeight: 600,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.3px",
                           }}
                         >
                           TF (TUITION FEE)
@@ -786,6 +794,9 @@ export default function Ledgers() {
                             fontSize: "0.75rem",
                             color: "#64748b",
                             marginBottom: "0.5rem",
+                            fontWeight: 600,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.3px",
                           }}
                         >
                           TOTAL PAID
@@ -815,6 +826,9 @@ export default function Ledgers() {
                             fontSize: "0.75rem",
                             color: "#64748b",
                             marginBottom: "0.5rem",
+                            fontWeight: 600,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.3px",
                           }}
                         >
                           REMAINING BALANCE
@@ -856,13 +870,13 @@ export default function Ledgers() {
                                 <tr
                                   key={item.id || `${student.student_id}-${itemIndex}`}
                                 >
-                                  <td>{itemIndex + 1}</td>
-                                  <td>{item.due_date || "—"}</td>
-                                  <td>{item.type || "Installment"}</td>
-                                  <td>{formatCurrency(amount_due)}</td>
-                                  <td>{formatCurrency(amount_paid)}</td>
-                                  <td>{formatCurrency(balance)}</td>
-                                  <td>
+                                  <td data-label="Item #">{itemIndex + 1}</td>
+                                  <td data-label="Due Date">{item.due_date || "—"}</td>
+                                  <td data-label="Description">{item.type || "Installment"}</td>
+                                  <td data-label="Amount Due">{formatCurrency(amount_due)}</td>
+                                  <td data-label="Amount Paid">{formatCurrency(amount_paid)}</td>
+                                  <td data-label="Balance">{formatCurrency(balance)}</td>
+                                  <td data-label="Status">
                                     <span
                                       className="status-pill"
                                       style={statusPillStyle(item.status)}
@@ -898,10 +912,10 @@ export default function Ledgers() {
                                 fontWeight: 700,
                               }}
                             >
-                              <td colSpan="3" style={{ textAlign: "right" }}>
+                              <td colSpan="3" style={{ textAlign: "right", display: "none" }}>
                                 TOTAL:
                               </td>
-                              <td style={{ textAlign: "right" }}>
+                              <td style={{ textAlign: "right" }} data-label="Total Due">
                                 {formatCurrency(
                                   (student.installments || []).reduce(
                                     (sum, item) => sum + Number(item.amount || 0),
@@ -909,7 +923,7 @@ export default function Ledgers() {
                                   )
                                 )}
                               </td>
-                              <td style={{ textAlign: "right" }}>
+                              <td style={{ textAlign: "right" }} data-label="Total Paid">
                                 {formatCurrency(
                                   (student.installments || []).reduce(
                                     (sum, item) => 
@@ -918,7 +932,7 @@ export default function Ledgers() {
                                   )
                                 )}
                               </td>
-                              <td style={{ textAlign: "right", color: "#dc2626" }}>
+                              <td style={{ textAlign: "right", color: "#dc2626" }} data-label="Total Balance">
                                 {formatCurrency(
                                   (student.installments || []).reduce(
                                     (sum, item) => 
