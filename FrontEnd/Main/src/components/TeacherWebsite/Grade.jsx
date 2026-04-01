@@ -812,14 +812,14 @@ const Grade = () => {
               <tr>
                 <td style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${student.student_name}</td>
                 ${activityHTML}
-                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0f9ff;">${actAvg !== null ? actAvg.toFixed(1) : "—"}%</td>
+                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0f9ff;">${actAvg !== null ? Number(actAvg).toFixed(1) : "—"}%</td>
                 ${quizHTML}
-                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f3f0ff;">${quizAvg !== null ? quizAvg.toFixed(1) : "—"}%</td>
+                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f3f0ff;">${quizAvg !== null ? Number(quizAvg).toFixed(1) : "—"}%</td>
                 ${examHTML}
-                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #fef2f2;">${examAvg !== null ? examAvg.toFixed(1) : "—"}%</td>
-                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0fdf4;">${cs !== null ? cs.toFixed(1) : "—"}</td>
+                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #fef2f2;">${examAvg !== null ? Number(examAvg).toFixed(1) : "—"}%</td>
+                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0fdf4;">${cs !== null ? Number(cs).toFixed(1) : "—"}</td>
                 <td style="text-align: center; font-size: 12px; font-weight: 700; background: #fffbeb;">
-                  ${qg !== null ? qg.toFixed(2) : "—"}
+                  ${qg !== null ? Number(qg).toFixed(2) : "—"}
                 </td>
                 <td style="text-align: center; font-size: 11px; color: white; font-weight: 600; background: ${statusColor}; padding: 4px 8px;">
                   ${status}
