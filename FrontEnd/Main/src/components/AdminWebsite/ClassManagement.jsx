@@ -283,8 +283,8 @@ const ClassManagement = () => {
     ]
   );
 
-  // PDF Export Function for Class Management
-  const exportClassesToPDF = (sections, enrollments) => {
+  // PDF Print Function for Class Management
+  const printClassesToPDF = (sections, enrollments) => {
     const doc = new jsPDF('landscape');
     
     // Add title and header
@@ -432,7 +432,7 @@ const ClassManagement = () => {
             </button>
             <button 
     className="cm-btn-icon"
-    onClick={() => exportClassesToPDF(sections, enrollments)}
+    onClick={() => printClassesToPDF(sections, enrollments)}
   
   >
     <FileDown size={18} /> 
@@ -742,9 +742,9 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
               URL.revokeObjectURL(url);
             }}
             style={{ background: '#10b981' }}
-            title="Export all sections to CSV"
+            title="Print all sections"
           >
-            <Download size={18} /> Export
+            <Download size={18} /> Print
           </button>
         </div>
       </div>
