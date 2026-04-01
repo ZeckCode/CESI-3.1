@@ -195,6 +195,7 @@ export default function StudentReenrollment() {
   const [parentLastName, setParentLastName] = useState("");
 
   const [contactNumber, setContactNumber] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentMode, setPaymentMode] = useState("");
   const [remarks, setRemarks] = useState("");
 
@@ -205,6 +206,7 @@ export default function StudentReenrollment() {
   const [region, setRegion] = useState("");
   const [zipCode, setZipCode] = useState("");
 
+  const [paymentProofFile, setPaymentProofFile] = useState(null);
   const [form137File, setForm137File] = useState(null);
   const [sf10File, setSf10File] = useState(null);
   const [birthCertificateFile, setBirthCertificateFile] = useState(null);
@@ -502,8 +504,16 @@ export default function StudentReenrollment() {
       errors.push("ZIP Code must be exactly 4 digits.");
     }
 
+    if (!paymentMethod.trim()) {
+      errors.push("Please select a payment method.");
+    }
+
     if (!paymentMode.trim()) {
       errors.push("Please select a payment mode.");
+    }
+
+    if (paymentMethod === "online" && !paymentProofFile) {
+      errors.push("Proof of payment is required for online payments.");
     }
 
     if (remarks.trim().length > 500) {
@@ -539,7 +549,9 @@ export default function StudentReenrollment() {
     province,
     region,
     zipCode,
+    paymentMethod,
     paymentMode,
+    paymentProofFile,
     remarks,
     form137File,
     sf10File,
@@ -589,7 +601,11 @@ export default function StudentReenrollment() {
           zipCode,
         })
       );
+      form.append("payment_method", paymentMethod);
       form.append("payment_mode", paymentMode);
+      if (paymentProofFile && paymentMethod === "online") {
+        form.append("payment_proof", paymentProofFile);
+      }
       form.append("remarks", remarks.trim());
 
       if (form137File) form.append("form_137_file", form137File);
@@ -1007,7 +1023,21 @@ export default function StudentReenrollment() {
           </div>
 
           <div className="info-entry entry-border edit-mode">
-            <span className="entry-label">Payment Mode</span>
+            <span className="entry-label">Payment Method<span className="required">*</span></span>
+            <select
+              className="entry-input"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              disabled={!eligibility.eligible}
+            >
+              <option value="">Select payment method</option>
+              <option value="online">Online (Offsite)</option>
+              <option value="onsite">Onsite (In-person)</option>
+            </select>
+          </div>
+
+          <div className="info-entry entry-border edit-mode">
+            <span className="entry-label">Payment Mode<span className="required">*</span></span>
             <select
               className="entry-input"
               value={paymentMode}
@@ -1019,6 +1049,24 @@ export default function StudentReenrollment() {
               <option value="installment">Installment</option>
             </select>
           </div>
+
+          {paymentMethod === "online" && (
+            <div className="info-entry entry-border edit-mode">
+              <span className="entry-label">Proof of Payment<span className="required">*</span></span>
+              <input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                className="entry-input"
+                onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)}
+                disabled={!eligibility.eligible}
+              />
+              {paymentProofFile && (
+                <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                  📄 {paymentProofFile.name}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="info-entry edit-mode">
             <span className="entry-label">Remarks</span>

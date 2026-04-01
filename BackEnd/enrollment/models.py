@@ -41,6 +41,11 @@ class Enrollment(models.Model):
         ("installment", "Installment"),
     ]
 
+    PAYMENT_METHOD_CHOICES = [
+        ("online", "Online (Offsite)"),
+        ("onsite", "Onsite (In-person)"),
+    ]
+
     STUDENT_TYPE_CHOICES = [
         ("new", "New / Transferee"),
         ("old", "Old Student"),
@@ -119,6 +124,12 @@ class Enrollment(models.Model):
     payment_mode = models.CharField(
         max_length=20,
         choices=PAYMENT_MODE_CHOICES,
+        blank=True,
+        null=True,
+    )
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
         blank=True,
         null=True,
     )
