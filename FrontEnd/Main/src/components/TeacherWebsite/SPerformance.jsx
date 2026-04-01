@@ -14,6 +14,7 @@ import "../TeacherWebsiteCSS/SPerformance.css";
 import { apiFetch } from "../api/apiFetch";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
+ChartJS.defaults.set({ responsive: true, maintainAspectRatio: false });
 
 const API = "";
 const QUARTERS = [1, 2, 3, 4];
@@ -286,27 +287,93 @@ const SPerformance = () => {
       .sort((a, b) => b.quarter_grade - a.quarter_grade)
       .slice(0, 5);
 
-    const dist = { "75-80": 0, "81-85": 0, "86-90": 0, "91-95": 0, "96-100": 0 };
+    // Histogram: Grade distribution (5-point increments)
+    const dist = { 
+      "50-59": 0, 
+      "60-69": 0, 
+      "70-74": 0, 
+      "75-79": 0, 
+      "80-84": 0, 
+      "85-89": 0, 
+      "90-94": 0, 
+      "95-100": 0 
+    };
     graded.forEach(({ quarter_grade: g }) => {
-      if (g < 75) return;
-      if (g <= 80) dist["75-80"]++;
-      else if (g <= 85) dist["81-85"]++;
-      else if (g <= 90) dist["86-90"]++;
-      else if (g <= 95) dist["91-95"]++;
-      else dist["96-100"]++;
+      if (g < 50) dist["50-59"]++;
+      else if (g < 60) dist["50-59"]++;
+      else if (g < 70) dist["60-69"]++;
+      else if (g < 75) dist["70-74"]++;
+      else if (g < 80) dist["75-79"]++;
+      else if (g < 85) dist["80-84"]++;
+      else if (g < 90) dist["85-89"]++;
+      else if (g < 95) dist["90-94"]++;
+      else dist["95-100"]++;
     });
 
-    return { total, classAvg, topGrade, passed, failed, atRiskList, topList, dist };
+    // Stacked Bar: Pass/Near-Pass/Fail breakdown
+    // Pass >= 75, Near-Pass 70-74, Fail < 70
+    const passCount = graded.filter((s) => s.quarter_grade >= 75).length;
+    const nearPassCount = graded.filter((s) => s.quarter_grade >= 70 && s.quarter_grade < 75).length;
+    const failCount = graded.filter((s) => s.quarter_grade < 70).length;
+
+    return { 
+      total, 
+      classAvg, 
+      topGrade, 
+      passed, 
+      failed, 
+      atRiskList, 
+      topList, 
+      dist,
+      passCount,
+      nearPassCount,
+      failCount,
+      gradedCount
+    };
   }, [displayPerformance]);
 
-  const barData = {
+  const histogramData = {
     labels: Object.keys(stats.dist),
     datasets: [
       {
         label: "Students",
         data: Object.values(stats.dist),
-        backgroundColor: "#2563eb",
-        borderRadius: 6,
+        backgroundColor: [
+          "#fca5a5", // 50-59 (lightest red)
+          "#f97316", // 60-69 (orange)
+          "#fbbf24", // 70-74 (amber)
+          "#60a5fa", // 75-79 (light blue)
+          "#4f46e5", // 80-84 (indigo)
+          "#7c3aed", // 85-89 (violet)
+          "#06b6d4", // 90-94 (cyan)
+          "#10b981", // 95-100 (green)
+        ],
+        borderRadius: 8,
+        borderWidth: 0,
+      },
+    ],
+  };
+
+  const stackedBarData = {
+    labels: ["Grade Composition"],
+    datasets: [
+      {
+        label: "Pass (75-100)",
+        data: [stats.passCount],
+        backgroundColor: "#10b981",
+        borderRadius: 8,
+      },
+      {
+        label: "Near-Pass (70-74)",
+        data: [stats.nearPassCount],
+        backgroundColor: "#f59e0b",
+        borderRadius: 8,
+      },
+      {
+        label: "Fail (Below 70)",
+        data: [stats.failCount],
+        backgroundColor: "#ef4444",
+        borderRadius: 8,
       },
     ],
   };
@@ -326,8 +393,50 @@ const SPerformance = () => {
   const commonOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    indexAxis: undefined,
     plugins: {
-      legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
+      legend: { 
+        position: "bottom", 
+        labels: { 
+          boxWidth: 12, 
+          font: { size: 11 },
+          padding: 10,
+          maxWidth: 80,
+        },
+      },
+    },
+  };
+
+  const histogramOptions = {
+    ...commonOptions,
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1,
+        },
+      },
+    },
+  };
+
+  const stackedBarOptions = {
+    ...commonOptions,
+    indexAxis: "y",
+    scales: {
+      x: {
+        stacked: true,
+        beginAtZero: true,
+      },
+      y: {
+        stacked: true,
+      },
+    },
+    plugins: {
+      ...commonOptions.plugins,
+      legend: {
+        ...commonOptions.plugins.legend,
+        position: "right",
+      },
     },
   };
 
@@ -421,10 +530,10 @@ const SPerformance = () => {
 
       <section className="sp__charts">
         <div className="spPanel">
-          <div className="spPanel__title">Grade Distribution Frequency</div>
+          <div className="spPanel__title">📊 Overall Grade Distribution (Histogram)</div>
           <div className="spPanel__chart">
             {stats.classAvg !== null ? (
-              <Bar data={barData} options={commonOptions} />
+              <Bar data={histogramData} options={histogramOptions} />
             ) : (
               <div className="sp__empty">No grade data yet for this quarter.</div>
             )}
@@ -432,12 +541,12 @@ const SPerformance = () => {
         </div>
 
         <div className="spPanel">
-          <div className="spPanel__title">Passing Rate Overview</div>
+          <div className="spPanel__title">📈 Pass/Near-Pass/Fail Breakdown</div>
           <div className="spPanel__chart">
-            {stats.total > 0 ? (
-              <Doughnut data={doughnutData} options={commonOptions} />
+            {stats.gradedCount > 0 ? (
+              <Bar data={stackedBarData} options={stackedBarOptions} />
             ) : (
-              <div className="sp__empty">No students in this section.</div>
+              <div className="sp__empty">No graded students yet.</div>
             )}
           </div>
         </div>

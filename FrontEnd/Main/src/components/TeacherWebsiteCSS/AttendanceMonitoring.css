@@ -30,6 +30,18 @@
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
+@media (max-width: 768px) {
+  .am {
+    padding: 16px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .am {
+    padding: 12px 8px;
+  }
+}
+
 /* HEADER */
 .am__header {
   display: flex;
@@ -42,11 +54,30 @@
   border-bottom: 1px solid var(--border);
 }
 
+@media (max-width: 768px) {
+  .am__header {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
 .am__title {
   margin: 0;
   font-weight: 800;
   font-size: 26px;
   color: var(--dark);
+}
+
+@media (max-width: 768px) {
+  .am__title {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .am__title {
+    font-size: 20px;
+  }
 }
 
 .am__subtitle {
