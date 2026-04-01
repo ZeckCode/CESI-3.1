@@ -313,12 +313,12 @@ const Grade = () => {
     const s = scores.find(
       (sc) => Number(sc.student) === Number(studentId) && Number(sc.grade_item) === Number(itemId)
     );
-    return s ? s.score : null;
+    return s ? Number(s.score) : null;
   };
 
   const getCS = (studentId) => {
     const c = classStandings.find((cs) => Number(cs.student) === Number(studentId));
-    return c ? c.score : null;
+    return c ? Number(c.score) : null;
   };
 
   const categoryAvg = (studentId, cat) => {
@@ -349,9 +349,9 @@ const Grade = () => {
     const cs = getCS(studentId);
 
     const parts = [];
-    if (actAvg !== null) parts.push({ avg: actAvg, w: Number(weights.activity_weight) || 0 });
-    if (quizAvg !== null) parts.push({ avg: quizAvg, w: Number(weights.quiz_weight) || 0 });
-    if (examAvg !== null) parts.push({ avg: examAvg, w: Number(weights.exam_weight) || 0 });
+    if (actAvg !== null) parts.push({ avg: Number(actAvg), w: Number(weights.activity_weight) || 0 });
+    if (quizAvg !== null) parts.push({ avg: Number(quizAvg), w: Number(weights.quiz_weight) || 0 });
+    if (examAvg !== null) parts.push({ avg: Number(examAvg), w: Number(weights.exam_weight) || 0 });
     if (cs !== null) parts.push({ avg: Number(cs), w: Number(weights.class_standing_weight) || 0 });
 
     if (!parts.length) return null;
@@ -759,88 +759,101 @@ const Grade = () => {
       return;
     }
 
-    const printWindow = window.open("", "", "width=1200,height=900");
+    try {
+      // Pre-calculate category items outside the loop to improve performance
+      const activityItems = itemsByCategory("ACTIVITY");
+      const quizItems = itemsByCategory("QUIZ");
+      const examItems = itemsByCategory("EXAM");
 
-    const schoolYearText = schoolYear
-      ? `S.Y. ${schoolYear.name || `${schoolYear.start_year}-${schoolYear.end_year}`}`
-      : "N/A";
+      const schoolYearText = schoolYear
+        ? `S.Y. ${schoolYear.name || `${schoolYear.start_year}-${schoolYear.end_year}`}`
+        : "N/A";
 
-    const currentDate = new Date().toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+      const currentDate = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
 
-    // Build grade rows for each student
-    const gradeRowsHTML = displayStudents
-      .map((student) => {
-        const activityItems = itemsByCategory("ACTIVITY");
-        const quizItems = itemsByCategory("QUIZ");
-        const examItems = itemsByCategory("EXAM");
+      // Build grade rows for each student
+      const gradeRowsHTML = displayStudents
+        .map((student) => {
+          try {
+            const activityHTML = activityItems
+              .map((item) => {
+                const score = getScore(student.id, item.id);
+                return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
+              })
+              .join("");
 
-        const activityHTML = activityItems
-          .map((item) => {
-            const score = getScore(student.id, item.id);
-            return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
-          })
-          .join("");
+            const quizHTML = quizItems
+              .map((item) => {
+                const score = getScore(student.id, item.id);
+                return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
+              })
+              .join("");
 
-        const quizHTML = quizItems
-          .map((item) => {
-            const score = getScore(student.id, item.id);
-            return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
-          })
-          .join("");
+            const examHTML = examItems
+              .map((item) => {
+                const score = getScore(student.id, item.id);
+                return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
+              })
+              .join("");
 
-        const examHTML = examItems
-          .map((item) => {
-            const score = getScore(student.id, item.id);
-            return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
-          })
-          .join("");
+            const actAvg = categoryAvg(student.id, "ACTIVITY");
+            const quizAvg = categoryAvg(student.id, "QUIZ");
+            const examAvg = categoryAvg(student.id, "EXAM");
+            const cs = getCS(student.id);
+            const qg = quarterGrade(student.id);
+            
+            // Ensure values are numbers
+            const actAvgNum = actAvg !== null ? Number(actAvg) : null;
+            const quizAvgNum = quizAvg !== null ? Number(quizAvg) : null;
+            const examAvgNum = examAvg !== null ? Number(examAvg) : null;
+            const csNum = cs !== null ? Number(cs) : null;
+            const qgNum = qg !== null ? Number(qg) : null;
+            
+            const status = qgNum !== null ? (qgNum >= 75 ? "PASSED" : "FAILED") : "—";
+            const statusColor = qgNum !== null ? (qgNum >= 75 ? "#047857" : "#dc2626") : "#6b7280";
 
-        const actAvg = categoryAvg(student.id, "ACTIVITY");
-        const quizAvg = categoryAvg(student.id, "QUIZ");
-        const examAvg = categoryAvg(student.id, "EXAM");
-        const cs = getCS(student.id);
-        const qg = quarterGrade(student.id);
-        const status = qg !== null ? (qg >= 75 ? "PASSED" : "FAILED") : "—";
-        const statusColor = qg !== null ? (qg >= 75 ? "#047857" : "#dc2626") : "#6b7280";
+            return `
+              <tr>
+                <td style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${student.student_name}</td>
+                ${activityHTML}
+                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0f9ff;">${actAvgNum !== null ? actAvgNum.toFixed(1) : "—"}%</td>
+                ${quizHTML}
+                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f3f0ff;">${quizAvgNum !== null ? quizAvgNum.toFixed(1) : "—"}%</td>
+                ${examHTML}
+                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #fef2f2;">${examAvgNum !== null ? examAvgNum.toFixed(1) : "—"}%</td>
+                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0fdf4;">${csNum !== null ? csNum.toFixed(1) : "—"}</td>
+                <td style="text-align: center; font-size: 12px; font-weight: 700; background: #fffbeb;">
+                  ${qgNum !== null ? qgNum.toFixed(2) : "—"}
+                </td>
+                <td style="text-align: center; font-size: 11px; color: white; font-weight: 600; background: ${statusColor}; padding: 4px 8px;">
+                  ${status}
+                </td>
+              </tr>
+            `;
+          } catch (err) {
+            console.error("Error building grade row for student:", student.student_name, err);
+            return `<tr><td colspan="100" style="text-align: center; color: red;">Error: ${err.message}</td></tr>`;
+          }
+        })
+        .join("");
 
-        return `
-          <tr>
-            <td style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${student.student_name}</td>
-            ${activityHTML}
-            <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0f9ff;">${actAvg !== null ? actAvg.toFixed(1) : "—"}%</td>
-            ${quizHTML}
-            <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f3f0ff;">${quizAvg !== null ? quizAvg.toFixed(1) : "—"}%</td>
-            ${examHTML}
-            <td style="text-align: center; font-size: 12px; font-weight: 600; background: #fef2f2;">${examAvg !== null ? examAvg.toFixed(1) : "—"}%</td>
-            <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0fdf4;">${cs !== null ? cs.toFixed(1) : "—"}</td>
-            <td style="text-align: center; font-size: 12px; font-weight: 700; background: #fffbeb;">
-              ${qg !== null ? qg.toFixed(2) : "—"}
-            </td>
-            <td style="text-align: center; font-size: 11px; color: white; font-weight: 600; background: ${statusColor}; padding: 4px 8px;">
-              ${status}
-            </td>
-          </tr>
-        `;
-      })
-      .join("");
+      const activityHeaderHTML = activityItems
+        .map((item, idx) => `<th style="font-size: 11px; padding: 8px 4px;">A${idx + 1}<br/>/${item.total_score}</th>`)
+        .join("");
 
-    const activityHeaderHTML = itemsByCategory("ACTIVITY")
-      .map((item, idx) => `<th style="font-size: 11px; padding: 8px 4px;">A${idx + 1}<br/>/${item.total_score}</th>`)
-      .join("");
+      const quizHeaderHTML = quizItems
+        .map((item, idx) => `<th style="font-size: 11px; padding: 8px 4px;">Q${idx + 1}<br/>/${item.total_score}</th>`)
+        .join("");
 
-    const quizHeaderHTML = itemsByCategory("QUIZ")
-      .map((item, idx) => `<th style="font-size: 11px; padding: 8px 4px;">Q${idx + 1}<br/>/${item.total_score}</th>`)
-      .join("");
+      const examHeaderHTML = examItems
+        .map((item, idx) => `<th style="font-size: 11px; padding: 8px 4px;">E${idx + 1}<br/>/${item.total_score}</th>`)
+        .join("");
 
-    const examHeaderHTML = itemsByCategory("EXAM")
-      .map((item, idx) => `<th style="font-size: 11px; padding: 8px 4px;">E${idx + 1}<br/>/${item.total_score}</th>`)
-      .join("");
-
-    const htmlContent = `
+      const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -1090,14 +1103,40 @@ const Grade = () => {
   </div>
 </body>
 </html>
-    `;
+      `;
 
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
+      // Use Blob and object URL for more reliable print window opening
+      try {
+        const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+        const blobUrl = URL.createObjectURL(blob);
+        const printWindow = window.open(blobUrl, "PRINT_GRADES", "width=1200,height=900");
+        
+        if (!printWindow) {
+          alert("Unable to open print window. Please check if pop-ups are blocked.");
+          URL.revokeObjectURL(blobUrl);
+          return;
+        }
 
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+        // Wait for content to fully load before printing
+        setTimeout(() => {
+          try {
+            printWindow.print();
+            // Clean up the object URL after printing
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+          } catch (err) {
+            console.error("Error printing:", err);
+            alert("An error occurred while printing. Please try again.");
+            URL.revokeObjectURL(blobUrl);
+          }
+        }, 1000);
+      } catch (err) {
+        console.error("Error creating print preview:", err);
+        alert("An error occurred while preparing the print preview. Please try again.");
+      }
+    } catch (err) {
+      console.error("Error in handlePrintGradeSheet:", err);
+      alert("An error occurred while generating the grade sheet. Please check the console for details.");
+    }
   };
 
 
