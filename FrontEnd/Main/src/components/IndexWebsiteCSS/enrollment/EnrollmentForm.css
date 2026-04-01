@@ -699,6 +699,194 @@ font-size: 25px;
   background: #059669;
 }
 
+/* =========================
+   STEP CARD
+========================= */
+.step-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 28px;
+  margin-bottom: 24px;
+}
 
+.step-card h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  color: #1f2937;
+}
 
+.step-card p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
 
+/* =========================
+   ERROR BANNER
+========================= */
+.error-banner {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  color: #991b1b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.error-banner svg {
+  margin-right: 8px;
+}
+
+/* =========================
+   SUBMIT ERROR
+========================= */
+.submit-error {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  color: #991b1b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* =========================
+   FORM GRID (2 columns)
+========================= */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* =========================
+   FILE NAME DISPLAY
+========================= */
+.file-name {
+  font-size: 13px;
+  color: #10b981;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+/* =========================
+   INFO TEXT
+========================= */
+.info-text {
+  color: #6b7280;
+  font-size: 14px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+/* =========================
+   REQUIRED LABEL
+========================= */
+.required {
+  color: #dc2626;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+/* =========================
+   BIRTH DATE WITH WARNING ICON
+========================= */
+.birth-date-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.birth-date-wrapper input {
+  flex: 1;
+}
+
+.birth-date-input--invalid {
+  border-color: #fca5a5 !important;
+  background-color: #fef2f2;
+}
+
+.birth-date-warning {
+  font-size: 18px;
+  color: #dc2626;
+  cursor: help;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 40px;
+}
+
+/* =========================
+   AGE REFERENCE TOOLTIP
+========================= */
+.age-reference-tooltip {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fafafa;
+  cursor: pointer;
+}
+
+.age-reference-tooltip summary {
+  list-style: none;
+  font-weight: 600;
+  color: #374151;
+  padding: 6px 0;
+  user-select: none;
+  transition: color 0.2s ease;
+}
+
+.age-reference-tooltip summary:hover {
+  color: #1f2937;
+}
+
+.age-reference-tooltip summary::before {
+  content: "▶ ";
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.2s ease;
+  font-size: 12px;
+}
+
+.age-reference-tooltip[open] summary::before {
+  content: "▼ ";
+  transform: rotate(0deg);
+}
+
+/* Age Reference Table */
+.age-ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.age-ref-table thead {
+  background: #e5e7eb;
+}
+
+.age-ref-table th {
+  padding: 8px 10px;
+  text-align: center;
+  font-weight: 600;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.age-ref-table td {
+  padding: 8px 10px;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+}
+
+.age-ref-table tbody tr:hover {
+  background: #f3f4f6;
+}

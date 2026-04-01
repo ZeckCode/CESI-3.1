@@ -56,6 +56,7 @@ const EnrollmentForm = ({ onClose }) => {
 
     email: "",
     religion: "",
+    customReligion: "",
     mobile: "",
     parentFacebook: "",
 
@@ -122,7 +123,15 @@ const EnrollmentForm = ({ onClose }) => {
   };
 
   const focusFieldError = (fieldName) => {
-    const node = fieldRefs.current[fieldName];
+    let node = null;
+    
+    // Handle family contact error by focusing on mother contact field
+    if (fieldName === "familyContact") {
+      node = fieldRefs.current["motherContact"];
+    } else {
+      node = fieldRefs.current[fieldName];
+    }
+    
     if (node?.scrollIntoView) {
       node.scrollIntoView({ behavior: "smooth", block: "center" });
       setTimeout(() => node.focus?.(), 200);
@@ -317,7 +326,7 @@ const EnrollmentForm = ({ onClose }) => {
         region: form.region,
       })
     );
-    formData.append("religion", form.religion);
+    formData.append("religion", form.religion === "Others" ? (form.customReligion || "") : form.religion);
     formData.append("mobile_number", normalizedMobile);
     formData.append("parent_facebook", form.parentFacebook);
     formData.append("payment_mode", form.paymentMode);

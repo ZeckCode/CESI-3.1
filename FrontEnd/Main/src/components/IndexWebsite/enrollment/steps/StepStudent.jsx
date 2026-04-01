@@ -51,24 +51,54 @@ const StepStudent = ({
 
         <div className="form-group">
           <label>Birth Date <span className="required">*</span></label>
-          <input
-            ref={registerFieldRef("birthDate")}
-            type="date"
-            value={form.birthDate}
-            max={maxBirthDate}
-            onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
-          />
+          <div className="birth-date-wrapper">
+            <input
+              ref={registerFieldRef("birthDate")}
+              type="date"
+              value={form.birthDate}
+              max={maxBirthDate}
+              onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
+              className={ageValidation && !ageValidation.ok ? "birth-date-input--invalid" : ""}
+            />
+            {ageValidation && !ageValidation.ok && (
+              <span className="birth-date-warning" title="Age does not match selected grade">⚠️</span>
+            )}
+            {form.birthDate && !ageValidation?.ok && (
+              <details className="age-reference-tooltip">
+                <summary>Age Reference Guide</summary>
+                <table className="age-ref-table">
+                  <thead>
+                    <tr>
+                      <th>Grade Level</th>
+                      <th>Min Age</th>
+                      <th>Max Age</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="prek"><td>Pre-Kinder</td><td>3</td><td>4</td></tr>
+                    <tr className="kinder"><td>Kinder</td><td>4</td><td>5</td></tr>
+                    <tr className="g1"><td>Grade 1</td><td>6</td><td>7</td></tr>
+                    <tr className="g2"><td>Grade 2</td><td>7</td><td>8</td></tr>
+                    <tr className="g3"><td>Grade 3</td><td>8</td><td>9</td></tr>
+                    <tr className="g4"><td>Grade 4</td><td>9</td><td>10</td></tr>
+                    <tr className="g5"><td>Grade 5</td><td>10</td><td>11</td></tr>
+                    <tr className="g6"><td>Grade 6</td><td>11</td><td>12</td></tr>
+                  </tbody>
+                </table>
+              </details>
+            )}
+          </div>
           <FieldError error={errors.birthDate} />
-           {ageValidation && (
-        <div
-          className={`age-validation-hint ${
-            ageValidation.ok ? "age-validation-hint--ok" : "age-validation-hint--error"
-          }`}
-        >
-          <span>{ageValidation.ok ? "✓" : "✗"}</span>
-          <span>{ageValidation.msg}</span>
-        </div>
-      )}
+          {ageValidation && (
+            <div
+              className={`age-validation-hint ${
+                ageValidation.ok ? "age-validation-hint--ok" : "age-validation-hint--error"
+              }`}
+            >
+              <span>{ageValidation.ok ? "✓" : "✗"}</span>
+              <span>{ageValidation.msg}</span>
+            </div>
+          )}
         </div>
         
 
@@ -102,7 +132,7 @@ const StepStudent = ({
           <select
             ref={registerFieldRef("religion")}
             value={form.religion}
-            onChange={(e) => setForm((prev) => ({ ...prev, religion: e.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, religion: e.target.value, customReligion: "" }))}
           >
             <option value="">Select</option>
             {RELIGION_OPTIONS.map((item) => (
@@ -110,8 +140,22 @@ const StepStudent = ({
                 {item}
               </option>
             ))}
+            <option value="Others">Others (Please specify)</option>
           </select>
           <FieldError error={errors.religion} />
+          {form.religion === "Others" && (
+            <>
+              <input
+                ref={registerFieldRef("customReligion")}
+                type="text"
+                placeholder="Enter your religion"
+                value={form.customReligion || ""}
+                onChange={(e) => setForm((prev) => ({ ...prev, customReligion: e.target.value }))}
+                style={{ marginTop: "8px" }}
+              />
+              <FieldError error={errors.customReligion} />
+            </>
+          )}
         </div>
 
         <div className="form-group">

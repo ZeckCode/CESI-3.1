@@ -78,6 +78,9 @@ export const validateStudentStep = (data) => {
   if (!data.gender) errors.gender = "Please select gender.";
   if (!data.email.trim()) errors.email = "Email is required.";
   if (!data.religion) errors.religion = "Please select religion.";
+  else if (data.religion === "Others" && !data.customReligion?.trim()) {
+    errors.customReligion = "Please specify your religion.";
+  }
 
   if (!data.mobile.trim()) errors.mobile = "Mobile number is required.";
   else if (!normalizePHMobile(data.mobile)) {
@@ -95,6 +98,12 @@ export const validateStudentStep = (data) => {
 
 export const validateFamilyStep = ({ motherContact, fatherContact, guardianContact }) => {
   const errors = {};
+
+  // Check if at least one contact is provided
+  const hasAnyContact = motherContact?.trim() || fatherContact?.trim() || guardianContact?.trim();
+  if (!hasAnyContact) {
+    errors.familyContact = "Please provide at least one parent/guardian contact number.";
+  }
 
   if (motherContact && !normalizePHMobile(motherContact)) {
     errors.motherContact = "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
@@ -115,7 +124,16 @@ export const validateDocumentsStep = ({ studentPhotoFile }) => {
   const errors = {};
 
   if (!studentPhotoFile) {
-    errors.studentPhotoFile = "Please upload a 2x2 picture.";
+    errors.studentPhotoFile = "Please upload a 2x2 picture (JPG, JPEG, or PNG).";
+  } else {
+    // Validate file type if available
+    if (studentPhotoFile.type && !['image/jpeg', 'image/png'].includes(studentPhotoFile.type)) {
+      errors.studentPhotoFile = "Photo must be in JPG or PNG format.";
+    }
+    // Validate file size (max 5MB)
+    else if (studentPhotoFile.size && studentPhotoFile.size > 5 * 1024 * 1024) {
+      errors.studentPhotoFile = "Photo size must be less than 5MB.";
+    }
   }
 
   return errors;

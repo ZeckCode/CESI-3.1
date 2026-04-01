@@ -7,6 +7,12 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
     <div className="step-card">
       <h3>👨‍👩‍👧 Parent / Guardian Information</h3>
 
+      {errors.familyContact && (
+        <div className="error-banner">
+          <FieldError error={errors.familyContact} />
+        </div>
+      )}
+
       <p className="parent-section-label">Mother</p>
       <div className="form-grid">
         <div className="form-group">
@@ -105,7 +111,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         </div>
       </div>
 
-      <p className="parent-section-label">Guardian (if applicable)</p>
+      <p className="parent-section-label">Guardian (if applicable) <span style={{fontSize: '0.85em', color: '#666'}}>Optional</span></p>
       <div className="form-grid">
         <div className="form-group">
           <label>First Name</label>
