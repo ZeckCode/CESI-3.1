@@ -615,15 +615,16 @@ export default function Ledgers() {
                               <td colSpan="3" style={{ textAlign: "right" }}>
                                 GROUP TOTALS:
                               </td>
-                              <td className="text-center">
+                              <td className="text-center" data-label="Debit Total">
                                 {formatCurrency(group.totalDebit)}
                               </td>
-                              <td className="text-center">
+                              <td className="text-center" data-label="Credit Total">
                                 {formatCurrency(group.totalCredit)}
                               </td>
                               <td
                                 className="text-right"
                                 style={{ color: "#dc2626" }}
+                                data-label="Balance Total"
                               >
                                 {formatCurrency(group.balance)}
                               </td>

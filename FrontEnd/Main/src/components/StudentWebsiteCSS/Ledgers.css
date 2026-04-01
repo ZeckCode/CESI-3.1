@@ -361,6 +361,139 @@
     content: attr(data-label) ": ";
   }
 
+  /* ── Mobile: Account Ledger Transactions ─────────────────────── */
+  .ledger-accounting tbody tr {
+    display: block;
+    margin-bottom: 1.25rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+
+  .ledger-accounting tbody td {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem !important;
+    border: none !important;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+    text-align: left !important;
+  }
+
+  .ledger-accounting tbody td:last-child {
+    border-bottom: none !important;
+  }
+
+  .ledger-accounting tbody td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: #64748b;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Special handling for Description column on mobile */
+  .ledger-accounting tbody td[data-label="Description"] {
+    grid-template-columns: 1fr;
+  }
+
+  .ledger-accounting tbody td[data-label="Description"]::before {
+    content: "Description";
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  .ledger-accounting tbody td[data-label="Description"] > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  /* Status pill on mobile */
+  .ledger-accounting tbody td[data-label="Status"] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem !important;
+    border-bottom: none !important;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .ledger-accounting tbody td[data-label="Status"]::before {
+    display: none;
+  }
+
+  /* Mobile accounting ledger footer */
+  .ledger-accounting tfoot tr {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    border: none !important;
+    border-top: 2px solid #dbeafe !important;
+    background: #f8fafc !important;
+    padding: 1.25rem;
+    border-radius: 0 0 0.75rem 0.75rem;
+  }
+
+  .ledger-accounting tfoot td {
+    display: none;
+  }
+
+  /* Show only numbered footer cells */
+  .ledger-accounting tfoot td:nth-child(4),
+  .ledger-accounting tfoot td:nth-child(5),
+  .ledger-accounting tfoot td:nth-child(6) {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem !important;
+    border: none !important;
+    font-weight: 700;
+    background: white;
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+    font-size: 0.9rem;
+    text-align: left !important;
+  }
+
+  .ledger-accounting tfoot td:nth-child(4)::before {
+    content: "Debit Total:";
+    font-weight: 700;
+    color: #1e40af;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+    margin-right: 0.75rem;
+  }
+
+  .ledger-accounting tfoot td:nth-child(5)::before {
+    content: "Credit Total:";
+    font-weight: 700;
+    color: #166534;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+    margin-right: 0.75rem;
+  }
+
+  .ledger-accounting tfoot td:nth-child(6)::before {
+    content: "Balance:";
+    font-weight: 700;
+    color: #b91c1c;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+    margin-right: 0.75rem;
+  }
+
   /* ── Mobile: Tuition Installments ─────────────────────── */
   .ledger-table tbody tr {
     display: block;
