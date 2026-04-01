@@ -827,8 +827,8 @@ const Grade = () => {
               </tr>
             `;
           } catch (err) {
-            console.error("Error building grade row for student:", student.id, err);
-            return `<tr><td colspan="100" style="text-align: center; color: red;">Error loading grades for ${student.student_name}</td></tr>`;
+            console.error("Error building grade row for student:", student.student_name, err);
+            return `<tr><td colspan="100" style="text-align: center; color: red;">Error: ${err.message}</td></tr>`;
           }
         })
         .join("");
