@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { MoreVertical, Edit2, Trash2, Upload, ArrowUpCircle } from "lucide-react";
+import { MoreVertical, Eye, Edit2, Trash2, Upload, ArrowUpCircle } from "lucide-react";
 
 export default function TableActionMenu({
   row,
   gradeLabel,
   getNextGrade,
+  onView,
   onEdit,
   onDelete,
   onIdUpload,
@@ -24,6 +25,11 @@ export default function TableActionMenu({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleView = () => {
+    onView();
+    setOpen(false);
+  };
 
   const handleEdit = () => {
     onEdit();
@@ -54,46 +60,17 @@ export default function TableActionMenu({
       style={{ position: "relative", display: "inline-flex", gap: "6px", alignItems: "center" }}
       className="action-menu-container"
     >
-      {/* Desktop: Individual Buttons (hidden on mobile via CSS) */}
+      {/* View Button - Outside */}
       <button
-        className="action-menu-button btn-edit"
-        onClick={handleEdit}
-        title="Edit"
+        className="action-view-button"
+        onClick={handleView}
+        title="View details"
+        aria-label="View enrollment details"
       >
-        <Edit2 size={14} />
+        <Eye size={14} />
       </button>
 
-      <button
-        className="action-menu-button btn-delete"
-        onClick={handleDelete}
-        title="Delete"
-      >
-        <Trash2 size={14} />
-      </button>
-
-      {row.statusCode === "ACTIVE" && (
-        <button
-          className="action-menu-button btn-edit"
-          onClick={handleIdUpload}
-          title="Upload ID Image"
-        >
-          ID
-        </button>
-      )}
-
-      {hasPromote && (
-        <button
-          className="action-menu-button btn-promote"
-          onClick={handlePromote}
-          title={`Promote to ${gradeLabel(
-            getNextGrade(row.raw.grade_level).next
-          )}`}
-        >
-          <ArrowUpCircle size={14} />
-        </button>
-      )}
-
-      {/* Mobile: Dropdown Menu Toggle (shown only on mobile via CSS) */}
+      {/* Dropdown Menu Toggle */}
       <button
         className="action-menu-toggle"
         onClick={() => setOpen(!open)}

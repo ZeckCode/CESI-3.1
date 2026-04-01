@@ -3,6 +3,7 @@ import { Paperclip, ExternalLink, Edit2, Trash2 } from "lucide-react";
 
 export default function DocumentsTab({
   currentDocs,
+  paymentProof,
   docUploadType,
   docUploadLabel,
   docSaving,
@@ -75,6 +76,76 @@ export default function DocumentsTab({
             >
               {docSaving ? "Uploading..." : "Upload Document"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Proof Section */}
+      {paymentProof && (
+        <div className="tab-section">
+          <div className="tab-section-title">
+            <span className="section-icon">💳</span>
+            Payment Proof
+          </div>
+
+          <div className="documents-grid">
+            <div className="document-card">
+              <div className="document-card-view">
+                <div className="document-card-header">
+                  <div className="document-card-title">
+                    Proof of Payment
+                  </div>
+                  <div className="document-card-type">
+                    Payment Receipt
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 12, marginBottom: 12 }}>
+                  {paymentProof.proof_image_url ? (
+                    <img
+                      src={paymentProof.proof_image_url}
+                      alt="Payment proof"
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: 300,
+                        borderRadius: 6,
+                        border: "1px solid #e2e8f0",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => window.open(paymentProof.proof_image_url, '_blank')}
+                      title="Click to view full size"
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        padding: 40,
+                        background: "#f1f5f9",
+                        borderRadius: 6,
+                        textAlign: "center",
+                        color: "#94a3b8",
+                        fontSize: 13,
+                      }}
+                    >
+                      No image available
+                    </div>
+                  )}
+                </div>
+
+                <div className="document-card-actions">
+                  {paymentProof.proof_image_url && (
+                    <a
+                      href={paymentProof.proof_image_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-document-link"
+                    >
+                      <ExternalLink size={14} />
+                      Open Full Size
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

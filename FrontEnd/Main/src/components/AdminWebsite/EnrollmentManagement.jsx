@@ -416,7 +416,16 @@ export default function EnrollmentManagement() {
     return Array.isArray(row?.raw?.documents) ? row.raw.documents : [];
   }, [normalized, editingId]);
 
+  const currentPaymentProof = useMemo(() => {
+    const row = normalized.find((r) => r.id === editingId);
+    return row?.paymentProof || null;
+  }, [normalized, editingId]);
+
   const isReadOnly = (modalMode === "view" && editingId !== null);
+
+  const handleEnterEditMode = () => {
+    setModalMode("edit");
+  };
 
   const getMissingFieldsForApproval = useCallback((row) => {
     const e = row?.raw || {};
@@ -1715,28 +1724,7 @@ export default function EnrollmentManagement() {
                             No IMG
                           </div>
                         )}
-                        <span
-                          style={{
-                            fontSize: 11,
-                            padding: "2px 6px",
-                            background:
-                              row.paymentProof.status === "approved"
-                                ? "#dcfce7"
-                                : row.paymentProof.status === "rejected"
-                                ? "#fee2e2"
-                                : "#fef3c7",
-                            color:
-                              row.paymentProof.status === "approved"
-                                ? "#16a34a"
-                                : row.paymentProof.status === "rejected"
-                                ? "#dc2626"
-                                : "#92400e",
-                            borderRadius: 3,
-                            fontWeight: 500,
-                          }}
-                        >
-                          {row.paymentProof.status}
-                        </span>
+                        
                       </div>
                     ) : (
                       <span style={{ color: "#94a3b8", fontSize: 12 }}>No proof</span>
@@ -1780,6 +1768,7 @@ export default function EnrollmentManagement() {
                         row={row}
                         gradeLabel={gradeLabel}
                         getNextGrade={getNextGrade}
+                        onView={() => openModal(row, "view")}
                         onEdit={() => openModal(row, "edit")}
                         onDelete={() => handleDeleteEnrollment(row.id)}
                         onIdUpload={() => openIdUploadModal(row)}
@@ -1814,6 +1803,7 @@ export default function EnrollmentManagement() {
         filteredSections={filteredSections}
         gradeOptions={gradeOptions}
         currentDocs={currentDocs}
+        paymentProof={currentPaymentProof}
         docUploadType={docUploadType}
         docUploadLabel={docUploadLabel}
         docSaving={docSaving}
@@ -1828,6 +1818,7 @@ export default function EnrollmentManagement() {
         setEditingDocType={setEditingDocType}
         setEditingDocFile={setEditingDocFile}
         onClose={closeModal}
+        onEnterEditMode={handleEnterEditMode}
         onInputChange={handleInputChange}
         onParentChange={handleParentChange}
         onSaveAcademicYear={handleSaveAcademicYear}

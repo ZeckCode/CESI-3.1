@@ -16,6 +16,7 @@ export default function EnrollmentDetailsModal({
   filteredSections,
   gradeOptions,
   currentDocs,
+  paymentProof,
   docUploadType,
   docUploadLabel,
   docSaving,
@@ -29,6 +30,7 @@ export default function EnrollmentDetailsModal({
   setEditingDocType,
   setEditingDocFile,
   onClose,
+  onEnterEditMode,
   onInputChange,
   onParentChange,
   onApprove,
@@ -64,8 +66,12 @@ export default function EnrollmentDetailsModal({
           </div>
 
           <div className="enrollment-details-actions">
-            {!isReadOnly && (
-              <button className="btn-header-icon" title="Edit">
+            {isReadOnly && (
+              <button
+                className="btn-header-icon"
+                onClick={onEnterEditMode}
+                title="Edit information"
+              >
                 <Edit2 size={18} />
               </button>
             )}
@@ -132,6 +138,7 @@ export default function EnrollmentDetailsModal({
           {activeTab === "documents" && (
             <DocumentsTab
               currentDocs={currentDocs}
+              paymentProof={paymentProof}
               docUploadType={docUploadType}
               docUploadLabel={docUploadLabel}
               docSaving={docSaving}
