@@ -128,6 +128,12 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: all 0.3s ease;
+}
+
+.tab-section:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
 }
 
 .tab-section-title {
@@ -135,12 +141,12 @@
   align-items: center;
   gap: 10px;
   font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   color: #1a1d2e;
   margin-bottom: 8px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e5e8f0;
+  border-bottom: 2px solid #e5e8f0;
 }
 
 .section-icon {
@@ -237,22 +243,26 @@
 
 .document-card {
   border: 1px solid #e5e8f0;
+  border-left: 4px solid #5BA3C7;
   border-radius: 10px;
   background: white;
   overflow: hidden;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
 .document-card:hover {
   border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  border-left-color: #357ABD;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
 }
 
 .document-card-view {
-  padding: 16px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   height: 100%;
 }
 
@@ -261,16 +271,18 @@
 }
 
 .document-card-title {
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 700;
+  font-size: 14px;
   color: #1a1d2e;
   word-wrap: break-word;
+  margin-bottom: 4px;
 }
 
 .document-card-type {
-  font-size: 11px;
+  font-size: 12px;
   color: #6b7280;
-  margin-top: 4px;
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 .document-card-actions {
@@ -712,19 +724,22 @@
   }
 
   .tab-section {
-    padding: 12px;
+    padding: 14px;
     gap: 12px;
+    border-radius: 10px;
   }
 
   .tab-section-title {
-    font-size: 12px;
-    gap: 6px;
-    margin-bottom: 4px;
-    padding-bottom: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    gap: 8px;
+    margin-bottom: 6px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e5e8f0;
   }
 
   .section-icon {
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .doc-count {
@@ -765,19 +780,23 @@
 
   .document-card {
     border-radius: 8px;
+    border-left: 4px solid #5BA3C7;
+    padding: 0;
   }
 
   .document-card-view {
-    padding: 11px;
+    padding: 14px;
     gap: 10px;
   }
 
   .document-card-title {
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .document-card-type {
-    font-size: 10px;
+    font-size: 11px;
+    font-weight: 500;
   }
 
   .document-card-actions {
@@ -872,20 +891,22 @@
   }
 
   .tab-section {
-    padding: 11px;
+    padding: 12px;
     gap: 10px;
     border-radius: 10px;
   }
 
   .tab-section-title {
-    font-size: 11px;
-    gap: 5px;
-    margin-bottom: 3px;
-    padding-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    gap: 6px;
+    margin-bottom: 4px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e5e8f0;
   }
 
   .section-icon {
-    font-size: 14px;
+    font-size: 15px;
     flex-shrink: 0;
   }
 
@@ -929,10 +950,11 @@
 
   .document-card {
     border-radius: 8px;
+    border-left: 4px solid #5BA3C7;
   }
 
   .document-card-view {
-    padding: 10px;
+    padding: 12px;
     gap: 8px;
   }
 
@@ -941,11 +963,13 @@
   }
 
   .document-card-title {
-    font-size: 11px;
+    font-size: 12px;
+    font-weight: 700;
   }
 
   .document-card-type {
-    font-size: 9px;
+    font-size: 10px;
+    font-weight: 500;
     margin-top: 2px;
   }
 
