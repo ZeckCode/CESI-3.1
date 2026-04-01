@@ -58,6 +58,7 @@ import { StudentCell, ParentCell } from "./Enrollment/EnrollmentCells";
 import { exportToPDF } from "./Enrollment/exportEnrollmentPDF";
 import DeclineDialog from "./Enrollment/DeclineDialog";
 import IdUploadModal from "./Enrollment/IdUploadModal";
+import TableActionMenu from "./TableActionMenu";
 import EnrollmentDetailsModal from "./Enrollment/EnrollmentDetailsModal";
 
 export default function EnrollmentManagement() {
@@ -1775,52 +1776,15 @@ export default function EnrollmentManagement() {
 
                   <td>
                     <div className="action-buttons" style={{ justifyContent: "flex-start" }}>
-                      {/* <button
-                        className="btn-edit"
-                        title="View"
-                        onClick={() => openModal(row, "view")}
-                      >
-                        <Edit2 size={14} />
-                      </button> */}
-
-                      <button
-                        className="btn-edit"
-                        title="Edit"
-                        onClick={() => openModal(row, "edit")}
-                      >
-                        <Edit2 size={14} />
-                      </button>
-
-                      <button
-                        className="btn-delete"
-                        title="Delete"
-                        onClick={() => handleDeleteEnrollment(row.id)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-
-                      {row.statusCode === "ACTIVE" && (
-                        <button
-                          className="btn-edit"
-                          title="Upload ID Image"
-                          onClick={() => openIdUploadModal(row)}
-                        >
-                          ID
-                        </button>
-                      )}
-
-                      {(row.statusCode === "ACTIVE" || row.statusCode === "COMPLETED") &&
-                        getNextGrade(row.raw.grade_level).next && (
-                          <button
-                            className="btn-promote"
-                            title={`Promote to ${gradeLabel(
-                              getNextGrade(row.raw.grade_level).next
-                            )}`}
-                            onClick={() => handlePromote(row)}
-                          >
-                            <ArrowUpCircle size={14} />
-                          </button>
-                        )}
+                      <TableActionMenu
+                        row={row}
+                        gradeLabel={gradeLabel}
+                        getNextGrade={getNextGrade}
+                        onEdit={() => openModal(row, "edit")}
+                        onDelete={() => handleDeleteEnrollment(row.id)}
+                        onIdUpload={() => openIdUploadModal(row)}
+                        onPromote={() => handlePromote(row)}
+                      />
                     </div>
                   </td>
                 </tr>
