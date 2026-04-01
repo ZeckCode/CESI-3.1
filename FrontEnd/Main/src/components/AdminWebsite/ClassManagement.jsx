@@ -588,37 +588,7 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
           </button>
           <button
             className="admin-btn-primary"
-            onClick={() => {
-              const csv = ['Section,Grade Level,Homeroom Teacher,Room,Active Students,Status'];
-              sections.forEach((sec) => {
-                const gradeCode = normalizeGradeCode(sec.grade_level);
-                const activeForGrade = enrollments.filter(
-                  (e) => normalizeGradeCode(e.grade_level) === gradeCode && e.status === 'ACTIVE'
-                );
-                const assignedToSection = activeForGrade.filter(
-                  (e) => Number(e.section) === Number(sec.id)
-                );
-                const status = getClassStatus(sec, enrollments);
-                const row = [
-                  `"${sec.name}"`,
-                  `"${gradeLabel(sec.grade_level)}"`,
-                  `"${sec.adviser_name || 'Unassigned'}"`,
-                  `"${sec.room_code || 'Unassigned'}"`,
-                  assignedToSection.length,
-                  status
-                ].join(',');
-                csv.push(row);
-              });
-              const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = `sections-${new Date().toISOString().split('T')[0]}.csv`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(url);
-            }}
+            onClick={() => window.print()}
             style={{ background: '#10b981' }}
             title="Print all sections"
           >
