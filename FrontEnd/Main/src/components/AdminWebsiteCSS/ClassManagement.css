@@ -499,6 +499,188 @@
   display: none !important;
 }
 
+/* ========== PRINT STYLES ========== */
+@media print {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body,
+  html {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+
+  .class-management {
+    padding: 0.5in;
+    background: white;
+    min-height: auto;
+    font-size: 11px;
+  }
+
+  /* Hide all navigation and control elements */
+  .class-header,
+  .admin-section-header,
+  .admin-modal-overlay,
+  .admin-modal-content,
+  .tabs-container,
+  .admin-class-details,
+  .form-card,
+  .modal-overlay,
+  [className*="btn"],
+  [className*="control"],
+  .admin-form-actions,
+  .class-controls,
+  .search-box,
+  .filter-box,
+  button,
+  input:not([type="checkbox"]),
+  select {
+    display: none !important;
+  }
+
+  /* Optimize section styling */
+  .section-header {
+    background: white;
+    padding: 0;
+    margin-bottom: 8px;
+    box-shadow: none;
+    border-bottom: 2px solid #333;
+    page-break-inside: avoid;
+  }
+
+  .section-header h2 {
+    font-size: 14px;
+    margin: 8px 0;
+  }
+
+  /* Optimize stats display */
+  .stats-grid,
+  .stat-card {
+    margin: 0;
+    padding: 0;
+    background: white;
+    box-shadow: none;
+    border: none;
+    display: block;
+  }
+
+  .stat-card {
+    display: inline-block;
+    margin-right: 20px;
+    margin-bottom: 8px;
+    padding: 0;
+    border: none;
+  }
+
+  .stat-card h3 {
+    font-size: 10px;
+    margin: 0;
+    color: #666;
+  }
+
+  .stat-number {
+    font-size: 16px;
+    margin: 4px 0 0 0;
+    font-weight: bold;
+  }
+
+  /* Optimize class cards */
+  .class-card,
+  .section-card {
+    page-break-inside: avoid;
+    background: white;
+    border: 1px solid #ccc;
+    padding: 8px;
+    margin-bottom: 10px;
+    box-shadow: none;
+  }
+
+  .class-card h3,
+  .section-card h3 {
+    font-size: 12px;
+    margin: 0 0 4px 0;
+    font-weight: bold;
+    color: #000;
+  }
+
+  .class-card p,
+  .section-card p {
+    font-size: 10px;
+    margin: 2px 0;
+    line-height: 1.3;
+  }
+
+  /* Optimize table display */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    page-break-inside: avoid;
+    font-size: 10px;
+    margin-bottom: 10px;
+  }
+
+  table thead {
+    display: table-header-group;
+  }
+
+  table tr {
+    page-break-inside: avoid;
+  }
+
+  table th,
+  table td {
+    border: 1px solid #999;
+    padding: 4px;
+    text-align: left;
+  }
+
+  table th {
+    background: #e0e0e0 !important;
+    font-weight: bold;
+    color: #000;
+  }
+
+  /* Remove shadows and unnecessary styling */
+  .admin-btn-primary,
+  .cm-btn-icon {
+    display: none !important;
+  }
+
+  /* Optimize text for readability */
+  h1,
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Print page settings */
+  @page {
+    margin: 0.5in;
+    size: A4 portrait;
+  }
+
+  /* Ensure links are visible in print */
+  a {
+    color: #000;
+    text-decoration: none;
+  }
+
+  /* Optimize colors for print */
+  body {
+    color: #000 !important;
+    background: white !important;
+  }
+}
+
 .admin-filter-box svg {
   display: none !important;
 }
