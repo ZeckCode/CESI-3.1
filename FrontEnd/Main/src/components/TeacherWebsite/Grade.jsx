@@ -1097,34 +1097,33 @@ const Grade = () => {
 </html>
       `;
 
-      // Open print window
-      const printWindow = window.open("", "PRINT_GRADES", "width=1200,height=900");
-      
-      if (!printWindow) {
-        alert("Unable to open print window. Please check if pop-ups are blocked.");
-        return;
-      }
-
-      // Write HTML to print window with proper error handling
+      // Use Blob and object URL for more reliable print window opening
       try {
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
+        const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+        const blobUrl = URL.createObjectURL(blob);
+        const printWindow = window.open(blobUrl, "PRINT_GRADES", "width=1200,height=900");
+        
+        if (!printWindow) {
+          alert("Unable to open print window. Please check if pop-ups are blocked.");
+          URL.revokeObjectURL(blobUrl);
+          return;
+        }
 
         // Wait for content to fully load before printing
         setTimeout(() => {
           try {
             printWindow.print();
+            // Clean up the object URL after printing
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
           } catch (err) {
             console.error("Error printing:", err);
             alert("An error occurred while printing. Please try again.");
+            URL.revokeObjectURL(blobUrl);
           }
-        }, 500);
+        }, 1000);
       } catch (err) {
-        console.error("Error writing to print window:", err);
-        alert("An error occurred while preparing the print preview. Please check your browser settings.");
-        if (printWindow) {
-          printWindow.close();
-        }
+        console.error("Error creating print preview:", err);
+        alert("An error occurred while preparing the print preview. Please try again.");
       }
     } catch (err) {
       console.error("Error in handlePrintGradeSheet:", err);
