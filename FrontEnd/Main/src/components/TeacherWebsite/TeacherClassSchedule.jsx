@@ -313,30 +313,30 @@ const TeacherClassSchedule = () => {
     .print-container {
       max-width: 1200px;
       margin: 0 auto;
-      padding: 40px;
+      padding: 20px;
     }
 
     .print-header {
       text-align: center;
-      margin-bottom: 40px;
+      margin-bottom: 16px;
       border-bottom: 2px solid #1f2937;
-      padding-bottom: 20px;
+      padding-bottom: 12px;
     }
 
     .print-header h1 {
-      font-size: 28px;
+      font-size: 22px;
       font-weight: 800;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       letter-spacing: -0.5px;
     }
 
     .print-header .metadata {
       display: flex;
       justify-content: center;
-      gap: 30px;
-      font-size: 13px;
+      gap: 20px;
+      font-size: 12px;
       color: #6b7280;
-      margin-top: 12px;
+      margin-top: 8px;
     }
 
     .metadata-item {
@@ -353,45 +353,45 @@ const TeacherClassSchedule = () => {
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      margin-bottom: 40px;
+      gap: 12px;
+      margin-bottom: 16px;
     }
 
     .stat-card {
       border: 1px solid #e5e7eb;
       border-radius: 8px;
-      padding: 16px;
+      padding: 12px;
       background: #f3f4f6;
     }
 
     .stat-card .label {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: #6b7280;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
     .stat-card .value {
-      font-size: 24px;
+      font-size: 20px;
       font-weight: 700;
       color: #1f2937;
     }
 
     .section-title {
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 700;
-      margin: 30px 0 16px 0;
+      margin: 16px 0 8px 0;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: #1f2937;
       border-bottom: 2px solid #5ba3c7;
-      padding-bottom: 8px;
+      padding-bottom: 6px;
     }
 
     .table-wrapper {
-      margin-bottom: 40px;
+      margin-bottom: 20px;
       overflow: auto;
     }
 
@@ -407,19 +407,19 @@ const TeacherClassSchedule = () => {
     th {
       background: #1f2937;
       color: white;
-      padding: 12px 14px;
+      padding: 10px 12px;
       text-align: left;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
 
     td {
-      padding: 11px 14px;
+      padding: 8px 12px;
       text-align: left;
       border-bottom: 1px solid #e5e7eb;
-      font-size: 13px;
+      font-size: 12px;
     }
 
     tr:last-child td {
@@ -464,8 +464,8 @@ const TeacherClassSchedule = () => {
     .cal-table th,
     .cal-table td {
       border: 1px solid #d5d5d5;
-      padding: 8px;
-      font-size: 12px;
+      padding: 5px 4px;
+      font-size: 11px;
       text-align: center;
     }
 
@@ -473,21 +473,21 @@ const TeacherClassSchedule = () => {
       background: #1f2937;
       color: white;
       font-weight: 700;
-      padding: 10px 8px;
+      padding: 8px 4px;
     }
 
     .cal-time {
       background: #f3f4f6;
       font-weight: 600;
-      width: 80px;
-      min-width: 80px;
+      width: 75px;
+      min-width: 75px;
     }
 
     .cal-cell {
-      height: 100px;
+      height: 70px;
       vertical-align: top;
-      padding: 6px;
-      font-size: 11px;
+      padding: 4px;
+      font-size: 10px;
     }
 
     .cal-cell.filled {
@@ -502,50 +502,132 @@ const TeacherClassSchedule = () => {
     .cal-subject {
       font-weight: 700;
       color: #1f2937;
-      margin-bottom: 2px;
+      margin-bottom: 1px;
+      font-size: 10px;
     }
 
     .cal-section {
       color: #5ba3c7;
       font-weight: 600;
-      font-size: 10px;
-      margin-bottom: 2px;
+      font-size: 9px;
+      margin-bottom: 1px;
     }
 
     .cal-room {
       color: #6b7280;
-      font-size: 10px;
-      margin-bottom: 2px;
+      font-size: 9px;
+      margin-bottom: 1px;
     }
 
     .cal-time-slot {
       color: #6b7280;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 500;
     }
 
     .footer {
-      margin-top: 40px;
-      padding-top: 20px;
+      margin-top: 16px;
+      padding-top: 12px;
       border-top: 1px solid #e5e7eb;
       text-align: center;
       color: #6b7280;
-      font-size: 12px;
+      font-size: 11px;
     }
 
     @media print {
       body {
         background: white;
+        line-height: 1.3;
       }
       .print-container {
-        padding: 20px;
+        padding: 12px;
+        max-width: 100%;
+      }
+      .print-header {
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+      }
+      .print-header h1 {
+        font-size: 20px;
+        margin-bottom: 4px;
+      }
+      .print-header .metadata {
+        gap: 16px;
+        font-size: 11px;
+        margin-top: 6px;
       }
       .stats-grid {
         page-break-inside: avoid;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .stat-card {
+        padding: 10px;
+      }
+      .stat-card .label {
+        font-size: 10px;
+        margin-bottom: 3px;
+      }
+      .stat-card .value {
+        font-size: 18px;
+      }
+      .section-title {
+        font-size: 13px;
+        margin: 12px 0 8px 0;
+        padding-bottom: 6px;
       }
       .table-wrapper,
       .cal-table-wrapper {
         page-break-inside: avoid;
+        margin-bottom: 16px;
+      }
+      th {
+        padding: 8px 10px;
+        font-size: 11px;
+      }
+      td {
+        padding: 7px 10px;
+        font-size: 11px;
+      }
+      .code-label {
+        padding: 1px 4px;
+        font-size: 9px;
+      }
+      .cal-table th,
+      .cal-table td {
+        border: 1px solid #d5d5d5;
+        padding: 4px 3px;
+        font-size: 10px;
+      }
+      .cal-time {
+        width: 70px;
+        min-width: 70px;
+        font-size: 10px;
+      }
+      .cal-cell {
+        height: 60px;
+        padding: 3px;
+        font-size: 9px;
+      }
+      .cal-subject {
+        font-size: 9px;
+        margin-bottom: 1px;
+      }
+      .cal-section {
+        font-size: 8px;
+        margin-bottom: 1px;
+      }
+      .cal-room {
+        font-size: 8px;
+        margin-bottom: 1px;
+      }
+      .cal-time-slot {
+        font-size: 8px;
+      }
+      .footer {
+        margin-top: 16px;
+        padding-top: 12px;
+        font-size: 10px;
       }
     }
 
