@@ -412,7 +412,7 @@
 
   /* Mobile table footer */
   .ledger-table tfoot tr {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
     gap: 0.75rem;
     margin-top: 0.5rem;
@@ -423,16 +423,35 @@
     border-radius: 0 0 0.75rem 0.75rem;
   }
 
-  .ledger-table tfoot td {
-    display: none;
+  /* Hide empty cells by default */
+  .ledger-table tfoot td:nth-child(1),
+  .ledger-table tfoot td:nth-child(2),
+  .ledger-table tfoot td:nth-child(7) {
+    display: none !important;
   }
 
-  /* Show only the total cells on mobile */
-  .ledger-table tfoot td:nth-child(3),
+  /* Show and style the "TOTAL:" label cell */
+  .ledger-table tfoot td:nth-child(3) {
+    display: flex !important;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 0 !important;
+    border: none !important;
+    font-weight: 700;
+    background: transparent;
+    border-radius: 0;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  /* Show only the numeric total cells on mobile */
   .ledger-table tfoot td[data-label="Total Due"],
   .ledger-table tfoot td[data-label="Total Paid"],
   .ledger-table tfoot td[data-label="Total Balance"] {
-    display: flex;
+    display: flex !important;
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem 1rem !important;
@@ -444,31 +463,22 @@
     font-size: 0.95rem;
   }
 
-  /* Hide empty cells (1st, 2nd, 7th) on mobile */
-  .ledger-table tfoot td:nth-child(1),
-  .ledger-table tfoot td:nth-child(2),
-  .ledger-table tfoot td:nth-child(7) {
-    display: none !important;
+  /* Style the labels */
+  .ledger-table tfoot td[data-label]::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+    margin-right: 1rem;
   }
 
   .ledger-table tfoot td:nth-child(3)::before {
-    content: "TOTAL";
+    content: "TOTAL:";
     font-weight: 700;
     color: #64748b;
     font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    flex-shrink: 0;
-  }
-
-  .ledger-table tfoot td::before {
-    content: attr(data-label);
-    font-weight: 700;
-    color: #64748b;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    flex-shrink: 0;
   }
 
   /* Color code totals for clarity */
@@ -752,22 +762,23 @@
     grid-template-columns: 1fr !important;
   }
 
-  /* Extra small screens: footer totals */
-  .ledger-table tfoot td {
-    padding: 0.65rem 0.75rem !important;
-    font-size: 0.9rem;
+  /* Extra small screens: optimize footer display */
+  .ledger-table tfoot td:nth-child(3) {
+    padding: 0 !important;
+    margin-bottom: 0.75rem !important;
+    font-size: 0.8rem;
   }
 
-  .ledger-table tfoot td::before {
-    font-size: 0.75rem;
-  }
-
-  /* Ensure total label displays properly */
-  .ledger-table tfoot td:nth-child(3),
   .ledger-table tfoot td[data-label="Total Due"],
   .ledger-table tfoot td[data-label="Total Paid"],
   .ledger-table tfoot td[data-label="Total Balance"] {
-    padding: 0.65rem 0.75rem !important;
+    padding: 0.6rem 0.8rem !important;
+    font-size: 0.9rem;
+  }
+
+  .ledger-table tfoot td[data-label]::before {
+    font-size: 0.7rem;
+    margin-right: 0.75rem;
   }
 }
 
