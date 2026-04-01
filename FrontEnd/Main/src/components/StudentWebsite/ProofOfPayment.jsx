@@ -46,6 +46,17 @@ export default function ProofOfPayment() {
   useEffect(() => {
     fetchPayments();
     fetchStudentProfile(); 
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromEnrollment = urlParams.get('from') === 'enrollment';
+    
+    if (fromEnrollment) {
+      const currentDate = new Date().toLocaleDateString();
+      setFormData(prev => ({
+        ...prev,
+        description: `Enrollment Initial Payment - ${currentDate}`
+      }));
+    }
   }, []);
 
   const fetchStudentProfile = async () => {

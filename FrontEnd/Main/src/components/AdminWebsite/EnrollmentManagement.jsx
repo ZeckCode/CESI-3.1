@@ -1681,55 +1681,41 @@ export default function EnrollmentManagement() {
                     </div>
                   </td>
 
-                  <td>
-                    {row.paymentProof ? (
-                      <div
+                  <td data-label="Payment Proof">
+                  {row.paymentProof ? (
+                    <div
+                      className="payment-proof-thumbnail"
+                      onClick={() => {
+                        setSelectedProofId(row.paymentProof.id);
+                        setPaymentProofModalOpen(true);
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <img
+                        src={row.paymentProof.proof_image_url}
+                        alt="Payment proof"
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                          cursor: "pointer",
+                          width: 50,
+                          height: 50,
+                          objectFit: "cover",
+                          borderRadius: 4,
+                          border: "1px solid #e2e8f0",
                         }}
-                        onClick={() => {
-                          setSelectedProofId(row.paymentProof.id);
-                          setPaymentProofModalOpen(true);
-                        }}
-                      >
-                        {row.paymentProof.proof_image_url ? (
-                          <img
-                            src={row.paymentProof.proof_image_url}
-                            alt="Payment proof"
-                            style={{
-                              width: 40,
-                              height: 40,
-                              objectFit: "cover",
-                              borderRadius: 3,
-                              border: "1px solid #e2e8f0",
-                            }}
-                          />
+                      />
+                      <div style={{ fontSize: 11, marginTop: 4 }}>
+                        {row.paymentProof.status === "approved" ? (
+                          <span style={{ color: "#10b981" }}>✓ Approved</span>
+                        ) : row.paymentProof.status === "rejected" ? (
+                          <span style={{ color: "#ef4444" }}>✗ Rejected</span>
                         ) : (
-                          <div
-                            style={{
-                              width: 40,
-                              height: 40,
-                              background: "#f1f5f9",
-                              borderRadius: 3,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: 10,
-                              color: "#94a3b8",
-                            }}
-                          >
-                            No IMG
-                          </div>
+                          <span style={{ color: "#f59e0b" }}>⏳ Pending</span>
                         )}
-                        
                       </div>
-                    ) : (
-                      <span style={{ color: "#94a3b8", fontSize: 12 }}>No proof</span>
-                    )}
-                  </td>
+                    </div>
+                  ) : (
+                    <span style={{ color: "#94a3b8", fontSize: 12 }}>No proof submitted</span>
+                  )}
+                </td>
 
                   <td>
                     <ParentCell row={row} />
