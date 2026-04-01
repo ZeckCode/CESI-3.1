@@ -1301,18 +1301,6 @@
     padding: 8px;
   }
 }
-    width: 100%;
-    min-height: 42px;
-  }
-  .btn-icon {
-    width: 32px;
-    height: 32px;
-    font-size: 16px;
-  }
-  .header-actions {
-    gap: 6px;
-  }
-}
 .enrollment-management .btn-edit,
 .enrollment-management .btn-delete,
 .enrollment-management .btn-promote {
