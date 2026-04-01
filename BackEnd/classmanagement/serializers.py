@@ -1,5 +1,5 @@
+from accounts.models import User, Subject
 from rest_framework import serializers
-from accounts.models import User
 from .models import Schedule, Room, SchoolYear
 
 
@@ -21,7 +21,6 @@ class SchoolYearSerializer(serializers.ModelSerializer):
 
 
 class ScheduleReadSerializer(serializers.ModelSerializer):
-    """Read-only schedule with nested human-readable names."""
     teacher_name = serializers.CharField(source="teacher.username", read_only=True)
     subject_name = serializers.SerializerMethodField()
     subject_code = serializers.CharField(source="subject.code", read_only=True, allow_null=True)
@@ -47,7 +46,7 @@ class ScheduleReadSerializer(serializers.ModelSerializer):
     def get_subject_name(self, obj):
         if obj.subject:
             return obj.subject.name
-        return "Free Period"  # Fallback for non-subject entries
+        return "Free Period"
 
     def get_room_code(self, obj):
         if obj.room:
@@ -80,6 +79,11 @@ class ScheduleWriteSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    subject = serializers.PrimaryKeyRelatedField(
+        queryset=Subject.objects.all(),
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = Schedule
@@ -91,6 +95,8 @@ class ScheduleWriteSerializer(serializers.ModelSerializer):
     def validate(self, data):
         start = data.get("start_time") or (self.instance and self.instance.start_time)
         end = data.get("end_time") or (self.instance and self.instance.end_time)
+
         if start and end and start >= end:
             raise serializers.ValidationError("end_time must be after start_time")
+
         return data

@@ -1377,13 +1377,28 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
         source_day: copySourceDay,
         target_days: Array.from(copyTargetDays),
       };
+
       const r = await apiFetch('/api/classmanagement/schedules/copy-day/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.detail || JSON.stringify(data));
+
+      const contentType = r.headers.get('content-type') || '';
+      let data;
+
+      if (contentType.includes('application/json')) {
+        data = await r.json();
+      } else {
+        const text = await r.text();
+        console.error('copy-day returned non-JSON:', text);
+        throw new Error(`Server returned ${r.status} ${r.statusText} instead of JSON.`);
+      }
+
+      if (!r.ok) {
+        throw new Error(data.detail || JSON.stringify(data) || 'Copy failed');
+      }
+
       alert(`Copied ${data.created_count} entries, skipped ${data.skipped_count}.`);
       setShowCopyDayModal(false);
       await onRefresh();
