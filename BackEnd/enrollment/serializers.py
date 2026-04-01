@@ -63,6 +63,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
     parent_info = ParentInfoSerializer(read_only=True)
     documents = EnrollmentDocumentSerializer(many=True, read_only=True)
     id_image_url = serializers.SerializerMethodField()
+    payment_proof = serializers.SerializerMethodField()
 
     class Meta:
         model = Enrollment
@@ -97,6 +98,16 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             return obj.remarks.split("REASON:")[-1].strip()
 
         return ""
+    
+    def get_payment_proof(self, obj):
+        if hasattr(obj, 'payment_proof'):
+            return {
+                'id': obj.payment_proof.id,
+                'status': obj.payment_proof.status,
+                'proof_image_url': obj.payment_proof.proof_image.url if obj.payment_proof.proof_image else None,
+                'reference_number': obj.payment_proof.reference_number,
+            }
+        return None
 
 
 class EnrollmentDetailedSerializer(serializers.ModelSerializer):

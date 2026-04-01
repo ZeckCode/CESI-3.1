@@ -869,3 +869,67 @@
     max-width: 100%;
   }
 }
+
+/* For AdminProofOfPayment.css */
+.admin-proof-image-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.9);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.admin-proof-full-image {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.admin-proof-close-overlay {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  z-index: 10000;
+}
+
+/* Thumbnail styles */
+.admin-proof-thumbnail {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  transition: transform 0.2s;
+}
+
+.admin-proof-thumbnail:hover {
+  transform: scale(1.05);
+}
+
+.admin-proof-view-button {
+  padding: 4px 8px;
+  font-size: 12px;
+  background: #f1f5f9;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.admin-proof-view-button:hover {
+  background: #e2e8f0;
+}

@@ -121,6 +121,8 @@ export default function EnrollmentManagement() {
   const [approvalRemarks, setApprovalRemarks] = useState("");
   const [isApprovingProof, setIsApprovingProof] = useState(false);
   const [isRejectingProof, setIsRejectingProof] = useState(false);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState(null);
 
   const addToast = useCallback((title, message, type = "warning") => {
     const id = Date.now() + Math.random();
@@ -726,53 +728,55 @@ export default function EnrollmentManagement() {
     return true;
   };
 
-  const handleApprove = async (id) => {
-    const row = normalized.find((r) => r.id === id);
-    if (!row) return;
-    if (!validateBeforeApprove(row)) return;
+const handleApprove = async (id) => {
+  const row = normalized.find((r) => r.id === id);
+  if (!row) return;
+  if (!validateBeforeApprove(row)) return;
+
+  try {
+    const body = row.raw?.section ? { section: row.raw.section } : {};
+
+    const res = await apiFetch(`/api/enrollments/${id}/mark_active/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    let data = {};
+    let text = "";
 
     try {
-      const body = row.raw?.section ? { section: row.raw.section } : {};
+      data = await res.json();
+    } catch {
+      text = await res.text().catch(() => "");
+    }
 
-      const res = await apiFetch(`/api/enrollments/${id}/mark_active/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      let data = {};
-      let text = "";
-
-      try {
-        data = await res.json();
-      } catch {
-        text = await res.text().catch(() => "");
-      }
-
-      if (!res.ok) {
-        throw new Error(
-          (data && data.detail) ||
-            (data && data.error) ||
-            text ||
-            JSON.stringify(data) ||
-            "Approval failed"
-        );
-      }
-
-      await fetchEnrollments();
-      addToast(
-        "Approved",
-        "Enrollment approved successfully. May now be processed to ID.",
-        "success"
-      );
-    } catch (err) {
-      addToast(
-        "Approval Failed",
-        err.message || "Could not approve enrollment.",
-        "error"
+    if (!res.ok) {
+      throw new Error(
+        (data && data.detail) ||
+          (data && data.error) ||
+          text ||
+          JSON.stringify(data) ||
+          "Approval failed"
       );
     }
-  };
+
+    await fetchEnrollments();
+    await fetchProofs(); // Refresh proofs to get updated status
+    
+    addToast(
+      "Approved",
+      "Enrollment approved successfully. Payment proof has been auto-approved.",
+      "success"
+    );
+  } catch (err) {
+    addToast(
+      "Approval Failed",
+      err.message || "Could not approve enrollment.",
+      "error"
+    );
+  }
+};
 
   const getDeclineTargetName = useCallback(() => {
     if (!declineTargetId) return "this enrollment";
@@ -796,54 +800,56 @@ export default function EnrollmentManagement() {
   };
 
   const confirmDecline = async () => {
-    if (declineSubmitting) return;
-    if (!declineTargetId) return;
+  if (declineSubmitting) return;
+  if (!declineTargetId) return;
 
-    const trimmedReason = declineReason.trim();
-    if (!trimmedReason) {
-      addToast(
-        "Reason Required",
-        "Please enter a reason or remark before declining.",
-        "warning"
-      );
-      return;
+  const trimmedReason = declineReason.trim();
+  if (!trimmedReason) {
+    addToast(
+      "Reason Required",
+      "Please enter a reason or remark before declining.",
+      "warning"
+    );
+    return;
+  }
+
+  setDeclineSubmitting(true);
+  try {
+    const data = await callAction(declineTargetId, "mark_dropped", {
+      reason: trimmedReason,
+    });
+
+    if (editingId === declineTargetId) {
+      setModalStatus("DROPPED");
+      setFormData((p) => ({
+        ...p,
+        status: "DROPPED",
+        remarks: data?.remarks ?? p.remarks,
+      }));
+      setModalMode("view");
     }
 
-    setDeclineSubmitting(true);
-    try {
-      const data = await callAction(declineTargetId, "mark_dropped", {
-        reason: trimmedReason,
-      });
+    await fetchProofs(); // Refresh proofs to get updated status
+    
+    addToast(
+      "Enrollment Declined",
+      "Enrollment was declined successfully. Payment proof has been auto-rejected.",
+      "success"
+    );
 
-      if (editingId === declineTargetId) {
-        setModalStatus("DROPPED");
-        setFormData((p) => ({
-          ...p,
-          status: "DROPPED",
-          remarks: data?.remarks ?? p.remarks,
-        }));
-        setModalMode("view");
-      }
-
-      addToast(
-        "Enrollment Declined",
-        "Enrollment was declined successfully.",
-        "success"
-      );
-
-      setDeclineDialogOpen(false);
-      setDeclineTargetId(null);
-      setDeclineReason("");
-    } catch (err) {
-      addToast(
-        "Decline Failed",
-        err.message || "Could not decline enrollment.",
-        "error"
-      );
-    } finally {
-      setDeclineSubmitting(false);
-    }
-  };
+    setDeclineDialogOpen(false);
+    setDeclineTargetId(null);
+    setDeclineReason("");
+  } catch (err) {
+    addToast(
+      "Decline Failed",
+      err.message || "Could not decline enrollment.",
+      "error"
+    );
+  } finally {
+    setDeclineSubmitting(false);
+  }
+};
 
   const handleDecline = (id) => {
     openDeclineDialog(id);
@@ -1682,54 +1688,76 @@ export default function EnrollmentManagement() {
                   </td>
 
                   <td>
-                    {row.paymentProof ? (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                          cursor: "pointer",
-                        }}
-                        onClick={() => {
-                          setSelectedProofId(row.paymentProof.id);
-                          setPaymentProofModalOpen(true);
-                        }}
-                      >
-                        {row.paymentProof.proof_image_url ? (
-                          <img
-                            src={row.paymentProof.proof_image_url}
-                            alt="Payment proof"
-                            style={{
-                              width: 40,
-                              height: 40,
-                              objectFit: "cover",
-                              borderRadius: 3,
-                              border: "1px solid #e2e8f0",
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: 40,
-                              height: 40,
-                              background: "#f1f5f9",
-                              borderRadius: 3,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: 10,
-                              color: "#94a3b8",
-                            }}
-                          >
-                            No IMG
-                          </div>
-                        )}
-                        
-                      </div>
-                    ) : (
-                      <span style={{ color: "#94a3b8", fontSize: 12 }}>No proof</span>
-                    )}
-                  </td>
+  {row.paymentProof ? (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        cursor: "pointer",
+      }}
+      onClick={() => {
+        // Open image overlay directly without modal
+        setImageViewerOpen(true);
+        setSelectedImageUrl(row.paymentProof.proof_image_url);
+      }}
+    >
+      {row.paymentProof.proof_image_url ? (
+        <>
+          <img
+            src={row.paymentProof.proof_image_url}
+            alt="Payment proof"
+            style={{
+              width: "50px",
+              height: "50px",
+              objectFit: "cover",
+              borderRadius: "4px",
+              border: "1px solid #e2e8f0",
+            }}
+          />
+          <button
+            style={{
+              background: "#f1f5f9",
+              border: "none",
+              borderRadius: "4px",
+              padding: "4px 8px",
+              fontSize: "12px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setImageViewerOpen(true);
+              setSelectedImageUrl(row.paymentProof.proof_image_url);
+            }}
+          >
+            <Eye size={14} /> View
+          </button>
+        </>
+      ) : (
+        <div
+          style={{
+            width: "50px",
+            height: "50px",
+            background: "#f1f5f9",
+            borderRadius: "4px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "10px",
+            color: "#94a3b8",
+          }}
+        >
+          No IMG
+        </div>
+      )}
+    </div>
+  ) : (
+    <span style={{ color: "#94a3b8", fontSize: "12px" }}>No proof</span>
+  )}
+</td>
 
                   <td>
                     <ParentCell row={row} />
@@ -2071,6 +2099,51 @@ export default function EnrollmentManagement() {
                       {isApprovingProof ? "Approving..." : "Approve"}
                     </button>
                   </div>
+                  {imageViewerOpen && selectedImageUrl && (
+  <div
+    onClick={() => setImageViewerOpen(false)}
+    style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0, 0, 0, 0.9)",
+      zIndex: 9999,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+    }}
+  >
+    <button
+      onClick={() => setImageViewerOpen(false)}
+      style={{
+        position: "absolute",
+        top: "20px",
+        right: "20px",
+        background: "none",
+        border: "none",
+        color: "white",
+        cursor: "pointer",
+        zIndex: 10000,
+      }}
+    >
+      <XCircle size={32} />
+    </button>
+    <img
+      src={selectedImageUrl}
+      alt="Payment proof"
+      style={{
+        maxWidth: "90vw",
+        maxHeight: "90vh",
+        objectFit: "contain",
+        borderRadius: "8px",
+      }}
+      onClick={(e) => e.stopPropagation()}
+    />
+  </div>
+)}
                 </div>
               );
             })()}
