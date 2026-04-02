@@ -1527,13 +1527,20 @@ const handleApprove = async (id) => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "Failed to upload ID image.");
 
-      await fetchEnrollments();
       addToast("ID Uploaded", "Student ID image uploaded successfully.", "success");
       closeIdUploadModal();
 
+      // Use the response data if available, otherwise fetch
+      let updatedRow = data.enrollment || data;
+      
+      // If response doesn't have full enrollment data, fetch from server
+      if (!updatedRow.id || updatedRow.id !== idUploadEnrollmentId) {
+        await fetchEnrollments();
+        updatedRow = enrollments.find((e) => e.id === idUploadEnrollmentId);
+      }
+
       // Auto-open ID generator after upload
-      const updatedRow = enrollments.find((e) => e.id === idUploadEnrollmentId);
-      if (updatedRow) {
+      if (updatedRow && updatedRow.id) {
         const studentData = prepareIdData(updatedRow);
         setSelectedStudentForId(studentData);
         setIdGeneratorOpen(true);
