@@ -196,6 +196,14 @@ const TransactionHistory = () => {
   const [previewType, setPreviewType] = useState('summary');
   const [applyingAdvanceKey, setApplyingAdvanceKey] = useState(null);
 
+  const [advanceRequests, setAdvanceRequests] = useState([]);
+  const [requestLoading, setRequestLoading] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState(null);
+  const [requestRemarks, setRequestRemarks] = useState({});
+
+
+
+
   const fetchTransactions = useCallback(async () => {
     try {
       const params = new URLSearchParams();
@@ -214,6 +222,22 @@ const TransactionHistory = () => {
     }
   }, [searchTerm, filterStatus, filterEntryType]);
 
+  const fetchAdvanceRequests = useCallback(async () => {
+    try {
+      setRequestLoading(true);
+      const res = await apiFetch('/api/finance/advance-requests/');
+      if (!res.ok) throw new Error('Failed to load advance requests');
+
+      const data = await res.json();
+      setAdvanceRequests(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching advance requests:', err);
+      setAdvanceRequests([]);
+    } finally {
+      setRequestLoading(false);
+    }
+  }, []);
+
   const fetchStats = useCallback(async () => {
     try {
       const res = await apiFetch('/api/finance/transactions/stats/');
@@ -230,10 +254,11 @@ const TransactionHistory = () => {
     }
   }, []);
 
-  useEffect(() => {
+ useEffect(() => {
     fetchTransactions();
     fetchStats();
-  }, [fetchTransactions, fetchStats]);
+    fetchAdvanceRequests();
+  }, [fetchTransactions, fetchStats, fetchAdvanceRequests]);
 
   useEffect(() => {
     setTxnPage(1);
@@ -1002,6 +1027,58 @@ const TransactionHistory = () => {
     }
   };
 
+  const handleRequestRemarksChange = (requestId, value) => {
+    setRequestRemarks((prev) => ({
+      ...prev,
+      [requestId]: value,
+    }));
+  };
+
+  const handleAdvanceRequestAction = async (requestId, actionType) => {
+    setProcessingRequestId(requestId);
+
+    try {
+      const res = await apiFetch(`/api/finance/advance-requests/${requestId}/process/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: actionType,
+          remarks: requestRemarks[requestId] || '',
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || `Failed to ${actionType.toLowerCase()} request.`);
+      }
+
+      alert(
+        actionType === 'PROCESS'
+          ? 'Request processed successfully.'
+          : `Request ${actionType.toLowerCase()}d successfully.`
+      );
+
+      fetchAdvanceRequests();
+      fetchTransactions();
+      fetchStats();
+    } catch (err) {
+      alert(err.message || `Failed to ${actionType.toLowerCase()} request.`);
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
+
+  const requestTypeLabel = (value) => {
+    const map = {
+      APPLY_ADVANCE: 'Apply Advance',
+      REFUND: 'Refund',
+    };
+    return map[value] || value || '—';
+  };
+
+  const requestStatusClass = (value) => String(value || '').toLowerCase();
+
+  const canProcessRequest = (req) => req.status === 'APPROVED';
 
   return (
     <main className="transaction-history-main">
@@ -1128,7 +1205,7 @@ const TransactionHistory = () => {
             <tbody>
               {groupedTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                  <td colSpan="10" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                     No transactions found.
                   </td>
                 </tr>
@@ -1216,7 +1293,7 @@ const TransactionHistory = () => {
 
                     {expandedRow === group.key && (
                       <tr className="th-expanded-row">
-                        <td colSpan="9">
+                        <td colSpan="10">
                           <div className="th-student-detail-panel">
                             <h4 className="th-detail-title">{buildLedgerGroupTitle(group)}</h4>
 
@@ -1320,6 +1397,111 @@ const TransactionHistory = () => {
           />
         </div>
       </section>
+      <section className="th-section">
+        <div className="th-section-header">
+          <div>
+            <h2 className="th-section-title">Advance / Refund Requests</h2>
+            <p className="th-section-subtitle">Review and process student-submitted requests</p>
+          </div>
+        </div>
+
+        <div className="th-table-container">
+          <table className="th-table">
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Student</th>
+                <th>Student No.</th>
+                <th>Enrollment</th>
+                <th>Request Type</th>
+                <th>Amount</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Remarks</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {requestLoading ? (
+                <tr>
+                  <td colSpan="10" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                    Loading requests...
+                  </td>
+                </tr>
+              ) : advanceRequests.length === 0 ? (
+                <tr>
+                  <td colSpan="10" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                    No advance/refund requests found.
+                  </td>
+                </tr>
+              ) : (
+                advanceRequests.map((req) => (
+                  <tr key={req.id}>
+                    <td>{req.created_at ? new Date(req.created_at).toLocaleString() : '—'}</td>
+                    <td>{req.student_name || '—'}</td>
+                    <td>{req.student_number || '—'}</td>
+                    <td>{req.enrollment ? `#${req.enrollment}` : '—'}</td>
+                    <td>{requestTypeLabel(req.request_type)}</td>
+                    <td className="th-amount-cell">{formatCurrency(req.amount)}</td>
+                    <td>{req.reason || '—'}</td>
+                    <td>
+                      <span className={`th-status-badge th-status-${requestStatusClass(req.status)}`}>
+                        {req.status}
+                      </span>
+                    </td>
+                    <td style={{ minWidth: '220px' }}>
+                      <textarea
+                        rows="2"
+                        value={requestRemarks[req.id] ?? req.admin_remarks ?? ''}
+                        onChange={(e) => handleRequestRemarksChange(req.id, e.target.value)}
+                        className="th-form-input"
+                        placeholder="Admin remarks..."
+                        disabled={processingRequestId === req.id}
+                      />
+                    </td>
+                    <td className="th-actions-cell" style={{ whiteSpace: 'nowrap' }}>
+                      {req.status !== 'REJECTED' && req.status !== 'PROCESSED' && (
+                        <button
+                          className="th-action-btn th-pay-btn"
+                          onClick={() => handleAdvanceRequestAction(req.id, 'APPROVE')}
+                          title="Approve Request"
+                          disabled={processingRequestId === req.id}
+                        >
+                          <CheckCircle size={15} />
+                        </button>
+                      )}
+
+                      {req.status !== 'PROCESSED' && req.status !== 'REJECTED' && (
+                        <button
+                          className="th-action-btn th-refund-btn"
+                          onClick={() => handleAdvanceRequestAction(req.id, 'REJECT')}
+                          title="Reject Request"
+                          disabled={processingRequestId === req.id}
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
+
+                      {canProcessRequest(req) && (
+                        <button
+                          className="th-action-btn th-advance-btn"
+                          onClick={() => handleAdvanceRequestAction(req.id, 'PROCESS')}
+                          title="Process Request"
+                          disabled={processingRequestId === req.id}
+                        >
+                          <Wallet size={15} />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
 
       {showModal && (
         <div className="th-modal-overlay" onClick={() => setShowModal(false)}>
