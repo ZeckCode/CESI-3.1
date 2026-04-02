@@ -9,7 +9,7 @@ import '../AdminWebsiteCSS/TuitionManagement.css';
 import { apiFetchData } from '../api/apiFetch';
 import Toast from '../Global/Toast';
 import PreviewModal from '../PreviewModal';
-import { getGradeLevelDisplay } from './idGenerator/idGeneratorUtils';
+import { getGradeLevelDisplay } from './idGenerator/idGeneratorUtils.js';
 
 const API = '';
 
