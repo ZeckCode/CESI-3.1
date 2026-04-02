@@ -943,6 +943,26 @@ def students_by_section(request, section_id):
 
     students_map = {}
 
+    def build_student_key(student, enrollment=None, profile=None):
+        student_number = None
+        if enrollment and enrollment.student_number:
+            student_number = enrollment.student_number
+        if not student_number and profile and profile.student_number:
+            student_number = profile.student_number
+        if not student_number and hasattr(student, "profile") and student.profile:
+            student_number = student.profile.student_number
+
+        student_number = (student_number or "").strip()
+        if student_number:
+            return f"num:{student_number.lower()}"
+
+        username = (getattr(student, "username", "") or "").strip()
+        if username:
+            return f"user:{username.lower()}"
+
+        student_id = getattr(student, "id", None)
+        return f"id:{student_id}" if student_id is not None else ""
+
     enrollments = Enrollment.objects.filter(
         section_id=section_id,
         status="ACTIVE",
@@ -962,10 +982,14 @@ def students_by_section(request, section_id):
         if not full_name:
             full_name = stu.username
 
-        students_map[stu.id] = {
+        key = build_student_key(stu, enrollment=enr)
+        if not key:
+            continue
+        students_map[key] = {
             "id": stu.id,
             "username": stu.username,
             "student_name": full_name,
+            "student_number": enr.student_number or getattr(getattr(stu, "profile", None), "student_number", None),
         }
 
     legacy_profiles = UserProfile.objects.filter(
@@ -976,15 +1000,17 @@ def students_by_section(request, section_id):
 
     for p in legacy_profiles:
         stu = p.user
-        if stu.id in students_map:
+        key = build_student_key(stu, profile=p)
+        if not key or key in students_map:
             continue
         full_name = " ".join(
             part for part in [p.student_first_name or "", p.student_last_name or ""] if part
         ).strip() or stu.username
-        students_map[stu.id] = {
+        students_map[key] = {
             "id": stu.id,
             "username": stu.username,
             "student_name": full_name,
+            "student_number": p.student_number or getattr(getattr(stu, "profile", None), "student_number", None),
         }
 
     result = sorted(students_map.values(), key=lambda s: (s["student_name"].lower(), s["id"]))

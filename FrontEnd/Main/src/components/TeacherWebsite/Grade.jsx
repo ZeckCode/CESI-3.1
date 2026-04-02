@@ -82,6 +82,19 @@ const CATEGORIES = [
   { key: "EXAM", label: "Exams", color: "#ef4444" },
 ];
 
+const getStudentKey = (student) => {
+  if (!student) return "";
+
+  const studentNumber = String(student.student_number || "").trim();
+  if (studentNumber) return `num:${studentNumber.toLowerCase()}`;
+
+  const username = String(student.username || "").trim();
+  if (username) return `user:${username.toLowerCase()}`;
+
+  const idValue = student.id != null ? String(student.id).trim() : "";
+  return idValue ? `id:${idValue}` : "";
+};
+
 const Grade = () => {
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState("");
@@ -134,8 +147,7 @@ const Grade = () => {
   const displayStudents = useMemo(() => {
     const seen = {};
     (students || []).forEach((student) => {
-      if (!student || student.id == null) return;
-      const key = String(student.id).trim();
+      const key = getStudentKey(student);
       if (!key) return;
       if (!seen[key]) {
         seen[key] = student;
@@ -249,8 +261,7 @@ const Grade = () => {
 
         const uniqueStudents = Object.values(
           studentsArray.reduce((acc, student) => {
-            if (!student || student.id == null) return acc;
-            const key = String(student.id).trim();
+            const key = getStudentKey(student);
             if (!key) return acc;
 
             if (!acc[key]) {
