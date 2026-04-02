@@ -1,5 +1,5 @@
 // StepStudent.jsx
-import React from "react";
+import React, { useState } from "react";
 import FieldError from "../FieldError";
 import { RELIGION_OPTIONS } from "../constants";
 import { onlyDigits } from "../helpers";
@@ -14,6 +14,7 @@ const StepStudent = ({
   onNext,
   onBack,
 }) => {
+  const [showAgeRefModal, setShowAgeRefModal] = useState(false);
   return (
     <div className="step-card">
       <h3>👤 Student Information</h3>
@@ -62,38 +63,60 @@ const StepStudent = ({
             />
             {ageValidation && !ageValidation.ok && (
               <>
-                <span className="error-icon-inside">!</span>
+                <button
+                  type="button"
+                  className="error-icon-inside"
+                  onClick={() => setShowAgeRefModal(true)}
+                  title="Click to view age reference"
+                >
+                  !
+                </button>
                 <div className="hover-error-message">
                   <div className="error-text">{ageValidation.msg}</div>
                 </div>
               </>
             )}
           </div>
-          {form.birthDate && !ageValidation?.ok && (
-            <details className="age-reference-tooltip">
-              <summary>Age Reference Guide</summary>
-              <table className="age-ref-table">
-                <thead>
-                  <tr>
-                    <th>Grade Level</th>
-                    <th>Min Age</th>
-                    <th>Max Age</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="prek"><td>Pre-Kinder</td><td>3</td><td>4</td></tr>
-                  <tr className="kinder"><td>Kinder</td><td>4</td><td>5</td></tr>
-                  <tr className="g1"><td>Grade 1</td><td>6</td><td>7</td></tr>
-                  <tr className="g2"><td>Grade 2</td><td>7</td><td>8</td></tr>
-                  <tr className="g3"><td>Grade 3</td><td>8</td><td>9</td></tr>
-                  <tr className="g4"><td>Grade 4</td><td>9</td><td>10</td></tr>
-                  <tr className="g5"><td>Grade 5</td><td>10</td><td>11</td></tr>
-                  <tr className="g6"><td>Grade 6</td><td>11</td><td>12</td></tr>
-                </tbody>
-              </table>
-            </details>
-          )}
           <FieldError error={errors.birthDate} />
+
+          {/* Age Reference Modal Overlay */}
+          {showAgeRefModal && (
+            <div className="age-ref-modal-overlay" onClick={() => setShowAgeRefModal(false)}>
+              <div className="age-ref-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3>Age Reference Guide</h3>
+                  <button
+                    type="button"
+                    className="modal-close-btn"
+                    onClick={() => setShowAgeRefModal(false)}
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="modal-body">
+                  <table className="age-ref-table">
+                    <thead>
+                      <tr>
+                        <th>Grade Level</th>
+                        <th>Min Age</th>
+                        <th>Max Age</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="prek"><td>Pre-Kinder</td><td>3</td><td>4</td></tr>
+                      <tr className="kinder"><td>Kinder</td><td>4</td><td>5</td></tr>
+                      <tr className="g1"><td>Grade 1</td><td>6</td><td>7</td></tr>
+                      <tr className="g2"><td>Grade 2</td><td>7</td><td>8</td></tr>
+                      <tr className="g3"><td>Grade 3</td><td>8</td><td>9</td></tr>
+                      <tr className="g4"><td>Grade 4</td><td>9</td><td>10</td></tr>
+                      <tr className="g5"><td>Grade 5</td><td>10</td><td>11</td></tr>
+                      <tr className="g6"><td>Grade 6</td><td>11</td><td>12</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
 

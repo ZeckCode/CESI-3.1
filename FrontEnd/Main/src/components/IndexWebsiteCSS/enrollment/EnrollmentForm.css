@@ -715,7 +715,7 @@ font-size: 25px;
   border-color: #dc2626;
 }
 
-/* Error icon inside input field */
+/* Error icon inside input field (clickable button) */
 .error-icon-inside {
   position: absolute;
   right: 12px;
@@ -725,8 +725,23 @@ font-size: 25px;
   font-weight: bold;
   color: #dc2626;
   opacity: 0;
-  transition: opacity 0.2s ease;
-  pointer-events: none;
+  transition: opacity 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  pointer-events: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  z-index: 10;
+}
+
+.error-icon-inside:hover {
+  background: rgba(220, 38, 38, 0.1);
+  transform: translateY(-50%) scale(1.2);
 }
 
 .birth-date-wrapper.has-error input[type="date"]:hover ~ .error-icon-inside,
@@ -803,11 +818,143 @@ font-size: 25px;
   border-color: #991b1b;
 }
 
+/* ── Age Reference Modal Overlay ── */
+.age-ref-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.age-ref-modal {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 2px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  border-radius: 4px;
+}
+
+.modal-close-btn:hover {
+  color: #111827;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-body .age-ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.modal-body .age-ref-table th,
+.modal-body .age-ref-table td {
+  padding: 12px;
+  text-align: center;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-body .age-ref-table th {
+  background: #f3f4f6;
+  font-weight: 600;
+  color: #111827;
+  border-bottom: 2px solid #d1d5db;
+}
+
+.modal-body .age-ref-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.modal-body .age-ref-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
 @media (max-width: 480px) {
-  .hover-error-message {
-    white-space: normal;
-    min-width: 180px;
-    left: -50px;
+  .age-ref-modal {
+    width: 95%;
+    max-height: 90vh;
+  }
+
+  .modal-header {
+    padding: 16px;
+  }
+
+  .modal-header h3 {
+    font-size: 16px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .modal-body .age-ref-table th,
+  .modal-body .age-ref-table td {
+    padding: 10px 8px;
+    font-size: 13px;
   }
 }
 
