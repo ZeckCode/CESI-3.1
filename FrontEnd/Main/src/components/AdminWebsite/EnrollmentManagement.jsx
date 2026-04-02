@@ -55,7 +55,7 @@ import {
   normalizeSectionGrade,
 } from "./Enrollment/enrollmentUtils";
 
-import { StatusBadge, FeeBadge } from "./Enrollment/EnrollmentBadges";
+import { StatusBadge } from "./Enrollment/EnrollmentBadges";
 import { StudentCell, ParentCell } from "./Enrollment/EnrollmentCells";
 import { exportToPDF } from "./Enrollment/exportEnrollmentPDF";
 import DeclineDialog from "./Enrollment/DeclineDialog";
@@ -335,7 +335,6 @@ export default function EnrollmentManagement() {
           statusCode,
           statusText: statusLabel(statusCode),
           academicYear: e.academic_year || "",
-          fee: e.payment_mode || "Pending",
           paymentMode: e.payment_mode || "—",
           paymentMethod: e.payment_method || "—",
           paymentProof: tempRow.paymentProof,
@@ -1858,8 +1857,7 @@ const handleApprove = async (id) => {
                 <th>Enrollment Date</th>
                 <th>Status</th>
                 <th>Promotion Ready</th>
-                <th>Fee Status</th>
-                <th>Payment Method</th>
+                <th>Payment Info</th>
                 <th>Payment Proof</th>
                 <th>Parent / Guardian</th>
                 <th>Approve / Decline</th>
@@ -1931,11 +1929,7 @@ const handleApprove = async (id) => {
                   </td>
 
                   <td>
-                    <FeeBadge fee={row.fee} />
-                  </td>
-
-                  <td>
-                    <div style={{ fontSize: 12, color: "#475569", fontWeight: 500 }}>
+                    <div style={{ fontSize: 12, color: "#475569", fontWeight: 500, display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
                       {row.paymentMethod === "online" ? (
                         <span style={{ background: "#dbeafe", color: "#1e40af", padding: "3px 8px", borderRadius: 3, display: "inline-block" }}>
                           Online
@@ -1944,16 +1938,13 @@ const handleApprove = async (id) => {
                         <span style={{ background: "#e0e7ff", color: "#4338ca", padding: "3px 8px", borderRadius: 3, display: "inline-block" }}>
                           Onsite
                         </span>
-                      ) : (
-                        <span style={{ color: "#94a3b8" }}>—</span>
-                      )}
-                      {" "}
+                      ) : null}
                       {row.paymentMode === "cash" ? (
-                        <span style={{ background: "#fef3c7", color: "#92400e", padding: "3px 8px", borderRadius: 3, display: "inline-block", marginLeft: 4 }}>
+                        <span style={{ background: "#fef3c7", color: "#92400e", padding: "3px 8px", borderRadius: 3, display: "inline-block" }}>
                           Cash
                         </span>
                       ) : row.paymentMode === "installment" ? (
-                        <span style={{ background: "#fce7f3", color: "#831843", padding: "3px 8px", borderRadius: 3, display: "inline-block", marginLeft: 4 }}>
+                        <span style={{ background: "#fce7f3", color: "#831843", padding: "3px 8px", borderRadius: 3, display: "inline-block" }}>
                           Installment
                         </span>
                       ) : null}
