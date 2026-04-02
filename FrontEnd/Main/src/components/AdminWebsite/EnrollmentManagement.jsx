@@ -1148,7 +1148,7 @@ const handleApprove = async (id) => {
     const guardian = splitFullName(e?.parent_info?.guardian_name || "");
     const addr = splitAddress(e.address || "");
 
-    setEditingId(null);
+    setEditingId(e.id);
     setModalMode("edit");
     setModalStatus(null);
     setEditingAcademicYear(false);
