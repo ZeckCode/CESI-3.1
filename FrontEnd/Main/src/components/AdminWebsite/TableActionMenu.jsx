@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { MoreVertical, Eye, Edit2, Trash2, Upload, ArrowUpCircle } from "lucide-react";
+import { MoreVertical, Eye, Edit2, Trash2, Upload, ArrowUpCircle, CreditCard } from "lucide-react";
 
 export default function TableActionMenu({
   row,
@@ -10,6 +10,7 @@ export default function TableActionMenu({
   onDelete,
   onIdUpload,
   onPromote,
+  onGenerateId,
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
@@ -49,6 +50,13 @@ export default function TableActionMenu({
   const handlePromote = () => {
     onPromote();
     setOpen(false);
+  };
+
+  const handleGenerateId = () => {
+    if (onGenerateId) {
+      onGenerateId();
+      setOpen(false);
+    }
   };
 
   const hasPromote = (row.statusCode === "ACTIVE" || row.statusCode === "COMPLETED") &&
@@ -111,6 +119,18 @@ export default function TableActionMenu({
           >
             <Upload size={14} />
             <span>Upload ID</span>
+          </button>
+        )}
+
+        {/* Generate ID Card */}
+        {row.statusCode === "ACTIVE" && onGenerateId && (
+          <button
+            className="action-menu-item"
+            onClick={handleGenerateId}
+            title="Generate student ID card"
+          >
+            <CreditCard size={14} />
+            <span>Generate ID Card</span>
           </button>
         )}
 
