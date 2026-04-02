@@ -308,6 +308,63 @@ export default function EnrollmentManagement() {
     }
   };
 
+  const getPromotionReadiness = useCallback((row) => {
+    const e = row?.raw || {};
+    const { next } = getNextGrade(e.grade_level);
+
+    // Check if already at highest grade
+    if (!next) {
+      return {
+        ready: false,
+        reason: "Completed Grade 6 - Cannot promote further",
+        status: "completed",
+        icon: "check",
+      };
+    }
+
+    // Check if enrollment is active (payment approved by admin)
+    if (row.statusCode !== "ACTIVE") {
+      return {
+        ready: false,
+        reason: `Enrollment status: ${row.statusCode} - Payment must be approved before promotion`,
+        status: "pending",
+        icon: "clock",
+      };
+    }
+
+    // Check if payment proof is approved (balance requirement)
+    if (row.paymentProof) {
+      const proofStatus = String(row.paymentProof?.status || "").toLowerCase();
+      if (proofStatus !== "approved") {
+        return {
+          ready: false,
+          reason: `Payment proof: ${row.paymentProof?.status || "pending"} - Must be approved`,
+          status: "pending",
+          icon: "clock",
+        };
+      }
+    }
+
+    // Check if student type allows promotion (old students only)
+    const studentType = String(e.student_type || "").toLowerCase();
+    if (studentType !== "old") {
+      return {
+        ready: false,
+        reason: "Only returning students can be promoted - New students must complete current level first",
+        status: "ineligible",
+        icon: "x",
+      };
+    }
+
+    // All checks passed - Student meets all promotion standards
+    return {
+      ready: true,
+      reason: `✓ All standards met - Ready to promote to ${next}`,
+      status: "ready",
+      icon: "arrow-up",
+    };
+  }, []);
+
   const normalized = useMemo(
     () =>
       enrollments.map((e) => {
@@ -506,63 +563,6 @@ export default function EnrollmentManagement() {
     },
     [getMissingFieldsForApproval, addToast]
   );
-
-  const getPromotionReadiness = useCallback((row) => {
-    const e = row?.raw || {};
-    const { next } = getNextGrade(e.grade_level);
-
-    // Check if already at highest grade
-    if (!next) {
-      return {
-        ready: false,
-        reason: "Completed Grade 6 - Cannot promote further",
-        status: "completed",
-        icon: "check",
-      };
-    }
-
-    // Check if enrollment is active (payment approved by admin)
-    if (row.statusCode !== "ACTIVE") {
-      return {
-        ready: false,
-        reason: `Enrollment status: ${row.statusCode} - Payment must be approved before promotion`,
-        status: "pending",
-        icon: "clock",
-      };
-    }
-
-    // Check if payment proof is approved (balance requirement)
-    if (row.paymentProof) {
-      const proofStatus = String(row.paymentProof?.status || "").toLowerCase();
-      if (proofStatus !== "approved") {
-        return {
-          ready: false,
-          reason: `Payment proof: ${row.paymentProof?.status || "pending"} - Must be approved`,
-          status: "pending",
-          icon: "clock",
-        };
-      }
-    }
-
-    // Check if student type allows promotion (old students only)
-    const studentType = String(e.student_type || "").toLowerCase();
-    if (studentType !== "old") {
-      return {
-        ready: false,
-        reason: "Only returning students can be promoted - New students must complete current level first",
-        status: "ineligible",
-        icon: "x",
-      };
-    }
-
-    // All checks passed - Student meets all promotion standards
-    return {
-      ready: true,
-      reason: `✓ All standards met - Ready to promote to ${next}`,
-      status: "ready",
-      icon: "arrow-up",
-    };
-  }, []);
 
   const openModal = (row, mode = "view") => {
     const e = row.raw;
@@ -1952,7 +1952,7 @@ const handleApprove = async (id) => {
                   </td>
 
                   <td>
-                  {row.paymentProof ? (
+                  {row.paymentProof && row.paymentProof.proof_image_url ? (
                     <button
                       style={{
                         padding: "6px 12px",
