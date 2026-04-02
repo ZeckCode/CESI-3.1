@@ -1554,7 +1554,7 @@ const handleApprove = async (id) => {
     }
     
     // Otherwise directly open ID generator
-    const studentData = prepareIdData(row.raw);
+    const studentData = prepareIdData(row);
     setSelectedStudentForId(studentData);
     setIdGeneratorOpen(true);
   };

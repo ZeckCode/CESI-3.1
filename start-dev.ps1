@@ -31,20 +31,20 @@
 $ProjectRoot = $PSScriptRoot
 if (-not $ProjectRoot) { $ProjectRoot = (Get-Location).Path }
 
-$BackendDir    = Join-Path $ProjectRoot "BackEnd"
-$FrontendDir   = Join-Path (Join-Path $ProjectRoot "FrontEnd") "Main"
-$VenvDir       = Join-Path $BackendDir "venv"
-$VenvScripts   = Join-Path $VenvDir "Scripts"
+$BackendDir = Join-Path $ProjectRoot "BackEnd"
+$FrontendDir = Join-Path (Join-Path $ProjectRoot "FrontEnd") "Main"
+$VenvDir = Join-Path $BackendDir "venv"
+$VenvScripts = Join-Path $VenvDir "Scripts"
 $ActivateScript = Join-Path $VenvScripts "Activate.ps1"
-$VenvPython    = Join-Path $VenvScripts "python.exe"
-$VenvPip       = Join-Path $VenvScripts "pip.exe"
-$ReqFile       = Join-Path $BackendDir "requirements.txt"
+$VenvPython = Join-Path $VenvScripts "python.exe"
+$VenvPip = Join-Path $VenvScripts "pip.exe"
+$ReqFile = Join-Path $BackendDir "requirements.txt"
 
 # --- Helper functions ---
-function Write-Step  { param($msg) Write-Host "`n>> $msg" -ForegroundColor Cyan }
-function Write-Ok    { param($msg) Write-Host "   OK: $msg" -ForegroundColor Green }
-function Write-Warn  { param($msg) Write-Host "   !! $msg" -ForegroundColor Yellow }
-function Write-Err   { param($msg) Write-Host "   ERROR: $msg" -ForegroundColor Red }
+function Write-Step { param($msg) Write-Host "`n>> $msg" -ForegroundColor Cyan }
+function Write-Ok { param($msg) Write-Host "   OK: $msg" -ForegroundColor Green }
+function Write-Warn { param($msg) Write-Host "   !! $msg" -ForegroundColor Yellow }
+function Write-Err { param($msg) Write-Host "   ERROR: $msg" -ForegroundColor Red }
 
 # =============================================
 #  PRE-FLIGHT CHECKS
@@ -111,7 +111,8 @@ $venvNeedsRecreate = $false
 if (-not (Test-Path $VenvPython)) {
     $venvNeedsRecreate = $true
     Write-Warn "Virtual environment not found"
-} else {
+}
+else {
     # Test if the venv actually works (catches venvs created on different machines)
     Write-Step "Verifying virtual environment..."
     $testResult = & "$VenvPython" -c "print('ok')" 2>&1
@@ -137,7 +138,8 @@ if ($venvNeedsRecreate) {
         exit 1
     }
     Write-Ok "Virtual environment created"
-} else {
+}
+else {
     Write-Ok "Virtual environment exists and is valid"
 }
 
@@ -146,7 +148,8 @@ Write-Step "Activating virtual environment..."
 try {
     & $ActivateScript
     Write-Ok "Virtual environment activated"
-} catch {
+}
+catch {
     Write-Err "Could not activate venv. Try: .\BackEnd\venv\Scripts\Activate.ps1"
     Write-Err "If you get an execution policy error, run:"
     Write-Err "  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned"
@@ -200,7 +203,8 @@ $DbBackupFile = Join-Path $BackendDir "db_backup.json"
 if (Test-Path $DbBackupFile) {
     Write-Ok "Found db_backup.json - checking for data import..."
     & "$VenvPython" manage.py import_from_json --input "$DbBackupFile" 2>&1 | ForEach-Object { Write-Host "   $_" }
-} else {
+}
+else {
     Write-Warn "No db_backup.json found - database will use existing data"
 }
 
@@ -262,7 +266,8 @@ if ($needsNpmInstall) {
         exit 1
     }
     Write-Ok "Frontend packages installed"
-} else {
+}
+else {
     Write-Ok "Frontend packages already installed - skipping npm install"
 }
 
@@ -292,7 +297,8 @@ if ($missingFrontendPackages.Count -gt 0) {
         exit 1
     }
     Write-Ok "Required frontend libraries installed"
-} else {
+}
+else {
     Write-Ok "react-quill-new, jspdf, jspdf-autotable and html2canvas already installed"
 }
 
