@@ -17,6 +17,7 @@ from .views import (
     ProofOfPaymentViewSet,
     pay_student_balance,
     refund_student_payment,
+    auto_apply_advance,
 )
 
 urlpatterns = [
@@ -49,4 +50,5 @@ urlpatterns = [
     # Additional endpoints for paying balance and processing refunds
     path('ledgers/pay/', pay_student_balance, name='ledger-pay'),
     path('ledgers/refund/', refund_student_payment, name='ledger-refund'),
+    path('ledgers/auto-apply-advance/', auto_apply_advance, name='ledger-auto-apply-advance'),
 ]

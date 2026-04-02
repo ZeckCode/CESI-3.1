@@ -57,6 +57,8 @@ const ITEM_OPTIONS = [
   { value: 'ASSESSMENT', label: 'Assessment' },
   { value: 'ADVANCE', label: 'Advance Credit' },
   { value: 'REFUND', label: 'Refund' },
+  { value: 'ADVANCE_TRANSFER_OUT', label: 'Advance Transfer Out' },
+  { value: 'ADVANCE_APPLIED', label: 'Advance Applied' },
   { value: 'OTHER', label: 'Other' },
 ];
 
@@ -192,6 +194,7 @@ const TransactionHistory = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState([]);
   const [previewType, setPreviewType] = useState('summary');
+  const [applyingAdvanceKey, setApplyingAdvanceKey] = useState(null);
 
   const fetchTransactions = useCallback(async () => {
     try {
@@ -857,6 +860,9 @@ const TransactionHistory = () => {
     }));
   };
 
+  const canApplyAdvance = (group) =>
+    Number(group.balance || 0) > 0 && Number(getRefundableAmount(group)) > 0;
+
   const handleSubmitPayment = async (e) => {
     e.preventDefault();
     setPayError('');
@@ -958,6 +964,42 @@ const TransactionHistory = () => {
       setRefunding(false);
     }
   };
+  
+  const handleApplyAdvance = async (group) => {
+    if (!group?.student_number) {
+      alert('Student number is missing.');
+      return;
+    }
+
+    setApplyingAdvanceKey(group.key);
+    try {
+      const res = await apiFetch('/api/finance/ledgers/auto-apply-advance/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_number: group.student_number,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to apply advance.');
+      }
+
+      alert(
+        `Advance applied successfully. Applied: ${formatCurrency(data.applied_amount)}. New balance: ${formatCurrency(data.new_balance)}.`
+      );
+
+      fetchTransactions();
+      fetchStats();
+    } catch (err) {
+      alert(err.message || 'Failed to apply advance.');
+    } finally {
+      setApplyingAdvanceKey(null);
+    }
+  };
+
 
   return (
     <main className="transaction-history-main">
@@ -1069,11 +1111,13 @@ const TransactionHistory = () => {
             <thead>
               <tr>
                 <th>Date</th>
+                <th>Enrollment</th>
                 <th>Student No.</th>
                 <th>Student Name</th>
                 <th>Total Debit</th>
                 <th>Total Credit</th>
                 <th>Balance</th>
+                <th>Advance Available</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -1082,7 +1126,7 @@ const TransactionHistory = () => {
             <tbody>
               {groupedTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                  <td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                     No transactions found.
                   </td>
                 </tr>
@@ -1091,68 +1135,93 @@ const TransactionHistory = () => {
                   <React.Fragment key={group.key}>
                     <tr>
                       <td>{group.latest_date || '—'}</td>
+                      <td>
+                        {group.enrollment_id ? `#${group.enrollment_id}` : '—'}
+                      </td>
                       <td>{group.student_number}</td>
                       <td className="th-student-name-cell">{group.student_name}</td>
                       <td className="th-amount-cell">{formatCurrency(group.total_debit)}</td>
                       <td className="th-amount-cell">{formatCurrency(group.total_credit)}</td>
                       <td className="th-amount-cell">{formatCurrency(group.balance)}</td>
+                      <td className="th-amount-cell">
+                        {getRefundableAmount(group) > 0 ? formatCurrency(getRefundableAmount(group)) : '—'}
+                      </td>
                       <td>
-                        <span className={`th-status-badge th-status-${statusClass(group.account_status)}`}>
-                          {group.account_status}
-                        </span>
-                      </td>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <span className={`th-status-badge th-status-${statusClass(group.account_status)}`}>
+                              {group.account_status}
+                            </span>
+
+                            {Number(getRefundableAmount(group)) > 0 && (
+                              <span className="th-status-badge th-status-advance">
+                                Advance {formatCurrency(getRefundableAmount(group))}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                       <td className="th-actions-cell">
-                        {Number(group.balance || 0) > 0 && (
-                          <button
-                            className="th-action-btn th-pay-btn"
-                            onClick={() => openPayModal(group)}
-                            title="Pay Balance"
-                          >
-                            <CreditCard size={15} />
-                          </button>
-                        )}
+                          {Number(group.balance || 0) > 0 && (
+                            <button
+                              className="th-action-btn th-pay-btn"
+                              onClick={() => openPayModal(group)}
+                              title="Pay Balance"
+                            >
+                              <CreditCard size={15} />
+                            </button>
+                          )}
 
-                        {getRefundableAmount(group) > 0 && (
-                          <button
-                            className="th-action-btn th-refund-btn"
-                            onClick={() => openRefundModal(group)}
-                            title={`Refund Available (${formatCurrency(getRefundableAmount(group))})`}
-                          >
-                            <RotateCcw size={15} />
-                          </button>
-                        )}
+                          {canApplyAdvance(group) && (
+                            <button
+                              className="th-action-btn th-advance-btn"
+                              onClick={() => handleApplyAdvance(group)}
+                              title={`Apply Advance (${formatCurrency(getRefundableAmount(group))})`}
+                              disabled={applyingAdvanceKey === group.key}
+                            >
+                              <Wallet size={15} />
+                            </button>
+                          )}
 
-                        {isReminderEligible(group) && (
-                          <button
-                            className="th-action-btn th-reminder-btn"
-                            onClick={() => sendReminder(group.rows[0].id)}
-                            title="Send Reminder"
-                            disabled={sendingReminderId === group.rows[0].id}
-                          >
-                            <Bell size={15} />
-                          </button>
-                        )}
+                          {getRefundableAmount(group) > 0 && (
+                            <button
+                              className="th-action-btn th-refund-btn"
+                              onClick={() => openRefundModal(group)}
+                              title={`Refund Available (${formatCurrency(getRefundableAmount(group))})`}
+                            >
+                              <RotateCcw size={15} />
+                            </button>
+                          )}
 
-                        <button
-                          className="th-action-btn th-edit-btn"
-                          onClick={() => setExpandedRow(expandedRow === group.key ? null : group.key)}
-                          title="View Ledger Details"
-                        >
-                          {expandedRow === group.key ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                        </button>
-                      </td>
+                          {isReminderEligible(group) && (
+                            <button
+                              className="th-action-btn th-reminder-btn"
+                              onClick={() => sendReminder(group.rows[0].id)}
+                              title="Send Reminder"
+                              disabled={sendingReminderId === group.rows[0].id}
+                            >
+                              <Bell size={15} />
+                            </button>
+                          )}
+
+                          <button
+                            className="th-action-btn th-edit-btn"
+                            onClick={() => setExpandedRow(expandedRow === group.key ? null : group.key)}
+                            title="View Ledger Details"
+                          >
+                            {expandedRow === group.key ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                          </button>
+                        </td>
                     </tr>
 
                     {expandedRow === group.key && (
                       <tr className="th-expanded-row">
-                        <td colSpan="8">
+                        <td colSpan="9">
                           <div className="th-student-detail-panel">
                             <h4 className="th-detail-title">{buildLedgerGroupTitle(group)}</h4>
 
-                                <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
+                               <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
                                 Student: <strong>{group.student_name}</strong> ({group.student_number}) | Semester:{' '}
                                 <strong>{group.semester || '—'}</strong> | Payable Balance:{' '}
-                                <strong>{formatCurrency(group.balance)}</strong> | Refundable Excess:{' '}
+                                <strong>{formatCurrency(group.balance)}</strong> | Advance Available:{' '}
                                 <strong>{formatCurrency(getRefundableAmount(group))}</strong> | Ref:{' '}
                                 <strong>{group.enrollment_id ? `Enrollment #${group.enrollment_id}` : 'Legacy ledger record'}</strong>
                               </div>

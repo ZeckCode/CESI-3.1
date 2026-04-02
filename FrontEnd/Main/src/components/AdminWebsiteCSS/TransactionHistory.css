@@ -1067,6 +1067,36 @@ textarea.th-form-input {
 .th-refund-btn:hover {
   background: #fecaca;
 }
+.th-status-refund {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.th-pay-btn {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.th-pay-btn:hover {
+  background: #bbf7d0;
+}
+
+
+
+
+
+.th-advance-btn {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.th-advance-btn:hover {
+  background: #bfdbfe;
+}
+
+.th-status-advance {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
 
 @media (max-width: 1200px) {
   .th-table {

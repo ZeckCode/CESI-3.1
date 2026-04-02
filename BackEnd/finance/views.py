@@ -73,6 +73,107 @@ def compute_simple_ledger_status(balance):
         return 'PAID'
     return 'PARTIAL'
 
+def get_available_advance_for_enrollment(enrollment):
+    advance_total = Transaction.objects.filter(
+        enrollment=enrollment,
+        entry_type='CREDIT',
+        item='ADVANCE'
+    ).aggregate(total=Sum('credit')).get('total') or Decimal('0.00')
+
+    transferred_total = Transaction.objects.filter(
+        enrollment=enrollment,
+        entry_type='DEBIT',
+        item__in=['REFUND', 'ADVANCE_TRANSFER_OUT']
+    ).aggregate(total=Sum('debit')).get('total') or Decimal('0.00')
+
+    available = Decimal(str(advance_total)) - Decimal(str(transferred_total))
+    return available if available > 0 else Decimal('0.00')
+def auto_apply_previous_advance_to_enrollment(target_enrollment):
+    from enrollment.models import Enrollment
+
+    student_number = (target_enrollment.student_number or '').strip()
+    if not student_number:
+        return Decimal('0.00')
+
+    previous_enrollments = Enrollment.objects.filter(
+        student_number=student_number
+    ).exclude(id=target_enrollment.id).order_by('-created_at')
+
+    total_applied = Decimal('0.00')
+
+    target_debit, target_credit, target_balance = ledger_totals_for_enrollment(target_enrollment)
+    remaining_needed = target_balance if target_balance > 0 else Decimal('0.00')
+
+    if remaining_needed <= 0:
+        return Decimal('0.00')
+
+    target_student_name = (
+        f"{target_enrollment.first_name or ''} {target_enrollment.last_name or ''}".strip()
+        or target_enrollment.student.username
+    )
+
+    for source_enrollment in previous_enrollments:
+        if remaining_needed <= 0:
+            break
+
+        available = get_available_advance_for_enrollment(source_enrollment)
+        if available <= 0:
+            continue
+
+        to_apply = available if available <= remaining_needed else remaining_needed
+
+        source_student_name = (
+            f"{source_enrollment.first_name or ''} {source_enrollment.last_name or ''}".strip()
+            or source_enrollment.student.username
+        )
+
+        Transaction.objects.create(
+            parent=source_enrollment.parent_user,
+            enrollment=source_enrollment,
+            student_name=source_student_name,
+            transaction_type='TUITION',
+            entry_type='DEBIT',
+            item='ADVANCE_TRANSFER_OUT',
+            school_year=source_enrollment.academic_year,
+            semester='1st',
+            amount=to_apply,
+            description=f'Advance credit transferred to Enrollment #{target_enrollment.id}.',
+            payment_method='OTHER',
+            transaction_date=timezone.localdate(),
+            status='POSTED',
+            student_number_snapshot=source_enrollment.student_number,
+            grade_level_snapshot=source_enrollment.grade_level,
+            payment_mode_snapshot=source_enrollment.payment_mode,
+            student_type_snapshot=source_enrollment.student_type,
+        )
+
+        Transaction.objects.create(
+            parent=target_enrollment.parent_user,
+            enrollment=target_enrollment,
+            student_name=target_student_name,
+            transaction_type='TUITION',
+            entry_type='CREDIT',
+            item='ADVANCE_APPLIED',
+            school_year=target_enrollment.academic_year,
+            semester='1st',
+            amount=to_apply,
+            description=f'Advance credit auto-applied from Enrollment #{source_enrollment.id}.',
+            payment_method='OTHER',
+            transaction_date=timezone.localdate(),
+            status='PAID' if to_apply == remaining_needed else 'PARTIAL',
+            student_number_snapshot=target_enrollment.student_number,
+            grade_level_snapshot=target_enrollment.grade_level,
+            payment_mode_snapshot=target_enrollment.payment_mode,
+            student_type_snapshot=target_enrollment.student_type,
+        )
+
+        recompute_running_balances_for_enrollment(source_enrollment)
+        recompute_running_balances_for_enrollment(target_enrollment)
+
+        total_applied += to_apply
+        remaining_needed -= to_apply
+
+    return total_applied
 
 
 def build_installment_schedule(tuition):
@@ -839,6 +940,33 @@ def refund_student_payment(request):
         'refund_transaction_id': refund_tx.id,
     }, status=201)
 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def auto_apply_advance(request):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    student_number = str(request.data.get('student_number', '')).strip()
+    if not student_number:
+        return Response({'detail': 'Student number is required.'}, status=400)
+
+    enrollment = get_active_enrollment_by_student_number(student_number)
+    if not enrollment:
+        return Response({'detail': 'Active enrollment not found for this student number.'}, status=404)
+
+    with db_transaction.atomic():
+        applied_amount = auto_apply_previous_advance_to_enrollment(enrollment)
+        _, _, new_balance = ledger_totals_for_enrollment(enrollment)
+
+    return Response({
+        'success': True,
+        'student_number': enrollment.student_number,
+        'enrollment_id': enrollment.id,
+        'applied_amount': float(applied_amount),
+        'new_balance': float(new_balance if new_balance > 0 else Decimal('0.00')),
+        'status': 'PAID' if new_balance <= 0 else 'PARTIAL',
+    }, status=200)
 # ═══════════════════════════════════════════════════════════
 # PROOF OF PAYMENT VIEWS
 # ═══════════════════════════════════════════════════════════

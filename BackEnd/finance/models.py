@@ -49,6 +49,8 @@ class Transaction(models.Model):
         ('ASSESSMENT', 'Assessment'),
         ('REFUND', 'Refund'),
         ('ADVANCE', 'Advance Credit'),
+         ('ADVANCE_TRANSFER_OUT', 'Advance Transfer Out'),
+        ('ADVANCE_APPLIED', 'Advance Applied'),
         ('OTHER', 'Other'),
     ]
 
