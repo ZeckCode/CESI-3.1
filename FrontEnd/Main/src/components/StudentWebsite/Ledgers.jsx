@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import "../StudentWebsiteCSS/Ledgers.css";
 import { apiFetch } from "../api/apiFetch";
 import Pagination from "./Pagination";
+import PreviewModal from "../PreviewModal";
 
 const API_BASE = "";
 const ITEMS_PER_PAGE = 5;
@@ -120,6 +121,7 @@ export default function Ledgers() {
   const [installmentPage, setInstallmentPage] = useState(1);
   const [viewMode, setViewMode] = useState("transactions");
   const [isPrinting, setIsPrinting] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -290,12 +292,7 @@ export default function Ledgers() {
   );
 
   const handlePrint = () => {
-    setIsPrinting(true);
-
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => setIsPrinting(false), 300);
-    }, 150);
+    setShowPreview(true);
   };
 
   return (
@@ -1090,6 +1087,123 @@ export default function Ledgers() {
           </section>
         )}
       </div>
+
+      <PreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        title="Account & Financial Ledger - Preview"
+        customPreview={
+          <div style={{ padding: "2rem", background: "white" }}>
+            <div style={{ textAlign: "center", marginBottom: "2rem", paddingBottom: "1rem", borderBottom: "2px solid #1e293b" }}>
+              <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "#1e293b", margin: "0 0 0.5rem 0", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Account & Financial Ledger
+              </h2>
+              <p style={{ fontSize: "0.95rem", color: "#64748b", margin: 0 }}>
+                Complete Financial Transaction History
+              </p>
+            </div>
+
+            {viewMode === "transactions" && (
+              <div>
+                <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#1e293b", margin: "1rem 0 1.5rem 0", paddingBottom: "0.5rem", borderBottom: "1px solid #e2e8f0" }}>
+                  Account Ledger Details
+                </h3>
+                {groupedTransactions.length === 0 ? (
+                  <p style={{ marginTop: "1rem", color: "#64748b" }}>No transactions to display.</p>
+                ) : (
+                  groupedTransactions.map((group) => (
+                    <div key={group.key} style={{ marginBottom: "2.5rem", pageBreakInside: "avoid" }}>
+                      <h4 style={{ fontSize: "1rem", fontWeight: 700, color: "#1d4ed8", margin: "0 0 1rem 0" }}>
+                        {buildLedgerGroupTitle(group) || "Ledger Record"}
+                      </h4>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem", padding: "1rem", background: "#f8fafc", borderRadius: "0.5rem", fontSize: "0.9rem" }}>
+                        <div><strong>Semester:</strong> {group.semester || "—"}</div>
+                        <div><strong>Total Billed:</strong> {formatCurrency(group.totalDebit)}</div>
+                        <div><strong>Total Paid:</strong> {formatCurrency(group.totalCredit)}</div>
+                        <div><strong>Balance:</strong> {formatCurrency(group.balance)}</div>
+                      </div>
+                      <table style={{ width: "100%", borderCollapse: "collapse", margin: "1rem 0", fontSize: "0.9rem" }}>
+                        <thead style={{ background: "#f1f5f9" }}>
+                          <tr>
+                            <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: 700, color: "#1e293b", border: "1px solid #cbd5e1", textTransform: "uppercase", fontSize: "0.8rem", letterSpacing: "0.05em" }}>Date</th>
+                            <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: 700, color: "#1e293b", border: "1px solid #cbd5e1", textTransform: "uppercase", fontSize: "0.8rem", letterSpacing: "0.05em" }}>Reference</th>
+                            <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: 700, color: "#1e293b", border: "1px solid #cbd5e1", textTransform: "uppercase", fontSize: "0.8rem", letterSpacing: "0.05em" }}>Description</th>
+                            <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: 700, color: "#1e293b", border: "1px solid #cbd5e1", textTransform: "uppercase", fontSize: "0.8rem", letterSpacing: "0.05em" }}>Debit</th>
+                            <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: 700, color: "#1e293b", border: "1px solid #cbd5e1", textTransform: "uppercase", fontSize: "0.8rem", letterSpacing: "0.05em" }}>Credit</th>
+                            <th style={{ padding: "0.75rem", textAlign: "right", fontWeight: 700, color: "#1e293b", border: "1px solid #cbd5e1", textTransform: "uppercase", fontSize: "0.8rem", letterSpacing: "0.05em" }}>Balance</th>
+                            <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: 700, color: "#1e293b", border: "1px solid #cbd5e1", textTransform: "uppercase", fontSize: "0.8rem", letterSpacing: "0.05em" }}>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.rows.map((tx) => (
+                            <tr key={tx.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                              <td style={{ padding: "0.75rem", border: "1px solid #e2e8f0", color: "#1e293b" }}>{tx.transaction_date || "—"}</td>
+                              <td style={{ padding: "0.75rem", border: "1px solid #e2e8f0", color: "#1e293b" }}>{tx.reference_number || tx.id || "—"}</td>
+                              <td style={{ padding: "0.75rem", border: "1px solid #e2e8f0", color: "#1e293b" }}>{ITEM_LABELS[tx.item] || tx.item || "Entry"}</td>
+                              <td style={{ padding: "0.75rem", border: "1px solid #e2e8f0", color: "#1e293b", textAlign: "right" }}>
+                                {Number(tx.debit || 0) > 0 ? formatCurrency(tx.debit) : "—"}
+                              </td>
+                              <td style={{ padding: "0.75rem", border: "1px solid #e2e8f0", color: "#1e293b", textAlign: "right" }}>
+                                {Number(tx.credit || 0) > 0 ? formatCurrency(tx.credit) : "—"}
+                              </td>
+                              <td style={{ padding: "0.75rem", border: "1px solid #e2e8f0", color: "#1e293b", textAlign: "right" }}>
+                                {formatCurrency(tx._runningBalance)}
+                              </td>
+                              <td style={{ padding: "0.75rem", border: "1px solid #e2e8f0", color: "#1e293b", textAlign: "center" }}>{tx.status || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {viewMode === "installments" && (
+              <div>
+                <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#1e293b", margin: "1rem 0 1.5rem 0", paddingBottom: "0.5rem", borderBottom: "1px solid #e2e8f0" }}>
+                  Tuition Installment Schedule
+                </h3>
+                {tuitionInstallments.length === 0 ? (
+                  <p style={{ marginTop: "1rem", color: "#64748b" }}>No installment information available.</p>
+                ) : (
+                  <table style={{ width: "100%", borderCollapse: "collapse", margin: "1rem 0", fontSize: "0.9rem" }}>
+                    <thead style={{ background: "#f1f5f9" }}>
+                      <tr>
+                        <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: 700, color: "#1e293b", border: "1px solid #cbd5e1", textTransform: "uppercase", fontSize: "0.8rem" }}>Installment</th>
+                        <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: 700, color: "#1e293b", border: "1px solid #cbd5e1", textTransform: "uppercase", fontSize: "0.8rem" }}>Due Date</th>
+                        <th style={{ padding: "0.75rem", textAlign: "right", fontWeight: 700, color: "#1e293b", border: "1px solid #cbd5e1", textTransform: "uppercase", fontSize: "0.8rem" }}>Amount</th>
+                        <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: 700, color: "#1e293b", border: "1px solid #cbd5e1", textTransform: "uppercase", fontSize: "0.8rem" }}>Status</th>
+                        <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: 700, color: "#1e293b", border: "1px solid #cbd5e1", textTransform: "uppercase", fontSize: "0.8rem" }}>Date Paid</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tuitionInstallments.flatMap((student) =>
+                        (student.installments || []).map((inst, idx) => (
+                          <tr key={`${student.student_id}-${idx}`} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                            <td style={{ padding: "0.75rem", border: "1px solid #e2e8f0", color: "#1e293b" }}>{inst.installment_number ? `Installment ${inst.installment_number}` : `Installment ${idx + 1}`}</td>
+                            <td style={{ padding: "0.75rem", border: "1px solid #e2e8f0", color: "#1e293b" }}>{inst.due_date || "—"}</td>
+                            <td style={{ padding: "0.75rem", border: "1px solid #e2e8f0", color: "#1e293b", textAlign: "right" }}>{formatCurrency(inst.amount)}</td>
+                            <td style={{ padding: "0.75rem", border: "1px solid #e2e8f0", color: "#1e293b", textAlign: "center" }}>{inst.is_paid ? "Paid" : "Pending"}</td>
+                            <td style={{ padding: "0.75rem", border: "1px solid #e2e8f0", color: "#1e293b", textAlign: "center" }}>{inst.date_paid || "—"}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+
+            <div style={{ textAlign: "center", marginTop: "3rem", paddingTop: "1rem", borderTop: "1px solid #e2e8f0" }}>
+              <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
+                Document Generated: {new Date().toLocaleString()}
+              </p>
+            </div>
+          </div>
+        }
+      />
     </div>
   );
 }
