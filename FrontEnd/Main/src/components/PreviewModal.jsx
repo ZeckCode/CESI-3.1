@@ -146,24 +146,26 @@ const PreviewModal = ({
               <title>${title}</title>
               <style>
                 * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }
-                h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 15px; }
-                h3 { margin: 20px 0 10px 0; font-size: 16px; font-weight: bold; }
-                .timestamp { color: #666; font-size: 12px; margin-bottom: 20px; }
-                table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-                th { background-color: #007bff; color: white; padding: 10px; text-align: left; font-weight: bold; }
-                td { padding: 8px; border-bottom: 1px solid #ddd; }
+                body { font-family: Arial, sans-serif; margin: 12px; color: #1e293b; line-height: 1.3; }
+                h1 { color: #333; border-bottom: 1px solid #007bff; padding-bottom: 6px; margin-bottom: 8px; font-size: 18px; }
+                h3 { margin: 10px 0 6px 0; font-size: 13px; font-weight: bold; }
+                .timestamp { color: #666; font-size: 10px; margin-bottom: 12px; }
+                table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11px; }
+                th { background-color: #007bff; color: white; padding: 5px 6px; text-align: left; font-weight: bold; border: 0.5px solid #0056b3; }
+                td { padding: 4px 6px; border-bottom: 0.5px solid #ddd; }
                 tr:nth-child(even) { background-color: #f9f9f9; }
-                div[style*="padding"] { margin: 10px 0; }
+                div[style*="padding"] { margin: 4px 0; padding: 4px !important; }
+                div[style*="background"] { background-color: #f0f4f8 !important; }
                 strong { font-weight: bold; }
-                span { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+                span { display: inline-block; padding: 2px 4px; border-radius: 2px; font-size: 10px; }
                 @media print { 
-                  body { margin: 10px; }
+                  body { margin: 8px; }
                   th { background-color: #1d4ed8 !important; color: white !important; }
-                  h1 { page-break-after: avoid; }
+                  h1 { page-break-after: avoid; font-size: 16px; }
                   h3 { page-break-after: avoid; }
                   table { page-break-inside: avoid; }
                   div { page-break-inside: avoid; }
+                  @page { margin: 10mm; size: A4; }
                 }
               </style>
             </head>
