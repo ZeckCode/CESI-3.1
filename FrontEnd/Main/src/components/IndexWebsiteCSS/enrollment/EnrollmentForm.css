@@ -699,68 +699,65 @@ font-size: 25px;
   background: #059669;
 }
 
-/* ── Date Input Hover Tooltip ── */
-.date-input-tooltip-container {
+/* ── Date Input Hover & Error States ── */
+.birth-date-wrapper {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.date-input-tooltip-container input[type="date"] {
+.birth-date-wrapper input[type="date"] {
   width: 100%;
+  padding-right: 40px;
 }
 
-/* Warning icon with hover tooltip */
-.date-hover-tooltip {
-  position: relative;
-  display: flex;
-  align-items: center;
-  margin-left: 8px;
+.birth-date-wrapper.has-error input[type="date"] {
+  border-color: #dc2626;
 }
 
-/* Warning icon */
-.birth-date-warning {
-  font-size: 18px;
-  cursor: help;
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-}
-
-.birth-date-warning:hover {
-  transform: scale(1.15);
-}
-
-/* Tooltip content (appears on hover) */
-.tooltip-content {
+/* Error icon inside input field */
+.error-icon-inside {
   position: absolute;
-  bottom: 100%;
-  left: -150px;
-  background: #1f2937;
-  color: #fff;
-  padding: 12px 14px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  visibility: hidden;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  font-weight: bold;
+  color: #dc2626;
   opacity: 0;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
-  white-space: nowrap;
-  z-index: 1000;
-  min-width: 320px;
-  max-width: 400px;
-  word-wrap: break-word;
-  white-space: normal;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: opacity 0.2s ease;
+  pointer-events: none;
 }
 
-/* Show tooltip on hover */
-.date-hover-tooltip:hover .tooltip-content,
-.birth-date-warning:hover + .tooltip-content {
-  visibility: visible;
+.birth-date-wrapper.has-error input[type="date"]:hover ~ .error-icon-inside,
+.birth-date-wrapper.has-error:hover .error-icon-inside {
   opacity: 1;
 }
 
-/* Tooltip arrow pointing up */
-.tooltip-content::after {
+/* Error message tooltip (shows only on hover) */
+.hover-error-message {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #dc2626;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+/* Arrow pointing down for error message */
+.hover-error-message::after {
   content: '';
   position: absolute;
   top: 100%;
@@ -768,71 +765,49 @@ font-size: 25px;
   transform: translateX(-50%);
   width: 0;
   height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 6px solid #1f2937;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #dc2626;
 }
 
-/* Tooltip header */
-.tooltip-content strong {
-  display: block;
-  margin-bottom: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #fbbf24;
+/* Show error on input hover */
+.birth-date-wrapper.has-error input[type="date"]:hover,
+.birth-date-wrapper.has-error input[type="date"]:focus {
+  border-color: #dc2626;
 }
 
-/* Age reference table in tooltip */
-.tooltip-content .age-ref-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
+.birth-date-wrapper.has-error input[type="date"]:hover ~ .hover-error-message,
+.birth-date-wrapper.has-error input[type="date"]:focus ~ .hover-error-message,
+.birth-date-wrapper.has-error:hover .hover-error-message {
+  visibility: visible;
+  opacity: 1;
 }
 
-.tooltip-content .age-ref-table th,
-.tooltip-content .age-ref-table td {
-  padding: 6px 8px;
-  text-align: center;
-  border-bottom: 1px solid #4b5563;
-  color: #e5e7eb;
+.error-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.tooltip-content .age-ref-table th {
-  background: #374151;
-  color: #fbbf24;
-  font-weight: 600;
+.error-text::before {
+  content: '✕';
+  font-weight: bold;
 }
 
-.tooltip-content .age-ref-table tbody tr {
-  background: #111827;
+.birth-date-input--invalid {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2;
 }
 
-.tooltip-content .age-ref-table tbody tr:hover {
-  background: #1f2937;
-}
-
-/* Responsive tooltip positioning */
-@media (max-width: 768px) {
-  .tooltip-content {
-    left: -100px;
-    min-width: 280px;
-  }
+.birth-date-input--invalid:hover {
+  border-color: #991b1b;
 }
 
 @media (max-width: 480px) {
-  .date-input-tooltip-container {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .date-hover-tooltip {
-    margin-left: 0;
-    margin-top: 6px;
-  }
-
-  .tooltip-content {
-    left: 0;
-    min-width: 240px;
+  .hover-error-message {
+    white-space: normal;
+    min-width: 180px;
+    left: -50px;
   }
 }
 
