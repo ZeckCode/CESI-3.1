@@ -15,6 +15,8 @@ from .views import (
     tuition_config_stats,
     tuition_config_by_grade,
     ProofOfPaymentViewSet,
+    pay_student_balance,
+    refund_student_payment,
 )
 
 urlpatterns = [
@@ -43,4 +45,8 @@ urlpatterns = [
     path('proof-of-payments/<int:pk>/', ProofOfPaymentViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), name='proof-detail'),
     path('proof-of-payments/<int:pk>/approve/', ProofOfPaymentViewSet.as_view({'patch': 'approve'}), name='proof-approve'),
     path('proof-of-payments/<int:pk>/reject/', ProofOfPaymentViewSet.as_view({'patch': 'reject'}), name='proof-reject'),
+
+    # Additional endpoints for paying balance and processing refunds
+    path('ledgers/pay/', pay_student_balance, name='ledger-pay'),
+    path('ledgers/refund/', refund_student_payment, name='ledger-refund'),
 ]

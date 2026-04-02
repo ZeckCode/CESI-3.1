@@ -1050,6 +1050,23 @@ textarea.th-form-input {
 .th-btn-success {
   white-space: nowrap;
 }
+.th-pay-btn {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.th-pay-btn:hover {
+  background: #bbf7d0;
+}
+
+.th-refund-btn {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.th-refund-btn:hover {
+  background: #fecaca;
+}
 
 @media (max-width: 1200px) {
   .th-table {

@@ -25,6 +25,56 @@ from .serializers import (
 )
 
 
+from django.db import transaction as db_transaction
+from django.utils import timezone
+from enrollment.models import Enrollment
+
+
+# 
+#  helper functions for views, not actual views themselves
+# 
+
+
+def get_active_enrollment_by_student_number(student_number):
+    return Enrollment.objects.filter(
+        student_number=student_number,
+        status='ACTIVE'
+    ).select_related('parent_user', 'student').order_by('-created_at').first()
+
+
+def ledger_totals_for_enrollment(enrollment):
+    totals = Transaction.objects.filter(enrollment=enrollment).aggregate(
+        total_debit=Sum('debit'),
+        total_credit=Sum('credit'),
+    )
+    total_debit = Decimal(str(totals.get('total_debit') or 0))
+    total_credit = Decimal(str(totals.get('total_credit') or 0))
+    balance = total_debit - total_credit
+    return total_debit, total_credit, balance
+
+
+def recompute_running_balances_for_enrollment(enrollment):
+    rows = Transaction.objects.filter(enrollment=enrollment).order_by(
+        'transaction_date', 'date_posted', 'id'
+    )
+
+    running = Decimal('0.00')
+    for row in rows:
+        running += Decimal(str(row.debit or 0)) - Decimal(str(row.credit or 0))
+        if row.balance != running:
+            row.balance = running
+            row.save(update_fields=['balance'])
+
+    return running
+
+
+def compute_simple_ledger_status(balance):
+    if balance <= 0:
+        return 'PAID'
+    return 'PARTIAL'
+
+
+
 def build_installment_schedule(tuition):
     items = []
 
@@ -594,6 +644,201 @@ def my_tuition_installments(request):
     return Response(data)
 
 
+
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def pay_student_balance(request):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    student_number = str(request.data.get('student_number', '')).strip()
+    amount_raw = request.data.get('amount')
+    payment_method = str(request.data.get('payment_method', 'CASH')).strip().upper() or 'CASH'
+    description = str(request.data.get('description', '')).strip()
+    transaction_date = request.data.get('transaction_date')
+
+    if not student_number:
+        return Response({'detail': 'Student number is required.'}, status=400)
+
+    try:
+        amount = Decimal(str(amount_raw))
+    except Exception:
+        return Response({'detail': 'Invalid amount.'}, status=400)
+
+    if amount <= 0:
+        return Response({'detail': 'Amount must be greater than 0.'}, status=400)
+
+    enrollment = get_active_enrollment_by_student_number(student_number)
+    if not enrollment:
+        return Response({'detail': 'Active enrollment not found for this student number.'}, status=404)
+
+    if not enrollment.parent_user:
+        return Response({'detail': 'Enrollment has no linked parent account.'}, status=400)
+
+    total_debit, total_credit, current_balance = ledger_totals_for_enrollment(enrollment)
+
+    if current_balance <= 0:
+        return Response({
+            'detail': 'This ledger has no outstanding balance.',
+            'student_number': enrollment.student_number,
+            'student_name': f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip(),
+            'balance_before': float(max(current_balance, Decimal('0.00'))),
+        }, status=400)
+
+    applied_amount = amount if amount <= current_balance else current_balance
+    excess_amount = amount - applied_amount if amount > current_balance else Decimal('0.00')
+
+    student_name = f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() or enrollment.student.username
+
+    with db_transaction.atomic():
+        payment_tx = Transaction.objects.create(
+            parent=enrollment.parent_user,
+            enrollment=enrollment,
+            student_name=student_name,
+            transaction_type='TUITION',
+            entry_type='CREDIT',
+            item='PAYMENT',
+            school_year=enrollment.academic_year,
+            semester='1st',
+            amount=applied_amount,
+            description=description or 'Payment posted via admin ledger payment.',
+            payment_method=payment_method,
+            transaction_date=transaction_date or timezone.localdate(),
+            status='PAID' if applied_amount == current_balance else 'PARTIAL',
+            student_number_snapshot=enrollment.student_number,
+            grade_level_snapshot=enrollment.grade_level,
+            payment_mode_snapshot=enrollment.payment_mode,
+            student_type_snapshot=enrollment.student_type,
+        )
+
+        if excess_amount > 0:
+            Transaction.objects.create(
+                parent=enrollment.parent_user,
+                enrollment=enrollment,
+                student_name=student_name,
+                transaction_type='TUITION',
+                entry_type='CREDIT',
+                item='ADVANCE',
+                school_year=enrollment.academic_year,
+                semester='1st',
+                amount=excess_amount,
+                description='Excess payment recorded as advance credit.',
+                payment_method=payment_method,
+                transaction_date=transaction_date or timezone.localdate(),
+                status='PAID',
+                student_number_snapshot=enrollment.student_number,
+                grade_level_snapshot=enrollment.grade_level,
+                payment_mode_snapshot=enrollment.payment_mode,
+                student_type_snapshot=enrollment.student_type,
+            )
+
+        new_balance = recompute_running_balances_for_enrollment(enrollment)
+
+    return Response({
+        'success': True,
+        'student_number': enrollment.student_number,
+        'student_name': student_name,
+        'enrollment_id': enrollment.id,
+        'balance_before': float(current_balance),
+        'paid_amount': float(amount),
+        'applied_amount': float(applied_amount),
+        'excess_amount': float(excess_amount),
+        'new_balance': float(max(new_balance, Decimal('0.00'))),
+        'status': compute_simple_ledger_status(new_balance),
+        'payment_transaction_id': payment_tx.id,
+        'has_overpayment': excess_amount > 0,
+    }, status=201)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def refund_student_payment(request):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    student_number = str(request.data.get('student_number', '')).strip()
+    amount_raw = request.data.get('amount')
+    payment_method = str(request.data.get('payment_method', 'CASH')).strip().upper() or 'CASH'
+    description = str(request.data.get('description', '')).strip()
+
+    if not student_number:
+        return Response({'detail': 'Student number is required.'}, status=400)
+
+    try:
+        amount = Decimal(str(amount_raw))
+    except Exception:
+        return Response({'detail': 'Invalid amount.'}, status=400)
+
+    if amount <= 0:
+        return Response({'detail': 'Refund amount must be greater than 0.'}, status=400)
+
+    enrollment = get_active_enrollment_by_student_number(student_number)
+    if not enrollment:
+        return Response({'detail': 'Active enrollment not found for this student number.'}, status=404)
+
+    if not enrollment.parent_user:
+        return Response({'detail': 'Enrollment has no linked parent account.'}, status=400)
+
+    advance_total = Transaction.objects.filter(
+        enrollment=enrollment,
+        entry_type='CREDIT',
+        item='ADVANCE'
+    ).aggregate(total=Sum('credit')).get('total') or Decimal('0.00')
+
+    refund_total = Transaction.objects.filter(
+        enrollment=enrollment,
+        entry_type='DEBIT',
+        item='REFUND'
+    ).aggregate(total=Sum('debit')).get('total') or Decimal('0.00')
+
+    refundable = Decimal(str(advance_total)) - Decimal(str(refund_total))
+
+    if refundable <= 0:
+        return Response({'detail': 'No refundable excess payment found.'}, status=400)
+
+    if amount > refundable:
+        return Response({
+            'detail': f'Refund exceeds refundable amount. Maximum refundable: {refundable}.'
+        }, status=400)
+
+    student_name = f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() or enrollment.student.username
+
+    with db_transaction.atomic():
+        refund_tx = Transaction.objects.create(
+            parent=enrollment.parent_user,
+            enrollment=enrollment,
+            student_name=student_name,
+            transaction_type='TUITION',
+            entry_type='DEBIT',
+            item='REFUND',
+            school_year=enrollment.academic_year,
+            semester='1st',
+            amount=amount,
+            description=description or 'Refund issued for excess payment.',
+            payment_method=payment_method,
+            transaction_date=timezone.localdate(),
+            status='POSTED',
+            student_number_snapshot=enrollment.student_number,
+            grade_level_snapshot=enrollment.grade_level,
+            payment_mode_snapshot=enrollment.payment_mode,
+            student_type_snapshot=enrollment.student_type,
+        )
+
+        new_balance = recompute_running_balances_for_enrollment(enrollment)
+
+    return Response({
+        'success': True,
+        'student_number': enrollment.student_number,
+        'student_name': student_name,
+        'enrollment_id': enrollment.id,
+        'refunded_amount': float(amount),
+        'remaining_refundable': float(refundable - amount),
+        'new_balance': float(max(new_balance, Decimal('0.00'))),
+        'refund_transaction_id': refund_tx.id,
+    }, status=201)
+
 # ═══════════════════════════════════════════════════════════
 # PROOF OF PAYMENT VIEWS
 # ═══════════════════════════════════════════════════════════
@@ -662,3 +907,8 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
                 proof.enrollment.save()
         
         return Response({'status': 'rejected', 'message': 'Payment proof rejected'})
+    
+    
+    
+    
+    

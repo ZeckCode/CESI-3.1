@@ -1,22 +1,20 @@
-  // Notify student that their bill is paid
-  const sendPaidNotification = async (transactionId) => {
-    try {
-      const res = await apiFetch(`/api/reminders/payments/${transactionId}/paid/`, { method: 'POST' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || 'Failed to send paid notification.');
-      // Optionally show a toast/alert
-      // alert(data.detail || 'Payment notification sent successfully.');
-    } catch (err) {
-      console.error('Error sending paid notification:', err);
-      // Optionally show a toast/alert
-    }
-  };
+// Notify student that their bill is paid
+const sendPaidNotification = async (transactionId) => {
+  try {
+    const res = await apiFetch(`/api/reminders/payments/${transactionId}/paid/`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Failed to send paid notification.');
+  } catch (err) {
+    console.error('Error sending paid notification:', err);
+  }
+};
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Search, Filter, Download, FileDown, 
+  Search, Filter, Download,
   CheckCircle, Clock,
   Plus, X, ChevronDown, ChevronUp, Edit2, Trash2,
-  Bell, Wallet
+  Bell, Wallet, RotateCcw, CreditCard
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import '../AdminWebsiteCSS/TransactionHistory.css';
@@ -57,6 +55,8 @@ const ITEM_OPTIONS = [
   { value: 'MISC', label: 'Miscellaneous' },
   { value: 'RESERVATION', label: 'Reservation Fee' },
   { value: 'ASSESSMENT', label: 'Assessment' },
+  { value: 'ADVANCE', label: 'Advance Credit' },
+  { value: 'REFUND', label: 'Refund' },
   { value: 'OTHER', label: 'Other' },
 ];
 
@@ -122,7 +122,6 @@ const buildLedgerGroupTitle = (group) => {
   ].join(' • ');
 };
 
-
 const statusPriority = {
   OVERDUE: 1,
   PARTIAL: 2,
@@ -137,6 +136,28 @@ const TransactionHistory = () => {
     total_billed: 0,
     total_collected: 0,
     outstanding_balance: 0,
+  });
+
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState('');
+  const [selectedLedger, setSelectedLedger] = useState(null);
+  const [payForm, setPayForm] = useState({
+    student_number: '',
+    amount: '',
+    payment_method: 'CASH',
+    description: '',
+    transaction_date: new Date().toISOString().slice(0, 10),
+  });
+
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refunding, setRefunding] = useState(false);
+  const [refundError, setRefundError] = useState('');
+  const [refundForm, setRefundForm] = useState({
+    student_number: '',
+    amount: '',
+    payment_method: 'CASH',
+    description: '',
   });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -170,7 +191,7 @@ const TransactionHistory = () => {
 
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState([]);
-  const [previewType, setPreviewType] = useState('summary'); // 'summary' or 'details'
+  const [previewType, setPreviewType] = useState('summary');
 
   const fetchTransactions = useCallback(async () => {
     try {
@@ -180,8 +201,8 @@ const TransactionHistory = () => {
       if (filterEntryType !== 'all') params.append('entry_type', filterEntryType.toUpperCase());
 
       const res = await apiFetch(`/api/finance/transactions/?${params.toString()}`);
-
       if (!res.ok) throw new Error('Failed to load transactions');
+
       const data = await res.json();
       setTransactions(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -194,6 +215,7 @@ const TransactionHistory = () => {
     try {
       const res = await apiFetch('/api/finance/transactions/stats/');
       if (!res.ok) return;
+
       const data = await res.json();
       setStats({
         total_billed: Number(data.total_billed || 0),
@@ -319,7 +341,7 @@ const TransactionHistory = () => {
         if (value === 'DEBIT' && next.item === 'PAYMENT') next.item = 'REGISTRATION';
         if (
           value === 'CREDIT' &&
-          ['REGISTRATION', 'MONTHLY', 'MISC', 'RESERVATION', 'ASSESSMENT'].includes(next.item)
+          ['REGISTRATION', 'MONTHLY', 'MISC', 'RESERVATION', 'ASSESSMENT', 'REFUND'].includes(next.item)
         ) {
           next.item = 'PAYMENT';
         }
@@ -375,15 +397,14 @@ const TransactionHistory = () => {
         throw new Error(detail);
       }
 
-      // If status is PAID, send notification
       let txnId = null;
       if (isEdit && editingTxn?.id) {
         txnId = editingTxn.id;
       } else {
-        // For new transaction, get id from response if available
         const data = await res.json().catch(() => ({}));
         txnId = data.id;
       }
+
       if ((formData.status || '').toUpperCase() === 'PAID' && txnId) {
         sendPaidNotification(txnId);
       }
@@ -424,7 +445,6 @@ const TransactionHistory = () => {
     setSendingReminderId(transactionId);
     try {
       const res = await apiFetch(`/api/reminders/payments/${transactionId}/send/`, { method: 'POST' });
-
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Failed to send reminder.');
       alert(data.detail || 'Payment reminder sent successfully.');
@@ -440,7 +460,6 @@ const TransactionHistory = () => {
     setSendingBulk(true);
     try {
       const res = await apiFetch('/api/reminders/payments/send-bulk/', { method: 'POST' });
-
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Failed to send bulk reminders.');
       alert(data.detail || 'Bulk reminders sent successfully.');
@@ -452,16 +471,13 @@ const TransactionHistory = () => {
     }
   };
 
-  // PDF Export Function
   const exportToPDF = (groupedTransactions, stats) => {
     const doc = new jsPDF('landscape');
-    
-    // Add title and header
+
     doc.setFontSize(18);
     doc.setTextColor(33, 37, 41);
     doc.text('Transaction History Report', 14, 15);
-    
-    // Add date
+
     doc.setFontSize(10);
     doc.setTextColor(108, 117, 125);
     const currentDate = new Date().toLocaleDateString('en-PH', {
@@ -470,22 +486,20 @@ const TransactionHistory = () => {
       day: 'numeric'
     });
     doc.text(`Generated: ${currentDate}`, 14, 22);
-    
-    // Add stats summary
+
     doc.setFontSize(12);
     doc.setTextColor(33, 37, 41);
     doc.text('Summary Statistics', 14, 35);
-    
-    // Update the statsData in the exportToPDF function:
+
     const statsData = [
       ['Total Billed', `₱${Number(stats.total_billed || 0).toLocaleString()}`],
       ['Total Collected', `₱${Number(stats.total_collected || 0).toLocaleString()}`],
       ['Outstanding Balance', `₱${Number(stats.outstanding_balance || 0).toLocaleString()}`],
-      ['Collection Rate', stats.total_billed > 0 
-        ? `${Math.round((stats.total_collected / stats.total_billed) * 100)}%` 
+      ['Collection Rate', stats.total_billed > 0
+        ? `${Math.round((stats.total_collected / stats.total_billed) * 100)}%`
         : '—'],
     ];
-    
+
     autoTable(doc, {
       startY: 40,
       head: [['Metric', 'Value']],
@@ -499,25 +513,23 @@ const TransactionHistory = () => {
         1: { cellWidth: 60 }
       }
     });
-    
-    // Add transactions summary table
+
     const finalY = doc.lastAutoTable.finalY + 10;
     doc.setFontSize(12);
     doc.setTextColor(33, 37, 41);
     doc.text('Transaction Summary (By Student)', 14, finalY);
-    
-    // In the summaryData mapping:
+
     const summaryData = groupedTransactions.map(group => [
       group.student_number,
       group.student_name,
       group.grade_level || '—',
       group.payment_mode || '—',
-      `₱${Number(group.total_debit || 0).toLocaleString()}`,  // Changed from '₱' to the actual peso symbol
-      `₱${Number(group.total_credit || 0).toLocaleString()}`, // Changed here too
-      `₱${Number(group.balance || 0).toLocaleString()}`,      // And here
+      `₱${Number(group.total_debit || 0).toLocaleString()}`,
+      `₱${Number(group.total_credit || 0).toLocaleString()}`,
+      `₱${Number(group.balance || 0).toLocaleString()}`,
       group.account_status
     ]);
-    
+
     autoTable(doc, {
       startY: finalY + 5,
       head: [['Student No.', 'Student Name', 'Grade', 'Payment Mode', 'Total Debit', 'Total Credit', 'Balance', 'Status']],
@@ -537,8 +549,7 @@ const TransactionHistory = () => {
         7: { cellWidth: 20 }
       }
     });
-    
-    // Add footer with page number
+
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
@@ -550,14 +561,12 @@ const TransactionHistory = () => {
         doc.internal.pageSize.height - 10
       );
     }
-    
-    // Save the PDF
+
     doc.save(`transaction_report_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const handleOpenPreview = () => {
     try {
-      // Prepare summary data
       const summaryData = groupedTransactions.map((group) => ({
         'Date': group.latest_date || '—',
         'Enrollment ID': group.enrollment_id || '—',
@@ -585,85 +594,78 @@ const TransactionHistory = () => {
 
   const handleExportData = () => {
     try {
-      // Prepare summary data
-    const summaryData = groupedTransactions.map((group) => ({
-      'Date': group.latest_date || '—',
-      'Enrollment ID': group.enrollment_id || '—',
-      'Student Number': group.student_number,
-      'Student Name': group.student_name,
-      'School Year': group.school_year || '—',
-      'Semester': group.semester || '—',
-      'Grade Level': group.grade_level || '—',
-      'Student Type': formatStudentType(group.student_type),
-      'Payment Mode': formatPaymentMode(group.payment_mode),
-      'Total Debit': Number(group.total_debit || 0),
-      'Total Credit': Number(group.total_credit || 0),
-      'Balance': Number(group.balance || 0),
-      'Status': group.account_status,
-    }));
+      const summaryData = groupedTransactions.map((group) => ({
+        'Date': group.latest_date || '—',
+        'Enrollment ID': group.enrollment_id || '—',
+        'Student Number': group.student_number,
+        'Student Name': group.student_name,
+        'School Year': group.school_year || '—',
+        'Semester': group.semester || '—',
+        'Grade Level': group.grade_level || '—',
+        'Student Type': formatStudentType(group.student_type),
+        'Payment Mode': formatPaymentMode(group.payment_mode),
+        'Total Debit': Number(group.total_debit || 0),
+        'Total Credit': Number(group.total_credit || 0),
+        'Balance': Number(group.balance || 0),
+        'Status': group.account_status,
+      }));
 
-      // Prepare detailed ledger data
       const detailData = [];
       groupedTransactions.forEach((group) => {
         group.rows.forEach((tx) => {
-         detailData.push({
-          'Enrollment ID': group.enrollment_id || '—',
-          'Ledger Group': buildLedgerGroupTitle(group),
-          'Student Number': group.student_number,
-          'Student Name': group.student_name,
-          'Date': tx.transaction_date || '—',
-          'Reference': tx.reference_number || '—',
-          'Entry Type': entryLabel(tx.entry_type),
-          'Item': itemLabel(tx.item),
-          'Debit': Number(tx.debit || 0),
-          'Credit': Number(tx.credit || 0),
-          'Balance': Number(tx._runningBalance || 0),
-          'Status': tx.status,
-          'Description': tx.description || '',
-        });
+          detailData.push({
+            'Enrollment ID': group.enrollment_id || '—',
+            'Ledger Group': buildLedgerGroupTitle(group),
+            'Student Number': group.student_number,
+            'Student Name': group.student_name,
+            'Date': tx.transaction_date || '—',
+            'Reference': tx.reference_number || '—',
+            'Entry Type': entryLabel(tx.entry_type),
+            'Item': itemLabel(tx.item),
+            'Debit': Number(tx.debit || 0),
+            'Credit': Number(tx.credit || 0),
+            'Balance': Number(tx._runningBalance || 0),
+            'Status': tx.status,
+            'Description': tx.description || '',
+          });
         });
       });
 
-      // Create workbook with two sheets
       const wb = XLSX.utils.book_new();
-      
-      // Summary sheet
+
       const summarySheet = XLSX.utils.json_to_sheet(summaryData);
       summarySheet['!cols'] = [
-        { wch: 15 }, // Date
-        { wch: 15 }, // Student Number
-        { wch: 20 }, // Student Name
-        { wch: 12 }, // Grade Level
-        { wch: 15 }, // Payment Mode
-        { wch: 15 }, // Total Debit
-        { wch: 15 }, // Total Credit
-        { wch: 15 }, // Balance
-        { wch: 12 }, // Status
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 20 },
+        { wch: 12 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 12 },
       ];
       XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
 
-      // Detailed ledger sheet
       const detailSheet = XLSX.utils.json_to_sheet(detailData);
       detailSheet['!cols'] = [
-        { wch: 15 }, // Student Number
-        { wch: 20 }, // Student Name
-        { wch: 15 }, // Date
-        { wch: 15 }, // Reference
-        { wch: 15 }, // Entry Type
-        { wch: 15 }, // Item
-        { wch: 12 }, // Debit
-        { wch: 12 }, // Credit
-        { wch: 12 }, // Balance
-        { wch: 12 }, // Status
-        { wch: 25 }, // Description
+        { wch: 15 },
+        { wch: 20 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 25 },
       ];
       XLSX.utils.book_append_sheet(wb, detailSheet, 'Ledger Details');
 
-      // Generate filename with timestamp
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `Transaction_History_${timestamp}.xlsx`;
 
-      // Save the file
       XLSX.writeFile(wb, filename);
       alert(`✓ Export successful! File: ${filename}`);
     } catch (err) {
@@ -680,7 +682,7 @@ const TransactionHistory = () => {
     return String(s).toLowerCase();
   };
 
- const groupedTransactions = useMemo(() => {
+  const groupedTransactions = useMemo(() => {
     const map = new Map();
 
     transactions.forEach((tx) => {
@@ -767,17 +769,181 @@ const TransactionHistory = () => {
 
   const txnTotalPages = Math.max(1, Math.ceil(groupedTransactions.length / ITEMS_PER_PAGE));
   const paginatedTransactions = useMemo(
-    () =>
-      groupedTransactions.slice(
-        (txnPage - 1) * ITEMS_PER_PAGE,
-        txnPage * ITEMS_PER_PAGE
-      ),
+    () => groupedTransactions.slice((txnPage - 1) * ITEMS_PER_PAGE, txnPage * ITEMS_PER_PAGE),
     [groupedTransactions, txnPage]
   );
 
   const isReminderEligible = (group) =>
     Number(group.balance || 0) > 0 &&
     ['PENDING', 'OVERDUE', 'PARTIAL', 'POSTED'].includes(group.account_status);
+
+  const getAdvanceCredit = (group) =>
+    (group?.rows || []).reduce((sum, tx) => {
+      if (tx.entry_type === 'CREDIT' && tx.item === 'ADVANCE') {
+        return sum + Number(tx.credit || tx.amount || 0);
+      }
+      return sum;
+    }, 0);
+
+  const getRefundedAdvance = (group) =>
+    (group?.rows || []).reduce((sum, tx) => {
+      if (tx.entry_type === 'DEBIT' && tx.item === 'REFUND') {
+        return sum + Number(tx.debit || tx.amount || 0);
+      }
+      return sum;
+    }, 0);
+
+  const getRefundableAmount = (group) => {
+    const refundable = getAdvanceCredit(group) - getRefundedAdvance(group);
+    return refundable > 0 ? refundable : 0;
+  };
+
+  const openPayModal = (group) => {
+    const balance = Number(group.balance || 0);
+
+    setSelectedLedger(group);
+    setPayError('');
+    setPayForm({
+      student_number: group.student_number || '',
+      amount: balance > 0 ? String(balance) : '',
+      payment_method: 'CASH',
+      description: '',
+      transaction_date: new Date().toISOString().slice(0, 10),
+    });
+    setShowPayModal(true);
+  };
+
+  const openRefundModal = (group) => {
+    setSelectedLedger(group);
+    setRefundError('');
+    setRefundForm({
+      student_number: group.student_number || '',
+      amount: '',
+      payment_method: 'CASH',
+      description: '',
+    });
+    setShowRefundModal(true);
+  };
+
+  const handlePayFormChange = (e) => {
+    const { name, value } = e.target;
+    setPayForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleRefundFormChange = (e) => {
+    const { name, value } = e.target;
+    setRefundForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const setFullPayment = () => {
+    if (!selectedLedger) return;
+    setPayForm((prev) => ({
+      ...prev,
+      amount: String(Number(selectedLedger.balance || 0)),
+    }));
+  };
+
+  const handleSubmitPayment = async (e) => {
+    e.preventDefault();
+    setPayError('');
+
+    if (!payForm.student_number) {
+      setPayError('Student number is required.');
+      return;
+    }
+
+    if (!payForm.amount || Number(payForm.amount) <= 0) {
+      setPayError('Please enter a valid payment amount.');
+      return;
+    }
+
+    setPaying(true);
+    try {
+      const res = await apiFetch('/api/finance/ledgers/pay/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_number: payForm.student_number,
+          amount: Number(payForm.amount),
+          payment_method: payForm.payment_method,
+          description: payForm.description,
+          transaction_date: payForm.transaction_date || null,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to post payment.');
+      }
+
+      if (data?.payment_transaction_id) {
+        sendPaidNotification(data.payment_transaction_id);
+      }
+
+      let message = `Payment posted successfully. Applied: ${formatCurrency(data.applied_amount)}.`;
+      if (Number(data.excess_amount || 0) > 0) {
+        message += ` Excess recorded: ${formatCurrency(data.excess_amount)}.`;
+      }
+
+      alert(message);
+
+      setShowPayModal(false);
+      setSelectedLedger(null);
+      fetchTransactions();
+      fetchStats();
+    } catch (err) {
+      setPayError(err.message || 'Failed to post payment.');
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const handleSubmitRefund = async (e) => {
+    e.preventDefault();
+    setRefundError('');
+
+    if (!refundForm.student_number) {
+      setRefundError('Student number is required.');
+      return;
+    }
+
+    if (!refundForm.amount || Number(refundForm.amount) <= 0) {
+      setRefundError('Please enter a valid refund amount.');
+      return;
+    }
+
+    setRefunding(true);
+    try {
+      const res = await apiFetch('/api/finance/ledgers/refund/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_number: refundForm.student_number,
+          amount: Number(refundForm.amount),
+          payment_method: refundForm.payment_method,
+          description: refundForm.description,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to process refund.');
+      }
+
+      alert(`Refund posted successfully. Refunded: ${formatCurrency(data.refunded_amount)}`);
+
+      setShowRefundModal(false);
+      setSelectedLedger(null);
+      fetchTransactions();
+      fetchStats();
+    } catch (err) {
+      setRefundError(err.message || 'Failed to process refund.');
+    } finally {
+      setRefunding(false);
+    }
+  };
 
   return (
     <main className="transaction-history-main">
@@ -820,8 +986,9 @@ const TransactionHistory = () => {
         <div className="th-section-header">
           <div>
             <h2 className="th-section-title">Transaction History</h2>
-          <p className="th-section-subtitle">One summary row per approved enrollment ledger</p>
+            <p className="th-section-subtitle">One summary row per approved enrollment ledger</p>
           </div>
+
           <div className="th-header-actions">
             <button className="th-btn-success" onClick={openModal}>
               <Plus size={18} /> Add Ledger Entry
@@ -888,7 +1055,6 @@ const TransactionHistory = () => {
             <thead>
               <tr>
                 <th>Date</th>
-                {/* <th>Ledger Group</th> */}
                 <th>Student No.</th>
                 <th>Student Name</th>
                 <th>Total Debit</th>
@@ -902,7 +1068,7 @@ const TransactionHistory = () => {
             <tbody>
               {groupedTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                     No transactions found.
                   </td>
                 </tr>
@@ -910,26 +1076,38 @@ const TransactionHistory = () => {
                 paginatedTransactions.map((group) => (
                   <React.Fragment key={group.key}>
                     <tr>
-                        <td>{group.latest_date || '—'}</td>
-                          {/* <td> */}
-                            {/* <div style={{ fontWeight: 700, color: '#1e293b' }}> */}
-                              {/* {buildLedgerGroupTitle(group)} */}
-                            {/* </div> */}
-                            {/* <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
-                              {group.enrollment_id ? `Enrollment #${group.enrollment_id}` : 'Legacy ledger record'}
-                            </div> */}
-                          {/* </td> */}
-                          <td>{group.student_number}</td>
-                          <td className="th-student-name-cell">{group.student_name}</td>
-                          <td className="th-amount-cell">{formatCurrency(group.total_debit)}</td>
-                          <td className="th-amount-cell">{formatCurrency(group.total_credit)}</td>
-                          <td className="th-amount-cell">{formatCurrency(group.balance)}</td>
-                          <td>
-                            <span className={`th-status-badge th-status-${statusClass(group.account_status)}`}>
-                              {group.account_status}
-                            </span>
-                          </td>
-                          <td className="th-actions-cell">
+                      <td>{group.latest_date || '—'}</td>
+                      <td>{group.student_number}</td>
+                      <td className="th-student-name-cell">{group.student_name}</td>
+                      <td className="th-amount-cell">{formatCurrency(group.total_debit)}</td>
+                      <td className="th-amount-cell">{formatCurrency(group.total_credit)}</td>
+                      <td className="th-amount-cell">{formatCurrency(group.balance)}</td>
+                      <td>
+                        <span className={`th-status-badge th-status-${statusClass(group.account_status)}`}>
+                          {group.account_status}
+                        </span>
+                      </td>
+                      <td className="th-actions-cell">
+                        {Number(group.balance || 0) > 0 && (
+                          <button
+                            className="th-action-btn th-pay-btn"
+                            onClick={() => openPayModal(group)}
+                            title="Pay Balance"
+                          >
+                            <CreditCard size={15} />
+                          </button>
+                        )}
+
+                        {getRefundableAmount(group) > 0 && (
+                          <button
+                            className="th-action-btn th-refund-btn"
+                            onClick={() => openRefundModal(group)}
+                            title={`Refund Available (${formatCurrency(getRefundableAmount(group))})`}
+                          >
+                            <RotateCcw size={15} />
+                          </button>
+                        )}
+
                         {isReminderEligible(group) && (
                           <button
                             className="th-action-btn th-reminder-btn"
@@ -953,16 +1131,15 @@ const TransactionHistory = () => {
 
                     {expandedRow === group.key && (
                       <tr className="th-expanded-row">
-                        <td colSpan="9">
+                        <td colSpan="8">
                           <div className="th-student-detail-panel">
-                            <h4 className="th-detail-title">
-                              {buildLedgerGroupTitle(group)}
-                            </h4>
+                            <h4 className="th-detail-title">{buildLedgerGroupTitle(group)}</h4>
 
                             <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
                               Student: <strong>{group.student_name}</strong> ({group.student_number}) | Semester:{' '}
                               <strong>{group.semester || '—'}</strong> | Balance:{' '}
-                              <strong>{formatCurrency(group.balance)}</strong> | Ref:{' '}
+                              <strong>{formatCurrency(group.balance)}</strong> | Refundable Excess:{' '}
+                              <strong>{formatCurrency(getRefundableAmount(group))}</strong> | Ref:{' '}
                               <strong>{group.enrollment_id ? `Enrollment #${group.enrollment_id}` : 'Legacy ledger record'}</strong>
                             </div>
 
@@ -1300,6 +1477,245 @@ const TransactionHistory = () => {
                   disabled={submitting}
                 >
                   {submitting ? 'Saving...' : editingTxn ? 'Update Entry' : 'Save Entry'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showPayModal && (
+        <div className="th-modal-overlay" onClick={() => setShowPayModal(false)}>
+          <div className="th-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="th-modal-header">
+              <h3>Pay Balance</h3>
+              <button className="th-modal-close" onClick={() => setShowPayModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form className="th-modal-form" onSubmit={handleSubmitPayment}>
+              {payError && <div className="th-form-error">{payError}</div>}
+
+              <div className="th-form-group">
+                <label>Student Number</label>
+                <input
+                  type="text"
+                  name="student_number"
+                  value={payForm.student_number}
+                  onChange={handlePayFormChange}
+                  className="th-form-input"
+                  readOnly
+                />
+              </div>
+
+              <div className="th-form-group">
+                <label>Student Name</label>
+                <input
+                  type="text"
+                  value={selectedLedger?.student_name || ''}
+                  className="th-form-input"
+                  readOnly
+                />
+              </div>
+
+              <div className="th-form-group">
+                <label>Current Balance</label>
+                <input
+                  type="text"
+                  value={formatCurrency(selectedLedger?.balance || 0)}
+                  className="th-form-input"
+                  readOnly
+                />
+              </div>
+
+              <div className="th-form-row">
+                <div className="th-form-group">
+                  <label>Amount to Pay *</label>
+                  <input
+                    type="number"
+                    name="amount"
+                    step="0.01"
+                    min="0"
+                    value={payForm.amount}
+                    onChange={handlePayFormChange}
+                    className="th-form-input"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="th-form-group">
+                  <label>Payment Method</label>
+                  <select
+                    name="payment_method"
+                    value={payForm.payment_method}
+                    onChange={handlePayFormChange}
+                    className="th-form-input"
+                  >
+                    {PAYMENT_METHODS.map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="th-form-group">
+                <button
+                  type="button"
+                  className="th-btn-warning"
+                  onClick={setFullPayment}
+                >
+                  Pay Full Balance
+                </button>
+              </div>
+
+              <div className="th-form-group">
+                <label>Transaction Date</label>
+                <input
+                  type="date"
+                  name="transaction_date"
+                  value={payForm.transaction_date}
+                  onChange={handlePayFormChange}
+                  className="th-form-input"
+                />
+              </div>
+
+              <div className="th-form-group">
+                <label>Description</label>
+                <textarea
+                  name="description"
+                  rows="3"
+                  value={payForm.description}
+                  onChange={handlePayFormChange}
+                  className="th-form-input"
+                  placeholder="Optional remarks..."
+                />
+              </div>
+
+              <div className="th-modal-footer">
+                <button
+                  type="button"
+                  className="th-btn-cancel"
+                  onClick={() => setShowPayModal(false)}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="th-btn-success"
+                  disabled={paying}
+                >
+                  {paying ? 'Posting Payment...' : 'Post Payment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showRefundModal && (
+        <div className="th-modal-overlay" onClick={() => setShowRefundModal(false)}>
+          <div className="th-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="th-modal-header">
+              <h3>Refund Excess Payment</h3>
+              <button className="th-modal-close" onClick={() => setShowRefundModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form className="th-modal-form" onSubmit={handleSubmitRefund}>
+              {refundError && <div className="th-form-error">{refundError}</div>}
+
+              <div className="th-form-group">
+                <label>Student Number</label>
+                <input
+                  type="text"
+                  name="student_number"
+                  value={refundForm.student_number}
+                  onChange={handleRefundFormChange}
+                  className="th-form-input"
+                  readOnly
+                />
+              </div>
+
+              <div className="th-form-group">
+                <label>Student Name</label>
+                <input
+                  type="text"
+                  value={selectedLedger?.student_name || ''}
+                  className="th-form-input"
+                  readOnly
+                />
+              </div>
+
+              <div className="th-form-group">
+                <label>Refundable Excess</label>
+                <input
+                  type="text"
+                  value={formatCurrency(getRefundableAmount(selectedLedger))}
+                  className="th-form-input"
+                  readOnly
+                />
+              </div>
+
+              <div className="th-form-row">
+                <div className="th-form-group">
+                  <label>Refund Amount *</label>
+                  <input
+                    type="number"
+                    name="amount"
+                    step="0.01"
+                    min="0"
+                    value={refundForm.amount}
+                    onChange={handleRefundFormChange}
+                    className="th-form-input"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="th-form-group">
+                  <label>Refund Method</label>
+                  <select
+                    name="payment_method"
+                    value={refundForm.payment_method}
+                    onChange={handleRefundFormChange}
+                    className="th-form-input"
+                  >
+                    {PAYMENT_METHODS.map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="th-form-group">
+                <label>Description</label>
+                <textarea
+                  name="description"
+                  rows="3"
+                  value={refundForm.description}
+                  onChange={handleRefundFormChange}
+                  className="th-form-input"
+                  placeholder="Reason for refund..."
+                />
+              </div>
+
+              <div className="th-modal-footer">
+                <button
+                  type="button"
+                  className="th-btn-cancel"
+                  onClick={() => setShowRefundModal(false)}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="th-btn-danger"
+                  disabled={refunding}
+                >
+                  {refunding ? 'Processing Refund...' : 'Process Refund'}
                 </button>
               </div>
             </form>

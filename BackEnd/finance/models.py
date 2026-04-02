@@ -5,6 +5,8 @@ from accounts.models import User
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+# finance/models.py
+
 class Transaction(models.Model):
     TYPE_CHOICES = [
         ('TUITION', 'Tuition Fee'),
@@ -45,6 +47,8 @@ class Transaction(models.Model):
         ('MISC', 'Miscellaneous'),
         ('RESERVATION', 'Reservation Fee'),
         ('ASSESSMENT', 'Assessment'),
+        ('REFUND', 'Refund'),
+        ('ADVANCE', 'Advance Credit'),
         ('OTHER', 'Other'),
     ]
 
@@ -55,7 +59,6 @@ class Transaction(models.Model):
         limit_choices_to={'role': 'PARENT_STUDENT'},
     )
 
-    
     enrollment = models.ForeignKey(
         'enrollment.Enrollment',
         on_delete=models.SET_NULL,
@@ -68,7 +71,7 @@ class Transaction(models.Model):
     grade_level_snapshot = models.CharField(max_length=20, blank=True, null=True)
     payment_mode_snapshot = models.CharField(max_length=20, blank=True, null=True)
     student_type_snapshot = models.CharField(max_length=20, blank=True, null=True)
-    
+
     student_name = models.CharField(max_length=150)
 
     transaction_type = models.CharField(
@@ -130,7 +133,6 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"{self.student_name} - {self.item} - {self.entry_type} ({self.id})"
-
 
 class TuitionConfig(models.Model):
     GRADE_KEY_CHOICES = [

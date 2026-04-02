@@ -82,6 +82,96 @@ class TransactionSerializer(serializers.ModelSerializer):
         read_only_fields = ['debit', 'credit', 'balance', 'date_posted', 'date_created']
 
 
+# finance/serializers.py
+from decimal import Decimal
+from django.db.models import Sum
+from django.contrib.auth import get_user_model
+from rest_framework import serializers
+
+from .models import Transaction, TuitionConfig, ProofOfPayment
+from accounts.models import User, UserProfile
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+    parent_username = serializers.CharField(source='parent.username', read_only=True)
+    date_created = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
+    transaction_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
+    date_posted = serializers.DateField(format="%Y-%m-%d", read_only=True)
+    due_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
+
+    student_name = serializers.CharField(read_only=True)
+    student_number = serializers.SerializerMethodField()
+    payment_mode = serializers.SerializerMethodField()
+    grade_level = serializers.SerializerMethodField()
+    student_type = serializers.CharField(source='student_type_snapshot', read_only=True)
+    enrollment_id = serializers.IntegerField(read_only=True)
+
+    def get_student_number(self, obj):
+        if obj.student_number_snapshot:
+            return obj.student_number_snapshot
+        if obj.enrollment and obj.enrollment.student_number:
+            return obj.enrollment.student_number
+        try:
+            return obj.parent.profile.student_number or ''
+        except Exception:
+            return ''
+
+    def get_payment_mode(self, obj):
+        if obj.payment_mode_snapshot:
+            return obj.payment_mode_snapshot
+        if obj.enrollment and obj.enrollment.payment_mode:
+            return obj.enrollment.payment_mode
+        try:
+            return obj.parent.profile.payment_mode or ''
+        except Exception:
+            return ''
+
+    def get_grade_level(self, obj):
+        if obj.grade_level_snapshot:
+            return obj.grade_level_snapshot
+        if obj.enrollment and obj.enrollment.grade_level:
+            return obj.enrollment.grade_level
+        try:
+            return obj.parent.profile.grade_level or ''
+        except Exception:
+            return ''
+
+    class Meta:
+        model = Transaction
+        fields = [
+            'id',
+            'parent',
+            'parent_username',
+            'student_name',
+            'student_number',
+            'grade_level',
+            'payment_mode',
+            'student_type',
+            'enrollment_id',
+
+            'transaction_type',
+            'entry_type',
+            'item',
+            'school_year',
+            'semester',
+
+            'amount',
+            'debit',
+            'credit',
+            'balance',
+
+            'description',
+            'payment_method',
+            'reference_number',
+            'transaction_date',
+            'date_posted',
+            'due_date',
+            'date_created',
+            'status',
+        ]
+        read_only_fields = ['debit', 'credit', 'balance', 'date_posted', 'date_created']
+
+
 class TransactionCreateSerializer(serializers.ModelSerializer):
     due_date = serializers.DateField(required=False, allow_null=True)
     transaction_date = serializers.DateField(required=False, allow_null=True)
@@ -124,23 +214,38 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
         return value
 
     def _auto_fill_student_name(self, validated_data):
-        parent = validated_data.get('parent') or getattr(self.instance, 'parent', None)
         if validated_data.get('student_name'):
             return
 
-        if not parent:
-            return
+        enrollment = validated_data.get('enrollment') or getattr(self.instance, 'enrollment', None)
+        parent = validated_data.get('parent') or getattr(self.instance, 'parent', None)
 
-        try:
-            profile = parent.profile
-            validated_data['student_name'] = (
-                f"{profile.student_first_name} {profile.student_last_name}"
-            ).strip()
-        except UserProfile.DoesNotExist:
-            validated_data['student_name'] = parent.username
+        if enrollment:
+            first_name = enrollment.first_name or ''
+            last_name = enrollment.last_name or ''
+            full_name = f"{first_name} {last_name}".strip()
+            if full_name:
+                validated_data['student_name'] = full_name
+                return
 
-    def _compute_next_balance(self, parent):
-        totals = Transaction.objects.filter(parent=parent).aggregate(
+        if parent:
+            try:
+                profile = parent.profile
+                validated_data['student_name'] = (
+                    f"{profile.student_first_name} {profile.student_last_name}"
+                ).strip()
+                return
+            except UserProfile.DoesNotExist:
+                validated_data['student_name'] = parent.username
+
+    def _compute_next_balance(self, parent=None, enrollment=None):
+        qs = Transaction.objects.all()
+        if enrollment:
+            qs = qs.filter(enrollment=enrollment)
+        elif parent:
+            qs = qs.filter(parent=parent)
+
+        totals = qs.aggregate(
             total_debit=Sum('debit'),
             total_credit=Sum('credit'),
         )
@@ -150,6 +255,7 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         parent = attrs.get('parent') or getattr(self.instance, 'parent', None)
+        enrollment = attrs.get('enrollment') or getattr(self.instance, 'enrollment', None)
         transaction_type = attrs.get('transaction_type') or getattr(self.instance, 'transaction_type', None)
         entry_type = attrs.get('entry_type') or getattr(self.instance, 'entry_type', None)
         item = attrs.get('item') or getattr(self.instance, 'item', None)
@@ -164,19 +270,25 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
         if entry_type == 'DEBIT' and item == 'PAYMENT':
             raise serializers.ValidationError({'item': 'PAYMENT item must use CREDIT entry type.'})
 
-        if entry_type == 'CREDIT' and item in {'REGISTRATION', 'MONTHLY', 'MISC', 'RESERVATION', 'ASSESSMENT'}:
+        if entry_type == 'CREDIT' and item in {'REGISTRATION', 'MONTHLY', 'MISC', 'RESERVATION', 'ASSESSMENT', 'REFUND'}:
             raise serializers.ValidationError({'item': f'{item} is normally a DEBIT billing entry.'})
 
         if not parent or transaction_type != 'TUITION':
             return attrs
 
-        try:
-            profile = parent.profile
-        except UserProfile.DoesNotExist:
-            raise serializers.ValidationError("Parent/student profile not found.")
+        payment_mode = ''
+        grade_key = ''
 
-        payment_mode = (profile.payment_mode or '').strip().lower()
-        grade_key = (profile.grade_level or '').strip().lower()
+        if enrollment:
+            payment_mode = (enrollment.payment_mode or '').strip().lower()
+            grade_key = (enrollment.grade_level or '').strip().lower()
+        else:
+            try:
+                profile = parent.profile
+                payment_mode = (profile.payment_mode or '').strip().lower()
+                grade_key = (profile.grade_level or '').strip().lower()
+            except UserProfile.DoesNotExist:
+                raise serializers.ValidationError("Parent/student profile not found.")
 
         tuition = TuitionConfig.objects.filter(
             grade_key=grade_key,
@@ -191,14 +303,11 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
 
         amount = Decimal(str(amount or '0'))
 
-
         if payment_mode == 'cash':
-            # Partial cash payments are now allowed. Only check for positive amount (already checked above).
-            if entry_type == 'CREDIT' and item == 'PAYMENT':
-                if due_date:
-                    raise serializers.ValidationError({
-                        'due_date': 'Due date is not allowed for cash payment entries.'
-                    })
+            if entry_type == 'CREDIT' and item == 'PAYMENT' and due_date:
+                raise serializers.ValidationError({
+                    'due_date': 'Due date is not allowed for cash payment entries.'
+                })
 
         elif payment_mode == 'installment':
             initial = Decimal(str(tuition.initial or 0))
@@ -207,14 +316,16 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
             misc_nov = Decimal(str(tuition.misc_nov or 0))
             total_installment = Decimal(str(tuition.total_installment or 0))
 
+            # Allow flexible custom amount for PAYMENT
             if entry_type == 'CREDIT':
-                valid_credit_amounts = {a for a in [initial, monthly, misc_aug, misc_nov] if a > 0}
-                if item in {'PAYMENT', 'INITIAL'} and amount not in valid_credit_amounts:
+                if item == 'PAYMENT':
+                    if amount <= 0:
+                        raise serializers.ValidationError({
+                            'amount': 'Payment amount must be greater than 0.'
+                        })
+                elif item == 'INITIAL' and amount != initial:
                     raise serializers.ValidationError({
-                        'amount': (
-                            f'Installment credit/payment must match one of: '
-                            f'initial ({initial}), monthly ({monthly}), misc_aug ({misc_aug}), misc_nov ({misc_nov}).'
-                        )
+                        'amount': f'Initial credit must equal initial amount: {initial}.'
                     })
 
             if entry_type == 'DEBIT':
@@ -241,6 +352,16 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         self._auto_fill_student_name(validated_data)
 
+        enrollment = validated_data.get('enrollment')
+        parent = validated_data.get('parent')
+
+        if enrollment:
+            validated_data.setdefault('student_number_snapshot', enrollment.student_number)
+            validated_data.setdefault('grade_level_snapshot', enrollment.grade_level)
+            validated_data.setdefault('payment_mode_snapshot', enrollment.payment_mode)
+            validated_data.setdefault('student_type_snapshot', enrollment.student_type)
+            validated_data.setdefault('school_year', enrollment.academic_year)
+
         if not validated_data.get('reference_number'):
             from django.utils import timezone
             year = timezone.now().year
@@ -254,7 +375,7 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
 
         tx = super().create(validated_data)
 
-        tx.balance = self._compute_next_balance(tx.parent)
+        tx.balance = self._compute_next_balance(parent=parent, enrollment=enrollment)
         tx.save(update_fields=['balance'])
 
         return tx
@@ -263,9 +384,13 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
         self._auto_fill_student_name(validated_data)
         tx = super().update(instance, validated_data)
 
-        totals = Transaction.objects.filter(parent=tx.parent).order_by(
-            'transaction_date', 'date_posted', 'id'
-        )
+        qs = Transaction.objects.all()
+        if tx.enrollment_id:
+            qs = qs.filter(enrollment=tx.enrollment)
+        else:
+            qs = qs.filter(parent=tx.parent)
+
+        totals = qs.order_by('transaction_date', 'date_posted', 'id')
 
         running = Decimal('0.00')
         for row in totals:
@@ -275,8 +400,6 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
                 row.save(update_fields=['balance'])
 
         return tx
-
-
 class ParentDropdownSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     parent_name = serializers.SerializerMethodField()
