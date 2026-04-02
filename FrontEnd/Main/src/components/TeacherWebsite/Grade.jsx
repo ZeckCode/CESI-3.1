@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+﻿import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Plus, X, Edit2, Trash2, Settings, Calendar, FileText, Printer } from "lucide-react";
 import "../TeacherWebsiteCSS/Grade.css";
 import { apiFetch } from "../api/apiFetch";
+import PreviewModal from "../PreviewModal";
 
 const API = "";
 
@@ -71,7 +72,7 @@ const gradeLabel = (value) => {
     grade6: "Grade 6",
   };
 
-  return labels[code] || String(value || "—");
+  return labels[code] || String(value || "â€”");
 };
 
 const QUARTERS = [1, 2, 3, 4];
@@ -137,6 +138,8 @@ const Grade = () => {
   const [editItem, setEditItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [error, setError] = useState("");
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
+  const [printPreviewData, setPrintPreviewData] = useState([]);
 
   const currentSection =
     sections.find((s) => String(s.id) === String(selectedSection)) || null;
@@ -864,387 +867,50 @@ const Grade = () => {
     }
 
     try {
-      // Pre-calculate category items outside the loop to improve performance
-      const activityItems = itemsByCategory("ACTIVITY");
-      const quizItems = itemsByCategory("QUIZ");
-      const examItems = itemsByCategory("EXAM");
+      // Build grade data for preview
+      const previewData = displayStudents.map((student) => {
+        try {
+          const studentKey = student.studentKey || getStudentKey(student);
+          const studentId = student.id;
+          
+          const actAvg = categoryAvg(studentKey, studentId, "ACTIVITY");
+          const quizAvg = categoryAvg(studentKey, studentId, "QUIZ");
+          const examAvg = categoryAvg(studentKey, studentId, "EXAM");
+          const cs = getCS(studentKey, studentId);
+          const qg = quarterGrade(studentKey, studentId);
+          
+          // Ensure values are numbers
+          const actAvgNum = actAvg !== null ? Number(actAvg) : null;
+          const quizAvgNum = quizAvg !== null ? Number(quizAvg) : null;
+          const examAvgNum = examAvg !== null ? Number(examAvg) : null;
+          const csNum = cs !== null ? Number(cs) : null;
+          const qgNum = qg !== null ? Number(qg) : null;
+          
+          const status = qgNum !== null ? (qgNum >= 75 ? "PASSED" : "FAILED") : "â€”";
 
-      const schoolYearText = schoolYear
-        ? `S.Y. ${schoolYear.name || `${schoolYear.start_year}-${schoolYear.end_year}`}`
-        : "N/A";
-
-      const currentDate = new Date().toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-
-      // Build grade rows for each student
-      const gradeRowsHTML = displayStudents
-        .map((student) => {
-          try {
-            const studentKey = student.studentKey || getStudentKey(student);
-            const studentId = student.id;
-            const activityHTML = activityItems
-              .map((item) => {
-                const score = getScore(studentKey, item.id, studentId);
-                return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
-              })
-              .join("");
-
-            const quizHTML = quizItems
-              .map((item) => {
-                const score = getScore(studentKey, item.id, studentId);
-                return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
-              })
-              .join("");
-
-            const examHTML = examItems
-              .map((item) => {
-                const score = getScore(studentKey, item.id, studentId);
-                return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
-              })
-              .join("");
-
-            const actAvg = categoryAvg(studentKey, studentId, "ACTIVITY");
-            const quizAvg = categoryAvg(studentKey, studentId, "QUIZ");
-            const examAvg = categoryAvg(studentKey, studentId, "EXAM");
-            const cs = getCS(studentKey, studentId);
-            const qg = quarterGrade(studentKey, studentId);
-            
-            // Ensure values are numbers
-            const actAvgNum = actAvg !== null ? Number(actAvg) : null;
-            const quizAvgNum = quizAvg !== null ? Number(quizAvg) : null;
-            const examAvgNum = examAvg !== null ? Number(examAvg) : null;
-            const csNum = cs !== null ? Number(cs) : null;
-            const qgNum = qg !== null ? Number(qg) : null;
-            
-            const status = qgNum !== null ? (qgNum >= 75 ? "PASSED" : "FAILED") : "—";
-            const statusColor = qgNum !== null ? (qgNum >= 75 ? "#047857" : "#dc2626") : "#6b7280";
-
-            return `
-              <tr>
-                <td style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${student.student_name}</td>
-                ${activityHTML}
-                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0f9ff;">${actAvgNum !== null ? actAvgNum.toFixed(1) : "—"}%</td>
-                ${quizHTML}
-                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f3f0ff;">${quizAvgNum !== null ? quizAvgNum.toFixed(1) : "—"}%</td>
-                ${examHTML}
-                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #fef2f2;">${examAvgNum !== null ? examAvgNum.toFixed(1) : "—"}%</td>
-                <td style="text-align: center; font-size: 12px; font-weight: 600; background: #f0fdf4;">${csNum !== null ? csNum.toFixed(1) : "—"}</td>
-                <td style="text-align: center; font-size: 12px; font-weight: 700; background: #fffbeb;">
-                  ${qgNum !== null ? qgNum.toFixed(2) : "—"}
-                </td>
-                <td style="text-align: center; font-size: 11px; color: white; font-weight: 600; background: ${statusColor}; padding: 4px 8px;">
-                  ${status}
-                </td>
-              </tr>
-            `;
-          } catch (err) {
-            console.error("Error building grade row for student:", student.student_name, err);
-            return `<tr><td colspan="100" style="text-align: center; color: red;">Error: ${err.message}</td></tr>`;
-          }
-        })
-        .join("");
-
-      const activityHeaderHTML = activityItems
-        .map((item, idx) => `<th style="font-size: 11px; padding: 8px 4px;">A${idx + 1}<br/>/${item.total_score}</th>`)
-        .join("");
-
-      const quizHeaderHTML = quizItems
-        .map((item, idx) => `<th style="font-size: 11px; padding: 8px 4px;">Q${idx + 1}<br/>/${item.total_score}</th>`)
-        .join("");
-
-      const examHeaderHTML = examItems
-        .map((item, idx) => `<th style="font-size: 11px; padding: 8px 4px;">E${idx + 1}<br/>/${item.total_score}</th>`)
-        .join("");
-
-      const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Grade Sheet</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: white;
-      color: #1f2937;
-      line-height: 1.4;
-    }
-
-    .print-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 30px;
-    }
-
-    .print-header {
-      text-align: center;
-      margin-bottom: 25px;
-      border-bottom: 2px solid #1f2937;
-      padding-bottom: 15px;
-    }
-
-    .print-header h1 {
-      font-size: 26px;
-      font-weight: 800;
-      margin-bottom: 6px;
-      letter-spacing: -0.5px;
-    }
-
-    .print-header .metadata {
-      display: flex;
-      justify-content: center;
-      gap: 25px;
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 10px;
-      flex-wrap: wrap;
-    }
-
-    .metadata-item {
-      display: flex;
-      gap: 3px;
-      align-items: center;
-    }
-
-    .metadata-label {
-      font-weight: 600;
-      color: #1f2937;
-    }
-
-    .section-title {
-      font-size: 13px;
-      font-weight: 700;
-      margin: 20px 0 10px 0;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #1f2937;
-      border-bottom: 2px solid #5ba3c7;
-      padding-bottom: 6px;
-    }
-
-    .legend {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 15px;
-      margin-bottom: 20px;
-      font-size: 11px;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .legend-box {
-      width: 30px;
-      height: 20px;
-      border-radius: 3px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: 600;
-      font-size: 10px;
-    }
-
-    .table-wrapper {
-      margin-bottom: 30px;
-      overflow: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      border: 1px solid #d5d5d5;
-      border-radius: 4px;
-      font-size: 12px;
-    }
-
-    th {
-      background: #1f2937;
-      color: white;
-      padding: 10px 8px;
-      text-align: center;
-      font-weight: 700;
-      border-bottom: 1px solid #374151;
-      font-size: 11px;
-    }
-
-    th.student-col {
-      text-align: left;
-    }
-
-    td {
-      padding: 8px 6px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-
-    tr:last-child td {
-      border-bottom: 1px solid #d5d5d5;
-    }
-
-    .footer {
-      margin-top: 25px;
-      padding-top: 15px;
-      border-top: 1px solid #e5e7eb;
-      text-align: center;
-      color: #6b7280;
-      font-size: 11px;
-    }
-
-    .breakdown-info {
-      font-size: 11px;
-      color: #6b7280;
-      margin-bottom: 15px;
-      background: #f9fafb;
-      padding: 10px 12px;
-      border-radius: 4px;
-      border-left: 3px solid #5ba3c7;
-    }
-
-    @media print {
-      body {
-        background: white;
-      }
-      .print-container {
-        padding: 20px;
-      }
-      .table-wrapper {
-        page-break-inside: avoid;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="print-container">
-    <div class="print-header">
-      <h1>GRADE SHEET</h1>
-      <div class="metadata">
-        <div class="metadata-item">
-          <span class="metadata-label">Subject:</span>
-          <span>${teacherSubject?.subject_name || "N/A"}</span>
-        </div>
-        <div class="metadata-item">
-          <span class="metadata-label">Section:</span>
-          <span>${currentSection?.name || "N/A"}</span>
-        </div>
-        <div class="metadata-item">
-          <span class="metadata-label">Quarter:</span>
-          <span>${quarter}</span>
-        </div>
-        <div class="metadata-item">
-          <span class="metadata-label">${schoolYearText}</span>
-        </div>
-        <div class="metadata-item">
-          <span class="metadata-label">Generated:</span>
-          <span>${currentDate}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="section-title">Grade Category Weights</div>
-    <div class="legend">
-      <div class="legend-item">
-        <div class="legend-box" style="background: #3b82f6;">A</div>
-        <span>Activities: ${weights.activity_weight}%</span>
-      </div>
-      <div class="legend-item">
-        <div class="legend-box" style="background: #8b5cf6;">Q</div>
-        <span>Quizzes: ${weights.quiz_weight}%</span>
-      </div>
-      <div class="legend-item">
-        <div class="legend-box" style="background: #ef4444;">E</div>
-        <span>Exams: ${weights.exam_weight}%</span>
-      </div>
-      <div class="legend-item">
-        <div class="legend-box" style="background: #10b981;">CS</div>
-        <span>Class Standing: ${weights.class_standing_weight}%</span>
-      </div>
-    </div>
-
-    <div class="breakdown-info">
-      <strong>Grade Calculation:</strong> Category averages are calculated as (total points earned ÷ total points possible) × 100%. 
-      Quarter grade is the weighted average of all categories with available grades.
-    </div>
-
-    <div class="section-title">Student Grade Breakdown</div>
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th class="student-col">Student Name</th>
-            ${activityHeaderHTML}
-            <th style="background: #0f52ba; font-size: 11px; padding: 8px 4px;">Act Avg %</th>
-            ${quizHeaderHTML}
-            <th style="background: #6f42c1; font-size: 11px; padding: 8px 4px;">Quiz Avg %</th>
-            ${examHeaderHTML}
-            <th style="background: #dc2626; font-size: 11px; padding: 8px 4px;">Exam Avg %</th>
-            <th style="background: #059669; font-size: 11px; padding: 8px 4px;">Class Standing</th>
-            <th style="background: #b45309; font-size: 11px; padding: 8px 4px;">Q${quarter} Grade</th>
-            <th style="font-size: 11px; padding: 8px 4px;">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${gradeRowsHTML}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="footer">
-      <p>This grade sheet is confidential and for official use only.</p>
-      <p>For inquiries regarding grades, please consult with your teacher during office hours.</p>
-    </div>
-  </div>
-</body>
-</html>
-      `;
-
-      // Use Blob and object URL for more reliable print window opening
-      try {
-        const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
-        const blobUrl = URL.createObjectURL(blob);
-        const printWindow = window.open(blobUrl, "PRINT_GRADES", "width=1200,height=900");
-        
-        if (!printWindow) {
-          alert("Unable to open print window. Please check if pop-ups are blocked.");
-          URL.revokeObjectURL(blobUrl);
-          return;
+          return {
+            "Student Name": student.student_name,
+            "Activity %": actAvgNum !== null ? actAvgNum.toFixed(1) : "â€”",
+            "Quiz %": quizAvgNum !== null ? quizAvgNum.toFixed(1) : "â€”",
+            "Exam %": examAvgNum !== null ? examAvgNum.toFixed(1) : "â€”",
+            "Class Standing": csNum !== null ? csNum.toFixed(1) : "â€”",
+            "Quarter Grade": qgNum !== null ? qgNum.toFixed(2) : "â€”",
+            "Status": status
+          };
+        } catch (err) {
+          console.error("Error building grade row for student:", student.student_name, err);
+          return null;
         }
+      }).filter(row => row !== null);
 
-        // Wait for content to fully load before printing
-        setTimeout(() => {
-          try {
-            printWindow.print();
-            // Clean up the object URL after printing
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-          } catch (err) {
-            console.error("Error printing:", err);
-            alert("An error occurred while printing. Please try again.");
-            URL.revokeObjectURL(blobUrl);
-          }
-        }, 1000);
-      } catch (err) {
-        console.error("Error creating print preview:", err);
-        alert("An error occurred while preparing the print preview. Please try again.");
-      }
+      // Set preview data and open modal
+      setPrintPreviewData(previewData);
+      setPrintPreviewOpen(true);
     } catch (err) {
       console.error("Error in handlePrintGradeSheet:", err);
-      alert("An error occurred while generating the grade sheet. Please check the console for details.");
+      alert("An error occurred while preparing the grade sheet.");
     }
   };
-
 
   const weightTotal =
     Number(tempWeights.activity_weight || 0) +
@@ -1381,11 +1047,11 @@ const Grade = () => {
                     {publishPreviewRows.map((row) => (
                       <tr key={`${row.student_id}-${row.student_name}`}>
                         <td style={{ padding: "6px", borderBottom: "1px solid #eee" }}>{row.student_name}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q1 != null ? row.q1 : "—"}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q2 != null ? row.q2 : "—"}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q3 != null ? row.q3 : "—"}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q4 != null ? row.q4 : "—"}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.final_grade != null ? row.final_grade : "—"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q1 != null ? row.q1 : "â€”"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q2 != null ? row.q2 : "â€”"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q3 != null ? row.q3 : "â€”"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q4 != null ? row.q4 : "â€”"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.final_grade != null ? row.final_grade : "â€”"}</td>
                         <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee", color: row.complete ? "#1f621f" : "#b91c1c" }}>
                           {row.complete ? "Complete" : "Incomplete"}
                         </td>
@@ -1499,7 +1165,7 @@ const Grade = () => {
       </section>
 
       <section className="ge__card">
-        <h3 className="ge__tableTitle">Student Scores — Q{quarter}</h3>
+        <h3 className="ge__tableTitle">Student Scores â€” Q{quarter}</h3>
         <div className="ge__tableWrap">
           <table className="ge__table">
             <thead>
@@ -1518,7 +1184,7 @@ const Grade = () => {
                           {abbr}
                         </span>
                         <span className="ge__thTitle">
-                          {item.title.length > 8 ? item.title.slice(0, 8) + "…" : item.title}
+                          {item.title.length > 8 ? item.title.slice(0, 8) + "â€¦" : item.title}
                         </span>
                         <span className="ge__thMax">/{item.total_score}</span>
                       </th>
@@ -1569,7 +1235,7 @@ const Grade = () => {
                             {sc !== null ? (
                               <span className="ge__scoreVal">{sc}</span>
                             ) : (
-                              <span className="ge__scoreEmpty">—</span>
+                              <span className="ge__scoreEmpty">â€”</span>
                             )}
                           </td>
                         );
@@ -1586,7 +1252,7 @@ const Grade = () => {
                       {getCS(studentKey, studentId) !== null ? (
                         <span className="ge__scoreVal">{getCS(studentKey, studentId)}</span>
                       ) : (
-                        <span className="ge__scoreEmpty">—</span>
+                        <span className="ge__scoreEmpty">â€”</span>
                       )}
                     </td>
 
@@ -1600,7 +1266,7 @@ const Grade = () => {
                           {qg.toFixed(1)}
                         </span>
                       ) : (
-                        <span className="ge__scoreEmpty">—</span>
+                        <span className="ge__scoreEmpty">â€”</span>
                       )}
                     </td>
 
@@ -1614,7 +1280,7 @@ const Grade = () => {
                           {qg >= 75 ? "PASSED" : "FAILED"}
                         </span>
                       ) : (
-                        <span className="ge__scoreEmpty">—</span>
+                        <span className="ge__scoreEmpty">â€”</span>
                       )}
                     </td>
                   </tr>
@@ -1636,7 +1302,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div className="ge__error">⚠️ {error}</div>}
+              {error && <div className="ge__error">âš ï¸ {error}</div>}
               <label>Title</label>
               <input
                 className="ge__input"
@@ -1726,7 +1392,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div className="ge__error">⚠️ {error}</div>}
+              {error && <div className="ge__error">âš ï¸ {error}</div>}
               <label>Title</label>
               <input
                 className="ge__input"
@@ -1807,7 +1473,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div className="ge__error">⚠️ {error}</div>}
+              {error && <div className="ge__error">âš ï¸ {error}</div>}
               <p className="ge__scoreInfo">
                 <strong>{scoreModal.student.student_name}</strong>
                 <br />
@@ -1852,7 +1518,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div className="ge__error">⚠️ {error}</div>}
+              {error && <div className="ge__error">âš ï¸ {error}</div>}
               <p className="ge__scoreInfo">
                 <strong>{csModal.student.student_name}</strong>
                 <br />
@@ -1888,14 +1554,14 @@ const Grade = () => {
         <div className="ge__overlay" onClick={() => setShowWeights(false)}>
           <div className="ge__modal" onClick={(e) => e.stopPropagation()}>
             <div className="ge__modalHeader">
-              <h3>Grade Weights — {teacherSubject.subject_name}</h3>
+              <h3>Grade Weights â€” {teacherSubject.subject_name}</h3>
               <button className="ge__modalClose" onClick={() => { setShowWeights(false); setError(""); }}>
                 <X size={18} />
               </button>
             </div>
 
             <div className="ge__modalBody">
-              {error && <div className="ge__error">⚠️ {error}</div>}
+              {error && <div className="ge__error">âš ï¸ {error}</div>}
               <p className="ge__weightNote">
                 Adjust how much each category contributes to the quarter grade.
                 Total must equal 100%.
@@ -1952,8 +1618,26 @@ const Grade = () => {
           </div>
         </div>
       )}
+
+      <PreviewModal
+        isOpen={printPreviewOpen}
+        onClose={() => setPrintPreviewOpen(false)}
+        title={`Grade Sheet - ${teacherSubject?.subject_name || "N/A"} (${currentSection?.name || "N/A"})`}
+        data={printPreviewData}
+        columns={[
+          { key: "Student Name", label: "Student Name" },
+          { key: "Activity %", label: "Activity %" },
+          { key: "Quiz %", label: "Quiz %" },
+          { key: "Exam %", label: "Exam %" },
+          { key: "Class Standing", label: "Class Standing" },
+          { key: "Quarter Grade", label: "Quarter Grade" },
+          { key: "Status", label: "Status" },
+        ]}
+        filename={`Grade-Sheet-${teacherSubject?.subject_name}-${currentSection?.name}`}
+      />
     </div>
   );
 };
 
 export default Grade;
+

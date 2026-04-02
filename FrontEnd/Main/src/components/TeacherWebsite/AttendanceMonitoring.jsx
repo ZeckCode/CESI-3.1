@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Save, Users, Calendar, CheckCircle, XCircle, Clock, BookOpen, History, Printer, Download } from "lucide-react";
 import "../TeacherWebsiteCSS/AttendanceMonitoring.css";
 import { apiFetch } from "../api/apiFetch";
+import PreviewModal from "../PreviewModal";
 
 const API = "";
 
@@ -128,6 +129,8 @@ const AttendanceMonitoring = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyRows, setHistoryRows] = useState([]);
+  const [attendancePreviewOpen, setAttendancePreviewOpen] = useState(false);
+  const [attendancePreviewData, setAttendancePreviewData] = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -563,288 +566,19 @@ const AttendanceMonitoring = () => {
   };
 
   const handlePrintAttendance = () => {
-    const printWindow = window.open("", "", "width=1000,height=800");
-    
-    const currentDate = new Date().toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
+    const previewData = students.map((student) => {
+      const studentKey = getStudentKey(student);
+      const status = attendance[studentKey] || "PRESENT";
+      return {
+        "Student Name": student.name || "N/A",
+        "Student ID": student.username || "N/A",
+        "Status": status,
+        "Notes": notes[studentKey] || "-",
+      };
     });
 
-    const attendanceTableHTML = students
-      .map((student, idx) => {
-        const studentKey = getStudentKey(student);
-        const status = attendance[studentKey] || "PRESENT";
-        const statusColor = {
-          PRESENT: "#047857",
-          ABSENT: "#dc2626",
-          LATE: "#f59e0b",
-          EXCUSED: "#0891b2",
-        }[status] || "#6b7280";
-
-        return `
-          <tr>
-            <td>${idx + 1}</td>
-            <td>${student.name}</td>
-            <td>${student.username}</td>
-            <td style="text-align: center;">
-              <span style="display: inline-block; background: ${statusColor}; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">
-                ${status}
-              </span>
-            </td>
-            <td>${notes[studentKey] || "-"}</td>
-          </tr>
-        `;
-      })
-      .join("");
-
-    const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Attendance Report</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: white;
-      color: #1f2937;
-      line-height: 1.6;
-    }
-
-    .print-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 40px;
-    }
-
-    .print-header {
-      text-align: center;
-      margin-bottom: 30px;
-      border-bottom: 2px solid #1f2937;
-      padding-bottom: 20px;
-    }
-
-    .print-header h1 {
-      font-size: 28px;
-      font-weight: 800;
-      margin-bottom: 8px;
-      letter-spacing: -0.5px;
-    }
-
-    .print-header .metadata {
-      display: flex;
-      justify-content: center;
-      gap: 30px;
-      font-size: 13px;
-      color: #6b7280;
-      margin-top: 12px;
-      flex-wrap: wrap;
-    }
-
-    .metadata-item {
-      display: flex;
-      gap: 4px;
-      align-items: center;
-    }
-
-    .metadata-label {
-      font-weight: 600;
-      color: #1f2937;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 15px;
-      margin-bottom: 30px;
-    }
-
-    .stat-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 12px;
-      background: #f3f4f6;
-      text-align: center;
-    }
-
-    .stat-card .label {
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #6b7280;
-      margin-bottom: 4px;
-    }
-
-    .stat-card .value {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1f2937;
-    }
-
-    .section-title {
-      font-size: 14px;
-      font-weight: 700;
-      margin: 20px 0 12px 0;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #1f2937;
-      border-bottom: 2px solid #5ba3c7;
-      padding-bottom: 8px;
-    }
-
-    .table-wrapper {
-      margin-bottom: 30px;
-      overflow: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    th {
-      background: #1f2937;
-      color: white;
-      padding: 12px 14px;
-      text-align: left;
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    td {
-      padding: 10px 14px;
-      text-align: left;
-      border-bottom: 1px solid #e5e7eb;
-      font-size: 13px;
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    tr:nth-child(even) {
-      background: #f9fafb;
-    }
-
-    .footer {
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #e5e7eb;
-      text-align: center;
-      color: #6b7280;
-      font-size: 12px;
-    }
-
-    @media print {
-      body {
-        background: white;
-      }
-      .print-container {
-        padding: 20px;
-      }
-      .stats-grid {
-        page-break-inside: avoid;
-      }
-      .table-wrapper {
-        page-break-inside: avoid;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="print-container">
-    <div class="print-header">
-      <h1>ATTENDANCE REPORT</h1>
-      <div class="metadata">
-        <div class="metadata-item">
-          <span class="metadata-label">Section:</span>
-          <span>${currentSectionLabel || "N/A"}</span>
-        </div>
-        <div class="metadata-item">
-          <span class="metadata-label">Subject:</span>
-          <span>${currentSchedule?.subject?.name || currentSchedule?.subject_name || "N/A"}</span>
-        </div>
-        <div class="metadata-item">
-          <span class="metadata-label">Date:</span>
-          <span>${selectedDate}</span>
-        </div>
-        <div class="metadata-item">
-          <span class="metadata-label">Generated:</span>
-          <span>${currentDate}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="label">Total Students</div>
-        <div class="value">${counts.total}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Present</div>
-        <div class="value" style="color: #047857;">${counts.present}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Absent</div>
-        <div class="value" style="color: #dc2626;">${counts.absent}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Late</div>
-        <div class="value" style="color: #f59e0b;">${counts.late}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Excused</div>
-        <div class="value" style="color: #0891b2;">${counts.excused}</div>
-      </div>
-    </div>
-
-    <div class="section-title">ATTENDANCE DETAILS</div>
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Student Name</th>
-            <th>Student ID</th>
-            <th>Status</th>
-            <th>Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${attendanceTableHTML || "<tr><td colspan='5' style='text-align: center; color: #6b7280;'>No students recorded</td></tr>"}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="footer">
-      <p>This attendance report is confidential and for official use only.</p>
-    </div>
-  </div>
-</body>
-</html>
-    `;
-
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+    setAttendancePreviewData(previewData);
+    setAttendancePreviewOpen(true);
   };
 
   const attendanceTable = (
@@ -1179,6 +913,20 @@ const AttendanceMonitoring = () => {
           </section>
         </div>
       )}
+
+      <PreviewModal
+        isOpen={attendancePreviewOpen}
+        onClose={() => setAttendancePreviewOpen(false)}
+        title={`Attendance Report - ${currentSectionLabel || "N/A"}`}
+        data={attendancePreviewData}
+        columns={[
+          { key: "Student Name", label: "Student Name" },
+          { key: "Student ID", label: "Student ID" },
+          { key: "Status", label: "Status" },
+          { key: "Notes", label: "Notes" },
+        ]}
+        filename={`Attendance-Report-${currentSection?.name || "N/A"}`}
+      />
     </div>
   );
 };
