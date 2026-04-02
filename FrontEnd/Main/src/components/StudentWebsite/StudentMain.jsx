@@ -13,6 +13,8 @@ import StudentReminders from "./StudentReminders";
 import StudentEnrollment from "./StudentEnrollment";
 import ProofOfPayment from "./ProofOfPayment";
 import { getToken } from "../Auth/auth";
+import { apiFetch } from "../api/apiFetch";
+import NotificationList from "../AdminWebsite/NotificationList";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 import "../StudentWebsiteCSS/StudentPortal.css";
 
@@ -60,6 +62,7 @@ export default function StudentMain() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [unreadReminders, setUnreadReminders] = useState(0);
+  const [showNotificationList, setShowNotificationList] = useState(false);
 
   const [enrollmentOpen, setEnrollmentOpen] = useState(false);
   const [enrollmentWindow, setEnrollmentWindow] = useState(null);
@@ -233,11 +236,23 @@ export default function StudentMain() {
           onToggleCollapse={handleToggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
           showRemindersBell={true}
-          onOpenReminders={() => setActiveMenu("reminders")}
+          onOpenReminders={() => setShowNotificationList(true)}
           unreadReminders={unreadReminders}
         />
 
         {renderContent()}
+
+        {showNotificationList && (
+          <NotificationList
+            onClose={() => setShowNotificationList(false)}
+            unreadCount={unreadReminders}
+            reminderType="PAYMENT"
+            onNavigate={(menu, reminder) => {
+              setActiveMenu(menu);
+              setShowNotificationList(false);
+            }}
+          />
+        )}
       </main>
     </div>
   );

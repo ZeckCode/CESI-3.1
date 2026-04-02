@@ -10,6 +10,7 @@ import Students from "./Students.jsx";
 import SPerformance from "./SPerformance.jsx";
 import TeacherReminders from "./TeacherReminders.jsx";
 import { getToken } from "../Auth/auth";
+import NotificationList from "../AdminWebsite/NotificationList";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 
 const API_BASE = "";
@@ -26,6 +27,7 @@ function TeacherDashboard() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [unreadReminders, setUnreadReminders] = useState(0);
+  const [showNotificationList, setShowNotificationList] = useState(false);
 
   const handleMenuClick = (menuId) => setActiveMenu(menuId);
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
@@ -140,11 +142,23 @@ function TeacherDashboard() {
           onToggleCollapse={handleToggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
           showRemindersBell={true}
-          onOpenReminders={() => setActiveMenu("reminders")}
+          onOpenReminders={() => setShowNotificationList(true)}
           unreadReminders={unreadReminders}
         />
 
         {renderContent()}
+
+        {showNotificationList && (
+          <NotificationList
+            onClose={() => setShowNotificationList(false)}
+            unreadCount={unreadReminders}
+            reminderType="PERFORMANCE"
+            onNavigate={(menu, reminder) => {
+              setActiveMenu(menu);
+              setShowNotificationList(false);
+            }}
+          />
+        )}
       </main>
     </div>
   );

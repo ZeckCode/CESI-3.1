@@ -3,7 +3,7 @@ import { X, Trash2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { apiFetch } from '../api/apiFetch';
 import '../AdminWebsiteCSS/NotificationList.css';
 
-const NotificationList = ({ onClose, unreadCount, onNavigate }) => {
+const NotificationList = ({ onClose, unreadCount, onNavigate, reminderType = 'PAYMENT' }) => {
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -12,13 +12,13 @@ const NotificationList = ({ onClose, unreadCount, onNavigate }) => {
 
   useEffect(() => {
     loadNotifications();
-  }, []);
+  }, [reminderType]);
 
   const loadNotifications = async () => {
     try {
       setLoading(true);
       setError('');
-      const res = await apiFetch('/api/reminders/?type=PAYMENT');
+      const res = await apiFetch(`/api/reminders/?type=${reminderType}`);
       if (res.ok) {
         const data = await res.json();
         setReminders(Array.isArray(data) ? data : []);
