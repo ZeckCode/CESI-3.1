@@ -64,8 +64,6 @@ import TableActionMenu from "./TableActionMenu";
 import EnrollmentDetailsModal from "./Enrollment/EnrollmentDetailsModal";
 import IdCardGenerator from "./IdGenerator/IdCardGenerator";
 import { DEFAULT_SCHOOL_INFO, prepareIdData } from "./IdGenerator/idGeneratorUtils";
-import IdCardGenerator from "./IdGenerator/IdCardGenerator";
-import { DEFAULT_SCHOOL_INFO, prepareIdData } from "./IdGenerator/idGeneratorUtils";
 
 export default function EnrollmentManagement() {
   const [enrollments, setEnrollments] = useState([]);
@@ -130,11 +128,6 @@ export default function EnrollmentManagement() {
   const [isRejectingProof, setIsRejectingProof] = useState(false);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState(null);
-
-  // ID Generator States
-  const [idGeneratorOpen, setIdGeneratorOpen] = useState(false);
-  const [selectedStudentForId, setSelectedStudentForId] = useState(null);
-  const [schoolInfo, setSchoolInfo] = useState(DEFAULT_SCHOOL_INFO);
 
   // ID Generator States
   const [idGeneratorOpen, setIdGeneratorOpen] = useState(false);
