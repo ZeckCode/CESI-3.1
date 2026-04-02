@@ -8,10 +8,13 @@ const API = "";
 const getStudentId = (student) =>
   student?.id ?? student?.student_id ?? student?.user_id ?? null;
 
+const getStudentNumber = (student) =>
+  String(student?.student_number || student?.lrn || "").trim();
+
 const getStudentKey = (student) => {
   if (!student) return "";
 
-  const studentNumber = String(student.student_number || student.lrn || "").trim();
+  const studentNumber = getStudentNumber(student);
   if (studentNumber) return `num:${studentNumber.toLowerCase()}`;
 
   const username = String(student.username || "").trim();
@@ -198,14 +201,19 @@ const AttendanceMonitoring = () => {
         const initialAttendance = {};
         const initialNotes = {};
         const idToKey = new Map();
+        const numberToKey = new Map();
         uniqueStudents.forEach((s) => {
           const key = getStudentKey(s);
           const idValue = getStudentId(s);
+          const studentNumber = getStudentNumber(s);
           if (!key) return;
           initialAttendance[key] = "PRESENT";
           initialNotes[key] = "";
           if (idValue != null) {
             idToKey.set(String(idValue), key);
+          }
+          if (studentNumber) {
+            numberToKey.set(studentNumber.toLowerCase(), key);
           }
         });
 
@@ -225,11 +233,14 @@ const AttendanceMonitoring = () => {
           existingRecords.forEach((rec) => {
             const studentIdRaw = rec?.student_id ?? rec?.student?.id ?? rec?.student;
             const studentId = studentIdRaw != null ? String(studentIdRaw) : null;
-            if (studentId && rec?.id != null) {
-              recordMap[studentId] = rec.id;
-            }
+            const recStudentNumber = String(rec?.student_number || "").trim().toLowerCase();
 
-            const key = idToKey.get(studentId || String(rec.student || ""));
+            const key =
+              (recStudentNumber && numberToKey.get(recStudentNumber)) ||
+              idToKey.get(studentId || String(rec.student || ""));
+            if (key && rec?.id != null) {
+              recordMap[key] = rec.id;
+            }
             if (key && Object.prototype.hasOwnProperty.call(initialAttendance, key)) {
               initialAttendance[key] = rec.status;
               initialNotes[key] = rec.notes || "";
@@ -292,6 +303,22 @@ const AttendanceMonitoring = () => {
       return { existingRecords: [], recordMap: {} };
     }
 
+    const idToKey = new Map();
+    const numberToKey = new Map();
+    students.forEach((student) => {
+      const key = getStudentKey(student);
+      if (!key) return;
+
+      const idValue = getStudentId(student);
+      const studentNumber = getStudentNumber(student);
+      if (idValue != null) {
+        idToKey.set(String(idValue), key);
+      }
+      if (studentNumber) {
+        numberToKey.set(studentNumber.toLowerCase(), key);
+      }
+    });
+
     let url = `${API}/api/attendance/records/?section=${selectedSection}&date=${selectedDate}`;
     url += `&schedule=${selectedSchedule}&include_unlinked=1`;
 
@@ -310,8 +337,13 @@ const AttendanceMonitoring = () => {
       existingRecords.forEach((rec) => {
         const studentIdRaw = rec?.student_id ?? rec?.student?.id ?? rec?.student;
         const studentId = studentIdRaw != null ? String(studentIdRaw) : null;
-        if (studentId && rec?.id != null) {
-          recordMap[studentId] = rec.id;
+        const recStudentNumber = String(rec?.student_number || "").trim().toLowerCase();
+
+        const key =
+          (recStudentNumber && numberToKey.get(recStudentNumber)) ||
+          idToKey.get(studentId || String(rec.student || ""));
+        if (key && rec?.id != null) {
+          recordMap[key] = rec.id;
         }
       });
 
@@ -320,7 +352,7 @@ const AttendanceMonitoring = () => {
       console.error("Failed to refresh attendance records:", e);
       return { existingRecords: [], recordMap: {} };
     }
-  }, [selectedSection, selectedSchedule, selectedDate]);
+  }, [selectedSection, selectedSchedule, selectedDate, students]);
 
   useEffect(() => {
     if (!showHistory) return;
@@ -368,20 +400,40 @@ const AttendanceMonitoring = () => {
       const records = students
         .map((s) => {
           const studentId = getStudentId(s);
+          const studentNumber = getStudentNumber(s);
           const studentKey = getStudentKey(s);
-          if (studentId == null || !studentKey) return null;
-          return {
-            student_id: studentId,
+          if (!studentKey) return null;
+
+          const baseRecord = {
+            student_key: studentKey,
             status: attendance[studentKey] || "PRESENT",
             notes: notes[studentKey] || "",
           };
+
+          if (studentNumber) {
+            return {
+              ...baseRecord,
+              student_number: studentNumber,
+            };
+          }
+
+          if (studentId != null) {
+            return {
+              ...baseRecord,
+              student_id: studentId,
+            };
+          }
+
+          return null;
         })
         .filter(Boolean);
+
+      const recordsPayload = records.map(({ student_key, ...payload }) => payload);
 
       const body = {
         section: parseInt(selectedSection, 10),
         date: selectedDate,
-        records,
+        records: recordsPayload,
         schedule: parseInt(selectedSchedule, 10),
       };
 
@@ -401,12 +453,8 @@ const AttendanceMonitoring = () => {
         }
 
         const updates = records
-          .filter((record) => recordMap[String(record.student_id)])
-          .map((record) => ({
-            student_id: record.student_id,
-            status: record.status,
-            notes: record.notes,
-          }));
+          .filter((record) => recordMap[record.student_key])
+          .map(({ student_key, ...payload }) => payload);
 
         const skippedCount = records.length - updates.length;
         if (updates.length === 0) {
@@ -441,7 +489,16 @@ const AttendanceMonitoring = () => {
           await fetchStudentsAndAttendance();
           if (showHistory) fetchHistory();
         } else {
-          setMessage({ type: "error", text: "Failed to update attendance" });
+          const err = await res.json().catch(() => ({}));
+          const detail = err?.detail || err?.error || "Failed to update attendance";
+          if (res.status === 401) {
+            setMessage({
+              type: "error",
+              text: "Session expired or missing. Please log in again, then retry update.",
+            });
+          } else {
+            setMessage({ type: "error", text: detail });
+          }
         }
       } else {
         const res = await apiFetch(`${API}/api/attendance/records/bulk_upsert/`, {
@@ -460,7 +517,16 @@ const AttendanceMonitoring = () => {
           await fetchStudentsAndAttendance();
           if (showHistory) fetchHistory();
         } else {
-          setMessage({ type: "error", text: "Failed to save attendance" });
+          const err = await res.json().catch(() => ({}));
+          const detail = err?.detail || err?.error || "Failed to save attendance";
+          if (res.status === 401) {
+            setMessage({
+              type: "error",
+              text: "Session expired or missing. Please log in again, then retry save.",
+            });
+          } else {
+            setMessage({ type: "error", text: detail });
+          }
         }
       }
     } catch (e) {

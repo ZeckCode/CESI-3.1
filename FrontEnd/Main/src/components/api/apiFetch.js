@@ -13,7 +13,7 @@
  *   const data = await apiFetchData('/api/grades/items/');
  */
 import { API_BASE_URL } from '../../config/api.js';
-import { getToken } from '../Auth/auth';
+import { getToken, clearAuth } from '../Auth/auth';
 
 /**
  * Normalizes request URL by combining API_BASE_URL with a relative path.
@@ -58,11 +58,17 @@ export function authHeaders(extra = {}) {
 export async function apiFetch(url, options = {}) {
   const { headers: extraHeaders, ...rest } = options;
   const requestUrl = resolveUrl(url);
-  return fetch(requestUrl, {
+  const response = await fetch(requestUrl, {
     credentials: 'include',
     ...rest,
     headers: authHeaders(extraHeaders),
   });
+
+  if (response.status === 401) {
+    clearAuth();
+  }
+
+  return response;
 }
 
 /**
