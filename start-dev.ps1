@@ -278,6 +278,9 @@ if (-not (Test-NpmPackageInstalled "jspdf")) {
 if (-not (Test-NpmPackageInstalled "jspdf-autotable")) {
     $missingFrontendPackages += "jspdf-autotable@3.5.31"
 }
+if (-not (Test-NpmPackageInstalled "html2canvas")) {
+    $missingFrontendPackages += "html2canvas"
+}
 
 if ($missingFrontendPackages.Count -gt 0) {
     Write-Step "Installing missing frontend libraries: $($missingFrontendPackages -join ', ')"
@@ -290,7 +293,7 @@ if ($missingFrontendPackages.Count -gt 0) {
     }
     Write-Ok "Required frontend libraries installed"
 } else {
-    Write-Ok "react-quill-new, jspdf and jspdf-autotable already installed"
+    Write-Ok "react-quill-new, jspdf, jspdf-autotable and html2canvas already installed"
 }
 
 Pop-Location
