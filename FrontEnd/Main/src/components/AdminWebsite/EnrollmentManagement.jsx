@@ -1530,6 +1530,14 @@ const handleApprove = async (id) => {
       await fetchEnrollments();
       addToast("ID Uploaded", "Student ID image uploaded successfully.", "success");
       closeIdUploadModal();
+
+      // Auto-open ID generator after upload
+      const updatedRow = enrollments.find((e) => e.id === idUploadEnrollmentId);
+      if (updatedRow) {
+        const studentData = prepareIdData(updatedRow);
+        setSelectedStudentForId(studentData);
+        setIdGeneratorOpen(true);
+      }
     } catch (err) {
       addToast("Upload Failed", err.message || "Could not upload ID image.", "error");
     } finally {
@@ -1538,6 +1546,14 @@ const handleApprove = async (id) => {
   };
 
   const openIdGenerator = (row) => {
+    // If student has no photo yet, open upload modal first
+    if (!row.id_image_url) {
+      setIdUploadEnrollmentId(row.id);
+      setIdUploadOpen(true);
+      return;
+    }
+    
+    // Otherwise directly open ID generator
     const studentData = prepareIdData(row.raw);
     setSelectedStudentForId(studentData);
     setIdGeneratorOpen(true);
