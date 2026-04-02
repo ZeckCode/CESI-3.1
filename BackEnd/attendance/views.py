@@ -357,7 +357,8 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         # Get unique dates with attendance
         records = AttendanceRecord.objects.filter(
             section_id=section_id,
-            subject__isnull=False,
+        ).filter(
+            Q(subject__isnull=False) | Q(schedule__isnull=False)
         ).order_by("-date")
 
         # Optional schedule filter for per-subject history views
