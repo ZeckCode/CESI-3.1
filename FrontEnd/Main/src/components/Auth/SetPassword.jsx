@@ -1,8 +1,75 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../../config/api.js";
 import { setToken } from "./auth";
 import "./SetPassword.css";
+
+const PASSWORD_RULES = {
+  minLength: {
+    pattern: /.{8,}/,
+    label: "At least 8 characters",
+    id: "minLength",
+  },
+  uppercase: {
+    pattern: /[A-Z]/,
+    label: "One uppercase letter (A-Z)",
+    id: "uppercase",
+  },
+  lowercase: {
+    pattern: /[a-z]/,
+    label: "One lowercase letter (a-z)",
+    id: "lowercase",
+  },
+  number: {
+    pattern: /\d/,
+    label: "One number (0-9)",
+    id: "number",
+  },
+  special: {
+    pattern: /[@$!%*?&._-]/,
+    label: "One special character (@$!%*?&._-)",
+    id: "special",
+  },
+};
+
+function getPasswordStrength(password) {
+  const rules = Object.values(PASSWORD_RULES);
+  const passedCount = rules.filter((rule) => rule.pattern.test(password)).length;
+
+  if (passedCount < 2) return { level: 0, label: "Weak", className: "weak" };
+  if (passedCount < 4) return { level: 1, label: "Fair", className: "fair" };
+  if (passedCount < 5) return { level: 2, label: "Good", className: "good" };
+  return { level: 3, label: "Strong", className: "strong" };
+}
+
+function validateRule(password, ruleId) {
+  return PASSWORD_RULES[ruleId]?.pattern.test(password) || false;
+}
+
+function getPasswordErrors(password, password2) {
+  const errors = [];
+
+  if (!password) {
+    errors.push("Password is required.");
+    return errors;
+  }
+
+  const failedRules = Object.values(PASSWORD_RULES).filter(
+    (rule) => !rule.pattern.test(password)
+  );
+
+  if (failedRules.length > 0) {
+    errors.push("Password does not meet the required strength.");
+  }
+
+  if (!password2) {
+    errors.push("Please confirm your password.");
+  } else if (password !== password2) {
+    errors.push("Passwords do not match.");
+  }
+
+  return errors;
+}
 
 export default function SetPassword() {
   const { uidb64, token } = useParams();
@@ -12,18 +79,35 @@ export default function SetPassword() {
   const [password2, setPassword2] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+  const [touched, setTouched] = useState({
+    password: false,
+    password2: false,
+  });
+
+  const strength = useMemo(() => getPasswordStrength(password), [password]);
+  const passwordErrors = useMemo(
+    () => getPasswordErrors(password, password2),
+    [password, password2]
+  );
+
+  const allRulesPassed = Object.values(PASSWORD_RULES).every((rule) =>
+    rule.pattern.test(password)
+  );
+
+  const showValidation = touched.password || touched.password2;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMsg("");
+    setTouched({ password: true, password2: true });
 
     if (!uidb64 || !token) {
       setMsg("Invalid password setup link.");
       return;
     }
 
-    if (password.length < 8) {
-      setMsg("Password must be at least 8 characters.");
+    if (!allRulesPassed) {
+      setMsg("Please complete all password requirements.");
       return;
     }
 
@@ -81,9 +165,43 @@ export default function SetPassword() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Minimum 8 characters"
+              onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
+              placeholder="Enter a strong password"
               required
             />
+
+            {password && (
+              <div className={`password-strength ${strength.className}`}>
+                Strength: {strength.label}
+              </div>
+            )}
+
+            {password && (
+              <div className="password-strength-bar">
+                <div
+                  className={`password-strength-fill ${strength.className}`}
+                  style={{ width: `${((strength.level + 1) / 4) * 100}%` }}
+                />
+              </div>
+            )}
+
+            <div className="password-rules">
+              {Object.values(PASSWORD_RULES).map((rule) => {
+                const passed = validateRule(password, rule.id);
+
+                return (
+                  <div
+                    key={rule.id}
+                    className={`password-rule ${passed ? "passed" : ""}`}
+                  >
+                    <span className="password-rule-icon">
+                      {passed ? "✓" : "•"}
+                    </span>
+                    <span>{rule.label}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div className="form-group">
@@ -92,12 +210,41 @@ export default function SetPassword() {
               type="password"
               value={password2}
               onChange={(e) => setPassword2(e.target.value)}
+              onBlur={() => setTouched((prev) => ({ ...prev, password2: true }))}
               placeholder="Re-type password"
               required
             />
+
+            {touched.password2 && password2 && (
+              <div
+                className={`password-match ${
+                  password === password2 ? "match" : "no-match"
+                }`}
+              >
+                {password === password2
+                  ? "✓ Passwords match"
+                  : "Passwords do not match"}
+              </div>
+            )}
           </div>
 
-          {msg && <div className="form-message">{msg}</div>}
+          {showValidation && passwordErrors.length > 0 && (
+            <div className="form-message error">
+              {passwordErrors.map((error, index) => (
+                <div key={index}>{error}</div>
+              ))}
+            </div>
+          )}
+
+          {msg && (
+            <div
+              className={`form-message ${
+                msg.includes("successfully") ? "success" : "error"
+              }`}
+            >
+              {msg}
+            </div>
+          )}
 
           <button type="submit" disabled={loading} className="setpass-btn">
             {loading ? "Saving..." : "Set Password"}
