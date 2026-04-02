@@ -132,18 +132,17 @@ export default function Ledgers() {
   const [viewMode, setViewMode] = useState("transactions");
   const [isPrinting, setIsPrinting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestSubmitting, setRequestSubmitting] = useState(false);
-  const [requestError, setRequestError] = useState('');
+  const [requestError, setRequestError] = useState("");
   const [selectedRequestGroup, setSelectedRequestGroup] = useState(null);
   const [requestForm, setRequestForm] = useState({
-    request_type: 'APPLY_ADVANCE',
-    amount: '',
-    reason: '',
-    enrollment: '',
+    request_type: "APPLY_ADVANCE",
+    amount: "",
+    reason: "",
+    enrollment: "",
   });
-
-
 
   useEffect(() => {
     const fetchData = async () => {
@@ -188,7 +187,6 @@ export default function Ledgers() {
     fetchData();
   }, []);
 
-  
   const filteredTransactions = useMemo(
     () =>
       transactions.filter(
@@ -276,7 +274,8 @@ export default function Ledgers() {
         const rawBalance = runningBalance;
         const payableBalance = rawBalance > 0 ? rawBalance : 0;
         const advanceAvailable = rawBalance < 0 ? Math.abs(rawBalance) : 0;
-        const groupStatus = payableBalance <= 0 ? "PAID" : totalCredit > 0 ? "PARTIAL" : "POSTED";
+        const groupStatus =
+          payableBalance <= 0 ? "PAID" : totalCredit > 0 ? "PARTIAL" : "POSTED";
 
         return {
           ...group,
@@ -313,61 +312,6 @@ export default function Ledgers() {
     1,
     Math.ceil(tuitionInstallments.length / ITEMS_PER_PAGE)
   );
-  const openRequestModal = (group, requestType) => {
-  setSelectedRequestGroup(group);
-  setRequestError('');
-  setRequestForm({
-    request_type: requestType,
-    amount:
-      requestType === 'REFUND'
-        ? String(Number(group.advanceAvailable || 0))
-        : String(Number(group.advanceAvailable || 0)),
-    reason: '',
-    enrollment: group.enrollment_id || '',
-  });
-  setShowRequestModal(true);
-};
-
-const handleRequestFormChange = (e) => {
-  const { name, value } = e.target;
-  setRequestForm((prev) => ({ ...prev, [name]: value }));
-};
-
-const submitAdvanceRequest = async (e) => {
-  e.preventDefault();
-  setRequestError('');
-
-  if (!requestForm.amount || Number(requestForm.amount) <= 0) {
-    setRequestError('Please enter a valid amount.');
-    return;
-  }
-
-  setRequestSubmitting(true);
-  try {
-    const res = await apiFetch('/api/finance/my-advance-requests/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        request_type: requestForm.request_type,
-        amount: Number(requestForm.amount),
-        reason: requestForm.reason,
-        enrollment: requestForm.enrollment || null,
-      }),
-    });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.detail || 'Failed to submit request.');
-    }
-
-    alert('Request submitted successfully.');
-    setShowRequestModal(false);
-  } catch (err) {
-    setRequestError(err.message || 'Failed to submit request.');
-  } finally {
-    setRequestSubmitting(false);
-  }
-};
 
   const paginatedInstallments = useMemo(
     () =>
@@ -377,6 +321,60 @@ const submitAdvanceRequest = async (e) => {
       ),
     [tuitionInstallments, installmentPage]
   );
+
+  const openRequestModal = (group, requestType) => {
+    setSelectedRequestGroup(group);
+    setRequestError("");
+    setRequestForm({
+      request_type: requestType,
+      amount: String(Number(group.advanceAvailable || 0)),
+      reason: "",
+      enrollment: group.enrollment_id || "",
+    });
+    setShowRequestModal(true);
+  };
+
+  const handleRequestFormChange = (e) => {
+    const { name, value } = e.target;
+    setRequestForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const submitAdvanceRequest = async (e) => {
+    e.preventDefault();
+    setRequestError("");
+
+    if (!requestForm.amount || Number(requestForm.amount) <= 0) {
+      setRequestError("Please enter a valid amount.");
+      return;
+    }
+
+    setRequestSubmitting(true);
+    try {
+      const res = await apiFetch("/api/finance/my-advance-requests/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          request_type: requestForm.request_type,
+          amount: Number(requestForm.amount),
+          reason: requestForm.reason,
+          enrollment: requestForm.enrollment || null,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to submit request.");
+      }
+
+      alert("Request submitted successfully.");
+      setShowRequestModal(false);
+      setSelectedRequestGroup(null);
+    } catch (err) {
+      setRequestError(err.message || "Failed to submit request.");
+    } finally {
+      setRequestSubmitting(false);
+    }
+  };
 
   const handlePrint = () => {
     setShowPreview(true);
@@ -472,6 +470,13 @@ const submitAdvanceRequest = async (e) => {
                   : "No available advance"}
               </div>
             </div>
+          </div>
+        )}
+
+        {loading && (
+          <div className="ledger-loading">
+            <div className="spinner-border text-primary me-2" role="status" />
+            Loading ledger…
           </div>
         )}
 
@@ -602,6 +607,33 @@ const submitAdvanceRequest = async (e) => {
                             </div>
                           </div>
                         </div>
+
+                        {group.advanceAvailable > 0 && (
+                          <div
+                            style={{
+                              marginTop: "1rem",
+                              display: "flex",
+                              gap: "0.75rem",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <button
+                              type="button"
+                              className="ledger-btn-print"
+                              onClick={() => openRequestModal(group, "APPLY_ADVANCE")}
+                            >
+                              Request Apply Advance
+                            </button>
+
+                            <button
+                              type="button"
+                              className="ledger-btn-print"
+                              onClick={() => openRequestModal(group, "REFUND")}
+                            >
+                              Request Refund
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       <div className="table-responsive">
@@ -1207,31 +1239,174 @@ const submitAdvanceRequest = async (e) => {
         )}
       </div>
 
+      {showRequestModal && (
+        <div className="th-modal-overlay" onClick={() => setShowRequestModal(false)}>
+          <div className="th-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="th-modal-header">
+              <h3>
+                {requestForm.request_type === "REFUND"
+                  ? "Request Refund"
+                  : "Request Apply Advance"}
+              </h3>
+              <button
+                className="th-modal-close"
+                onClick={() => setShowRequestModal(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <form className="th-modal-form" onSubmit={submitAdvanceRequest}>
+              {requestError && <div className="th-form-error">{requestError}</div>}
+
+              <div className="th-form-group">
+                <label>Enrollment</label>
+                <input
+                  type="text"
+                  value={
+                    selectedRequestGroup?.enrollment_id
+                      ? `#${selectedRequestGroup.enrollment_id}`
+                      : "—"
+                  }
+                  className="th-form-input"
+                  readOnly
+                />
+              </div>
+
+              <div className="th-form-group">
+                <label>Available Advance</label>
+                <input
+                  type="text"
+                  value={formatCurrency(selectedRequestGroup?.advanceAvailable || 0)}
+                  className="th-form-input"
+                  readOnly
+                />
+              </div>
+
+              <div className="th-form-group">
+                <label>Requested Amount</label>
+                <input
+                  type="number"
+                  name="amount"
+                  step="0.01"
+                  min="0"
+                  value={requestForm.amount}
+                  onChange={handleRequestFormChange}
+                  className="th-form-input"
+                />
+              </div>
+
+              <div className="th-form-group">
+                <label>Reason / Note</label>
+                <textarea
+                  name="reason"
+                  rows="3"
+                  value={requestForm.reason}
+                  onChange={handleRequestFormChange}
+                  className="th-form-input"
+                  placeholder="Optional note..."
+                />
+              </div>
+
+              <div className="th-modal-footer">
+                <button
+                  type="button"
+                  className="th-btn-cancel"
+                  onClick={() => setShowRequestModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="th-btn-success"
+                  disabled={requestSubmitting}
+                >
+                  {requestSubmitting ? "Submitting..." : "Submit Request"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <PreviewModal
         isOpen={showPreview}
         onClose={() => setShowPreview(false)}
         title="Account & Financial Ledger"
         customPreview={
-          <div style={{ padding: "1.5rem", fontSize: "0.9rem", lineHeight: "1.6", color: "#1e293b" }} data-preview-type={viewMode}>
+          <div
+            style={{
+              padding: "1.5rem",
+              fontSize: "0.9rem",
+              lineHeight: "1.6",
+              color: "#1e293b",
+            }}
+            data-preview-type={viewMode}
+          >
             {viewMode === "transactions" ? (
               <div data-transactions-preview="true">
-                <h3 style={{ marginTop: 0, marginBottom: "1.5rem", fontSize: "1.1rem", fontWeight: 700 }}>Account Ledger Details</h3>
+                <h3
+                  style={{
+                    marginTop: 0,
+                    marginBottom: "1.5rem",
+                    fontSize: "1.1rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  Account Ledger Details
+                </h3>
                 {paginatedTransactions.length > 0 ? (
                   paginatedTransactions.map((group) => (
-                    <div key={group.key} style={{ marginBottom: "2rem", paddingBottom: "1.5rem", borderBottom: "1px solid #e2e8f0" }}>
-                      <div style={{ fontWeight: 700, color: "#1d4ed8", marginBottom: "1rem" }}>
+                    <div
+                      key={group.key}
+                      style={{
+                        marginBottom: "2rem",
+                        paddingBottom: "1.5rem",
+                        borderBottom: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color: "#1d4ed8",
+                          marginBottom: "1rem",
+                        }}
+                      >
                         {buildLedgerGroupTitle(group) || "Ledger Record"}
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem", marginBottom: "1rem", fontSize: "0.85rem", padding: "0.75rem", background: "#f8fafc", borderRadius: "0.5rem" }}>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fit, minmax(180px, 1fr))",
+                          gap: "0.75rem",
+                          marginBottom: "1rem",
+                          fontSize: "0.85rem",
+                          padding: "0.75rem",
+                          background: "#f8fafc",
+                          borderRadius: "0.5rem",
+                        }}
+                      >
                         <div><strong>Semester:</strong> {group.semester || "—"}</div>
                         <div><strong>Total Billed:</strong> {formatCurrency(group.totalDebit)}</div>
                         <div><strong>Total Paid:</strong> {formatCurrency(group.totalCredit)}</div>
                         <div><strong>Payable Balance:</strong> {formatCurrency(group.payableBalance)}</div>
                         <div><strong>Advance Available:</strong> {formatCurrency(group.advanceAvailable)}</div>
                       </div>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          fontSize: "0.8rem",
+                        }}
+                      >
                         <thead>
-                          <tr style={{ borderBottom: "2px solid #1d4ed8", background: "#f0f9ff" }}>
+                          <tr
+                            style={{
+                              borderBottom: "2px solid #1d4ed8",
+                              background: "#f0f9ff",
+                            }}
+                          >
                             <th style={{ padding: "0.5rem", textAlign: "left" }}>Date</th>
                             <th style={{ padding: "0.5rem", textAlign: "left" }}>Description</th>
                             <th style={{ padding: "0.5rem", textAlign: "right" }}>Debit</th>
@@ -1241,12 +1416,24 @@ const submitAdvanceRequest = async (e) => {
                         </thead>
                         <tbody>
                           {group.rows.map((tx, idx) => (
-                            <tr key={tx.id} style={{ borderBottom: "1px solid #e2e8f0", background: idx % 2 === 0 ? "#ffffff" : "#f8fafc" }}>
+                            <tr
+                              key={tx.id}
+                              style={{
+                                borderBottom: "1px solid #e2e8f0",
+                                background: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
+                              }}
+                            >
                               <td style={{ padding: "0.5rem" }}>{tx.transaction_date || "—"}</td>
                               <td style={{ padding: "0.5rem" }}>{ITEM_LABELS[tx.item] || tx.item || "Entry"}</td>
-                              <td style={{ padding: "0.5rem", textAlign: "right" }}>{tx.debit ? formatCurrency(tx.debit) : "—"}</td>
-                              <td style={{ padding: "0.5rem", textAlign: "right" }}>{tx.credit ? formatCurrency(tx.credit) : "—"}</td>
-                              <td style={{ padding: "0.5rem", textAlign: "right", fontWeight: 700 }}>{formatCurrency(tx._runningBalance)}</td>
+                              <td style={{ padding: "0.5rem", textAlign: "right" }}>
+                                {tx.debit ? formatCurrency(tx.debit) : "—"}
+                              </td>
+                              <td style={{ padding: "0.5rem", textAlign: "right" }}>
+                                {tx.credit ? formatCurrency(tx.credit) : "—"}
+                              </td>
+                              <td style={{ padding: "0.5rem", textAlign: "right", fontWeight: 700 }}>
+                                {formatCurrency(tx._runningBalance)}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1259,11 +1446,31 @@ const submitAdvanceRequest = async (e) => {
               </div>
             ) : (
               <div data-installments-preview="true">
-                <h3 style={{ marginTop: 0, marginBottom: "1.5rem", fontSize: "1.1rem", fontWeight: 700 }}>Tuition Installment Schedule</h3>
+                <h3
+                  style={{
+                    marginTop: 0,
+                    marginBottom: "1.5rem",
+                    fontSize: "1.1rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  Tuition Installment Schedule
+                </h3>
                 {paginatedInstallments.length > 0 ? (
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      fontSize: "0.85rem",
+                    }}
+                  >
                     <thead>
-                      <tr style={{ borderBottom: "2px solid #16a34a", background: "#f0fdf4" }}>
+                      <tr
+                        style={{
+                          borderBottom: "2px solid #16a34a",
+                          background: "#f0fdf4",
+                        }}
+                      >
                         <th style={{ padding: "0.75rem", textAlign: "left" }}>Student</th>
                         <th style={{ padding: "0.75rem", textAlign: "left" }}>Installment</th>
                         <th style={{ padding: "0.75rem", textAlign: "left" }}>Due Date</th>
@@ -1274,13 +1481,32 @@ const submitAdvanceRequest = async (e) => {
                     <tbody>
                       {paginatedInstallments.map((student, sidx) =>
                         (student.installments || []).map((inst, iidx) => (
-                          <tr key={`${student.student_id || sidx}-${iidx}`} style={{ borderBottom: "1px solid #e2e8f0", background: iidx % 2 === 0 ? "#ffffff" : "#f9fdf6" }}>
+                          <tr
+                            key={`${student.student_id || sidx}-${iidx}`}
+                            style={{
+                              borderBottom: "1px solid #e2e8f0",
+                              background: iidx % 2 === 0 ? "#ffffff" : "#f9fdf6",
+                            }}
+                          >
                             <td style={{ padding: "0.75rem" }}>{student.student_name || "—"}</td>
-                            <td style={{ padding: "0.75rem" }}>Installment {inst.installment_number || iidx + 1}</td>
+                            <td style={{ padding: "0.75rem" }}>
+                              Installment {inst.installment_number || iidx + 1}
+                            </td>
                             <td style={{ padding: "0.75rem" }}>{inst.due_date || "—"}</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", fontWeight: 700 }}>{formatCurrency(inst.amount)}</td>
+                            <td style={{ padding: "0.75rem", textAlign: "right", fontWeight: 700 }}>
+                              {formatCurrency(inst.amount)}
+                            </td>
                             <td style={{ padding: "0.75rem", textAlign: "center" }}>
-                              <span style={{ padding: "0.25rem 0.5rem", borderRadius: "0.25rem", fontSize: "0.75rem", fontWeight: 600, background: inst.is_paid ? "#dcfce7" : "#fef3c7", color: inst.is_paid ? "#166534" : "#b45309" }}>
+                              <span
+                                style={{
+                                  padding: "0.25rem 0.5rem",
+                                  borderRadius: "0.25rem",
+                                  fontSize: "0.75rem",
+                                  fontWeight: 600,
+                                  background: inst.is_paid ? "#dcfce7" : "#fef3c7",
+                                  color: inst.is_paid ? "#166534" : "#b45309",
+                                }}
+                              >
                                 {inst.is_paid ? "Paid" : "Pending"}
                               </span>
                             </td>
@@ -1294,7 +1520,15 @@ const submitAdvanceRequest = async (e) => {
                 )}
               </div>
             )}
-            <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid #e2e8f0", fontSize: "0.75rem", color: "#64748b" }}>
+            <div
+              style={{
+                marginTop: "1.5rem",
+                paddingTop: "1rem",
+                borderTop: "1px solid #e2e8f0",
+                fontSize: "0.75rem",
+                color: "#64748b",
+              }}
+            >
               Document Generated: {new Date().toLocaleString()}
             </div>
           </div>
