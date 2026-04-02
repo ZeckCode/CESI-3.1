@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { Download, X, Settings } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { getGradeLevelDisplay } from "./idGeneratorUtils";
 
 export default function IdCardGenerator({
   isOpen,
@@ -469,8 +470,8 @@ const IdCardPreview = React.forwardRef(
             <div
               style={{
                 background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                height: 160,
-                padding: 16,
+                height: 180,
+                padding: 12,
                 display: "flex",
                 flexDirection: "column",
                 color: "white",
@@ -484,26 +485,42 @@ const IdCardPreview = React.forwardRef(
                   src={settings.logo_url}
                   alt="School Logo"
                   style={{
-                    height: 36,
-                    maxWidth: 70,
-                    margin: "0 auto 6px",
+                    height: 32,
+                    maxWidth: 60,
+                    margin: "0 auto 4px",
                     objectFit: "contain",
                     filter: "brightness(0) invert(1)",
                   }}
                 />
               )}
-              <div style={{ fontSize: 16, fontWeight: "bold" }}>
+              <div style={{ fontSize: 14, fontWeight: "bold" }}>
                 {settings.schoolName}
               </div>
-              <div style={{ fontSize: 10, opacity: 0.9 }}>
+              <div style={{ fontSize: 9, opacity: 0.9, marginBottom: 8 }}>
                 {settings.schoolMotto}
+              </div>
+
+              {/* Student Number and LRN above photo */}
+              <div style={{ fontSize: 8, display: "flex", gap: 12, marginBottom: 8 }}>
+                <div style={{ background: "rgba(255,255,255,0.2)", padding: "4px 8px", borderRadius: 3 }}>
+                  <div style={{ fontSize: 7, opacity: 0.8, fontWeight: 600 }}>SN</div>
+                  <div style={{ fontWeight: "bold", fontSize: 9 }}>
+                    {studentData.id || "—"}
+                  </div>
+                </div>
+                <div style={{ background: "rgba(255,255,255,0.2)", padding: "4px 8px", borderRadius: 3 }}>
+                  <div style={{ fontSize: 7, opacity: 0.8, fontWeight: 600 }}>LRN</div>
+                  <div style={{ fontWeight: "bold", fontSize: 9 }}>
+                    {studentData.grade_level === "prek" ? "N/A" : (studentData.lrn || "—")}
+                  </div>
+                </div>
               </div>
 
               {/* Student Photo - Positioned to overlap */}
               <div
                 style={{
                   position: "absolute",
-                  bottom: -40,
+                  bottom: -35,
                   left: "50%",
                   transform: "translateX(-50%)",
                   zIndex: 10,
@@ -514,26 +531,30 @@ const IdCardPreview = React.forwardRef(
                     src={studentData.id_image_url}
                     alt={studentName}
                     style={{
-                      width: 100,
-                      height: 100,
+                      width: 95,
+                      height: 95,
                       borderRadius: "50%",
                       border: "4px solid white",
                       objectFit: "cover",
                       boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
                     }}
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.nextElementSibling.style.display = "flex";
+                    }}
                   />
                 ) : (
                   <div
                     style={{
-                      width: 100,
-                      height: 100,
+                      width: 95,
+                      height: 95,
                       borderRadius: "50%",
                       border: "4px solid white",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       background: "#e0e7ff",
-                      fontSize: 40,
+                      fontSize: 38,
                       boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
                     }}
                   >
@@ -548,7 +569,7 @@ const IdCardPreview = React.forwardRef(
               style={{
                 background: "#fbbf24",
                 flex: 1,
-                padding: "60px 16px 16px",
+                padding: "55px 16px 16px",
                 display: "flex",
                 flexDirection: "column",
                 gap: 10,
@@ -561,7 +582,7 @@ const IdCardPreview = React.forwardRef(
                   {studentName}
                 </div>
                 <div style={{ fontSize: 11, color: "#333" }}>
-                  Grade {studentData.grade_level || "—"}
+                  {getGradeLevelDisplay(studentData.grade_level)}
                 </div>
               </div>
 
@@ -589,7 +610,7 @@ const IdCardPreview = React.forwardRef(
                   LRN
                 </div>
                 <div style={{ fontWeight: "bold", color: "#1d4ed8" }}>
-                  {studentData.lrn || "N/A"}
+                  {studentData.grade_level === "prek" ? "N/A" : (studentData.lrn || "N/A")}
                 </div>
               </div>
 

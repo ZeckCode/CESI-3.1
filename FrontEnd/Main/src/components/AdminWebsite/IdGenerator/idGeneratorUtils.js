@@ -27,6 +27,23 @@ export const fetchSchoolInfo = async () => {
   return DEFAULT_SCHOOL_INFO;
 };
 
+// Grade level mapping - convert codes to display names
+export const GRADE_LEVEL_MAP = {
+  prek: "Preschool",
+  kinder: "Kinder",
+  grade1: "Grade 1",
+  grade2: "Grade 2",
+  grade3: "Grade 3",
+  grade4: "Grade 4",
+  grade5: "Grade 5",
+  grade6: "Grade 6",
+};
+
+// Get display name for grade level
+export const getGradeLevelDisplay = (code) => {
+  return GRADE_LEVEL_MAP[code] || code || "N/A";
+};
+
 // Format enrollment data for ID display
 export const prepareIdData = (enrollment) => ({
   first_name: enrollment.first_name || "",
@@ -41,4 +58,5 @@ export const prepareIdData = (enrollment) => ({
   student_type: enrollment.student_type || "",
   parent_name: enrollment.parent_name || "",
   parent_phone: enrollment.parent_phone || "",
+  id: enrollment.id || enrollment.student_id || "",
 });

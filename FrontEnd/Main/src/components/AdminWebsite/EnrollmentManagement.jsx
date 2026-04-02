@@ -1462,13 +1462,19 @@ const handleApprove = async (id) => {
     setIdUploading(true);
     try {
       // The photo is already stored as id_image in the enrollment
-      // Just close the modal and show success
       addToast(
         "Photo Confirmed",
         "Student's submitted 2x2 photo is now set as their ID photo.",
         "success"
       );
       closeIdUploadModal();
+
+      // Auto-open ID generator after confirming photo
+      if (enrollment && enrollment.id) {
+        const studentData = prepareIdData(enrollment);
+        setSelectedStudentForId(studentData);
+        setIdGeneratorOpen(true);
+      }
     } catch (err) {
       console.error("Error using submitted photo:", err);
       addToast("Failed", "Could not confirm photo.", "error");
