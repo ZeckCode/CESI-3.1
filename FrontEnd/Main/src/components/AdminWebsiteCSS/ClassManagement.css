@@ -526,16 +526,20 @@
   .admin-section-header,
   .admin-modal-overlay,
   .admin-modal-content,
-  .tabs-container,
+  .admin-tabs-container,
   .admin-class-details,
   .form-card,
   .modal-overlay,
   [className*="btn"],
   [className*="control"],
+  .admin-class-controls,
+  .schedule-controls,
   .admin-form-actions,
-  .class-controls,
+  .admin-form-row,
   .search-box,
   .filter-box,
+  .schedule-view-toggle,
+  .bulk-select-bar,
   button,
   input:not([type="checkbox"]),
   select {
@@ -557,61 +561,53 @@
     margin: 8px 0;
   }
 
-  /* Optimize stats display */
-  .stats-grid,
-  .stat-card {
-    margin: 0;
+  /* Header for print */
+  .cm-stats-section {
+    margin-bottom: 12px;
     padding: 0;
     background: white;
+    border: none;
     box-shadow: none;
-    border: none;
-    display: block;
   }
 
-  .stat-card {
-    display: inline-block;
-    margin-right: 20px;
-    margin-bottom: 8px;
-    padding: 0;
-    border: none;
+  .cm-stats-header {
+    margin-bottom: 4px;
   }
 
-  .stat-card h3 {
-    font-size: 10px;
-    margin: 0;
-    color: #666;
-  }
-
-  .stat-number {
+  .cm-stats-title {
     font-size: 16px;
-    margin: 4px 0 0 0;
     font-weight: bold;
+    margin-bottom: 8px;
+    border-bottom: 2px solid #000;
+    padding-bottom: 4px;
   }
 
-  /* Optimize class cards */
-  .class-card,
-  .section-card {
-    page-break-inside: avoid;
-    background: white;
-    border: 1px solid #ccc;
-    padding: 8px;
-    margin-bottom: 10px;
+  /* Optimize stats display */
+  .cm-stats-section .unified-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .unified-stat-card {
+    background: white !important;
+    border: 1px solid #ddd;
+    padding: 8px !important;
+    margin: 0;
     box-shadow: none;
   }
 
-  .class-card h3,
-  .section-card h3 {
-    font-size: 12px;
-    margin: 0 0 4px 0;
-    font-weight: bold;
-    color: #000;
+  .unified-stat-label {
+    font-size: 9px;
   }
 
-  .class-card p,
-  .section-card p {
-    font-size: 10px;
-    margin: 2px 0;
-    line-height: 1.3;
+  .unified-stat-value {
+    font-size: 14px !important;
+  }
+
+  .unified-stat-subtitle {
+    font-size: 8px;
   }
 
   /* Optimize table display */
@@ -631,55 +627,90 @@
     page-break-inside: avoid;
   }
 
-  table th,
-  table td {
+  table th {
+    background: #ddd !important;
+    font-weight: bold;
+    color: #000 !important;
+    padding: 6px !important;
     border: 1px solid #999;
-    padding: 4px;
     text-align: left;
   }
 
-  table th {
-    background: #e0e0e0 !important;
-    font-weight: bold;
-    color: #000;
+  table td {
+    border: 1px solid #999;
+    padding: 6px !important;
+    text-align: left;
   }
 
-  /* Remove shadows and unnecessary styling */
-  .admin-btn-primary,
-  .cm-btn-icon {
-    display: none !important;
+  /* Hide unnecessary columns in print */
+  .admin-schedule-table th:nth-child(1),
+  .admin-schedule-table td:nth-child(1),
+  .admin-schedule-table th:nth-child(8),
+  .admin-schedule-table td:nth-child(8) {
+    display: none;
   }
 
-  /* Optimize text for readability */
-  h1,
-  h2,
-  h3 {
-    page-break-after: avoid;
+  /* Badges and styling in print */
+  .section-badge,
+  .subject-badge,
+  .day-badge,
+  .room-badge,
+  .teacher-name,
+  .time-display {
+    background: white !important;
+    border: none !important;
+    color: #000 !important;
+    padding: 0 !important;
   }
 
-  p {
-    orphans: 3;
-    widows: 3;
+  .time-display svg {
+    display: none;
   }
 
-  /* Print page settings */
+  .room-badge svg,
+  .day-badge svg {
+    display: none;
+  }
+
+  /* Page settings */
   @page {
     margin: 0.5in;
     size: A4 portrait;
   }
 
-  /* Ensure links are visible in print */
+  /* Links in print */
   a {
     color: #000;
     text-decoration: none;
   }
 
-  /* Optimize colors for print */
-  body {
-    color: #000 !important;
-    background: white !important;
+  /* Remove print hiding for content we want to show */
+  .admin-schedule-container {
+    display: block !important;
+  }
+
+  .admin-schedule-table {
+    display: table !important;
+  }
+
+  .admin-schedule-table thead {
+    display: table-header-group !important;
+  }
+
+  .admin-schedule-table tbody {
+    display: table-row-group !important;
+  }
+
+  .admin-schedule-table tr {
+    display: table-row !important;
+  }
+
+  .admin-schedule-table th,
+  .admin-schedule-table td {
+    display: table-cell !important;
   }
 }
+
 
 .admin-filter-box svg {
   display: none !important;
