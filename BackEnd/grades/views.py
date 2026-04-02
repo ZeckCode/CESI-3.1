@@ -957,6 +957,9 @@ def students_by_section(request, section_id):
 
     students_map = {}
 
+    def normalize_student_number(value):
+        return str(value or "").strip().lower()
+
     def build_student_key(student, enrollment=None, profile=None):
         student_number = None
         if enrollment and enrollment.student_number:
