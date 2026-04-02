@@ -261,3 +261,48 @@ class ProofOfPayment(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.reference_number}"
+    
+    
+class AdvanceRequest(models.Model):
+    REQUEST_TYPE_CHOICES = [
+        ('APPLY_ADVANCE', 'Apply Advance'),
+        ('REFUND', 'Refund'),
+    ]
+
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+        ('PROCESSED', 'Processed'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='advance_requests'
+    )
+
+    enrollment = models.ForeignKey(
+        'enrollment.Enrollment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='advance_requests'
+    )
+
+    request_type = models.CharField(max_length=20, choices=REQUEST_TYPE_CHOICES)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    reason = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+
+    admin_remarks = models.TextField(blank=True, null=True)
+    processed_at = models.DateTimeField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.request_type} - {self.status}"

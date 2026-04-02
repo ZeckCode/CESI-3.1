@@ -4,7 +4,7 @@ from django.db.models import Sum
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Transaction, TuitionConfig, ProofOfPayment
+from .models import Transaction, TuitionConfig, ProofOfPayment, AdvanceRequest
 from accounts.models import User, UserProfile
 
 
@@ -614,3 +614,56 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
         if obj.proof_image:
             return request.build_absolute_uri(obj.proof_image.url) if request else obj.proof_image.url
         return None
+    
+    
+    
+    # advance
+    class AdvanceRequestSerializer(serializers.ModelSerializer):
+        student_name = serializers.SerializerMethodField()
+        student_number = serializers.SerializerMethodField()
+
+        class Meta:
+            model = AdvanceRequest
+            fields = [
+                'id',
+                'user',
+                'enrollment',
+                'request_type',
+                'amount',
+                'reason',
+                'status',
+                'admin_remarks',
+                'processed_at',
+                'created_at',
+                'updated_at',
+                'student_name',
+                'student_number',
+            ]
+            read_only_fields = [
+                'id',
+                'user',
+                'status',
+                'admin_remarks',
+                'processed_at',
+                'created_at',
+                'updated_at',
+                'student_name',
+                'student_number',
+            ]
+
+        def get_student_name(self, obj):
+            if obj.enrollment:
+                return f"{obj.enrollment.first_name or ''} {obj.enrollment.last_name or ''}".strip()
+            try:
+                p = obj.user.profile
+                return f"{p.student_first_name} {p.student_last_name}".strip()
+            except Exception:
+                return obj.user.username
+
+        def get_student_number(self, obj):
+            if obj.enrollment and obj.enrollment.student_number:
+                return obj.enrollment.student_number
+            try:
+                return obj.user.profile.student_number or ''
+            except Exception:
+                return ''

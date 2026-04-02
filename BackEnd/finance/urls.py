@@ -18,6 +18,9 @@ from .views import (
     pay_student_balance,
     refund_student_payment,
     auto_apply_advance,
+    my_advance_requests,
+    advance_requests_admin,
+    process_advance_request,
 )
 
 urlpatterns = [
@@ -32,6 +35,10 @@ urlpatterns = [
     path('my-transactions/', my_transactions, name='my-transactions'),
     path('my-ledger-summary/', my_ledger_summary, name='my-ledger-summary'),
     path('my-tuition-installments/', my_tuition_installments, name='my-tuition-installments'),
+    path('my-advance-requests/', my_advance_requests, name='my-advance-requests'),
+    path('advance-requests/', advance_requests_admin, name='advance-requests-admin'),
+    path('advance-requests/<int:pk>/process/', process_advance_request, name='advance-request-process'),
+    
 
     # ADD THESE NEW TUITION CONFIG ENDPOINTS
     path('tuition-configs/', TuitionConfigListCreate.as_view(), name='tuition-config-list'),

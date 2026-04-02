@@ -24,6 +24,10 @@ const ITEM_LABELS = {
   MISC: "Miscellaneous",
   RESERVATION: "Reservation Fee",
   ASSESSMENT: "Assessment",
+  ADVANCE: "Advance Credit",
+  REFUND: "Refund",
+  ADVANCE_APPLIED: "Advance Applied",
+  ADVANCE_TRANSFER_OUT: "Advance Transfer Out",
   OTHER: "Other",
 };
 
@@ -110,6 +114,12 @@ const statusPillStyle = (status) => {
   return { background: "#fef3c7", color: "#b45309" };
 };
 
+const getGroupStatus = (group) => {
+  if (Number(group.payableBalance || 0) <= 0) return "PAID";
+  if (Number(group.totalCredit || 0) > 0) return "PARTIAL";
+  return "POSTED";
+};
+
 export default function Ledgers() {
   const [transactions, setTransactions] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -122,6 +132,18 @@ export default function Ledgers() {
   const [viewMode, setViewMode] = useState("transactions");
   const [isPrinting, setIsPrinting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [requestError, setRequestError] = useState('');
+  const [selectedRequestGroup, setSelectedRequestGroup] = useState(null);
+  const [requestForm, setRequestForm] = useState({
+    request_type: 'APPLY_ADVANCE',
+    amount: '',
+    reason: '',
+    enrollment: '',
+  });
+
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -166,6 +188,7 @@ export default function Ledgers() {
     fetchData();
   }, []);
 
+  
   const filteredTransactions = useMemo(
     () =>
       transactions.filter(
@@ -250,12 +273,21 @@ export default function Ledgers() {
           };
         });
 
+        const rawBalance = runningBalance;
+        const payableBalance = rawBalance > 0 ? rawBalance : 0;
+        const advanceAvailable = rawBalance < 0 ? Math.abs(rawBalance) : 0;
+        const groupStatus = payableBalance <= 0 ? "PAID" : totalCredit > 0 ? "PARTIAL" : "POSTED";
+
         return {
           ...group,
           rows: normalizedRows,
           totalDebit,
           totalCredit,
-          balance: runningBalance,
+          balance: payableBalance,
+          rawBalance,
+          payableBalance,
+          advanceAvailable,
+          groupStatus,
         };
       })
       .sort((a, b) =>
@@ -281,6 +313,61 @@ export default function Ledgers() {
     1,
     Math.ceil(tuitionInstallments.length / ITEMS_PER_PAGE)
   );
+  const openRequestModal = (group, requestType) => {
+  setSelectedRequestGroup(group);
+  setRequestError('');
+  setRequestForm({
+    request_type: requestType,
+    amount:
+      requestType === 'REFUND'
+        ? String(Number(group.advanceAvailable || 0))
+        : String(Number(group.advanceAvailable || 0)),
+    reason: '',
+    enrollment: group.enrollment_id || '',
+  });
+  setShowRequestModal(true);
+};
+
+const handleRequestFormChange = (e) => {
+  const { name, value } = e.target;
+  setRequestForm((prev) => ({ ...prev, [name]: value }));
+};
+
+const submitAdvanceRequest = async (e) => {
+  e.preventDefault();
+  setRequestError('');
+
+  if (!requestForm.amount || Number(requestForm.amount) <= 0) {
+    setRequestError('Please enter a valid amount.');
+    return;
+  }
+
+  setRequestSubmitting(true);
+  try {
+    const res = await apiFetch('/api/finance/my-advance-requests/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        request_type: requestForm.request_type,
+        amount: Number(requestForm.amount),
+        reason: requestForm.reason,
+        enrollment: requestForm.enrollment || null,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.detail || 'Failed to submit request.');
+    }
+
+    alert('Request submitted successfully.');
+    setShowRequestModal(false);
+  } catch (err) {
+    setRequestError(err.message || 'Failed to submit request.');
+  } finally {
+    setRequestSubmitting(false);
+  }
+};
 
   const paginatedInstallments = useMemo(
     () =>
@@ -306,8 +393,8 @@ export default function Ledgers() {
                 <p className="ledger-section-subtitle">Complete financial transaction history</p>
               </div>
               <div className="ledger-header-actions">
-                <button 
-                  className="ledger-btn-print" 
+                <button
+                  className="ledger-btn-print"
                   onClick={handlePrint}
                   type="button"
                   title="Print ledger"
@@ -373,13 +460,18 @@ export default function Ledgers() {
                   : "Account settled"}
               </div>
             </div>
-          </div>
-        )}
 
-        {loading && (
-          <div className="ledger-loading">
-            <div className="spinner-border text-primary me-2" role="status" />
-            Loading ledger…
+            <div className="ledger-sumCard ledger-sumCard--info">
+              <div className="ledger-sumCard__label">Advance Available</div>
+              <div className="ledger-sumCard__value">
+                {formatCurrency(summary?.advance_available || 0)}
+              </div>
+              <div className="ledger-sumCard__sub">
+                {Number(summary?.advance_available || 0) > 0
+                  ? "Available for refund or future use"
+                  : "No available advance"}
+              </div>
+            </div>
           </div>
         )}
 
@@ -459,7 +551,7 @@ export default function Ledgers() {
                         <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
                             gap: "1rem",
                             fontSize: "0.82rem",
                             color: "#64748b",
@@ -479,8 +571,35 @@ export default function Ledgers() {
                             <div style={{ fontWeight: 700, color: "#16a34a" }}>{formatCurrency(group.totalCredit)}</div>
                           </div>
                           <div>
-                            <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Balance</div>
-                            <div style={{ fontWeight: 700, color: group.balance > 0 ? "#dc2626" : "#16a34a" }}>{formatCurrency(group.balance)}</div>
+                            <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Payable Balance</div>
+                            <div style={{ fontWeight: 700, color: group.payableBalance > 0 ? "#dc2626" : "#16a34a" }}>{formatCurrency(group.payableBalance)}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Advance Available</div>
+                            <div style={{ fontWeight: 700, color: group.advanceAvailable > 0 ? "#1d4ed8" : "#1e293b" }}>{formatCurrency(group.advanceAvailable)}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Status</div>
+                            <div>
+                              <span
+                                className="status-pill"
+                                style={statusPillStyle(getGroupStatus(group))}
+                              >
+                                {getGroupStatus(group)}
+                              </span>
+                              {group.advanceAvailable > 0 ? (
+                                <span
+                                  className="status-pill"
+                                  style={{
+                                    background: "#dbeafe",
+                                    color: "#1d4ed8",
+                                    marginLeft: "0.5rem",
+                                  }}
+                                >
+                                  ADVANCE {formatCurrency(group.advanceAvailable)}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -597,7 +716,7 @@ export default function Ledgers() {
                                     data-label="Balance"
                                     style={{
                                       fontWeight: 700,
-                                      color: "#dc2626",
+                                      color: Number(tx._runningBalance) > 0 ? "#dc2626" : "#16a34a",
                                     }}
                                   >
                                     {formatCurrency(tx._runningBalance)}
@@ -638,10 +757,10 @@ export default function Ledgers() {
                               </td>
                               <td
                                 className="text-right"
-                                style={{ color: "#dc2626" }}
+                                style={{ color: group.payableBalance > 0 ? "#dc2626" : "#16a34a" }}
                                 data-label="Balance Total"
                               >
-                                {formatCurrency(group.balance)}
+                                {formatCurrency(group.payableBalance)}
                               </td>
                               <td></td>
                             </tr>
@@ -881,7 +1000,7 @@ export default function Ledgers() {
                               const amount_due = Number(item.amount || 0);
                               const amount_paid = item.is_paid ? amount_due : 0;
                               const balance = amount_due - amount_paid;
-                              
+
                               return (
                                 <tr
                                   key={item.id || `${student.student_id}-${itemIndex}`}
@@ -942,7 +1061,7 @@ export default function Ledgers() {
                               <td style={{ textAlign: "right" }} data-label="Total Paid">
                                 {formatCurrency(
                                   (student.installments || []).reduce(
-                                    (sum, item) => 
+                                    (sum, item) =>
                                       sum + (item.is_paid ? Number(item.amount || 0) : 0),
                                     0
                                   )
@@ -951,7 +1070,7 @@ export default function Ledgers() {
                               <td style={{ textAlign: "right", color: "#dc2626" }} data-label="Total Balance">
                                 {formatCurrency(
                                   (student.installments || []).reduce(
-                                    (sum, item) => 
+                                    (sum, item) =>
                                       sum + (item.is_paid ? 0 : Number(item.amount || 0)),
                                     0
                                   )
@@ -978,14 +1097,13 @@ export default function Ledgers() {
           </section>
         )}
 
-        {/* Print Area */}
         {isPrinting && (
           <section className="ledger-print-area">
             <div className="ledger-print-header">
               <h2 className="ledger-print-title">Account & Financial Ledger</h2>
               <p className="ledger-print-subtitle">Complete Financial Transaction History</p>
             </div>
-            
+
             {viewMode === "transactions" && (
               <div className="ledger-print-content">
                 <div className="ledger-print-section">
@@ -1002,7 +1120,8 @@ export default function Ledgers() {
                           <div><strong>Semester:</strong> {group.semester || "—"}</div>
                           <div><strong>Total Billed:</strong> {formatCurrency(group.totalDebit)}</div>
                           <div><strong>Total Paid:</strong> {formatCurrency(group.totalCredit)}</div>
-                          <div><strong>Balance:</strong> {formatCurrency(group.balance)}</div>
+                          <div><strong>Payable Balance:</strong> {formatCurrency(group.payableBalance)}</div>
+                          <div><strong>Advance Available:</strong> {formatCurrency(group.advanceAvailable)}</div>
                         </div>
                         <table className="ledger-print-table">
                           <thead>
@@ -1088,9 +1207,9 @@ export default function Ledgers() {
         )}
       </div>
 
-      <PreviewModal 
-        isOpen={showPreview} 
-        onClose={() => setShowPreview(false)} 
+      <PreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
         title="Account & Financial Ledger"
         customPreview={
           <div style={{ padding: "1.5rem", fontSize: "0.9rem", lineHeight: "1.6", color: "#1e293b" }} data-preview-type={viewMode}>
@@ -1103,11 +1222,12 @@ export default function Ledgers() {
                       <div style={{ fontWeight: 700, color: "#1d4ed8", marginBottom: "1rem" }}>
                         {buildLedgerGroupTitle(group) || "Ledger Record"}
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem", fontSize: "0.85rem", padding: "0.75rem", background: "#f8fafc", borderRadius: "0.5rem" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem", marginBottom: "1rem", fontSize: "0.85rem", padding: "0.75rem", background: "#f8fafc", borderRadius: "0.5rem" }}>
                         <div><strong>Semester:</strong> {group.semester || "—"}</div>
                         <div><strong>Total Billed:</strong> {formatCurrency(group.totalDebit)}</div>
                         <div><strong>Total Paid:</strong> {formatCurrency(group.totalCredit)}</div>
-                        <div><strong>Balance:</strong> {formatCurrency(group.balance)}</div>
+                        <div><strong>Payable Balance:</strong> {formatCurrency(group.payableBalance)}</div>
+                        <div><strong>Advance Available:</strong> {formatCurrency(group.advanceAvailable)}</div>
                       </div>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
                         <thead>

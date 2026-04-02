@@ -14,7 +14,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
 from accounts.models import User, UserProfile
-from .models import Transaction, TuitionConfig, ProofOfPayment
+from .models import AdvanceRequest, Transaction, TuitionConfig, ProofOfPayment
 from .serializers import (
     TransactionSerializer,
     TransactionCreateSerializer,
@@ -22,6 +22,7 @@ from .serializers import (
     TuitionConfigSerializer,
     TuitionConfigCreateSerializer,
     ProofOfPaymentSerializer,
+    AdvanceRequestSerializer,
 )
 
 
@@ -88,6 +89,24 @@ def get_available_advance_for_enrollment(enrollment):
 
     available = Decimal(str(advance_total)) - Decimal(str(transferred_total))
     return available if available > 0 else Decimal('0.00')
+
+
+def ledger_totals_and_advance_for_parent(parent):
+    totals = Transaction.objects.filter(parent=parent).aggregate(
+        total_debit=Sum('debit'),
+        total_credit=Sum('credit'),
+    )
+    total_debit = Decimal(str(totals.get('total_debit') or 0))
+    total_credit = Decimal(str(totals.get('total_credit') or 0))
+    raw_balance = total_debit - total_credit
+
+    payable_balance = raw_balance if raw_balance > 0 else Decimal('0.00')
+    advance_available = abs(raw_balance) if raw_balance < 0 else Decimal('0.00')
+
+    return total_debit, total_credit, payable_balance, advance_available
+
+
+
 def auto_apply_previous_advance_to_enrollment(target_enrollment):
     from enrollment.models import Enrollment
 
@@ -460,14 +479,14 @@ def my_ledger_summary(request):
     if getattr(request.user, 'role', None) != 'PARENT_STUDENT':
         return Response({'detail': 'Forbidden'}, status=403)
 
-    total_billed, total_paid, balance = ledger_totals_for_parent(request.user)
+    total_billed, total_paid, balance, advance_available = ledger_totals_and_advance_for_parent(request.user)
 
     return Response({
         'total_billed': float(total_billed),
         'total_paid': float(total_paid),
         'balance': float(balance),
+        'advance_available': float(advance_available),
     })
-
 
 class TuitionConfigListCreate(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -967,6 +986,178 @@ def auto_apply_advance(request):
         'new_balance': float(new_balance if new_balance > 0 else Decimal('0.00')),
         'status': 'PAID' if new_balance <= 0 else 'PARTIAL',
     }, status=200)
+    
+    
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def my_advance_requests(request):
+    if getattr(request.user, 'role', None) != 'PARENT_STUDENT':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    if request.method == 'GET':
+        qs = AdvanceRequest.objects.filter(user=request.user).select_related('enrollment')
+        return Response(AdvanceRequestSerializer(qs, many=True).data)
+
+    request_type = str(request.data.get('request_type', '')).strip().upper()
+    amount_raw = request.data.get('amount')
+    reason = str(request.data.get('reason', '')).strip()
+    enrollment_id = request.data.get('enrollment')
+
+    if request_type not in {'APPLY_ADVANCE', 'REFUND'}:
+        return Response({'detail': 'Invalid request type.'}, status=400)
+
+    try:
+        amount = Decimal(str(amount_raw))
+    except Exception:
+        return Response({'detail': 'Invalid amount.'}, status=400)
+
+    if amount <= 0:
+        return Response({'detail': 'Amount must be greater than 0.'}, status=400)
+
+    enrollment = None
+    if enrollment_id:
+        enrollment = Enrollment.objects.filter(
+            id=enrollment_id,
+            parent_user=request.user
+        ).first()
+
+    obj = AdvanceRequest.objects.create(
+        user=request.user,
+        enrollment=enrollment,
+        request_type=request_type,
+        amount=amount,
+        reason=reason,
+        status='PENDING',
+    )
+
+    return Response(AdvanceRequestSerializer(obj).data, status=201)  
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def advance_requests_admin(request):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    qs = AdvanceRequest.objects.select_related('user', 'enrollment').all()
+    return Response(AdvanceRequestSerializer(qs, many=True).data)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def process_advance_request(request, pk):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    obj = AdvanceRequest.objects.filter(pk=pk).select_related('enrollment', 'user').first()
+    if not obj:
+        return Response({'detail': 'Request not found.'}, status=404)
+
+    action_type = str(request.data.get('action', '')).strip().upper()
+    remarks = str(request.data.get('remarks', '')).strip()
+
+    if action_type not in {'APPROVE', 'REJECT', 'PROCESS'}:
+        return Response({'detail': 'Invalid action.'}, status=400)
+
+    if action_type == 'REJECT':
+        obj.status = 'REJECTED'
+        obj.admin_remarks = remarks
+        obj.processed_at = timezone.now()
+        obj.save(update_fields=['status', 'admin_remarks', 'processed_at', 'updated_at'])
+        return Response({'success': True, 'status': obj.status})
+
+    if action_type == 'APPROVE':
+        obj.status = 'APPROVED'
+        obj.admin_remarks = remarks
+        obj.save(update_fields=['status', 'admin_remarks', 'updated_at'])
+        return Response({'success': True, 'status': obj.status})
+
+    # PROCESS
+    if obj.request_type == 'APPLY_ADVANCE':
+        if not obj.enrollment or not obj.enrollment.student_number:
+            return Response({'detail': 'Enrollment or student number missing.'}, status=400)
+
+        with db_transaction.atomic():
+            applied_amount = auto_apply_previous_advance_to_enrollment(obj.enrollment)
+            _, _, new_balance = ledger_totals_for_enrollment(obj.enrollment)
+
+        obj.status = 'PROCESSED'
+        obj.admin_remarks = remarks or f'Advance applied: {applied_amount}'
+        obj.processed_at = timezone.now()
+        obj.save(update_fields=['status', 'admin_remarks', 'processed_at', 'updated_at'])
+
+        return Response({
+            'success': True,
+            'status': obj.status,
+            'applied_amount': float(applied_amount),
+            'new_balance': float(new_balance if new_balance > 0 else Decimal('0.00')),
+        })
+
+    if obj.request_type == 'REFUND':
+        if not obj.enrollment or not obj.enrollment.student_number:
+            return Response({'detail': 'Enrollment or student number missing.'}, status=400)
+
+        available = get_available_advance_for_enrollment(obj.enrollment)
+        if obj.amount > available:
+            return Response({'detail': f'Request exceeds available advance: {available}.'}, status=400)
+
+        student_name = (
+            f"{obj.enrollment.first_name or ''} {obj.enrollment.last_name or ''}".strip()
+            or obj.enrollment.student.username
+        )
+
+        with db_transaction.atomic():
+            refund_tx = Transaction.objects.create(
+                parent=obj.enrollment.parent_user,
+                enrollment=obj.enrollment,
+                student_name=student_name,
+                transaction_type='TUITION',
+                entry_type='DEBIT',
+                item='REFUND',
+                school_year=obj.enrollment.academic_year,
+                semester='1st',
+                amount=obj.amount,
+                description=f"Refund processed from student request #{obj.id}.",
+                payment_method='OTHER',
+                transaction_date=timezone.localdate(),
+                status='POSTED',
+                student_number_snapshot=obj.enrollment.student_number,
+                grade_level_snapshot=obj.enrollment.grade_level,
+                payment_mode_snapshot=obj.enrollment.payment_mode,
+                student_type_snapshot=obj.enrollment.student_type,
+            )
+
+            new_balance = recompute_running_balances_for_enrollment(obj.enrollment)
+
+        obj.status = 'PROCESSED'
+        obj.admin_remarks = remarks or f'Refund transaction #{refund_tx.id} created.'
+        obj.processed_at = timezone.now()
+        obj.save(update_fields=['status', 'admin_remarks', 'processed_at', 'updated_at'])
+
+        return Response({
+            'success': True,
+            'status': obj.status,
+            'refund_transaction_id': refund_tx.id,
+            'new_balance': float(new_balance if new_balance > 0 else Decimal('0.00')),
+        })
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 # ═══════════════════════════════════════════════════════════
 # PROOF OF PAYMENT VIEWS
 # ═══════════════════════════════════════════════════════════

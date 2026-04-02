@@ -1170,3 +1170,14 @@
     font-size: 0.7rem;
   }
 }
+
+
+
+.ledger-sumCard--info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.ledger-sumCard--info .ledger-sumCard__value {
+  color: #1d4ed8;
+}
