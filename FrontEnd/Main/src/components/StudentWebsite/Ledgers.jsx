@@ -303,7 +303,22 @@ export default function Ledgers() {
       <div className="ledger-content">
         {!isPrinting && (
           <>
-            
+            <div className="ledger-section-header">
+              <div>
+                <h2 className="ledger-section-title">Account & Financial Records</h2>
+                <p className="ledger-section-subtitle">Complete financial transaction history</p>
+              </div>
+              <div className="ledger-header-actions">
+                <button 
+                  className="ledger-btn-print" 
+                  onClick={handlePrint}
+                  type="button"
+                  title="Print ledger"
+                >
+                  <span>🖨️</span> Print Ledger
+                </button>
+              </div>
+            </div>
 
             <div className="ledger-tabs">
               <button
@@ -367,7 +382,7 @@ export default function Ledgers() {
         {loading && (
           <div className="ledger-loading">
             <div className="spinner-border text-primary me-2" role="status" />
-            Loading ledger...
+            Loading ledger…
           </div>
         )}
 
@@ -963,6 +978,115 @@ export default function Ledgers() {
                 />
               </>
             )}
+          </section>
+        )}
+
+        {/* Print Area */}
+        {isPrinting && (
+          <section className="ledger-print-area">
+            <div className="ledger-print-header">
+              <h2 className="ledger-print-title">Account & Financial Ledger</h2>
+              <p className="ledger-print-subtitle">Complete Financial Transaction History</p>
+            </div>
+            
+            {viewMode === "transactions" && (
+              <div className="ledger-print-content">
+                <div className="ledger-print-section">
+                  <h3 className="ledger-print-section-title">Account Ledger Details</h3>
+                  {groupedTransactions.length === 0 ? (
+                    <p style={{ marginTop: "1rem", color: "#64748b" }}>No transactions to display.</p>
+                  ) : (
+                    groupedTransactions.map((group) => (
+                      <div key={group.key} className="ledger-print-group">
+                        <h4 className="ledger-print-group-title">
+                          {buildLedgerGroupTitle(group) || "Ledger Record"}
+                        </h4>
+                        <div className="ledger-print-group-info">
+                          <div><strong>Semester:</strong> {group.semester || "—"}</div>
+                          <div><strong>Total Billed:</strong> {formatCurrency(group.totalDebit)}</div>
+                          <div><strong>Total Paid:</strong> {formatCurrency(group.totalCredit)}</div>
+                          <div><strong>Balance:</strong> {formatCurrency(group.balance)}</div>
+                        </div>
+                        <table className="ledger-print-table">
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Reference</th>
+                              <th>Description</th>
+                              <th>Debit</th>
+                              <th>Credit</th>
+                              <th>Balance</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {group.rows.map((tx) => (
+                              <tr key={tx.id}>
+                                <td>{tx.transaction_date || "—"}</td>
+                                <td>{tx.reference_number || tx.id || "—"}</td>
+                                <td>{ITEM_LABELS[tx.item] || tx.item || "Entry"}</td>
+                                <td style={{ textAlign: "right" }}>
+                                  {Number(tx.debit || 0) > 0 ? formatCurrency(tx.debit) : "—"}
+                                </td>
+                                <td style={{ textAlign: "right" }}>
+                                  {Number(tx.credit || 0) > 0 ? formatCurrency(tx.credit) : "—"}
+                                </td>
+                                <td style={{ textAlign: "right" }}>
+                                  {formatCurrency(tx._runningBalance)}
+                                </td>
+                                <td style={{ textAlign: "center" }}>{tx.status || "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {viewMode === "installments" && (
+              <div className="ledger-print-content">
+                <div className="ledger-print-section">
+                  <h3 className="ledger-print-section-title">Tuition Installment Schedule</h3>
+                  {tuitionInstallments.length === 0 ? (
+                    <p style={{ marginTop: "1rem", color: "#64748b" }}>No installment information available.</p>
+                  ) : (
+                    <table className="ledger-print-table">
+                      <thead>
+                        <tr>
+                          <th>Installment</th>
+                          <th>Due Date</th>
+                          <th>Amount</th>
+                          <th>Status</th>
+                          <th>Date Paid</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tuitionInstallments.flatMap((student) =>
+                          (student.installments || []).map((inst, idx) => (
+                            <tr key={`${student.student_id}-${idx}`}>
+                              <td>{inst.installment_number ? `Installment ${inst.installment_number}` : `Installment ${idx + 1}`}</td>
+                              <td>{inst.due_date || "—"}</td>
+                              <td style={{ textAlign: "right" }}>{formatCurrency(inst.amount)}</td>
+                              <td>{inst.is_paid ? "Paid" : "Pending"}</td>
+                              <td>{inst.date_paid || "—"}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="ledger-print-footer">
+              <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
+                Document Generated: {new Date().toLocaleString()}
+              </p>
+            </div>
           </section>
         )}
       </div>

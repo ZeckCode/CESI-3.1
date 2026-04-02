@@ -360,7 +360,7 @@ const Dashboard = () => {
           <div className="card-header-blue">
             <h6 className="header-title">📅 Today's Schedule</h6>
           </div>
-          <div className="card-body-flush">
+          <div className="card-body-flush sd__scheduleScroll">
             {loading ? (
               <div className="sd__listItem">Loading schedule…</div>
             ) : todaySchedule.length === 0 ? (

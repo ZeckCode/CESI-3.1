@@ -63,6 +63,62 @@
   gap: 0.5rem;
 }
 
+/* Ledger Section Header */
+.ledger-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.ledger-section-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
+  text-transform: capitalize;
+}
+
+.ledger-section-subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.ledger-header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.ledger-btn-print {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #3b82f6, #1976d2);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+}
+
+.ledger-btn-print:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(25, 118, 210, 0.4);
+}
+
+.ledger-btn-print:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.3);
+}
+
 .btn-action {
   padding: 0.6rem 1.2rem;
   border-radius: 0.8rem;
@@ -710,6 +766,119 @@
   }
 }
 
+/* Ledger Print Area Styles */
+.ledger-print-area {
+  display: block;
+  width: 100%;
+  background: white;
+  padding: 2rem;
+}
+
+.ledger-print-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #1e293b;
+}
+
+.ledger-print-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ledger-print-subtitle {
+  font-size: 0.95rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.ledger-print-content {
+  margin-top: 2rem;
+}
+
+.ledger-print-section {
+  margin-bottom: 2rem;
+}
+
+.ledger-print-section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 1rem 0 1.5rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ledger-print-group {
+  margin-bottom: 2.5rem;
+  page-break-inside: avoid;
+}
+
+.ledger-print-group-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  margin: 0 0 1rem 0;
+}
+
+.ledger-print-group-info {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.ledger-print-group-info div {
+  color: #1e293b;
+}
+
+.ledger-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+.ledger-print-table thead {
+  background-color: #f1f5f9;
+}
+
+.ledger-print-table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 700;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+}
+
+.ledger-print-table td {
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+.ledger-print-table tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.ledger-print-footer {
+  text-align: center;
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
 /* Print Styles */
 @media print {
   body {
@@ -721,13 +890,25 @@
     color: #000000 !important;
   }
 
+  .ledger-wrapper {
+    display: flex;
+    min-height: auto;
+    background: white;
+  }
+
   .ledger-content {
-    padding: 1rem;
+    padding: 0 !important;
     background: white;
     color: #000000 !important;
   }
 
-  .ledger-header-flex {
+  .ledger-header-flex,
+  .ledger-section-header {
+    display: none !important;
+  }
+
+  .ledger-header-actions,
+  .ledger-btn-print {
     display: none !important;
   }
 
@@ -736,12 +917,12 @@
     display: none !important;
   }
 
-  /* Hide tabs */
+  /* Hide tabs and navigation */
   .ledger-tabs {
     display: none !important;
   }
 
-  /* Hide summary cards */
+  /* Hide summary cards during print */
   .ledger-summary-row {
     display: none !important;
   }
@@ -752,35 +933,23 @@
     display: none !important;
   }
 
+  /* Hide non-print sections */
   .ledger-section {
-    box-shadow: none;
-    border: 1px solid #ccc;
-    page-break-inside: avoid;
+    display: none !important;
   }
 
-  .ledger-table {
-    font-size: 0.85rem;
+  /* Show print area */
+  .ledger-print-area {
+    display: block !important;
+    margin: 0 !important;
+    padding: 1.5rem !important;
+    width: 100% !important;
   }
 
-  .ledger-table thead th {
-    background: transparent;
-    border: 1px solid #999;
-    color: #000000 !important;
-    font-weight: 700;
-  }
-
-  .ledger-table tbody td,
-  .ledger-table tfoot td {
-    border: 1px solid #ddd;
-    color: #000000 !important;
-  }
-
-  /* Print important details only */
   .ledger-info {
     display: none !important;
   }
 
-  /* Hide summary cards entirely or remove colors */
   .ledger-sumCard {
     background: #fff !important;
     border: 1px solid #ccc !important;
@@ -808,27 +977,57 @@
     color: #000000 !important;
   }
 
-  /* Compact spacing for print */
-  .ledger-section {
-    margin-bottom: 1.5rem;
+  /* Print area table styling */
+  .ledger-print-table {
+    width: 100% !important;
+    border: 1px solid #000 !important;
+    border-collapse: collapse !important;
+    margin: 1rem 0 !important;
+    font-size: 0.85rem !important;
   }
 
-  /* Print friendly table */
-  .ledger-accounting th,
-  .ledger-accounting td {
-    text-align: center;
+  .ledger-print-table thead {
+    display: table-header-group !important;
+    background-color: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .ledger-print-table th {
+    padding: 0.75rem !important;
+    text-align: left !important;
+    font-weight: 700 !important;
+    color: #000000 !important;
+    border: 1px solid #000 !important;
+    background-color: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .ledger-print-table tbody {
+    display: table-row-group !important;
+  }
+
+  .ledger-print-table tbody tr {
+    display: table-row !important;
+    page-break-inside: avoid !important;
+    border: 1px solid #ccc !important;
+  }
+
+  .ledger-print-table td {
+    padding: 0.75rem !important;
+    border: 1px solid #ccc !important;
     color: #000000 !important;
   }
 
-  .ledger-accounting th:first-child,
-  .ledger-accounting td:first-child {
-    text-align: left;
+  .ledger-print-group {
+    page-break-inside: avoid !important;
+    margin-bottom: 1.5rem !important;
   }
 
-  .ledger-table tfoot tr {
-    border-top: 2px solid #000 !important;
-    font-weight: 700;
-    color: #000000 !important;
+  .ledger-print-header {
+    border-bottom: 2px solid #000 !important;
+    margin-bottom: 1.5rem !important;
   }
 
   .status-pill,
@@ -842,6 +1041,7 @@
   h3, h4, h5, h6 {
     color: #000000 !important;
   }
+}
 
   @page {
     margin: 0.5in;

@@ -100,6 +100,31 @@
 .card-body-padding { padding: 1.5rem; }
 .card-body-flush { padding: 0; }
 
+/* Scrollable schedule container */
+.sd__scheduleScroll {
+  max-height: 400px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.sd__scheduleScroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sd__scheduleScroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sd__scheduleScroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.sd__scheduleScroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 /* Notification Items */
 .list-item {
   display: flex;
