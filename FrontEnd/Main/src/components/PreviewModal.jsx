@@ -124,7 +124,20 @@ const PreviewModal = ({
       if (onPrint) {
         onPrint();
       } else {
-        // Default print
+        // Default print - capture rendered content from tableRef
+        let contentHTML = '<p>No data to print</p>';
+        
+        if (tableRef.current) {
+          // Try to get the actual preview content (customPreview)
+          const previewDiv = tableRef.current.querySelector('[data-transactions-preview="true"], [data-installments-preview="true"]');
+          if (previewDiv) {
+            contentHTML = previewDiv.innerHTML;
+          } else {
+            // Fallback to entire content
+            contentHTML = tableRef.current.innerHTML;
+          }
+        }
+        
         const printWindow = window.open('', '', 'height=600,width=800');
         
         let htmlContent = `
@@ -132,23 +145,34 @@ const PreviewModal = ({
             <head>
               <title>${title}</title>
               <style>
-                body { font-family: Arial, sans-serif; margin: 20px; }
-                h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; }
+                h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 15px; }
+                h3 { margin: 20px 0 10px 0; font-size: 16px; font-weight: bold; }
                 .timestamp { color: #666; font-size: 12px; margin-bottom: 20px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th { background-color: #007bff; color: white; padding: 10px; text-align: left; }
+                table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+                th { background-color: #007bff; color: white; padding: 10px; text-align: left; font-weight: bold; }
                 td { padding: 8px; border-bottom: 1px solid #ddd; }
                 tr:nth-child(even) { background-color: #f9f9f9; }
+                div[style*="padding"] { margin: 10px 0; }
+                strong { font-weight: bold; }
+                span { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
                 @media print { 
                   body { margin: 10px; }
-                  th { background-color: #007bff !important; color: white !important; }
+                  th { background-color: #1d4ed8 !important; color: white !important; }
+                  h1 { page-break-after: avoid; }
+                  h3 { page-break-after: avoid; }
+                  table { page-break-inside: avoid; }
+                  div { page-break-inside: avoid; }
                 }
               </style>
             </head>
             <body>
               <h1>${title}</h1>
               <div class="timestamp">Generated: ${new Date().toLocaleString()}</div>
-              ${customPreview || tableRef.current?.innerHTML || '<p>No data to print</p>'}
+              <div class="content">
+                ${contentHTML}
+              </div>
             </body>
           </html>
         `;

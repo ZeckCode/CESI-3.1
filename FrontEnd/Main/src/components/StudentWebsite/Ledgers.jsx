@@ -1093,9 +1093,9 @@ export default function Ledgers() {
         onClose={() => setShowPreview(false)} 
         title="Account & Financial Ledger"
         customPreview={
-          <div style={{ padding: "1.5rem", fontSize: "0.9rem", lineHeight: "1.6", color: "#1e293b" }}>
+          <div style={{ padding: "1.5rem", fontSize: "0.9rem", lineHeight: "1.6", color: "#1e293b" }} data-preview-type={viewMode}>
             {viewMode === "transactions" ? (
-              <div>
+              <div data-transactions-preview="true">
                 <h3 style={{ marginTop: 0, marginBottom: "1.5rem", fontSize: "1.1rem", fontWeight: 700 }}>Account Ledger Details</h3>
                 {paginatedTransactions.length > 0 ? (
                   paginatedTransactions.map((group) => (
@@ -1138,7 +1138,7 @@ export default function Ledgers() {
                 )}
               </div>
             ) : (
-              <div>
+              <div data-installments-preview="true">
                 <h3 style={{ marginTop: 0, marginBottom: "1.5rem", fontSize: "1.1rem", fontWeight: 700 }}>Tuition Installment Schedule</h3>
                 {paginatedInstallments.length > 0 ? (
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
