@@ -333,6 +333,7 @@ const AttendanceMonitoring = () => {
   };
 
   const handleSave = async (updateOnly = false) => {
+    const isUpdateOnly = updateOnly === true;
     if (loading) {
       setMessage({ type: "error", text: "Please wait for attendance data to finish loading." });
       setTimeout(() => setMessage(null), 3000);
@@ -345,7 +346,7 @@ const AttendanceMonitoring = () => {
       return;
     }
 
-    if (!updateOnly && existingRecordCount > 0) {
+    if (!isUpdateOnly && existingRecordCount > 0) {
       const proceed = window.confirm(
         "Attendance is already saved for this date. Saving again will overwrite existing statuses. Continue?"
       );
@@ -384,7 +385,7 @@ const AttendanceMonitoring = () => {
 
       body.schedule = parseInt(selectedSchedule, 10);
 
-      if (updateOnly) {
+      if (isUpdateOnly) {
         const { existingRecords, recordMap } = await loadExistingRecords();
         setExistingRecordsByStudent(recordMap);
         setExistingRecordCount(existingRecords.length);
@@ -965,7 +966,7 @@ const AttendanceMonitoring = () => {
           <button
             className="am__saveBtn"
             type="button"
-            onClick={handleSave}
+            onClick={() => handleSave(false)}
             disabled={loading || saving || !selectedSection || !selectedSchedule || students.length === 0}
           >
             <Save size={16} />
