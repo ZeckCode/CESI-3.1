@@ -10,7 +10,7 @@ export default function IdCardGenerator({
   schoolInfo,
 }) {
   const cardRef = useRef(null);
-  const [cardSide, setCardSide] = useState("front"); // "front" or "back"
+  const [cardSide, setCardSide] = useState("front");
   const [cardSettings, setCardSettings] = useState({
     schoolName: schoolInfo?.name || "CESI School",
     schoolMotto: schoolInfo?.motto || "Excellence in Education",
@@ -21,7 +21,6 @@ export default function IdCardGenerator({
     phone: schoolInfo?.phone || "",
     email: schoolInfo?.email || "",
     copyright: schoolInfo?.copyright || "© 2025 CESI. All rights reserved.",
-    // Parent/Guardian info
     parentName: studentData?.parent_name || "",
     parentPhone: studentData?.parent_phone || "",
   });
@@ -29,9 +28,34 @@ export default function IdCardGenerator({
 
   if (!isOpen) return null;
 
-  const downloadPDF = async () => {
-    if (!cardRef.current) return;
+  // Validation
+  const requiredFields = {
+    firstName: studentData.first_name,
+    lastName: studentData.last_name,
+    gradeLevel: studentData.grade_level,
+    section: cardSettings.section,
+    lrn: studentData.lrn,
+    birthDate: studentData.birth_date,
+    photo: studentData.id_image_url,
+  };
 
+  const missingFields = Object.keys(requiredFields).filter(
+    (key) => !requiredFields[key]
+  );
+
+  const canDownload = missingFields.length === 0;
+
+  const downloadPDF = async () => {
+    if (!canDownload) {
+      alert(
+        `Missing fields:\n${missingFields
+          .map((f) => `• ${f.replace(/([A-Z])/g, " $1").trim()}`)
+          .join("\n")}`
+      );
+      return;
+    }
+
+    if (!cardRef.current) return;
     setIsDownloading(true);
     try {
       const canvas = await html2canvas(cardRef.current, { scale: 2 });
@@ -55,8 +79,16 @@ export default function IdCardGenerator({
   };
 
   const downloadImage = async () => {
-    if (!cardRef.current) return;
+    if (!canDownload) {
+      alert(
+        `Missing fields:\n${missingFields
+          .map((f) => `• ${f.replace(/([A-Z])/g, " $1").trim()}`)
+          .join("\n")}`
+      );
+      return;
+    }
 
+    if (!cardRef.current) return;
     setIsDownloading(true);
     try {
       const canvas = await html2canvas(cardRef.current, { scale: 2 });
@@ -336,66 +368,73 @@ export default function IdCardGenerator({
               studentData={studentData}
               settings={cardSettings}
               studentName={studentName}
-              studentAge={studentAge}
               cardSide={cardSide}
             />
 
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={downloadPDF}
-                disabled={isDownloading}
-                style={{
-                  padding: "10px 16px",
-                  background: "#3b82f6",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: isDownloading ? "not-allowed" : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontWeight: 500,
-                  fontSize: 13,
-                  opacity: isDownloading ? 0.6 : 1,
-                }}
-              >
-                <Download size={14} /> {isDownloading ? "Downloading..." : "Download PDF"}
-              </button>
-              <button
-                onClick={downloadImage}
-                disabled={isDownloading}
-                style={{
-                  padding: "10px 16px",
-                  background: "#8b5cf6",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: isDownloading ? "not-allowed" : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontWeight: 500,
-                  fontSize: 13,
-                  opacity: isDownloading ? 0.6 : 1,
-                }}
-              >
-                <Download size={14} /> Download PNG
-              </button>
-              <button
-                onClick={onClose}
-                style={{
-                  padding: "10px 16px",
-                  background: "#e5e7eb",
-                  color: "#374151",
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  fontWeight: 500,
-                  fontSize: 13,
-                }}
-              >
-                Close
-              </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+              {!canDownload && (
+                <div
+                  style={{
+                    padding: "10px 12px",
+                    background: "#fee2e2",
+                    border: "1px solid #fca5a5",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    color: "#991b1b",
+                  }}
+                >
+                  <strong>Missing Fields:</strong>
+                  <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+                    {missingFields.map((f) => (
+                      <div key={f}>• {f.replace(/([A-Z])/g, " $1").trim()}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={downloadPDF}
+                  disabled={isDownloading || !canDownload}
+                  style={{
+                    padding: "10px 16px",
+                    background: canDownload ? "#3b82f6" : "#d1d5db",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: canDownload && !isDownloading ? "pointer" : "not-allowed",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontWeight: 500,
+                    fontSize: 13,
+                    opacity: (isDownloading || !canDownload) ? 0.6 : 1,
+                  }}
+                  title={!canDownload ? "Fill all required fields" : ""}
+                >
+                  <Download size={14} /> {isDownloading ? "Downloading..." : "Download PDF"}
+                </button>
+                <button
+                  onClick={downloadImage}
+                  disabled={isDownloading || !canDownload}
+                  style={{
+                    padding: "10px 16px",
+                    background: canDownload ? "#fbbf24" : "#d1d5db",
+                    color: canDownload ? "#000" : "#666",
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: canDownload && !isDownloading ? "pointer" : "not-allowed",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontWeight: 500,
+                    fontSize: 13,
+                    opacity: (isDownloading || !canDownload) ? 0.6 : 1,
+                  }}
+                  title={!canDownload ? "Fill all required fields" : ""}
+                >
+                  <Download size={14} /> {isDownloading ? "Downloading..." : "Download PNG"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -405,184 +444,298 @@ export default function IdCardGenerator({
 }
 
 const IdCardPreview = React.forwardRef(
-  ({ studentData, settings, studentName, studentAge, cardSide }, ref) => {
+  ({ studentData, settings, studentName, cardSide }, ref) => {
     return (
       <div
         ref={ref}
         style={{
           width: 350,
           height: 550,
-          background: cardSide === "front" 
-            ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-            : "#1e293b",
           borderRadius: 12,
-          padding: 16,
+          padding: 0,
           display: "flex",
           flexDirection: "column",
-          color: "white",
           fontFamily: "Arial, sans-serif",
           boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
           position: "relative",
           overflow: "hidden",
+          background: cardSide === "front" ? "white" : "white",
         }}
       >
         {cardSide === "front" ? (
           <>
-        {/* Header with Logo */}
-        <div style={{ textAlign: "center", marginBottom: 12, paddingBottom: 12, borderBottom: "2px solid rgba(255,255,255,0.3)" }}>
-          {settings.logo_url && (
-            <img
-              src={settings.logo_url}
-              alt="School Logo"
-              style={{
-                height: 40,
-                maxWidth: 80,
-                margin: "0 auto 6px",
-                objectFit: "contain",
-                filter: "brightness(0) invert(1)",
-              }}
-            />
-          )}
-          <div style={{ fontSize: 18, fontWeight: "bold", marginBottom: 2 }}>
-            {settings.schoolName}
-          </div>
-          <div style={{ fontSize: 11, opacity: 0.9 }}>{settings.schoolMotto}</div>
-        </div>
-
-        {/* Student Photo Section */}
-        <div style={{ textAlign: "center", marginBottom: 12 }}>
-          {studentData.id_image_url ? (
-            <img
-              src={studentData.id_image_url}
-              alt={studentName}
-              style={{
-                width: 100,
-                height: 100,
-                borderRadius: "50%",
-                border: "3px solid white",
-                objectFit: "cover",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-              }}
-            />
-          ) : (
+            {/* FRONT SIDE - Split Blue & Yellow Design */}
+            {/* Top Blue Section */}
             <div
               style={{
-                width: 100,
-                height: 100,
-                borderRadius: "50%",
-                border: "3px solid white",
+                background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                height: 160,
+                padding: 16,
                 display: "flex",
+                flexDirection: "column",
+                color: "white",
                 alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(255,255,255,0.2)",
-                fontSize: 40,
+                textAlign: "center",
+                position: "relative",
               }}
             >
-              👤
+              {settings.logo_url && (
+                <img
+                  src={settings.logo_url}
+                  alt="School Logo"
+                  style={{
+                    height: 36,
+                    maxWidth: 70,
+                    margin: "0 auto 6px",
+                    objectFit: "contain",
+                    filter: "brightness(0) invert(1)",
+                  }}
+                />
+              )}
+              <div style={{ fontSize: 16, fontWeight: "bold" }}>
+                {settings.schoolName}
+              </div>
+              <div style={{ fontSize: 10, opacity: 0.9 }}>
+                {settings.schoolMotto}
+              </div>
+
+              {/* Student Photo - Positioned to overlap */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: -40,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  zIndex: 10,
+                }}
+              >
+                {studentData.id_image_url ? (
+                  <img
+                    src={studentData.id_image_url}
+                    alt={studentName}
+                    style={{
+                      width: 100,
+                      height: 100,
+                      borderRadius: "50%",
+                      border: "4px solid white",
+                      objectFit: "cover",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 100,
+                      height: 100,
+                      borderRadius: "50%",
+                      border: "4px solid white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "#e0e7ff",
+                      fontSize: 40,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                    }}
+                  >
+                    👤
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Student Info */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 16, fontWeight: "bold" }}>{studentName}</div>
-            <div style={{ fontSize: 12, opacity: 0.9 }}>Grade {studentData.grade_level || "—"}</div>
-          </div>
+            {/* Yellow Section - Student Info */}
+            <div
+              style={{
+                background: "#fbbf24",
+                flex: 1,
+                padding: "60px 16px 16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                color: "#111",
+                position: "relative",
+              }}
+            >
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 14, fontWeight: "bold" }}>
+                  {studentName}
+                </div>
+                <div style={{ fontSize: 11, color: "#333" }}>
+                  Grade {studentData.grade_level || "—"}
+                </div>
+              </div>
 
-          <div style={{ fontSize: 11, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div>
-              <div style={{ opacity: 0.8, fontSize: 10 }}>SECTION</div>
-              <div style={{ fontWeight: "bold" }}>{settings.section}</div>
+              <div style={{ fontSize: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div style={{ background: "rgba(255,255,255,0.5)", padding: 6, borderRadius: 4 }}>
+                  <div style={{ opacity: 0.8, fontSize: 9, fontWeight: 600 }}>
+                    STUDENT #
+                  </div>
+                  <div style={{ fontWeight: "bold", color: "#1d4ed8" }}>
+                    {studentData.id || "N/A"}
+                  </div>
+                </div>
+                <div style={{ background: "rgba(255,255,255,0.5)", padding: 6, borderRadius: 4 }}>
+                  <div style={{ opacity: 0.8, fontSize: 9, fontWeight: 600 }}>
+                    SECTION
+                  </div>
+                  <div style={{ fontWeight: "bold", color: "#1d4ed8" }}>
+                    {settings.section}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 9, background: "rgba(255,255,255,0.5)", padding: 6, borderRadius: 4 }}>
+                <div style={{ opacity: 0.8, fontSize: 8, fontWeight: 600 }}>
+                  LRN
+                </div>
+                <div style={{ fontWeight: "bold", color: "#1d4ed8" }}>
+                  {studentData.lrn || "N/A"}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  fontSize: 8,
+                  background: "white",
+                  padding: 6,
+                  borderRadius: 4,
+                  textAlign: "center",
+                  marginTop: "auto",
+                  color: "#333",
+                  border: "1px solid #3b82f6",
+                }}
+              >
+                Valid for AY {settings.acYear}
+              </div>
             </div>
-            <div>
-              <div style={{ opacity: 0.8, fontSize: 10 }}>AGE</div>
-              <div style={{ fontWeight: "bold" }}>{studentAge} yrs</div>
-            </div>
-          </div>
-
-          <div style={{ fontSize: 11 }}>
-            <div style={{ opacity: 0.8, fontSize: 10 }}>LRN</div>
-            <div style={{ fontWeight: "bold", letterSpacing: "1px" }}>
-              {studentData.lrn || "N/A"}
-            </div>
-          </div>
-
-          <div style={{ fontSize: 11 }}>
-            <div style={{ opacity: 0.8, fontSize: 10 }}>ACADEMIC YEAR</div>
-            <div style={{ fontWeight: "bold" }}>{settings.acYear}</div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div
-          style={{
-            borderTop: "2px solid rgba(255,255,255,0.3)",
-            paddingTop: 8,
-            textAlign: "center",
-            fontSize: 8,
-            opacity: 0.85,
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-          }}
-        >
-          <div style={{ fontWeight: "bold" }}>Valid for AY {settings.acYear}</div>
-          <div style={{ fontSize: 7, opacity: 0.9, lineHeight: 1.2 }}>
-            📍 {settings.address}
-          </div>
-          <div style={{ fontSize: 7, opacity: 0.9 }}>📞 {settings.phone}</div>
-          <div style={{ fontSize: 7, opacity: 0.9, marginBottom: 4 }}>📧 {settings.email}</div>
-          <div style={{ fontSize: 7, opacity: 0.7, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,0.2)" }}>
-            {settings.copyright || "© 2025 CESI. All rights reserved."}
-          </div>
-        </div>
-
-        {/* Decorative elements */}
-        <div
-          style={{
-            position: "absolute",
-            top: -50,
-            right: -50,
-            width: 150,
-            height: 150,
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.05)",
-            pointerEvents: "none",
-          }}
-        />
           </>
         ) : (
           <>
-        {/* BACK SIDE - Parent Info & Address */}
-        <div style={{ textAlign: "center", marginBottom: 16, paddingBottom: 12, borderBottom: "2px solid rgba(255,255,255,0.3)" }}>
-          <div style={{ fontSize: 16, fontWeight: "bold" }}>PARENT INFORMATION</div>
-        </div>
+            {/* BACK SIDE - White with Blue Lines & Yellow Accent */}
+            <div
+              style={{
+                background: "white",
+                height: "100%",
+                padding: 16,
+                display: "flex",
+                flexDirection: "column",
+                color: "#111",
+                position: "relative",
+                borderLeft: "5px solid #3b82f6",
+              }}
+            >
+              {/* Yellow Accent Bar */}
+              <div
+                style={{
+                  height: 4,
+                  background: "#fbbf24",
+                  marginBottom: 12,
+                  borderRadius: 2,
+                }}
+              />
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, fontSize: 10 }}>
-          {/* Parent Info */}
-          <div>
-            <div style={{ opacity: 0.7, fontSize: 9, fontWeight: 600, marginBottom: 4 }}>PARENT/GUARDIAN</div>
-            <div style={{ fontWeight: "bold", fontSize: 12 }}>
-              {settings.parentName || "—"}
-            </div>
-            <div style={{ opacity: 0.9, fontSize: 10, marginTop: 2 }}>
-              📞 {settings.parentPhone || "—"}
-            </div>
-          </div>
+              <div
+                style={{
+                  textAlign: "center",
+                  marginBottom: 12,
+                  paddingBottom: 8,
+                  borderBottom: "2px solid #3b82f6",
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: "bold", color: "#1d4ed8" }}>
+                  PARENT INFORMATION
+                </div>
+              </div>
 
-          {/* School Address */}
-          <div style={{ paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.2)" }}>
-            <div style={{ opacity: 0.7, fontSize: 9, fontWeight: 600, marginBottom: 4 }}>SCHOOL ADDRESS</div>
-            <div style={{ fontSize: 9, lineHeight: 1.4, opacity: 0.95 }}>
-              {settings.address || "—"}
-            </div>
-          </div>
-        </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+                {/* Parent Info */}
+                <div
+                  style={{
+                    padding: 8,
+                    background: "#eff6ff",
+                    borderRadius: 4,
+                    borderLeft: "3px solid #fbbf24",
+                  }}
+                >
+                  <div style={{ fontSize: 9, fontWeight: 600, color: "#1d4ed8", marginBottom: 4 }}>
+                    PARENT/GUARDIAN
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: "bold" }}>
+                    {settings.parentName || "—"}
+                  </div>
+                  <div style={{ fontSize: 9, marginTop: 2 }}>
+                    📞 {settings.parentPhone || "—"}
+                  </div>
+                </div>
 
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.2)", paddingTop: 8, textAlign: "center", fontSize: 7, opacity: 0.7 }}>
-          Please keep parent contact updated
-        </div>
+                {/* Birthday */}
+                <div
+                  style={{
+                    padding: 8,
+                    background: "#eff6ff",
+                    borderRadius: 4,
+                    borderLeft: "3px solid #fbbf24",
+                  }}
+                >
+                  <div style={{ fontSize: 9, fontWeight: 600, color: "#1d4ed8", marginBottom: 4 }}>
+                    BIRTHDATE
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: "bold" }}>
+                    {studentData.birth_date
+                      ? new Date(studentData.birth_date).toLocaleDateString()
+                      : "—"}
+                  </div>
+                </div>
+
+                {/* LRN */}
+                <div
+                  style={{
+                    padding: 8,
+                    background: "#eff6ff",
+                    borderRadius: 4,
+                    borderLeft: "3px solid #fbbf24",
+                  }}
+                >
+                  <div style={{ fontSize: 9, fontWeight: 600, color: "#1d4ed8", marginBottom: 4 }}>
+                    LRN
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: "bold" }}>
+                    {studentData.lrn || "—"}
+                  </div>
+                </div>
+
+                {/* School Address */}
+                <div
+                  style={{
+                    padding: 8,
+                    background: "white",
+                    borderRadius: 4,
+                    borderTop: "2px solid #3b82f6",
+                    borderBottom: "2px solid #3b82f6",
+                  }}
+                >
+                  <div style={{ fontSize: 9, fontWeight: 600, color: "#1d4ed8", marginBottom: 4 }}>
+                    SCHOOL ADDRESS
+                  </div>
+                  <div style={{ fontSize: 8, lineHeight: 1.4 }}>
+                    {settings.address || "—"}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  borderTop: "2px solid #3b82f6",
+                  paddingTop: 6,
+                  textAlign: "center",
+                  fontSize: 7,
+                  color: "#666",
+                  marginTop: 8,
+                }}
+              >
+                Please keep all information updated
+              </div>
+            </div>
           </>
         )}
       </div>
