@@ -28,6 +28,7 @@ import { apiFetch } from "../api/apiFetch";
 
 import {
   FILTER_OPTIONS,
+  PROMOTION_FILTER_OPTIONS,
   DOCUMENT_TYPE_OPTIONS,
 } from "./Enrollment/enrollmentConstants";
 
@@ -67,6 +68,7 @@ export default function EnrollmentManagement() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
+  const [filterPromotionStatus, setFilterPromotionStatus] = useState("All");
   const [enrollPage, setEnrollPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
@@ -310,6 +312,14 @@ export default function EnrollmentManagement() {
     () =>
       enrollments.map((e) => {
         const statusCode = String(e.status || "PENDING").toUpperCase();
+        const tempRow = {
+          id: e.id,
+          raw: e,
+          statusCode,
+          paymentProof: proofs.find(p => p.enrollment_id === e.id) || null,
+        };
+        const promotionInfo = getPromotionReadiness(tempRow);
+        
         return {
           id: e.id,
           raw: e,
@@ -328,7 +338,8 @@ export default function EnrollmentManagement() {
           fee: e.payment_mode || "Pending",
           paymentMode: e.payment_mode || "—",
           paymentMethod: e.payment_method || "—",
-          paymentProof: proofs.find(p => p.enrollment_id === e.id) || null,
+          paymentProof: tempRow.paymentProof,
+          promotionStatus: promotionInfo.status,
           parentName:
             e?.parent_info?.guardian_name ||
             e?.parent_info?.mother_name ||
@@ -343,7 +354,7 @@ export default function EnrollmentManagement() {
             "(not set)",
         };
       }),
-    [enrollments, sections, proofs]
+    [enrollments, sections, proofs, getPromotionReadiness]
   );
 
   const filteredEnrollments = useMemo(() => {
@@ -357,9 +368,11 @@ export default function EnrollmentManagement() {
         String(row.sectionName).toLowerCase().includes(s);
       const matchesStatus =
         filterStatus === "All" || row.statusText === filterStatus;
-      return matchesSearch && matchesStatus;
+      const matchesPromotionStatus =
+        filterPromotionStatus === "All" || row.promotionStatus === filterPromotionStatus;
+      return matchesSearch && matchesStatus && matchesPromotionStatus;
     });
-  }, [normalized, searchTerm, filterStatus]);
+  }, [normalized, searchTerm, filterStatus, filterPromotionStatus]);
 
   const enrollTotalPages = Math.ceil(filteredEnrollments.length / ITEMS_PER_PAGE);
 
@@ -370,7 +383,7 @@ export default function EnrollmentManagement() {
 
   useEffect(() => {
     setEnrollPage(1);
-  }, [searchTerm, filterStatus]);
+  }, [searchTerm, filterStatus, filterPromotionStatus]);
 
   const stats = useMemo(
     () => ({
@@ -537,7 +550,7 @@ export default function EnrollmentManagement() {
     if (studentType !== "old") {
       return {
         ready: false,
-        reason: "New students only - Returning students can be promoted",
+        reason: "Only returning students can be promoted - New students must complete current level first",
         status: "ineligible",
         icon: "x",
       };
@@ -1791,6 +1804,20 @@ const handleApprove = async (id) => {
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             {FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-box">
+          <Filter size={16} />
+          <select
+            value={filterPromotionStatus}
+            onChange={(e) => setFilterPromotionStatus(e.target.value)}
+          >
+            {PROMOTION_FILTER_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

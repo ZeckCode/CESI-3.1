@@ -6,6 +6,14 @@ export const FILTER_OPTIONS = [
   { value: "Completed", label: "Completed" },
 ];
 
+export const PROMOTION_FILTER_OPTIONS = [
+  { value: "All", label: "All Promotion Status" },
+  { value: "ready", label: "Eligible - Ready to Promote" },
+  { value: "ineligible", label: "Ineligible" },
+  { value: "pending", label: "Pending Requirements" },
+  { value: "completed", label: "Completed - Max Grade" },
+];
+
 export const DOCUMENT_TYPE_OPTIONS = [
   { value: "form_137", label: "Form 137-E" },
   { value: "sf10", label: "School Form 10 (SF10)" },
