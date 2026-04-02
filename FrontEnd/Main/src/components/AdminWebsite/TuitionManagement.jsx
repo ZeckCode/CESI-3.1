@@ -9,7 +9,6 @@ import '../AdminWebsiteCSS/TuitionManagement.css';
 import { apiFetchData } from '../api/apiFetch';
 import Toast from '../Global/Toast';
 import PreviewModal from '../PreviewModal';
-import { getGradeLevelDisplay } from './IdGenerator/idGeneratorUtils';
 
 const API = '';
 
@@ -409,7 +408,7 @@ const TuitionManagement = () => {
       previewData = data.map((student) => ({
         'Student Name': student.studentName,
         'Student Number': student.studentNumber,
-        'Grade Level': getGradeLevelDisplay(student.gradeLevel),
+        'Grade Level': gradeLabelMap[student.gradeLevel] || student.gradeLevel || '—',
         'Payment Mode': paymentModeLabel(student.paymentMode),
         'Parent/Guardian': student.parentName,
         'Contact Number': student.contactNumber,
@@ -420,7 +419,7 @@ const TuitionManagement = () => {
       }));
     } else {
       previewData = data.map((fee) => ({
-        'Grade Level': fee.grade_label || getGradeLevelDisplay(fee.grade_key),
+        'Grade Level': fee.grade_label || gradeLabelMap[fee.grade_key] || fee.grade_key || '—',
         'Cash Payment': formatCurrency(fee.cash),
         'Installment Tuition': formatCurrency(fee.installment),
         'Initial Payment': formatCurrency(fee.initial),
@@ -463,7 +462,7 @@ const TuitionManagement = () => {
         ...data.map((student) => [
           escapeCsv(student.studentName),
           escapeCsv(student.studentNumber),
-          escapeCsv(getGradeLevelDisplay(student.gradeLevel)),
+          escapeCsv(gradeLabelMap[student.gradeLevel] || student.gradeLevel || '—'),
           escapeCsv(paymentModeLabel(student.paymentMode)),
           escapeCsv(student.parentName),
           escapeCsv(student.contactNumber),
@@ -477,7 +476,7 @@ const TuitionManagement = () => {
       csv = [
         ['Grade Level', 'Cash Payment', 'Installment Tuition', 'Initial Payment', 'Monthly Payment', 'Reservation Fee', 'Misc (Aug)', 'Misc (Nov)', 'Assessment', 'Total Cash', 'Total Installment', 'Status', 'Description'].join(','),
         ...data.map((fee) => [
-          escapeCsv(fee.grade_label || getGradeLevelDisplay(fee.grade_key)),
+          escapeCsv(fee.grade_label || gradeLabelMap[fee.grade_key] || fee.grade_key || '—'),
           escapeCsv(formatCurrency(fee.cash)),
           escapeCsv(formatCurrency(fee.installment)),
           escapeCsv(formatCurrency(fee.initial)),
@@ -713,7 +712,7 @@ const TuitionManagement = () => {
                           </div>
                         </td>
                         <td className="tm-table-cell">
-                          {getGradeLevelDisplay(item.gradeLevel)}
+                          {gradeLabelMap[item.gradeLevel] || item.gradeLevel || '—'}
                         </td>
                         <td className="tm-table-cell">{paymentModeLabel(item.paymentMode)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.totalDue)}</td>
@@ -734,7 +733,7 @@ const TuitionManagement = () => {
                     ) : (
                       <>
                         <td className="tm-table-cell tm-cell-bold">
-                          {item.grade_label || getGradeLevelDisplay(item.grade_key)}
+                          {item.grade_label || gradeLabelMap[item.grade_key] || item.grade_key || '—'}
                         </td>
                         <td className="tm-table-cell">{formatCurrency(item.cash)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.installment)}</td>
