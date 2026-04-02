@@ -241,8 +241,34 @@
 
 /* ========== STATS (using unified StatCard component) ========== */
 .enrollment-management .unified-stats-grid {
-  grid-template-columns: repeat(3, 1fr);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.25rem;
   margin-bottom: 0;
+}
+
+@media (min-width: 1400px) {
+  .enrollment-management .unified-stats-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (max-width: 1200px) {
+  .enrollment-management .unified-stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .enrollment-management .unified-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .enrollment-management .unified-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .enrollment-management .unified-stat-card {

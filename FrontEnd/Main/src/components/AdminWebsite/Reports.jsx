@@ -83,13 +83,6 @@ const Reports = () => {
     excused: 0
   });
   
-  const [gradeStats, setGradeStats] = useState({
-    total_students: 0,
-    graded_students: 0,
-    pending_grades: 0,
-    average_grade: '—'
-  });
-  
   const [historyStats, setHistoryStats] = useState({
     totalRecords: 0,
     uniqueStudents: 0,
@@ -146,7 +139,6 @@ const Reports = () => {
   const refreshAllData = async () => {
     setRefreshing(true);
     try {
-      // Fetch enrollments
       const enrollRes = await apiFetch('/api/enrollments/');
       const enrollData = await enrollRes.json();
       const enrollList = Array.isArray(enrollData) ? enrollData : [];
@@ -158,13 +150,11 @@ const Reports = () => {
       const dropped = enrollList.filter(e => e.status === 'DROPPED').length;
       setEnrollmentStats({ total, active, pending, dropped, expired: 0 });
       
-      // Fetch sections
       const sectionsRes = await apiFetch('/api/accounts/sections/');
       const sectionsData = await sectionsRes.json();
       const sectionsList = Array.isArray(sectionsData) ? sectionsData : [];
       setSections(sectionsList);
       
-      // Fetch subjects
       const subjectsRes = await apiFetch('/api/accounts/subjects/');
       const subjectsData = await subjectsRes.json();
       const subjectsList = Array.isArray(subjectsData) ? subjectsData : [];
@@ -178,7 +168,6 @@ const Reports = () => {
         total_subjects: subjectsList.length
       });
       
-      // Fetch teachers
       const teachersRes = await apiFetch('/api/accounts/users/?role=TEACHER');
       const teachersData = await teachersRes.json();
       const teachersList = Array.isArray(teachersData) ? teachersData : [];
@@ -192,7 +181,6 @@ const Reports = () => {
         total_classes: 0
       });
       
-      // Fetch transactions stats
       const statsRes = await apiFetch('/api/finance/transactions/stats/');
       const statsData = await statsRes.json();
       setTransactionStats({
@@ -201,12 +189,10 @@ const Reports = () => {
         outstanding_balance: statsData.outstanding_balance || 0
       });
       
-      // Fetch transactions
       const transRes = await apiFetch('/api/finance/transactions/');
       const transData = await transRes.json();
       setTransactions(Array.isArray(transData) ? transData : []);
       
-      // Fetch attendance
       const today = new Date().toISOString().split('T')[0];
       const attendRes = await apiFetch(`/api/attendance/records/?date=${today}`);
       const attendData = await attendRes.json();
@@ -222,7 +208,6 @@ const Reports = () => {
         present, absent, late, excused
       });
       
-      // Fetch history
       try {
         const historyRes = await apiFetch('/api/grades/academic-history/');
         const historyData = await historyRes.json();
@@ -260,7 +245,6 @@ const Reports = () => {
     fetchAllData();
   }, []);
 
-  // Generate PDF
   const openPrintView = (report) => {
     const doc = new jsPDF('landscape');
     
@@ -278,7 +262,7 @@ const Reports = () => {
     
     let startY = 38;
     
-    // Summary Statistics
+    // SUMMARY STATISTICS
     doc.setFontSize(12);
     doc.setTextColor(33, 37, 41);
     doc.text('Summary Statistics', 14, startY);
@@ -333,6 +317,19 @@ const Reports = () => {
         ['Average Final Grade', report.data.averageFinal || '—'],
       ];
     }
+    else if (report.type === 'all') {
+      summaryData = [
+        ['Total Enrollments', report.data.enrollment?.total || 0],
+        ['Active/Enrolled', report.data.enrollment?.active || 0],
+        ['Total Sections', report.data.classes?.total_sections || 0],
+        ['Total Students', report.data.classes?.total_students || 0],
+        ['Total Teachers', report.data.teachers?.total_teachers || 0],
+        ['Total Collected', formatCurrency(report.data.financial?.total_collected || 0)],
+        ['Outstanding Balance', formatCurrency(report.data.financial?.outstanding_balance || 0)],
+        ['Attendance Records', report.data.attendanceStats?.total_records || 0],
+        ['History Records', report.data.history?.totalRecords || 0],
+      ];
+    }
     
     if (summaryData.length > 0) {
       autoTable(doc, {
@@ -347,7 +344,7 @@ const Reports = () => {
       startY = doc.lastAutoTable.finalY + 15;
     }
     
-    // Details Table
+    // DETAILS TABLES
     if (report.type === 'students' && report.data.enrollments?.length > 0) {
       doc.text('Enrollment Details', 14, startY);
       const tableData = report.data.enrollments.map(e => [
@@ -390,6 +387,171 @@ const Reports = () => {
         bodyStyles: { fontSize: 7 },
         margin: { left: 14, right: 14 },
       });
+    }
+    else if (report.type === 'financial' && report.data.transactions?.length > 0) {
+      doc.text('Transaction Details', 14, startY);
+      const tableData = report.data.transactions.map(t => [
+        t.student_name || '—',
+        t.transaction_date || '—',
+        t.entry_type || '—',
+        formatCurrency(t.debit || 0),
+        formatCurrency(t.credit || 0),
+        t.status || '—'
+      ]);
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['Student', 'Date', 'Type', 'Debit', 'Credit', 'Status']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+        bodyStyles: { fontSize: 7 },
+        margin: { left: 14, right: 14 },
+      });
+    }
+    else if (report.type === 'teachers' && report.data.teachers?.length > 0) {
+      doc.text('Teacher Details', 14, startY);
+      const tableData = report.data.teachers.map(t => [
+        t.username || '—',
+        t.email || '—',
+        t.teacher_profile?.employee_id || '—',
+        t.teacher_profile?.subject?.name || 'Unassigned',
+        t.status || '—'
+      ]);
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['Teacher Name', 'Email', 'Employee ID', 'Subject', 'Status']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+        bodyStyles: { fontSize: 7 },
+        margin: { left: 14, right: 14 },
+      });
+    }
+    else if (report.type === 'attendance' && report.data.attendanceRecords?.length > 0) {
+      doc.text('Attendance Record Details', 14, startY);
+      const tableData = report.data.attendanceRecords.map(a => [
+        a.student_name || '—',
+        a.student_number || '—',
+        a.grade_level || '—',
+        a.section_name || '—',
+        a.subject_name || '—',
+        a.status || '—',
+        a.date || '—',
+        a.marked_by_name || '—'
+      ]);
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['Student', 'Student #', 'Grade', 'Section', 'Subject', 'Status', 'Date', 'Marked By']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 7 },
+        bodyStyles: { fontSize: 6 },
+        margin: { left: 14, right: 14 },
+      });
+    }
+    else if (report.type === 'history' && report.data.historyRecords?.length > 0) {
+      doc.text('Academic History Record Details', 14, startY);
+      const tableData = report.data.historyRecords.map(h => [
+        h.school_year || '—',
+        h.student_name || '—',
+        h.student_number || '—',
+        h.grade_level || '—',
+        h.section_name || '—',
+        h.subject_name || '—',
+        h.final_grade || '—',
+        h.remarks || '—'
+      ]);
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['School Year', 'Student Name', 'Student #', 'Grade', 'Section', 'Subject', 'Final Grade', 'Remarks']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 7 },
+        bodyStyles: { fontSize: 6 },
+        margin: { left: 14, right: 14 },
+      });
+    }
+    else if (report.type === 'all') {
+      if (report.data.enrollments?.length > 0) {
+        if (startY > 250) { doc.addPage(); startY = 20; }
+        doc.text('Enrollment Details', 14, startY);
+        autoTable(doc, {
+          startY: startY + 5,
+          head: [['Student Name', 'Grade', 'Section', 'Status']],
+          body: report.data.enrollments.slice(0, 20).map(e => [
+            `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.student_name || '—',
+            e.grade_level || '—',
+            e.section_name || '—',
+            e.status || '—'
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14, right: 14 },
+        });
+        startY = doc.lastAutoTable.finalY + 15;
+      }
+      
+      if (report.data.sections?.length > 0) {
+        if (startY > 250) { doc.addPage(); startY = 20; }
+        doc.text('Class Details', 14, startY);
+        autoTable(doc, {
+          startY: startY + 5,
+          head: [['Grade', 'Section', 'Students', 'Status']],
+          body: report.data.sections.map(s => [
+            s.grade_level || '—',
+            s.name || '—',
+            s.student_count || 0,
+            s.student_count > 0 ? 'ONGOING' : 'EXPIRED'
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14, right: 14 },
+        });
+        startY = doc.lastAutoTable.finalY + 15;
+      }
+      
+      if (report.data.attendanceRecords?.length > 0) {
+        if (startY > 250) { doc.addPage(); startY = 20; }
+        doc.text('Attendance Records', 14, startY);
+        autoTable(doc, {
+          startY: startY + 5,
+          head: [['Student', 'Section', 'Subject', 'Status', 'Date']],
+          body: report.data.attendanceRecords.slice(0, 20).map(a => [
+            a.student_name || '—',
+            a.section_name || '—',
+            a.subject_name || '—',
+            a.status || '—',
+            a.date || '—'
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14, right: 14 },
+        });
+        startY = doc.lastAutoTable.finalY + 15;
+      }
+      
+      if (report.data.historyRecords?.length > 0) {
+        if (startY > 250) { doc.addPage(); startY = 20; }
+        doc.text('Academic History Records', 14, startY);
+        autoTable(doc, {
+          startY: startY + 5,
+          head: [['Student', 'School Year', 'Subject', 'Final Grade', 'Remarks']],
+          body: report.data.historyRecords.slice(0, 20).map(h => [
+            h.student_name || '—',
+            h.school_year || '—',
+            h.subject_name || '—',
+            h.final_grade || '—',
+            h.remarks || '—'
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14, right: 14 },
+        });
+      }
     }
     
     const pageCount = doc.internal.getNumberOfPages();
@@ -473,7 +635,7 @@ const Reports = () => {
           absent: attendanceStats.absent,
           late: attendanceStats.late,
           excused: attendanceStats.excused,
-          attendance: attendanceRecords
+          attendanceRecords: attendanceRecords
         };
         reportName = `Attendance Summary Report - ${period}`;
         break;
@@ -483,7 +645,7 @@ const Reports = () => {
           uniqueStudents: historyStats.uniqueStudents,
           schoolYears: historyStats.schoolYears,
           averageFinal: historyStats.averageFinal,
-          history: historyRecords
+          historyRecords: historyRecords
         };
         reportName = `Academic History Report - ${period}`;
         break;
@@ -493,10 +655,15 @@ const Reports = () => {
           financial: transactionStats,
           classes: classStats,
           teachers: teacherStats,
-          attendance: attendanceStats,
-          history: historyStats
+          attendanceStats: attendanceStats,
+          history: historyStats,
+          enrollments: enrollments.slice(0, 50),
+          sections: sections,
+          attendanceRecords: attendanceRecords.slice(0, 50),
+          historyRecords: historyRecords.slice(0, 50)
         };
         reportName = `Comprehensive System Report - ${period}`;
+        break;
     }
     
     const newReport = {
@@ -567,7 +734,6 @@ const Reports = () => {
     <div className="class-management">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
-      {/* Header with title and refresh button - same as other pages */}
       <div className="enrollment-stats-section">
         <div className="enrollment-stats-header">
           <div className="enrollment-stats-title">Reports Module</div>
@@ -579,7 +745,6 @@ const Reports = () => {
         </div>
       </div>
       
-      {/* FILTERS - same style as other pages */}
       <div className="class-controls">
         <div className="filter-box">
           <Filter size={20} />
@@ -610,7 +775,6 @@ const Reports = () => {
         </button>
       </div>
       
-      {/* STATS CARDS - same StatsGrid component */}
       <StatsGrid>
         <StatCard 
           label="Total Reports" 
@@ -642,7 +806,6 @@ const Reports = () => {
         />
       </StatsGrid>
       
-      {/* TABLE - same style as other pages */}
       <div className="classes-container">
         <div className="teacher-assignment-table">
           <table className="assignments-table">
