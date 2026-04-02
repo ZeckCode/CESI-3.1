@@ -210,7 +210,7 @@ const AttendanceMonitoring = () => {
         });
 
         let url = `${API}/api/attendance/records/?section=${selectedSection}&date=${selectedDate}`;
-        url += `&schedule=${selectedSchedule}`;
+        url += `&schedule=${selectedSchedule}&include_unlinked=1`;
 
         const attendanceRes = await apiFetch(url);
         if (attendanceRes.ok) {
@@ -293,7 +293,7 @@ const AttendanceMonitoring = () => {
     }
 
     let url = `${API}/api/attendance/records/?section=${selectedSection}&date=${selectedDate}`;
-    url += `&schedule=${selectedSchedule}`;
+    url += `&schedule=${selectedSchedule}&include_unlinked=1`;
 
     try {
       const res = await apiFetch(url);
