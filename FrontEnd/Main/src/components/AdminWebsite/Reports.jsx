@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, Filter, BarChart2, Clock, CheckCircle, FileDown } from 'lucide-react';
+import { FileText, Download, Filter, BarChart2, Clock, CheckCircle, FileDown, X } from 'lucide-react';
 import StatCard, { StatsGrid } from './StatCard';
 import '../AdminWebsiteCSS/ClassManagement.css';
 import jsPDF from 'jspdf';
@@ -32,11 +32,35 @@ const getCurrentAcademicYear = () => {
   return today.getMonth() >= 5 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 };
 
+// Toast Notification Component
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className={`toast-notification toast-${type}`}>
+      <div className="toast-content">
+        {type === 'success' && <CheckCircle size={18} />}
+        {type === 'error' && <X size={18} />}
+        <span>{message}</span>
+      </div>
+      <button className="toast-close" onClick={onClose}>
+        <X size={14} />
+      </button>
+    </div>
+  );
+};
+
 const Reports = () => {
   const [reportType, setReportType] = useState('all');
   const [dateRange, setDateRange] = useState('all');
   const [generatedReports, setGeneratedReports] = useState([]);
   const [currentAcademicYear, setCurrentAcademicYear] = useState('');
+  const [toast, setToast] = useState(null);
   
   // Stats state
   const [enrollmentStats, setEnrollmentStats] = useState({
@@ -92,6 +116,11 @@ const Reports = () => {
   const [loading, setLoading] = useState(true);
   
   const now = new Date();
+
+  // Show toast notification
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
 
   // -----------------------------
   // FETCH ACADEMIC YEAR
@@ -315,9 +344,17 @@ const Reports = () => {
   }, []);
 
   // -----------------------------
-  // PDF EXPORT FUNCTION
+  // OPEN PRINT VIEW (instead of direct download)
   // -----------------------------
-  const exportReportToPDF = (report) => {
+  const openPrintView = (report) => {
+    // Create a temporary iframe for print view
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'absolute';
+    printFrame.style.width = '0px';
+    printFrame.style.height = '0px';
+    printFrame.style.border = '0';
+    document.body.appendChild(printFrame);
+    
     const doc = new jsPDF('landscape');
     
     doc.setFontSize(18);
@@ -435,8 +472,25 @@ const Reports = () => {
       );
     }
     
-    const filename = `${report.name.replace(/\s+/g, '_')}_${report.date}.pdf`;
-    doc.save(filename);
+    // Convert PDF to data URL and show in iframe for print
+    const pdfDataUrl = doc.output('datauristring');
+    printFrame.src = pdfDataUrl;
+    
+    // Wait for iframe to load then trigger print
+    printFrame.onload = () => {
+      setTimeout(() => {
+        try {
+          printFrame.contentWindow.print();
+          // Remove iframe after print dialog closes (or after timeout)
+          setTimeout(() => {
+            document.body.removeChild(printFrame);
+          }, 100);
+        } catch (e) {
+          console.error('Print error:', e);
+          document.body.removeChild(printFrame);
+        }
+      }, 100);
+    };
   };
 
   // -----------------------------
@@ -522,7 +576,7 @@ const Reports = () => {
     };
 
     setGeneratedReports((prev) => [newReport, ...prev]);
-    alert("Report generated successfully! Click Download to view PDF.");
+    showToast('Report generated successfully!', 'success');
   };
 
   // -----------------------------
@@ -574,10 +628,10 @@ const Reports = () => {
   };
 
   // -----------------------------
-  // DOWNLOAD FUNCTION
+  // DOWNLOAD FUNCTION (opens print view)
   // -----------------------------
   const handleDownload = (report) => {
-    exportReportToPDF(report);
+    openPrintView(report);
   };
 
   // -----------------------------
@@ -635,6 +689,14 @@ const Reports = () => {
 
   return (
     <div className="class-management">
+      {/* Toast Notification */}
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={() => setToast(null)} 
+        />
+      )}
 
       {/* FILTERS */}
       <div className="class-controls">
@@ -776,10 +838,104 @@ const Reports = () => {
           margin: 0 auto 20px;
         }
         .btn-generate-sm {
-          width: 160px;}
+          width: 160px;
+        }
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        
+        /* Toast Notification Styles */
+        .toast-notification {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 12px 20px;
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          z-index: 1000;
+          min-width: 280px;
+          max-width: 400px;
+          animation: slideInRight 0.3s ease-out;
+        }
+        
+        .toast-success {
+          border-left: 4px solid #10b981;
+          background: #f0fdf4;
+        }
+        
+        .toast-success .toast-content {
+          color: #065f46;
+        }
+        
+        .toast-error {
+          border-left: 4px solid #ef4444;
+          background: #fef2f2;
+        }
+        
+        .toast-error .toast-content {
+          color: #991b1b;
+        }
+        
+        .toast-content {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 14px;
+          font-weight: 500;
+        }
+        
+        .toast-close {
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 6px;
+          opacity: 0.6;
+          transition: opacity 0.2s;
+        }
+        
+        .toast-close:hover {
+          opacity: 1;
+        }
+        
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes slideOutRight {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+        }
+        
+        @media print {
+          .class-controls,
+          .stats-grid,
+          .btn-edit,
+          .toast-notification {
+            display: none !important;
+          }
         }
       `}</style>
 
