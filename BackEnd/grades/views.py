@@ -811,6 +811,9 @@ def section_performance(request):
     q_start, q_end = quarter_ranges[quarter]
 
     students_map = {}
+
+    def normalize_student_number(value):
+        return str(value or "").strip().lower()
     enrollments = (
         Enrollment.objects.filter(section_id=section_id, status="ACTIVE")
         .select_related("student", "student__profile")
@@ -979,28 +982,53 @@ def students_by_section(request, section_id):
         status="ACTIVE",
     ).select_related("student", "student__profile")
 
+    enrollment_numbers = [
+        enr.student_number for enr in enrollments if enr.student_number
+    ]
+    profile_by_number = {}
+    if enrollment_numbers:
+        profiles = UserProfile.objects.filter(
+            student_number__in=enrollment_numbers,
+            user__role="PARENT_STUDENT",
+            user__status="ACTIVE",
+        ).select_related("user")
+        for p in profiles:
+            num_key = normalize_student_number(p.student_number)
+            if num_key and num_key not in profile_by_number:
+                profile_by_number[num_key] = p
+
     for enr in enrollments:
         stu = enr.student
         if not stu:
             continue
+
+        enrollment_number = enr.student_number or getattr(getattr(stu, "profile", None), "student_number", None)
+        number_key = normalize_student_number(enrollment_number)
+        profile = profile_by_number.get(number_key) if number_key else None
+        student_user = profile.user if profile and profile.user_id else stu
+
         full_name = " ".join(
             p for p in [enr.first_name or "", enr.last_name or ""] if p
         ).strip()
-        if not full_name and hasattr(stu, "profile") and stu.profile:
+        if not full_name and profile:
             full_name = " ".join(
-                p for p in [stu.profile.student_first_name or "", stu.profile.student_last_name or ""] if p
+                p for p in [profile.student_first_name or "", profile.student_last_name or ""] if p
+            ).strip()
+        if not full_name and hasattr(student_user, "profile") and student_user.profile:
+            full_name = " ".join(
+                p for p in [student_user.profile.student_first_name or "", student_user.profile.student_last_name or ""] if p
             ).strip()
         if not full_name:
-            full_name = stu.username
+            full_name = student_user.username
 
-        key = build_student_key(stu, enrollment=enr)
+        key = build_student_key(student_user, enrollment=enr, profile=profile)
         if not key:
             continue
         students_map[key] = {
-            "id": stu.id,
-            "username": stu.username,
+            "id": student_user.id,
+            "username": student_user.username,
             "student_name": full_name,
-            "student_number": enr.student_number or getattr(getattr(stu, "profile", None), "student_number", None),
+            "student_number": enrollment_number or getattr(getattr(student_user, "profile", None), "student_number", None),
         }
 
     legacy_profiles = UserProfile.objects.filter(
