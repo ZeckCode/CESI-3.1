@@ -1952,7 +1952,7 @@ const handleApprove = async (id) => {
                   </td>
 
                   <td>
-                  {row.paymentProof ? (
+                  {row.paymentProof && row.paymentProof.proof_image_url ? (
                     <button
                       style={{
                         padding: "6px 12px",
