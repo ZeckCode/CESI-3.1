@@ -36,6 +36,19 @@
   flex-wrap: wrap;
 }
 
+.msg__listToggle{
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+
 .msg__title{
   margin: 0;
   font-weight: 900;
@@ -69,6 +82,10 @@
   display: grid;
   grid-template-columns: 360px 1fr;
   min-height: calc(100vh - 120px);
+}
+
+.msg__listOverlay{
+  display: none;
 }
 
 /* responsive */
@@ -673,6 +690,13 @@
     justify-content: center;
   }
 
+  .msg__listToggle{
+    display: inline-flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+  }
+
   .msg__shell {
     grid-template-columns: 1fr;
     min-height: auto;
@@ -691,6 +715,14 @@
     z-index: 999;
     background: white;
     border-radius: 0;
+  }
+
+  .msg__listOverlay{
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 998;
   }
 
   .msg__listPane.active {

@@ -33,6 +33,7 @@ const StudentMessage = () => {
   const [schoolYear, setSchoolYear] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const scrollRef = useRef(null);
+  const [showChatList, setShowChatList] = useState(true);
   const [showNewChat, setShowNewChat] = useState(false);
   const [newChatError, setNewChatError] = useState("");
   const [newChatType, setNewChatType] = useState("individual");
@@ -86,6 +87,7 @@ const StudentMessage = () => {
 
   const toggleNewChatModal = () => {
     setNewChatError("");
+    setShowChatList(false);
     setShowNewChat((prev) => !prev);
   };
 
@@ -215,6 +217,7 @@ const StudentMessage = () => {
   };
 
   const handleSelectChat = (chat) => {
+    setShowChatList(false);
     loadChatDetail(chat.id);
   };
 
@@ -333,6 +336,7 @@ const StudentMessage = () => {
         // Refresh chat list to show the newly accepted chat
         const chatsData = await listChats();
         setChats(chatsData || []);
+        setShowChatList(true);
       }
       setError("");
     } catch (err) {
@@ -569,6 +573,14 @@ const StudentMessage = () => {
       <div className="msg__top">
         <h2 hidden className="msg__title">Messages</h2>
         <button
+          className="msg__listToggle"
+          type="button"
+          aria-expanded={showChatList}
+          onClick={() => setShowChatList((prev) => !prev)}
+        >
+          Chats
+        </button>
+        <button
           className="msg__newBtn"
           type="button"
           onClick={toggleNewChatModal}
@@ -619,6 +631,14 @@ const StudentMessage = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {showChatList && (
+        <div
+          className="msg__listOverlay"
+          role="presentation"
+          onClick={() => setShowChatList(false)}
+        />
       )}
 
       {showNewChat && (
@@ -740,7 +760,7 @@ const StudentMessage = () => {
 
       <div className="msg__shell">
         {/* LEFT: chat list */}
-        <aside className="msg__listPane">
+        <aside className={`msg__listPane${showChatList ? " active" : ""}`}>
           <div className="msg__searchBar">
             <span className="msg__searchIcon" aria-hidden="true">🔎</span>
             <input
