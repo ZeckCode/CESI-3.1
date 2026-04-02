@@ -16,8 +16,11 @@ import {
   createMessageReport,
   createChatRequest,
 } from "../api/messaging";
+import { apiFetch } from "../api/apiFetch";
 import { getSchoolYear } from "../api/announcements";
 import { getToken } from "../Auth/auth";
+
+const MESSAGE_POLL_INTERVAL_MS = 2000;
 
 const StudentMessage = () => {
   const [chats, setChats] = useState([]);
@@ -31,6 +34,7 @@ const StudentMessage = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const scrollRef = useRef(null);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [newChatError, setNewChatError] = useState("");
   const [newChatType, setNewChatType] = useState("individual");
   const [newChatName, setNewChatName] = useState("");
   const [newChatTarget, setNewChatTarget] = useState("");
@@ -79,6 +83,70 @@ const StudentMessage = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const toggleNewChatModal = () => {
+    setNewChatError("");
+    setShowNewChat((prev) => !prev);
+  };
+
+  const mergeMessages = (currentMessages, incomingMessages) => {
+    if (!Array.isArray(incomingMessages)) return currentMessages;
+    if (!Array.isArray(currentMessages) || currentMessages.length === 0) {
+      return incomingMessages;
+    }
+
+    const byId = new Map(currentMessages.map((msg) => [msg.id, msg]));
+    let changed = false;
+
+    for (const msg of incomingMessages) {
+      const existing = byId.get(msg.id);
+      if (!existing) {
+        byId.set(msg.id, msg);
+        changed = true;
+        continue;
+      }
+
+      if (
+        existing.content !== msg.content ||
+        existing.is_deleted !== msg.is_deleted ||
+        existing.is_flagged !== msg.is_flagged ||
+        existing.flagged_words !== msg.flagged_words ||
+        existing.image !== msg.image
+      ) {
+        byId.set(msg.id, msg);
+        changed = true;
+      }
+    }
+
+    if (!changed) return currentMessages;
+
+    return Array.from(byId.values()).sort(
+      (a, b) => new Date(a.created_at) - new Date(b.created_at)
+    );
+  };
+
+  useEffect(() => {
+    if (!selectedChat?.id) return;
+    let isActive = true;
+
+    const refreshMessages = async () => {
+      try {
+        const chatData = await getChatDetail(selectedChat.id);
+        if (!isActive) return;
+        setSelectedChat(chatData);
+        setMessages((prev) => mergeMessages(prev, chatData.messages || []));
+      } catch (err) {
+        // Silent polling errors to avoid disrupting the UI.
+      }
+    };
+
+    refreshMessages();
+    const intervalId = setInterval(refreshMessages, MESSAGE_POLL_INTERVAL_MS);
+    return () => {
+      isActive = false;
+      clearInterval(intervalId);
+    };
+  }, [selectedChat?.id]);
 
   const loadInitialData = async () => {
     try {
@@ -174,23 +242,27 @@ const StudentMessage = () => {
   };
 
   const handleCreateNewChat = async (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) {
+      e.preventDefault();
+    }
+    setNewChatError("");
+
     if (!schoolYear) {
-      setError("Could not determine school year");
+      setNewChatError("Could not determine school year");
       return;
     }
 
     // Validate input
     if (newChatType === "individual" && !selectedUserId) {
-      setError("Please select a user");
+      setNewChatError("Please select a user");
       return;
     }
     if (newChatType === "project" && !newChatName) {
-      setError("Please enter a group name");
+      setNewChatError("Please enter a group name");
       return;
     }
     if (newChatType === "class" && (!newChatSection || !newChatSubject)) {
-      setError("Please select both section and subject");
+      setNewChatError("Please select both section and subject");
       return;
     }
 
@@ -215,12 +287,12 @@ const StudentMessage = () => {
       setNewChatSection("");
       setNewChatSubject("");
       setSelectedUserText("");
-      setError("");
+      setNewChatError("");
       if (chatData?.id) {
         handleSelectChat(chatData);
       }
     } catch (err) {
-      setError("Failed to create chat: " + (err.message || "Unknown error"));
+      setNewChatError("Failed to create chat: " + (err.message || "Unknown error"));
       console.error(err);
     }
   };
@@ -499,7 +571,7 @@ const StudentMessage = () => {
         <button
           className="msg__newBtn"
           type="button"
-          onClick={() => setShowNewChat(!showNewChat)}
+          onClick={toggleNewChatModal}
         >
           <span className="msg__icon" aria-hidden="true">➕</span>
           New Chat
@@ -549,6 +621,123 @@ const StudentMessage = () => {
         </div>
       )}
 
+      {showNewChat && (
+        <div style={{position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 3000}}>
+          <div style={{width: "100%", maxWidth: "460px", background: "#fff", borderRadius: "10px", padding: "16px"}}>
+            <h3 style={{marginTop: 0, marginBottom: "12px"}}>Create New Chat</h3>
+            {newChatError && (
+              <div style={{marginBottom: "10px", color: "#b91c1c", fontSize: "13px", fontWeight: 600}}>
+                {newChatError}
+              </div>
+            )}
+            <select
+              value={newChatType}
+              onChange={(e) => setNewChatType(e.target.value)}
+              style={{width: "100%", padding: "8px", marginBottom: "10px"}}
+            >
+              <option value="individual">Individual DM</option>
+              <option value="class">Class Group</option>
+              <option value="project">Project Group</option>
+            </select>
+
+            {newChatType === "individual" && (
+              <div style={{position: "relative", marginBottom: "10px"}}>
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={selectedUserText}
+                  onChange={(e) => {
+                    handleUserSearch(e.target.value);
+                  }}
+                  onFocus={() => selectedUserText.length >= 2 && setShowUserDropdown(true)}
+                  style={{width: "100%", padding: "8px", marginBottom: "10px"}}
+                />
+                {showUserDropdown && userSuggestions.length > 0 && (
+                  <div style={{position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "white", border: "1px solid #ccc", maxHeight: "150px", overflowY: "auto", zIndex: 1000}}>
+                    {userSuggestions.map((user) => (
+                      <div
+                        key={user.id}
+                        onClick={() => handleSelectUser(user)}
+                        style={{padding: "8px", borderBottom: "1px solid #eee", cursor: "pointer", backgroundColor: "#f9f9f9"}}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e8e8e8")}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f9f9f9")}
+                      >
+                        {getUserDisplayName(user)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {selectedUserId && (
+                  <textarea
+                    placeholder="Initial message (optional)..."
+                    value={initialMessage}
+                    onChange={(e) => setInitialMessage(e.target.value)}
+                    style={{width: "100%", padding: "8px", marginTop: "8px", minHeight: "60px", fontFamily: "inherit"}}
+                  />
+                )}
+              </div>
+            )}
+
+            {newChatType === "class" && (
+              <>
+                <select
+                  value={newChatSection}
+                  onChange={(e) => setNewChatSection(e.target.value)}
+                  style={{width: "100%", padding: "8px", marginBottom: "10px"}}
+                >
+                  <option value="">Select section</option>
+                  {sections.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.name} {section.grade_level ? `- ${section.grade_level}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={newChatSubject}
+                  onChange={(e) => setNewChatSubject(e.target.value)}
+                  style={{width: "100%", padding: "8px", marginBottom: "10px"}}
+                >
+                  <option value="">Select subject</option>
+                  {subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>{subject.name}</option>
+                  ))}
+                </select>
+              </>
+            )}
+
+            {newChatType === "project" && (
+              <input
+                type="text"
+                placeholder="Group name..."
+                value={newChatName}
+                onChange={(e) => setNewChatName(e.target.value)}
+                style={{width: "100%", padding: "8px", marginBottom: "10px"}}
+              />
+            )}
+
+            <div style={{display: "flex", justifyContent: "flex-end", gap: "8px"}}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNewChat(false);
+                  setNewChatError("");
+                }}
+                style={{padding: "8px 12px", border: "1px solid #ccc", background: "#fff"}}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateNewChat}
+                style={{padding: "8px 12px", backgroundColor: "#24148a", color: "white", border: "none", cursor: "pointer"}}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="msg__shell">
         {/* LEFT: chat list */}
         <aside className="msg__listPane">
@@ -562,108 +751,6 @@ const StudentMessage = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-
-          {showNewChat && (
-            <div style={{position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 2100}}>
-              <div style={{width: "100%", maxWidth: "460px", background: "#fff", borderRadius: "10px", padding: "16px"}}>
-                <h3 style={{marginTop: 0, marginBottom: "12px"}}>Create New Chat</h3>
-                <select
-                  value={newChatType}
-                  onChange={(e) => setNewChatType(e.target.value)}
-                  style={{width: "100%", padding: "8px", marginBottom: "10px"}}
-                >
-                  <option value="individual">Individual DM</option>
-                  <option value="class">Class Group</option>
-                  <option value="project">Project Group</option>
-                </select>
-
-                {newChatType === "individual" && (
-                  <div style={{position: "relative", marginBottom: "10px"}}>
-                    <input
-                      type="text"
-                      placeholder="Search users..."
-                      value={selectedUserText}
-                      onChange={(e) => {
-                        handleUserSearch(e.target.value);
-                      }}
-                      onFocus={() => selectedUserText.length >= 2 && setShowUserDropdown(true)}
-                      style={{width: "100%", padding: "8px", marginBottom: "10px"}}
-                    />
-                    {showUserDropdown && userSuggestions.length > 0 && (
-                      <div style={{position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "white", border: "1px solid #ccc", maxHeight: "150px", overflowY: "auto", zIndex: 1000}}>
-                        {userSuggestions.map((user) => (
-                          <div
-                            key={user.id}
-                            onClick={() => handleSelectUser(user)}
-                            style={{padding: "8px", borderBottom: "1px solid #eee", cursor: "pointer", backgroundColor: "#f9f9f9"}}
-                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e8e8e8")}
-                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f9f9f9")}
-                          >
-                            {getUserDisplayName(user)}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {selectedUserId && (
-                      <textarea
-                        placeholder="Initial message (optional)..."
-                        value={initialMessage}
-                        onChange={(e) => setInitialMessage(e.target.value)}
-                        style={{width: "100%", padding: "8px", marginTop: "8px", minHeight: "60px", fontFamily: "inherit"}}
-                      />
-                    )}
-                  </div>
-                )}
-
-                {newChatType === "class" && (
-                  <>
-                    <select
-                      value={newChatSection}
-                      onChange={(e) => setNewChatSection(e.target.value)}
-                      style={{width: "100%", padding: "8px", marginBottom: "10px"}}
-                    >
-                      <option value="">Select section</option>
-                      {sections.map((section) => (
-                        <option key={section.id} value={section.id}>
-                          {section.name} {section.grade_level ? `- ${section.grade_level}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={newChatSubject}
-                      onChange={(e) => setNewChatSubject(e.target.value)}
-                      style={{width: "100%", padding: "8px", marginBottom: "10px"}}
-                    >
-                      <option value="">Select subject</option>
-                      {subjects.map((subject) => (
-                        <option key={subject.id} value={subject.id}>{subject.name}</option>
-                      ))}
-                    </select>
-                  </>
-                )}
-
-                {newChatType === "project" && (
-                  <input
-                    type="text"
-                    placeholder="Group name..."
-                    value={newChatName}
-                    onChange={(e) => setNewChatName(e.target.value)}
-                    style={{width: "100%", padding: "8px", marginBottom: "10px"}}
-                  />
-                )}
-
-                <div style={{display: "flex", justifyContent: "flex-end", gap: "8px"}}>
-                  <button onClick={() => setShowNewChat(false)} style={{padding: "8px 12px", border: "1px solid #ccc", background: "#fff"}}>Cancel</button>
-                  <button
-                    onClick={handleCreateNewChat}
-                    style={{padding: "8px 12px", backgroundColor: "#24148a", color: "white", border: "none", cursor: "pointer"}}
-                  >
-                    Create
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           <div className="msg__scroll">
             {filteredChats.length === 0 ? (
