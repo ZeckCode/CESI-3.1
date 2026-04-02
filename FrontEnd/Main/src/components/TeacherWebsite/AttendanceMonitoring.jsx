@@ -5,6 +5,22 @@ import { apiFetch } from "../api/apiFetch";
 
 const API = "";
 
+const getStudentId = (student) =>
+  student?.id ?? student?.student_id ?? student?.user_id ?? null;
+
+const getStudentKey = (student) => {
+  if (!student) return "";
+
+  const studentNumber = String(student.student_number || student.lrn || "").trim();
+  if (studentNumber) return `num:${studentNumber.toLowerCase()}`;
+
+  const username = String(student.username || "").trim();
+  if (username) return `user:${username.toLowerCase()}`;
+
+  const idValue = getStudentId(student);
+  return idValue != null ? `id:${String(idValue).trim()}` : "";
+};
+
 const getGradeSource = (obj) =>
   obj?.grade_level ??
   obj?.grade ??
@@ -161,13 +177,34 @@ const AttendanceMonitoring = () => {
 
       if (studentsRes.ok) {
         const studentsData = await studentsRes.json();
-        setStudents(Array.isArray(studentsData) ? studentsData : []);
+        const studentsArray = Array.isArray(studentsData) ? studentsData : [];
+        const uniqueStudents = Object.values(
+          studentsArray.reduce((acc, student) => {
+            const key = getStudentKey(student);
+            if (!key) return acc;
+            if (!acc[key]) {
+              acc[key] = student;
+            } else {
+              acc[key] = { ...acc[key], ...student };
+            }
+            return acc;
+          }, {})
+        );
+
+        setStudents(uniqueStudents);
 
         const initialAttendance = {};
         const initialNotes = {};
-        studentsData.forEach((s) => {
-          initialAttendance[s.id] = "PRESENT";
-          initialNotes[s.id] = "";
+        const idToKey = new Map();
+        uniqueStudents.forEach((s) => {
+          const key = getStudentKey(s);
+          const idValue = getStudentId(s);
+          if (!key) return;
+          initialAttendance[key] = "PRESENT";
+          initialNotes[key] = "";
+          if (idValue != null) {
+            idToKey.set(String(idValue), key);
+          }
         });
 
         let url = `${API}/api/attendance/records/?section=${selectedSection}&date=${selectedDate}`;
@@ -177,9 +214,10 @@ const AttendanceMonitoring = () => {
         if (attendanceRes.ok) {
           const existingRecords = await attendanceRes.json();
           existingRecords.forEach((rec) => {
-            if (Object.prototype.hasOwnProperty.call(initialAttendance, rec.student)) {
-              initialAttendance[rec.student] = rec.status;
-              initialNotes[rec.student] = rec.notes || "";
+            const key = idToKey.get(String(rec.student || ""));
+            if (key && Object.prototype.hasOwnProperty.call(initialAttendance, key)) {
+              initialAttendance[key] = rec.status;
+              initialNotes[key] = rec.notes || "";
             }
           });
         }
@@ -233,8 +271,9 @@ const AttendanceMonitoring = () => {
     fetchHistory();
   }, [showHistory, fetchHistory]);
 
-  const updateStatus = (studentId, newStatus) => {
-    setAttendance((prev) => ({ ...prev, [studentId]: newStatus }));
+  const updateStatus = (studentKey, newStatus) => {
+    if (!studentKey) return;
+    setAttendance((prev) => ({ ...prev, [studentKey]: newStatus }));
   };
 
   const handleSave = async () => {
@@ -248,11 +287,18 @@ const AttendanceMonitoring = () => {
     setMessage(null);
 
     try {
-      const records = students.map((s) => ({
-        student_id: s.id,
-        status: attendance[s.id] || "PRESENT",
-        notes: notes[s.id] || "",
-      }));
+      const records = students
+        .map((s) => {
+          const studentId = getStudentId(s);
+          const studentKey = getStudentKey(s);
+          if (studentId == null || !studentKey) return null;
+          return {
+            student_id: studentId,
+            status: attendance[studentKey] || "PRESENT",
+            notes: notes[studentKey] || "",
+          };
+        })
+        .filter(Boolean);
 
       const body = {
         section: parseInt(selectedSection, 10),
@@ -620,68 +666,72 @@ const AttendanceMonitoring = () => {
                   </td>
                 </tr>
               ) : (
-                students.map((student, idx) => (
-                  <tr className="am__tr" key={student.id}>
-                    <td className="am__td am__td--left am__td--num">{idx + 1}</td>
-                    <td className="am__td am__td--left">
-                      <div className="am__name">{student.name}</div>
-                      <div className="am__id">{student.username}</div>
-                    </td>
+                students.map((student, idx) => {
+                  const studentKey = getStudentKey(student);
+                  const statusValue = attendance[studentKey];
+                  return (
+                    <tr className="am__tr" key={studentKey || student.id || idx}>
+                      <td className="am__td am__td--left am__td--num">{idx + 1}</td>
+                      <td className="am__td am__td--left">
+                        <div className="am__name">{student.name}</div>
+                        <div className="am__id">{student.username}</div>
+                      </td>
 
-                    <td className="am__td">
-                      <span
-                        className={`am__badge am__badge--${attendance[student.id]?.toLowerCase()}`}
-                      >
-                        {attendance[student.id]}
-                      </span>
-                    </td>
+                      <td className="am__td">
+                        <span
+                          className={`am__badge am__badge--${statusValue?.toLowerCase()}`}
+                        >
+                          {statusValue}
+                        </span>
+                      </td>
 
-                    <td className="am__td">
-                      <div className="am__toggle">
-                        <button
-                          type="button"
-                          onClick={() => updateStatus(student.id, "PRESENT")}
-                          className={`am__toggleBtn ${
-                            attendance[student.id] === "PRESENT" ? "am__toggleBtn--present" : "am__toggleBtn--idle"
-                          }`}
-                          title="Present"
-                        >
-                          P
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateStatus(student.id, "ABSENT")}
-                          className={`am__toggleBtn ${
-                            attendance[student.id] === "ABSENT" ? "am__toggleBtn--absent" : "am__toggleBtn--idle"
-                          }`}
-                          title="Absent"
-                        >
-                          A
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateStatus(student.id, "LATE")}
-                          className={`am__toggleBtn ${
-                            attendance[student.id] === "LATE" ? "am__toggleBtn--late" : "am__toggleBtn--idle"
-                          }`}
-                          title="Late"
-                        >
-                          L
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateStatus(student.id, "EXCUSED")}
-                          className={`am__toggleBtn ${
-                            attendance[student.id] === "EXCUSED" ? "am__toggleBtn--excused" : "am__toggleBtn--idle"
-                          }`}
-                          title="Excused"
-                        >
-                          E
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      <td className="am__td">
+                        <div className="am__toggle">
+                          <button
+                            type="button"
+                            onClick={() => updateStatus(studentKey, "PRESENT")}
+                            className={`am__toggleBtn ${
+                              statusValue === "PRESENT" ? "am__toggleBtn--present" : "am__toggleBtn--idle"
+                            }`}
+                            title="Present"
+                          >
+                            P
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateStatus(studentKey, "ABSENT")}
+                            className={`am__toggleBtn ${
+                              statusValue === "ABSENT" ? "am__toggleBtn--absent" : "am__toggleBtn--idle"
+                            }`}
+                            title="Absent"
+                          >
+                            A
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateStatus(studentKey, "LATE")}
+                            className={`am__toggleBtn ${
+                              statusValue === "LATE" ? "am__toggleBtn--late" : "am__toggleBtn--idle"
+                            }`}
+                            title="Late"
+                          >
+                            L
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateStatus(studentKey, "EXCUSED")}
+                            className={`am__toggleBtn ${
+                              statusValue === "EXCUSED" ? "am__toggleBtn--excused" : "am__toggleBtn--idle"
+                            }`}
+                            title="Excused"
+                          >
+                            E
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

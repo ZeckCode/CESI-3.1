@@ -826,7 +826,10 @@ def section_performance(request):
                 p for p in [stu.profile.student_first_name or "", stu.profile.student_last_name or ""] if p
             ).strip()
         key = str(stu.id)
-        students_map[key] = name or stu.username
+        students_map[key] = {
+            "name": name or stu.username,
+            "student_number": enr.student_number or getattr(getattr(stu, "profile", None), "student_number", None),
+        }
 
     for p in UserProfile.objects.filter(
         section_id=section_id,
@@ -835,12 +838,19 @@ def section_performance(request):
     ).select_related("user"):
         key = str(p.user_id)
         if key not in students_map:
-            students_map[key] = " ".join(
-                pt for pt in [p.student_first_name or "", p.student_last_name or ""] if pt
-            ).strip() or p.user.username
+            students_map[key] = {
+                "name": " ".join(
+                    pt for pt in [p.student_first_name or "", p.student_last_name or ""] if pt
+                ).strip() or p.user.username,
+                "student_number": p.student_number or getattr(getattr(p.user, "profile", None), "student_number", None),
+            }
 
     results = []
-    for student_id, student_name in students_map.items():
+    for student_id, student_meta in students_map.items():
+        student_name = student_meta.get("name") if isinstance(student_meta, dict) else student_meta
+        student_number = None
+        if isinstance(student_meta, dict):
+            student_number = student_meta.get("student_number")
         grade_data = _compute_quarter_grade(student_id, subject_id, quarter)
         att = AttendanceRecord.get_student_attendance_stats(
             student_id,
@@ -860,6 +870,7 @@ def section_performance(request):
         results.append({
             "student_id": student_id,
             "student_name": student_name,
+            "student_number": student_number,
             "quarter_grade": grade_data["quarter_grade"],
             "activity_avg": grade_data["activity_avg"],
             "quiz_avg": grade_data["quiz_avg"],

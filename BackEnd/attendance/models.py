@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from django.conf import settings
 
 
@@ -127,7 +128,8 @@ class AttendanceRecord(models.Model):
         records = cls.objects.filter(
             student_id=student_id,
             date=date,
-            subject__isnull=False,
+        ).filter(
+            Q(subject__isnull=False) | Q(schedule__isnull=False)
         ).select_related("subject", "schedule", "schedule__subject", "schedule__teacher")
         
         summary = []

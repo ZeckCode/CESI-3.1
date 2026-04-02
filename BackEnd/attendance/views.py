@@ -423,7 +423,8 @@ class StudentAttendanceView(APIView):
         # Otherwise return monthly attendance overview
         records_qs = AttendanceRecord.objects.filter(
             student=user,
-            subject__isnull=False,
+        ).filter(
+            Q(subject__isnull=False) | Q(schedule__isnull=False)
         ).select_related("subject", "schedule", "schedule__subject").order_by("-date")
 
         # Filter by month/year if provided

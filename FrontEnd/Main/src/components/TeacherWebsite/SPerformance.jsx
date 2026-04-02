@@ -94,6 +94,19 @@ const GRADE_FULL_LABEL = (level) => {
   return fullLabels[code] || String(level || "—");
 };
 
+const getPerformanceKey = (row) => {
+  if (!row) return "";
+
+  const studentNumber = String(row.student_number || "").trim();
+  if (studentNumber) return `num:${studentNumber.toLowerCase()}`;
+
+  const idValue = row.student_id != null ? String(row.student_id).trim() : "";
+  if (idValue) return `id:${idValue}`;
+
+  const nameValue = String(row.student_name || "").trim();
+  return nameValue ? `name:${nameValue.toLowerCase()}` : "";
+};
+
 const SPerformance = () => {
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState("");
@@ -139,8 +152,7 @@ const SPerformance = () => {
         const raw = await res.json();
         const unique = Object.values(
           (Array.isArray(raw) ? raw : []).reduce((acc, item) => {
-            if (!item || item.student_id == null) return acc;
-            const key = String(item.student_id).trim();
+            const key = getPerformanceKey(item);
             if (!key) return acc;
             if (!acc[key]) {
               acc[key] = item;
@@ -212,12 +224,7 @@ const SPerformance = () => {
     (performanceData || []).forEach((student) => {
       if (!student) return;
 
-      if (student.student_id == null) {
-        noIdRows.push(student);
-        return;
-      }
-
-      const key = String(student.student_id).trim();
+      const key = getPerformanceKey(student);
       if (!key) {
         noIdRows.push(student);
         return;
@@ -584,7 +591,7 @@ const SPerformance = () => {
                       ? "spPill--success"
                       : "spPill--info";
                   return (
-                    <tr className="spTr" key={s.student_id}>
+                    <tr className="spTr" key={getPerformanceKey(s) || s.student_id || s.student_name}>
                       <td className="spTd">
                         <span className={"rankDot " + (rank === 1 ? "rankDot--gold" : "rankDot--muted")}>
                           {rank}
