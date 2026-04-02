@@ -1,0 +1,374 @@
+/* Reports.css - Clean styling for reports module */
+
+.reports-container {
+  padding: 24px;
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
+/* Header Section */
+.reports-header {
+  margin-bottom: 24px;
+}
+
+.reports-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+}
+
+.reports-header p {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Controls Bar */
+.reports-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: white;
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.filter-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f5f9;
+  padding: 8px 16px;
+  border-radius: 8px;
+  color: #475569;
+}
+
+.filter-box select {
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  padding: 4px 8px;
+  cursor: pointer;
+  outline: none;
+  color: #1e293b;
+}
+
+.btn-generate {
+  background: #4f6ef7;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  margin-left: auto;
+}
+
+.btn-generate:hover {
+  background: #3b5bdb;
+  transform: translateY(-1px);
+}
+
+.btn-generate:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.stat-card-label {
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+}
+
+.stat-card-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-card-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+
+.stat-card-subtitle {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* Color variants */
+.stat-blue .stat-card-icon { background: #dbeafe; color: #1e40af; }
+.stat-green .stat-card-icon { background: #dcfce7; color: #166534; }
+.stat-purple .stat-card-icon { background: #e0e7ff; color: #3730a3; }
+.stat-teal .stat-card-icon { background: #d1fae5; color: #065f46; }
+.stat-yellow .stat-card-icon { background: #fef3c7; color: #92400e; }
+.stat-red .stat-card-icon { background: #fee2e2; color: #991b1b; }
+
+/* Table Container */
+.table-container {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.reports-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.reports-table thead {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.reports-table th {
+  padding: 16px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.reports-table td {
+  padding: 16px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 14px;
+  color: #334155;
+}
+
+.reports-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+/* Report name cell */
+.report-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.report-name-cell svg {
+  color: #4f6ef7;
+}
+
+.report-name-cell strong {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* Badge */
+.badge-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Action buttons */
+.btn-download {
+  background: #4f6ef7;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-download:hover {
+  background: #3b5bdb;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #94a3b8;
+}
+
+.empty-state svg {
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  font-size: 14px;
+}
+
+/* Loading spinner */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #4f6ef7;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Toast Notification - Top Right */
+.toast-notification {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 280px;
+  max-width: 400px;
+  animation: slideInRight 0.3s ease-out;
+}
+
+.toast-success {
+  border-left: 4px solid #10b981;
+  background: #f0fdf4;
+}
+
+.toast-success .toast-content {
+  color: #065f46;
+}
+
+.toast-error {
+  border-left: 4px solid #ef4444;
+  background: #fef2f2;
+}
+
+.toast-error .toast-content {
+  color: #991b1b;
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Print styles */
+@media print {
+  .reports-controls,
+  .stats-grid,
+  .btn-download,
+  .toast-notification {
+    display: none !important;
+  }
+  
+  .reports-container {
+    padding: 0;
+    background: white;
+  }
+  
+  .reports-table {
+    border: 1px solid #ddd;
+  }
+  
+  .reports-table th,
+  .reports-table td {
+    border: 1px solid #ddd;
+  }
+}
