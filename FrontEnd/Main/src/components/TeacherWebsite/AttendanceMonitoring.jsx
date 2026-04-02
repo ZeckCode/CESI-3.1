@@ -365,7 +365,8 @@ const AttendanceMonitoring = () => {
 
     const attendanceTableHTML = students
       .map((student, idx) => {
-        const status = attendance[student.id] || "PRESENT";
+        const studentKey = getStudentKey(student);
+        const status = attendance[studentKey] || "PRESENT";
         const statusColor = {
           PRESENT: "#047857",
           ABSENT: "#dc2626",
@@ -383,7 +384,7 @@ const AttendanceMonitoring = () => {
                 ${status}
               </span>
             </td>
-            <td>${notes[student.id] || "-"}</td>
+            <td>${notes[studentKey] || "-"}</td>
           </tr>
         `;
       })
@@ -668,7 +669,7 @@ const AttendanceMonitoring = () => {
               ) : (
                 students.map((student, idx) => {
                   const studentKey = getStudentKey(student);
-                  const statusValue = attendance[studentKey];
+                  const statusValue = attendance[studentKey] || "PRESENT";
                   return (
                     <tr className="am__tr" key={studentKey || student.id || idx}>
                       <td className="am__td am__td--left am__td--num">{idx + 1}</td>

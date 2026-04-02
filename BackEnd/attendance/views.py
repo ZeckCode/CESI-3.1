@@ -13,6 +13,7 @@ from .serializers import (
     SectionSimpleSerializer,
 )
 from accounts.models import Section, User
+from enrollment.models import Enrollment
 
 
 class TeacherSectionsView(APIView):
@@ -405,10 +406,21 @@ class StudentAttendanceView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        attendance_user = request.user
+        if not AttendanceRecord.objects.filter(student=attendance_user).exists():
+            linked = (
+                Enrollment.objects.filter(parent_user=attendance_user, status="ACTIVE")
+                .select_related("student")
+                .order_by("-created_at", "-id")
+                .first()
+            )
+            if linked and linked.student:
+                attendance_user = linked.student
+
         # Check if requesting daily detail
         date_param = request.query_params.get("date")
         if date_param:
-            records = AttendanceRecord.get_daily_summary(user.id, date_param)
+            records = AttendanceRecord.get_daily_summary(attendance_user.id, date_param)
             return Response({
                 "records": records,
                 "summary": {
@@ -422,7 +434,7 @@ class StudentAttendanceView(APIView):
 
         # Otherwise return monthly attendance overview
         records_qs = AttendanceRecord.objects.filter(
-            student=user,
+            student=attendance_user,
         ).filter(
             Q(subject__isnull=False) | Q(schedule__isnull=False)
         ).select_related("subject", "schedule", "schedule__subject").order_by("-date")
@@ -521,6 +533,17 @@ class StudentAttendanceStatsView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        attendance_user = user
+        if not AttendanceRecord.objects.filter(student=attendance_user).exists():
+            linked = (
+                Enrollment.objects.filter(parent_user=attendance_user, status="ACTIVE")
+                .select_related("student")
+                .order_by("-created_at", "-id")
+                .first()
+            )
+            if linked and linked.student:
+                attendance_user = linked.student
+
         # Get current school year date range
         from datetime import date as date_class
         today = date_class.today()
@@ -529,7 +552,7 @@ class StudentAttendanceStatsView(APIView):
         sy_end = date_class(sy_start_year + 1, 5, 31)
 
         stats = AttendanceRecord.get_student_attendance_stats(
-            user.id, sy_start, sy_end
+            attendance_user.id, sy_start, sy_end
         )
 
         return Response({
