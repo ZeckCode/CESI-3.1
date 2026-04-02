@@ -699,6 +699,143 @@ font-size: 25px;
   background: #059669;
 }
 
+/* ── Date Input Hover Tooltip ── */
+.date-input-tooltip-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.date-input-tooltip-container input[type="date"] {
+  width: 100%;
+}
+
+/* Warning icon with hover tooltip */
+.date-hover-tooltip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+}
+
+/* Warning icon */
+.birth-date-warning {
+  font-size: 18px;
+  cursor: help;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.birth-date-warning:hover {
+  transform: scale(1.15);
+}
+
+/* Tooltip content (appears on hover) */
+.tooltip-content {
+  position: absolute;
+  bottom: 100%;
+  left: -150px;
+  background: #1f2937;
+  color: #fff;
+  padding: 12px 14px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  white-space: nowrap;
+  z-index: 1000;
+  min-width: 320px;
+  max-width: 400px;
+  word-wrap: break-word;
+  white-space: normal;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Show tooltip on hover */
+.date-hover-tooltip:hover .tooltip-content,
+.birth-date-warning:hover + .tooltip-content {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Tooltip arrow pointing up */
+.tooltip-content::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #1f2937;
+}
+
+/* Tooltip header */
+.tooltip-content strong {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fbbf24;
+}
+
+/* Age reference table in tooltip */
+.tooltip-content .age-ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.tooltip-content .age-ref-table th,
+.tooltip-content .age-ref-table td {
+  padding: 6px 8px;
+  text-align: center;
+  border-bottom: 1px solid #4b5563;
+  color: #e5e7eb;
+}
+
+.tooltip-content .age-ref-table th {
+  background: #374151;
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.tooltip-content .age-ref-table tbody tr {
+  background: #111827;
+}
+
+.tooltip-content .age-ref-table tbody tr:hover {
+  background: #1f2937;
+}
+
+/* Responsive tooltip positioning */
+@media (max-width: 768px) {
+  .tooltip-content {
+    left: -100px;
+    min-width: 280px;
+  }
+}
+
+@media (max-width: 480px) {
+  .date-input-tooltip-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .date-hover-tooltip {
+    margin-left: 0;
+    margin-top: 6px;
+  }
+
+  .tooltip-content {
+    left: 0;
+    min-width: 240px;
+  }
+}
+
 /* =========================
    STEP CARD
 ========================= */

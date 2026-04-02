@@ -52,17 +52,43 @@ const StepStudent = ({
         <div className="form-group">
           <label>Birth Date <span className="required">*</span></label>
           <div className="birth-date-wrapper">
-            <input
-              ref={registerFieldRef("birthDate")}
-              type="date"
-              value={form.birthDate}
-              max={maxBirthDate}
-              onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
-              className={ageValidation && !ageValidation.ok ? "birth-date-input--invalid" : ""}
-            />
-            {ageValidation && !ageValidation.ok && (
-              <span className="birth-date-warning" title="Age does not match selected grade">⚠️</span>
-            )}
+            <div className="date-input-tooltip-container">
+              <input
+                ref={registerFieldRef("birthDate")}
+                type="date"
+                value={form.birthDate}
+                max={maxBirthDate}
+                onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
+                className={ageValidation && !ageValidation.ok ? "birth-date-input--invalid" : ""}
+              />
+              {ageValidation && !ageValidation.ok && (
+                <div className="date-hover-tooltip">
+                  <span className="birth-date-warning" title="Age does not match selected grade">⚠️</span>
+                  <div className="tooltip-content">
+                    <strong>Age Reference Guide</strong>
+                    <table className="age-ref-table">
+                      <thead>
+                        <tr>
+                          <th>Grade Level</th>
+                          <th>Min Age</th>
+                          <th>Max Age</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="prek"><td>Pre-Kinder</td><td>3</td><td>4</td></tr>
+                        <tr className="kinder"><td>Kinder</td><td>4</td><td>5</td></tr>
+                        <tr className="g1"><td>Grade 1</td><td>6</td><td>7</td></tr>
+                        <tr className="g2"><td>Grade 2</td><td>7</td><td>8</td></tr>
+                        <tr className="g3"><td>Grade 3</td><td>8</td><td>9</td></tr>
+                        <tr className="g4"><td>Grade 4</td><td>9</td><td>10</td></tr>
+                        <tr className="g5"><td>Grade 5</td><td>10</td><td>11</td></tr>
+                        <tr className="g6"><td>Grade 6</td><td>11</td><td>12</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
             {form.birthDate && !ageValidation?.ok && (
               <details className="age-reference-tooltip">
                 <summary>Age Reference Guide</summary>
@@ -128,7 +154,7 @@ const StepStudent = ({
         </div>
 
         <div className="form-group">
-          <label>Religion <span className="required">*</span></label>
+          <label>  <span className="required">*</span></label>
           <select
             ref={registerFieldRef("religion")}
             value={form.religion}
