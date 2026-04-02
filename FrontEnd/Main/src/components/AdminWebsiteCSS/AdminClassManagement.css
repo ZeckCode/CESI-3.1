@@ -2145,6 +2145,13 @@
     display: none !important;
   }
 
+  /* Hide any pseudo-elements that might add unwanted content */
+  *::before,
+  *::after {
+    content: '' !important;
+    display: none !important;
+  }
+
   /* Optimize text for readability */
   h1,
   h2,
