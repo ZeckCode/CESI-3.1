@@ -1901,3 +1901,265 @@
     font-size: 13px;
   }
 }
+
+/* ========== PRINT STYLES ========== */
+@media print {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body,
+  html {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+
+  .admin-class-management {
+    padding: 0.5in;
+    background: white;
+    min-height: auto;
+    font-size: 11px;
+  }
+
+  /* Hide all navigation and control elements */
+  .admin-tabs-container,
+  .admin-class-controls,
+  .schedule-controls,
+  .admin-modal-overlay,
+  .admin-modal-content,
+  .admin-form-row,
+  .admin-form-group,
+  .admin-form-actions,
+  .schedule-view-toggle,
+  .bulk-select-bar,
+  button,
+  input:not([type="checkbox"]),
+  select:not([type="checkbox"]),
+  [className*="btn"] {
+    display: none !important;
+  }
+
+  /* Header for print */
+  .cm-stats-section {
+    margin-bottom: 12px;
+    padding: 0;
+    background: white;
+    border: none;
+    box-shadow: none;
+  }
+
+  .cm-stats-header {
+    margin-bottom: 4px;
+  }
+
+  .cm-stats-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    border-bottom: 2px solid #000;
+    padding-bottom: 4px;
+  }
+
+  /* Optimize stats display */
+  .cm-stats-section .unified-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .cm-stats-section .unified-stat-card {
+    background: white !important;
+    border: 1px solid #ddd;
+    padding: 8px !important;
+    margin: 0;
+    box-shadow: none;
+  }
+
+  .cm-stats-section .unified-stat-label {
+    font-size: 9px;
+  }
+
+  .cm-stats-section .unified-stat-value {
+    font-size: 14px !important;
+  }
+
+  .cm-stats-section .unified-stat-subtitle {
+    font-size: 8px;
+  }
+
+  /* Section styling for print */
+  .admin-section-header {
+    background: white;
+    padding: 0;
+    margin-bottom: 8px;
+    box-shadow: none;
+    border: none;
+    border-bottom: 2px solid #333;
+    page-break-inside: avoid;
+  }
+
+  .admin-section-header h2 {
+    font-size: 14px;
+    margin: 8px 0;
+    font-weight: bold;
+  }
+
+  /* Optimize table display */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    page-break-inside: avoid;
+    font-size: 10px;
+    margin-bottom: 10px;
+  }
+
+  table thead {
+    display: table-header-group;
+  }
+
+  table tr {
+    page-break-inside: avoid;
+  }
+
+  table th {
+    background: #ddd !important;
+    font-weight: bold;
+    color: #000 !important;
+    padding: 6px !important;
+    border: 1px solid #999;
+    text-align: left;
+  }
+
+  table td {
+    border: 1px solid #999;
+    padding: 6px !important;
+    text-align: left;
+  }
+
+  /* Hide checkbox column and action column in print */
+  table th:first-child,
+  table td:first-child {
+    display: none;
+  }
+
+  table th:last-child,
+  table td:last-child {
+    display: none;
+  }
+
+  /* Badges and styling in print - convert to plain text */
+  .section-badge,
+  .subject-badge,
+  .day-badge,
+  .room-badge,
+  .teacher-name,
+  .time-display {
+    background: white !important;
+    border: none !important;
+    color: #000 !important;
+    padding: 0 !important;
+    display: inline !important;
+  }
+
+  .time-display svg {
+    display: none;
+  }
+
+  .room-badge svg,
+  .day-badge svg {
+    display: none;
+  }
+
+  /* Class cards for print */
+  .admin-class-card,
+  .admin-classes-grid > div {
+    page-break-inside: avoid;
+    background: white;
+    border: 1px solid #ccc;
+    padding: 8px;
+    margin-bottom: 10px;
+    box-shadow: none;
+  }
+
+  .admin-class-card-header h3 {
+    font-size: 12px;
+    margin: 0 0 4px 0;
+    font-weight: bold;
+    color: #000;
+  }
+
+  .admin-class-card-body p,
+  .admin-info-row {
+    font-size: 10px;
+    margin: 2px 0;
+    line-height: 1.3;
+  }
+
+  /* Page settings */
+  @page {
+    margin: 0.5in;
+    size: A4 portrait;
+  }
+
+  /* Links in print */
+  a {
+    color: #000;
+    text-decoration: none;
+  }
+
+  /* Ensure important content is visible */
+  .admin-schedule-container {
+    display: block !important;
+  }
+
+  .admin-schedule-table {
+    display: table !important;
+  }
+
+  .admin-schedule-table thead {
+    display: table-header-group !important;
+  }
+
+  .admin-schedule-table tbody {
+    display: table-row-group !important;
+  }
+
+  .admin-schedule-table tr {
+    display: table-row !important;
+  }
+
+  .admin-schedule-table th,
+  .admin-schedule-table td {
+    display: table-cell !important;
+  }
+
+  /* Hide unnecessary UI for print */
+  .admin-no-results,
+  .admin-loading-spinner,
+  .admin-modal-overlay,
+  [role="button"] {
+    display: none !important;
+  }
+
+  /* Optimize text for readability */
+  h1,
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* General optimization */
+  body {
+    color: #000 !important;
+    background: white !important;
+  }
+}
