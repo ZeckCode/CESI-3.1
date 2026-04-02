@@ -9,6 +9,7 @@ import '../AdminWebsiteCSS/TuitionManagement.css';
 import { apiFetchData } from '../api/apiFetch';
 import Toast from '../Global/Toast';
 import PreviewModal from '../PreviewModal';
+import { getGradeLevelDisplay } from './idGenerator/idGeneratorUtils.js';
 
 const API = '';
 
@@ -406,9 +407,9 @@ const TuitionManagement = () => {
     let previewData = [];
     if (viewMode === 'student') {
       previewData = data.map((student) => ({
-        'Student Number': student.studentNumber,
         'Student Name': student.studentName,
-        'Grade Level': student.gradeLevel,
+        'Student Number': student.studentNumber,
+        'Grade Level': getGradeLevelDisplay(student.gradeLevel),
         'Payment Mode': paymentModeLabel(student.paymentMode),
         'Parent/Guardian': student.parentName,
         'Contact Number': student.contactNumber,
@@ -419,7 +420,7 @@ const TuitionManagement = () => {
       }));
     } else {
       previewData = data.map((fee) => ({
-        'Grade Level': fee.grade_label,
+        'Grade Level': fee.grade_label || getGradeLevelDisplay(fee.grade_key),
         'Cash Payment': formatCurrency(fee.cash),
         'Installment Tuition': formatCurrency(fee.installment),
         'Initial Payment': formatCurrency(fee.initial),
@@ -458,11 +459,11 @@ const TuitionManagement = () => {
     let csv = [];
     if (viewMode === 'student') {
       csv = [
-        ['Student Number', 'Student Name', 'Grade Level', 'Payment Mode', 'Parent/Guardian', 'Contact Number', 'Tuition Fee', 'Total Paid', 'Remaining Balance', 'Account Status'].join(','),
+        ['Student Name', 'Student Number', 'Grade Level', 'Payment Mode', 'Parent/Guardian', 'Contact Number', 'Tuition Fee', 'Total Paid', 'Remaining Balance', 'Account Status'].join(','),
         ...data.map((student) => [
-          escapeCsv(student.studentNumber),
           escapeCsv(student.studentName),
-          escapeCsv(student.gradeLevel),
+          escapeCsv(student.studentNumber),
+          escapeCsv(getGradeLevelDisplay(student.gradeLevel)),
           escapeCsv(paymentModeLabel(student.paymentMode)),
           escapeCsv(student.parentName),
           escapeCsv(student.contactNumber),
@@ -476,7 +477,7 @@ const TuitionManagement = () => {
       csv = [
         ['Grade Level', 'Cash Payment', 'Installment Tuition', 'Initial Payment', 'Monthly Payment', 'Reservation Fee', 'Misc (Aug)', 'Misc (Nov)', 'Assessment', 'Total Cash', 'Total Installment', 'Status', 'Description'].join(','),
         ...data.map((fee) => [
-          escapeCsv(fee.grade_label),
+          escapeCsv(fee.grade_label || getGradeLevelDisplay(fee.grade_key)),
           escapeCsv(formatCurrency(fee.cash)),
           escapeCsv(formatCurrency(fee.installment)),
           escapeCsv(formatCurrency(fee.initial)),
@@ -661,16 +662,14 @@ const TuitionManagement = () => {
               <tr>
                 {viewMode === 'student' ? (
                   <>
-                    <th>Student Name</th>
-                    <th>Parent</th>
+                    <th>Student Name / No.</th>
                     <th>Grade</th>
                     <th>Payment Mode</th>
                     <th>Tuition Fee</th>
                     <th>Total Paid</th>
                     <th>Remaining</th>
                     <th>Status</th>
-                    <th>Student No.</th>
-                    <th>Contact</th>
+                    <th>Parent / Contact</th>
                   </>
                 ) : (
                   <>
@@ -693,7 +692,7 @@ const TuitionManagement = () => {
             <tbody>
               {(viewMode === 'student' ? loadingStudents : loadingFees) ? (
                 <tr>
-                  <td colSpan={viewMode === 'student' ? 10 : 11} className="tm-no-data">
+                  <td colSpan={viewMode === 'student' ? 8 : 11} className="tm-no-data">
                     <p>Loading...</p>
                   </td>
                 </tr>
@@ -707,10 +706,14 @@ const TuitionManagement = () => {
                   >
                     {viewMode === 'student' ? (
                       <>
-                        <td className="tm-table-cell tm-cell-bold">{item.studentName}</td>
-                        <td className="tm-table-cell">{item.parentName}</td>
+                        <td className="tm-table-cell tm-cell-bold">
+                          <div>{item.studentName}</div>
+                          <div style={{ fontSize: '0.85em', opacity: 0.7, marginTop: '2px' }}>
+                            SN: {item.studentNumber || '—'}
+                          </div>
+                        </td>
                         <td className="tm-table-cell">
-                          {gradeLabelMap[item.gradeLevel] || item.gradeLevel || '—'}
+                          {getGradeLevelDisplay(item.gradeLevel)}
                         </td>
                         <td className="tm-table-cell">{paymentModeLabel(item.paymentMode)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.totalDue)}</td>
@@ -721,13 +724,17 @@ const TuitionManagement = () => {
                             {item.accountStatus}
                           </span>
                         </td>
-                        <td className="tm-table-cell">{item.studentNumber || '—'}</td>
-                        <td className="tm-table-cell">{item.contactNumber || '—'}</td>
+                        <td className="tm-table-cell">
+                          <div>{item.parentName}</div>
+                          <div style={{ fontSize: '0.85em', opacity: 0.7, marginTop: '2px' }}>
+                            📞 {item.contactNumber || '—'}
+                          </div>
+                        </td>
                       </>
                     ) : (
                       <>
                         <td className="tm-table-cell tm-cell-bold">
-                          {item.grade_label || gradeLabelMap[item.grade_key] || item.grade_key}
+                          {item.grade_label || getGradeLevelDisplay(item.grade_key)}
                         </td>
                         <td className="tm-table-cell">{formatCurrency(item.cash)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.installment)}</td>
@@ -766,7 +773,7 @@ const TuitionManagement = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={viewMode === 'student' ? 10 : 11} className="tm-no-data">
+                  <td colSpan={viewMode === 'student' ? 8 : 11} className="tm-no-data">
                     <AlertCircle size={24} />
                     <p>No records found</p>
                   </td>

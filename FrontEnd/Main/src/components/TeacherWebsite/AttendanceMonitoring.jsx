@@ -455,11 +455,20 @@ const AttendanceMonitoring = () => {
           return;
         }
 
-        const updates = records
+        let updates = records
           .filter((record) => recordMap[record.student_key])
           .map(({ student_key, ...payload }) => payload);
 
-        const skippedCount = records.length - updates.length;
+        let skippedCount = records.length - updates.length;
+
+        // Matching can fail if key shapes changed (e.g. student_number migration)
+        // while records still exist in backend. In that case, apply a safe upsert
+        // update payload instead of blocking with a false negative.
+        if (updates.length === 0 && existingRecords.length > 0) {
+          updates = records.map(({ student_key, ...payload }) => payload);
+          skippedCount = 0;
+        }
+
         if (updates.length === 0) {
           setMessage({
             type: "error",
