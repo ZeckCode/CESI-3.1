@@ -288,6 +288,13 @@ const ClassManagement = () => {
 
   // Print Function for Class Management
   const printClassesToPDF = (sections, enrollments) => {
+    console.log('Print button clicked!', { sections, enrollments });
+    
+    if (!sections || sections.length === 0) {
+      alert('No sections available to export');
+      return;
+    }
+
     const previewData = sections.map((sec) => ({
       "Section": sec.name || "N/A",
       "Grade Level": sec.grade_level || "N/A",
@@ -296,6 +303,7 @@ const ClassManagement = () => {
       "Capacity": sec.capacity || "N/A",
     }));
 
+    console.log('Preview data:', previewData);
     setClassPreviewData(previewData);
     setClassPreviewOpen(true);
   };
@@ -320,13 +328,9 @@ const ClassManagement = () => {
             <button className="cm-btn-icon" onClick={refreshAll} title="Refresh">
               <RefreshCw size={16} />
             </button>
-            <button 
-    className="cm-btn-icon"
-    onClick={() => printClassesToPDF(sections, enrollments)}
-  
-  >
-    <FileDown size={18} /> 
-  </button>
+            <button className="cm-btn-icon" onClick={() => printClassesToPDF(sections, enrollments)} title="Export Classes">
+              <FileDown size={18} />
+            </button>
           </div>
         </div>
         <StatsGrid>

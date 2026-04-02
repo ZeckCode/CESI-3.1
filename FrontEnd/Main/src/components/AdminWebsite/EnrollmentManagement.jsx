@@ -1581,6 +1581,8 @@ const handleApprove = async (id) => {
   };
 
   const handleEnrollmentPreview = () => {
+    console.log('Enrollment preview button clicked!', { normalized });
+    
     const previewData = normalized.map((enr) => ({
       "Student Name": enr.studentName || "N/A",
       "Grade Level": enr.gradeLevel || "N/A",
@@ -1590,6 +1592,7 @@ const handleApprove = async (id) => {
       "Academic Year": enr.academicYear || "N/A",
     }));
 
+    console.log('Enrollment preview data:', previewData);
     setEnrollmentPreviewData(previewData);
     setEnrollmentPreviewOpen(true);
   };
