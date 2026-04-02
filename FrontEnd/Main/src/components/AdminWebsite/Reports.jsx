@@ -4,7 +4,6 @@ import {
   CheckCircle, FileDown, X, Users, BookOpen, 
   TrendingUp, Calendar, AlertCircle 
 } from 'lucide-react';
-import './Reports.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { apiFetch } from '../api/apiFetch';
