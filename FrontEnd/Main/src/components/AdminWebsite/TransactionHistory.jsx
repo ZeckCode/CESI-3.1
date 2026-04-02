@@ -683,89 +683,97 @@ const TransactionHistory = () => {
   };
 
   const groupedTransactions = useMemo(() => {
-    const map = new Map();
+      const map = new Map();
 
-    transactions.forEach((tx) => {
-      const enrollmentKey =
-        tx.enrollment_id != null && tx.enrollment_id !== ''
-          ? `enrollment-${tx.enrollment_id}`
-          : [
-              tx.student_number || `parent-${tx.parent}`,
-              tx.school_year || 'no-sy',
-              tx.grade_level || 'no-grade',
-              tx.student_type || 'no-type',
-              tx.payment_mode || 'no-mode',
-            ].join('|');
+      transactions.forEach((tx) => {
+        const enrollmentKey =
+          tx.enrollment_id != null && tx.enrollment_id !== ''
+            ? `enrollment-${tx.enrollment_id}`
+            : [
+                tx.student_number || `parent-${tx.parent}`,
+                tx.school_year || 'no-sy',
+                tx.grade_level || 'no-grade',
+                tx.student_type || 'no-type',
+                tx.payment_mode || 'no-mode',
+              ].join('|');
 
-      if (!map.has(enrollmentKey)) {
-        map.set(enrollmentKey, {
-          key: enrollmentKey,
-          enrollment_id: tx.enrollment_id || null,
-          parent: tx.parent,
-          student_number: tx.student_number || '—',
-          student_name: tx.student_name || '—',
-          school_year: tx.school_year || '—',
-          semester: tx.semester || '—',
-          grade_level: tx.grade_level || '—',
-          payment_mode: tx.payment_mode || '—',
-          student_type: tx.student_type || '—',
-          latest_date: tx.transaction_date || '',
-          total_debit: 0,
-          total_credit: 0,
-          balance: 0,
-          account_status: tx.status || 'PENDING',
-          rows: [],
+        if (!map.has(enrollmentKey)) {
+          map.set(enrollmentKey, {
+            key: enrollmentKey,
+            enrollment_id: tx.enrollment_id || null,
+            parent: tx.parent,
+            student_number: tx.student_number || '—',
+            student_name: tx.student_name || '—',
+            school_year: tx.school_year || '—',
+            semester: tx.semester || '—',
+            grade_level: tx.grade_level || '—',
+            payment_mode: tx.payment_mode || '—',
+            student_type: tx.student_type || '—',
+            latest_date: tx.transaction_date || '',
+            total_debit: 0,
+            total_credit: 0,
+            balance: 0,
+            rawBalance: 0,
+            refundableExcess: 0,
+            account_status: 'PAID',
+            rows: [],
+          });
+        }
+
+        const group = map.get(enrollmentKey);
+        group.rows.push(tx);
+        group.total_debit += Number(tx.debit || 0);
+        group.total_credit += Number(tx.credit || 0);
+
+        if ((tx.transaction_date || '') > group.latest_date) {
+          group.latest_date = tx.transaction_date || '';
+        }
+      });
+
+      const result = Array.from(map.values()).map((group) => {
+        const sortedRows = group.rows
+          .slice()
+          .sort((a, b) => {
+            const dateCompare = String(a.transaction_date || '').localeCompare(String(b.transaction_date || ''));
+            if (dateCompare !== 0) return dateCompare;
+            return Number(a.id || 0) - Number(b.id || 0);
+          });
+
+        let runningBalance = 0;
+        const normalizedRows = sortedRows.map((tx) => {
+          const debit = Number(tx.debit || 0);
+          const credit = Number(tx.credit || 0);
+          runningBalance += debit - credit;
+
+          return {
+            ...tx,
+            _runningBalance: runningBalance,
+          };
         });
-      }
 
-      const group = map.get(enrollmentKey);
-      group.rows.push(tx);
-      group.total_debit += Number(tx.debit || 0);
-      group.total_credit += Number(tx.credit || 0);
+        const rawBalance = runningBalance;
+        const payableBalance = rawBalance > 0 ? rawBalance : 0;
+        const refundableExcess = rawBalance < 0 ? Math.abs(rawBalance) : 0;
 
-      if ((tx.transaction_date || '') > group.latest_date) {
-        group.latest_date = tx.transaction_date || '';
-      }
-
-      const currentPriority = statusPriority[group.account_status] || 99;
-      const nextPriority = statusPriority[tx.status] || 99;
-      if (nextPriority < currentPriority) {
-        group.account_status = tx.status || 'PENDING';
-      }
-    });
-
-    const result = Array.from(map.values()).map((group) => {
-      const sortedRows = group.rows
-        .slice()
-        .sort((a, b) => {
-          const dateCompare = String(a.transaction_date || '').localeCompare(String(b.transaction_date || ''));
-          if (dateCompare !== 0) return dateCompare;
-          return Number(a.id || 0) - Number(b.id || 0);
-        });
-
-      let runningBalance = 0;
-      const normalizedRows = sortedRows.map((tx) => {
-        const debit = Number(tx.debit || 0);
-        const credit = Number(tx.credit || 0);
-        runningBalance += debit - credit;
+        let derivedStatus = 'PAID';
+        if (payableBalance > 0) {
+          derivedStatus = group.total_credit > 0 ? 'PARTIAL' : 'POSTED';
+        }
 
         return {
-          ...tx,
-          _runningBalance: runningBalance,
+          ...group,
+          rows: normalizedRows,
+          balance: payableBalance,
+          rawBalance,
+          refundableExcess,
+          account_status: derivedStatus,
         };
       });
 
-      return {
-        ...group,
-        rows: normalizedRows,
-        balance: runningBalance,
-      };
-    });
-
-    return result.sort((a, b) =>
-      String(b.latest_date || '').localeCompare(String(a.latest_date || ''))
-    );
-  }, [transactions]);
+      return result.sort((a, b) =>
+        String(b.latest_date || '').localeCompare(String(a.latest_date || ''))
+      );
+    }, [transactions]);
 
   const txnTotalPages = Math.max(1, Math.ceil(groupedTransactions.length / ITEMS_PER_PAGE));
   const paginatedTransactions = useMemo(
@@ -793,10 +801,16 @@ const TransactionHistory = () => {
       return sum;
     }, 0);
 
-  const getRefundableAmount = (group) => {
-    const refundable = getAdvanceCredit(group) - getRefundedAdvance(group);
-    return refundable > 0 ? refundable : 0;
-  };
+      const getRefundableAmount = (group) => {
+        if (!group) return 0;
+
+        if (Number(group.refundableExcess || 0) > 0) {
+          return Number(group.refundableExcess || 0);
+        }
+
+        const refundable = getAdvanceCredit(group) - getRefundedAdvance(group);
+        return refundable > 0 ? refundable : 0;
+      };
 
   const openPayModal = (group) => {
     const balance = Number(group.balance || 0);
@@ -1135,13 +1149,13 @@ const TransactionHistory = () => {
                           <div className="th-student-detail-panel">
                             <h4 className="th-detail-title">{buildLedgerGroupTitle(group)}</h4>
 
-                            <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
-                              Student: <strong>{group.student_name}</strong> ({group.student_number}) | Semester:{' '}
-                              <strong>{group.semester || '—'}</strong> | Balance:{' '}
-                              <strong>{formatCurrency(group.balance)}</strong> | Refundable Excess:{' '}
-                              <strong>{formatCurrency(getRefundableAmount(group))}</strong> | Ref:{' '}
-                              <strong>{group.enrollment_id ? `Enrollment #${group.enrollment_id}` : 'Legacy ledger record'}</strong>
-                            </div>
+                                <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
+                                Student: <strong>{group.student_name}</strong> ({group.student_number}) | Semester:{' '}
+                                <strong>{group.semester || '—'}</strong> | Payable Balance:{' '}
+                                <strong>{formatCurrency(group.balance)}</strong> | Refundable Excess:{' '}
+                                <strong>{formatCurrency(getRefundableAmount(group))}</strong> | Ref:{' '}
+                                <strong>{group.enrollment_id ? `Enrollment #${group.enrollment_id}` : 'Legacy ledger record'}</strong>
+                              </div>
 
                             <div className="th-table-container" style={{ marginTop: '0.75rem' }}>
                               <table className="th-table">
