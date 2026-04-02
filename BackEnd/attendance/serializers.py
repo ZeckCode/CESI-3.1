@@ -49,7 +49,7 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
 
     def get_student_number(self, obj):
         if hasattr(obj.student, "profile") and obj.student.profile:
-            return obj.student.profile.lrn or None
+            return obj.student.profile.student_number or obj.student.profile.lrn or None
         return None
 
     def get_subject_name(self, obj):
@@ -97,8 +97,12 @@ class BulkAttendanceSerializer(serializers.Serializer):
 
     def validate_records(self, data):
         for record in data:
-            if "student_id" not in record:
-                raise serializers.ValidationError("Each record must have a student_id")
+            student_id = record.get("student_id")
+            student_number = (record.get("student_number") or "").strip()
+            if not student_number and student_id in [None, "", "null"]:
+                raise serializers.ValidationError(
+                    "Each record must include student_number or student_id"
+                )
             if "status" not in record:
                 raise serializers.ValidationError("Each record must have a status")
             if record["status"] not in ["PRESENT", "ABSENT", "LATE", "EXCUSED"]:

@@ -1,10 +1,12 @@
 from datetime import date
+from collections import Counter
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from django.db.models import Q
+from django.utils.text import slugify
 
 from .models import AttendanceRecord
 from .serializers import (
@@ -12,7 +14,7 @@ from .serializers import (
     BulkAttendanceSerializer,
     SectionSimpleSerializer,
 )
-from accounts.models import Section, User
+from accounts.models import Section, User, UserProfile
 from enrollment.models import Enrollment
 
 
@@ -119,6 +121,65 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         serializer.save(marked_by=self.request.user)
 
+    def _resolve_student_id_from_record(self, record_data, section_id=None):
+        student_number = str(record_data.get("student_number") or "").strip()
+        if student_number:
+            profile = (
+                UserProfile.objects.select_related("user")
+                .filter(Q(student_number=student_number) | Q(lrn=student_number))
+                .first()
+            )
+            if profile and profile.user_id:
+                return int(profile.user_id), None
+
+            enrollment_qs = Enrollment.objects.filter(status="ACTIVE")
+            if section_id is not None:
+                enrollment_qs = enrollment_qs.filter(section_id=section_id)
+            enrollment_match = (
+                enrollment_qs.filter(Q(student_number=student_number) | Q(lrn=student_number))
+                .select_related("parent_user", "student")
+                .order_by("-updated_at", "-id")
+                .first()
+            )
+            if enrollment_match:
+                resolved_user = enrollment_match.parent_user or enrollment_match.student
+                if resolved_user:
+                    return int(resolved_user.id), None
+
+            return None, f"No student found for student_number '{student_number}'."
+
+        student_id = record_data.get("student_id")
+        if student_id in [None, "", "null"]:
+            return None, "Missing student_number or student_id in record."
+
+        try:
+            return int(student_id), None
+        except (TypeError, ValueError):
+            return None, f"Invalid student_id '{student_id}'."
+
+    def _normalize_bulk_records(self, records, section_id=None):
+        normalized_records = []
+        identifier_errors = []
+
+        for idx, record in enumerate(records):
+            student_id, error = self._resolve_student_id_from_record(record, section_id=section_id)
+            if error:
+                identifier_errors.append(
+                    {
+                        "index": idx,
+                        "student_id": record.get("student_id"),
+                        "student_number": record.get("student_number"),
+                        "error": error,
+                    }
+                )
+                continue
+
+            next_record = dict(record)
+            next_record["student_id"] = student_id
+            normalized_records.append(next_record)
+
+        return normalized_records, identifier_errors
+
     @action(detail=False, methods=["post"])
     def bulk_upsert(self, request):
         """
@@ -144,6 +205,34 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         subject_id = serializer.validated_data.get("subject", None)
         records = serializer.validated_data["records"]
 
+        normalized_records, identifier_errors = self._normalize_bulk_records(
+            records,
+            section_id=section_id,
+        )
+        if identifier_errors:
+            return Response(
+                {
+                    "error": "Some attendance records could not be matched to a student.",
+                    "details": identifier_errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Protect against accidental payload corruption where multiple rows point
+        # to the same student_id (would overwrite each other and appear as reset).
+        student_ids = [int(r["student_id"]) for r in normalized_records if r.get("student_id") is not None]
+        duplicate_student_ids = sorted(
+            [student_id for student_id, count in Counter(student_ids).items() if count > 1]
+        )
+        if duplicate_student_ids:
+            return Response(
+                {
+                    "error": "Duplicate student IDs in payload. Check section student mapping before saving attendance.",
+                    "duplicate_student_ids": duplicate_student_ids,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if schedule_id is not None:
             from classmanagement.models import Schedule
             schedule_obj = Schedule.objects.select_related("subject").filter(
@@ -161,7 +250,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         created_count = 0
         updated_count = 0
 
-        for record_data in records:
+        for record_data in normalized_records:
             student_id = record_data["student_id"]
             status_value = record_data["status"]
             notes = record_data.get("notes", "")
@@ -219,6 +308,32 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         subject_id = serializer.validated_data.get("subject", None)
         records = serializer.validated_data["records"]
 
+        normalized_records, identifier_errors = self._normalize_bulk_records(
+            records,
+            section_id=section_id,
+        )
+        if identifier_errors:
+            return Response(
+                {
+                    "error": "Some attendance records could not be matched to a student.",
+                    "details": identifier_errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        student_ids = [int(r["student_id"]) for r in normalized_records if r.get("student_id") is not None]
+        duplicate_student_ids = sorted(
+            [student_id for student_id, count in Counter(student_ids).items() if count > 1]
+        )
+        if duplicate_student_ids:
+            return Response(
+                {
+                    "error": "Duplicate student IDs in payload. Check section student mapping before updating attendance.",
+                    "duplicate_student_ids": duplicate_student_ids,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if schedule_id is not None:
             from classmanagement.models import Schedule
             schedule_obj = Schedule.objects.select_related("subject").filter(
@@ -235,7 +350,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         updated_count = 0
         skipped_count = 0
 
-        for record_data in records:
+        for record_data in normalized_records:
             student_id = record_data["student_id"]
             status_value = record_data["status"]
             notes = record_data.get("notes", "")
@@ -281,14 +396,83 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         from enrollment.models import Enrollment
         enrollments = (
             Enrollment.objects.filter(section_id=section_id, status="ACTIVE")
-            .select_related("student", "student__profile")
-            .prefetch_related("parent_info")
+            .select_related("student", "student__profile", "parent_user", "parent_user__profile", "parent_info")
             .order_by("last_name", "first_name")
         )
 
+        def ensure_attendance_user(enrollment):
+            # Canonical account after approval flow.
+            if enrollment.parent_user_id:
+                return enrollment.parent_user
+
+            # Legacy records may still point to a shared placeholder account.
+            if enrollment.student_id and enrollment.student and enrollment.student.username != "public_user":
+                return enrollment.student
+
+            candidate = None
+            email = (enrollment.email or "").strip().lower()
+
+            if email:
+                candidate = User.objects.filter(
+                    email__iexact=email,
+                    role="PARENT_STUDENT",
+                ).first()
+
+            if not candidate:
+                raw_seed = (
+                    (enrollment.student_number or "").strip()
+                    or (enrollment.lrn or "").strip()
+                    or f"enrollment{enrollment.id}"
+                )
+                safe_seed = slugify(raw_seed).replace("-", "") or f"enrollment{enrollment.id}"
+
+                base_username = f"{safe_seed}@cesi.edu.ph"
+                username = base_username
+                idx = 1
+                while User.objects.filter(username=username).exists():
+                    idx += 1
+                    username = f"{safe_seed}{idx}@cesi.edu.ph"
+
+                user_email = email
+                if not user_email:
+                    user_email = f"{safe_seed}+{enrollment.id}@cesi.local"
+                elif User.objects.filter(email__iexact=user_email).exists():
+                    user_email = f"{safe_seed}+{enrollment.id}@cesi.local"
+
+                candidate = User.objects.create(
+                    username=username,
+                    email=user_email,
+                    role="PARENT_STUDENT",
+                    status="ACTIVE",
+                    is_active=True,
+                )
+                candidate.set_unusable_password()
+                candidate.save(update_fields=["password"])
+
+            update_fields = []
+            if enrollment.parent_user_id != candidate.id:
+                enrollment.parent_user = candidate
+                update_fields.append("parent_user")
+
+            if (
+                not enrollment.student_id
+                or (enrollment.student and enrollment.student.username == "public_user")
+            ) and enrollment.student_id != candidate.id:
+                enrollment.student = candidate
+                update_fields.append("student")
+
+            if update_fields:
+                enrollment.save(update_fields=update_fields)
+
+            return candidate
+
         students = []
         for enrollment in enrollments:
-            student = enrollment.student
+            # Attendance should target the active portal account linked to enrollment.
+            # parent_user is the canonical per-student portal account after approval.
+            student = ensure_attendance_user(enrollment)
+            if not student:
+                continue
 
             # Resolve display name
             if enrollment.first_name and enrollment.last_name:
@@ -308,6 +492,18 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
             # Resolve guardian info from ParentInfo record
             guardian_name = ""
             guardian_contact = ""
+            student_profile = getattr(student, "profile", None)
+            student_number = (
+                getattr(student_profile, "student_number", None)
+                or enrollment.student_number
+                or enrollment.lrn
+                or ""
+            )
+            lrn_value = (
+                getattr(student_profile, "lrn", None)
+                or enrollment.lrn
+                or ""
+            )
             try:
                 pi = enrollment.parent_info
                 guardian_name = (
@@ -328,11 +524,13 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
             students.append({
                 "id": student.id,
                 "username": student.username,
+                "enrollment_id": enrollment.id,
                 "name": name,
                 "first_name": first_name,
                 "last_name": last_name,
                 "email": enrollment.email or getattr(student, "email", "") or "",
-                "lrn": enrollment.lrn or "",
+                "student_number": student_number,
+                "lrn": lrn_value,
                 "gender": enrollment.gender or "",
                 "grade_level": enrollment.grade_level or "",
                 "payment_mode": enrollment.payment_mode or "",

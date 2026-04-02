@@ -586,14 +586,6 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
           <button className="admin-btn-primary" onClick={openNew}>
             <Plus size={18} /> Add Section
           </button>
-          <button
-            className="admin-btn-primary"
-            onClick={() => window.print()}
-            style={{ background: '#10b981' }}
-            title="Print all sections"
-          >
-            <Download size={18} /> Print
-          </button>
         </div>
       </div>
 

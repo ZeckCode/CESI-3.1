@@ -1320,15 +1320,10 @@ const Grade = () => {
         </button>
 
         <button
-          className="ge__weightsBtn"
+          className="ge__printBtn"
           onClick={handlePrintGradeSheet}
           disabled={!selectedSection || displayStudents.length === 0}
           title="Print grade sheet with breakdown"
-          style={
-            selectedSection && displayStudents.length > 0
-              ? { backgroundColor: "#7c3aed", color: "white", borderColor: "#7c3aed" }
-              : { opacity: 0.6, cursor: "not-allowed" }
-          }
         >
           <Printer size={14} /> Print Grade Sheet
         </button>
