@@ -302,6 +302,38 @@
   transform: scale(0.98);
 }
 
+/* Print Button - Matches Attendance Style */
+.ge__printBtn {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: none;
+  transition: all .2s;
+}
+
+.ge__printBtn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.ge__printBtn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.ge__printBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ─────────── Weight Chips ─────────── */
 .ge__weightBar {
   display: flex;
