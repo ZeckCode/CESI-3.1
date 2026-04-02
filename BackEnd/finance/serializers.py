@@ -1,94 +1,9 @@
-# finance/serializers.py
 from decimal import Decimal
 from django.db.models import Sum
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import Transaction, TuitionConfig, ProofOfPayment, AdvanceRequest
-from accounts.models import User, UserProfile
-
-
-class TransactionSerializer(serializers.ModelSerializer):
-    parent_username = serializers.CharField(source='parent.username', read_only=True)
-    date_created = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
-    transaction_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
-    date_posted = serializers.DateField(format="%Y-%m-%d", read_only=True)
-    due_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
-
-    student_name = serializers.CharField(read_only=True)
-    student_number = serializers.SerializerMethodField()
-    payment_mode = serializers.SerializerMethodField()
-    grade_level = serializers.SerializerMethodField()
-    student_type = serializers.CharField(source='student_type_snapshot', read_only=True)
-    enrollment_id = serializers.IntegerField(read_only=True)
-    
-    
-    def get_student_number(self, obj):
-        if obj.student_number_snapshot:
-            return obj.student_number_snapshot
-        try:
-            return obj.parent.profile.student_number or ''
-        except Exception:
-            return ''
-
-    def get_payment_mode(self, obj):
-        if obj.payment_mode_snapshot:
-            return obj.payment_mode_snapshot
-        try:
-            return obj.parent.profile.payment_mode or ''
-        except Exception:
-            return ''
-
-    def get_grade_level(self, obj):
-        if obj.grade_level_snapshot:
-            return obj.grade_level_snapshot
-        try:
-            return obj.parent.profile.grade_level or ''
-        except Exception:
-            return ''
-    class Meta:
-        model = Transaction
-        fields = [
-            'id',
-            'parent',
-            'parent_username',
-            'student_name',
-            'student_number',
-            'grade_level',
-            'payment_mode',
-            'student_type',
-            'enrollment_id',
-
-            'transaction_type',
-            'entry_type',
-            'item',
-            'school_year',
-            'semester',
-
-            'amount',
-            'debit',
-            'credit',
-            'balance',
-
-            'description',
-            'payment_method',
-            'reference_number',
-            'transaction_date',
-            'date_posted',
-            'due_date',
-            'date_created',
-            'status',
-        ]
-        read_only_fields = ['debit', 'credit', 'balance', 'date_posted', 'date_created']
-
-
-# finance/serializers.py
-from decimal import Decimal
-from django.db.models import Sum
-from django.contrib.auth import get_user_model
-from rest_framework import serializers
-
-from .models import Transaction, TuitionConfig, ProofOfPayment
 from accounts.models import User, UserProfile
 
 
@@ -148,18 +63,15 @@ class TransactionSerializer(serializers.ModelSerializer):
             'payment_mode',
             'student_type',
             'enrollment_id',
-
             'transaction_type',
             'entry_type',
             'item',
             'school_year',
             'semester',
-
             'amount',
             'debit',
             'credit',
             'balance',
-
             'description',
             'payment_method',
             'reference_number',
@@ -180,6 +92,7 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
         queryset=User.objects.filter(role='PARENT_STUDENT'),
         required=False
     )
+
     class Meta:
         model = Transaction
         fields = [
@@ -319,7 +232,6 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
             misc_nov = Decimal(str(tuition.misc_nov or 0))
             total_installment = Decimal(str(tuition.total_installment or 0))
 
-            # Allow flexible custom amount for PAYMENT
             if entry_type == 'CREDIT':
                 if item == 'PAYMENT':
                     if amount <= 0:
@@ -377,10 +289,8 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
             validated_data['transaction_date'] = timezone.localdate()
 
         tx = super().create(validated_data)
-
         tx.balance = self._compute_next_balance(parent=parent, enrollment=enrollment)
         tx.save(update_fields=['balance'])
-
         return tx
 
     def update(self, instance, validated_data):
@@ -403,7 +313,8 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
                 row.save(update_fields=['balance'])
 
         return tx
-    
+
+
 class ParentDropdownSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     parent_name = serializers.SerializerMethodField()
@@ -439,6 +350,7 @@ class ParentDropdownSerializer(serializers.ModelSerializer):
             return name if name else ""
         except (UserProfile.DoesNotExist, AttributeError):
             return ""
+
 
 class TuitionConfigSerializer(serializers.ModelSerializer):
     created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
@@ -510,7 +422,9 @@ class TuitionConfigCreateSerializer(serializers.ModelSerializer):
 
         return attrs
 
+
 User = get_user_model()
+
 
 class ProofOfPaymentSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
@@ -518,30 +432,27 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
     student_grade = serializers.SerializerMethodField()
     proof_image_url = serializers.SerializerMethodField()
     enrollment_id = serializers.SerializerMethodField()
-    
-    # Add these new fields
     payment_type = serializers.CharField(read_only=True)
     source = serializers.CharField(read_only=True)
-    
+
     class Meta:
         model = ProofOfPayment
         fields = [
-            'id', 'reference_number', 'description', 'proof_image', 
-            'proof_image_url', 'status', 'admin_remarks', 
-            'created_at', 'updated_at', 'student_name', 'student_username', 
-            'student_grade', 'enrollment_id', 'payment_type', 'source'  # Added payment_type and source
+            'id', 'reference_number', 'description', 'proof_image',
+            'proof_image_url', 'status', 'admin_remarks',
+            'created_at', 'updated_at', 'student_name', 'student_username',
+            'student_grade', 'enrollment_id', 'payment_type', 'source'
         ]
-        read_only_fields = ['id', 'status', 'admin_remarks', 'created_at', 'updated_at', 
-                           'student_name', 'student_username', 'student_grade', 
-                           'enrollment_id', 'payment_type', 'source']
-    
+        read_only_fields = [
+            'id', 'status', 'admin_remarks', 'created_at', 'updated_at',
+            'student_name', 'student_username', 'student_grade',
+            'enrollment_id', 'payment_type', 'source'
+        ]
+
     def _get_enrollment(self, obj):
-        """Helper to fetch enrollment from reference_number or direct relation"""
-        # First check if enrollment is directly linked
         if hasattr(obj, 'enrollment') and obj.enrollment:
             return obj.enrollment
-        
-        # Fallback to parsing reference number
+
         try:
             from enrollment.models import Enrollment
             if obj.reference_number and obj.reference_number.startswith('ENROLL-'):
@@ -550,22 +461,19 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
         except Exception:
             pass
         return None
-    
+
     def get_enrollment_id(self, obj):
-        """Extract enrollment ID"""
         if hasattr(obj, 'enrollment') and obj.enrollment:
             return obj.enrollment.id
-        
+
         try:
             if obj.reference_number and obj.reference_number.startswith('ENROLL-'):
                 return int(obj.reference_number.split('-')[1])
         except Exception:
             pass
         return None
-    
+
     def get_student_name(self, obj):
-        """Get actual student name from enrollment, fall back to user profile"""
-        # For enrollment payments, get from linked enrollment
         enrollment = self._get_enrollment(obj)
         if enrollment:
             first_name = enrollment.first_name or ''
@@ -573,8 +481,7 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
             full_name = f"{first_name} {last_name}".strip()
             if full_name:
                 return full_name
-        
-        # Fallback to user profile
+
         try:
             profile = obj.user.profile
             first_name = profile.student_first_name or ''
@@ -583,17 +490,15 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
             if full_name:
                 return full_name
             return obj.user.username
-        except:
+        except Exception:
             return obj.user.username
-    
+
     def get_student_username(self, obj):
         return obj.user.username
-    
+
     def get_student_grade(self, obj):
-        """Get grade from enrollment"""
         enrollment = self._get_enrollment(obj)
         if enrollment:
-            # Grade label mapping
             grade_labels = {
                 'prek': 'Pre-K', 'kinder': 'Kinder',
                 'grade1': 'Grade 1', 'grade2': 'Grade 2', 'grade3': 'Grade 3',
@@ -601,69 +506,66 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
             }
             grade_code = (enrollment.grade_level or '').lower()
             return grade_labels.get(grade_code, enrollment.grade_level or '')
-        
-        # Fallback to user profile
+
         try:
             profile = obj.user.profile
             return profile.grade_level or ''
-        except:
+        except Exception:
             return ""
-    
+
     def get_proof_image_url(self, obj):
         request = self.context.get('request')
         if obj.proof_image:
             return request.build_absolute_uri(obj.proof_image.url) if request else obj.proof_image.url
         return None
-    
-    
-    
-    # advance
-    class AdvanceRequestSerializer(serializers.ModelSerializer):
-        student_name = serializers.SerializerMethodField()
-        student_number = serializers.SerializerMethodField()
 
-        class Meta:
-            model = AdvanceRequest
-            fields = [
-                'id',
-                'user',
-                'enrollment',
-                'request_type',
-                'amount',
-                'reason',
-                'status',
-                'admin_remarks',
-                'processed_at',
-                'created_at',
-                'updated_at',
-                'student_name',
-                'student_number',
-            ]
-            read_only_fields = [
-                'id',
-                'user',
-                'status',
-                'admin_remarks',
-                'processed_at',
-                'created_at',
-                'updated_at',
-                'student_name',
-                'student_number',
-            ]
 
-        def get_student_name(self, obj):
-            if obj.enrollment:
-                return f"{obj.enrollment.first_name or ''} {obj.enrollment.last_name or ''}".strip()
-            try:
-                p = obj.user.profile
-                return f"{p.student_first_name} {p.student_last_name}".strip()
-            except Exception:
-                return obj.user.username
+class AdvanceRequestSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    student_number = serializers.SerializerMethodField()
 
-        def get_student_number(self, obj):
-            if obj.enrollment and obj.enrollment.student_number:
-                return obj.enrollment.student_number
-            try:
-                return obj.user.profile.student_number or ''
-            except Exception:
-                return ''
+    class Meta:
+        model = AdvanceRequest
+        fields = [
+            'id',
+            'user',
+            'enrollment',
+            'request_type',
+            'amount',
+            'reason',
+            'status',
+            'admin_remarks',
+            'processed_at',
+            'created_at',
+            'updated_at',
+            'student_name',
+            'student_number',
+        ]
+        read_only_fields = [
+            'id',
+            'user',
+            'status',
+            'admin_remarks',
+            'processed_at',
+            'created_at',
+            'updated_at',
+            'student_name',
+            'student_number',
+        ]
+
+    def get_student_name(self, obj):
+        if obj.enrollment:
+            return f"{obj.enrollment.first_name or ''} {obj.enrollment.last_name or ''}".strip()
+        try:
+            p = obj.user.profile
+            return f"{p.student_first_name} {p.student_last_name}".strip()
+        except Exception:
+            return obj.user.username
+
+    def get_student_number(self, obj):
+        if obj.enrollment and obj.enrollment.student_number:
+            return obj.enrollment.student_number
+        try:
+            return obj.user.profile.student_number or ''
+        except Exception:
+            return ''
