@@ -145,18 +145,59 @@ const Grade = () => {
     !!currentSection && students.length > 0 && items.length > 0 && !isPublishing;
 
   const displayStudents = useMemo(() => {
-    const seen = {};
+    const seen = new Map();
     (students || []).forEach((student) => {
       const key = getStudentKey(student);
       if (!key) return;
-      if (!seen[key]) {
-        seen[key] = student;
+      const existing = seen.get(key);
+      if (existing) {
+        seen.set(key, { ...existing, ...student, studentKey: key });
       } else {
-        seen[key] = { ...seen[key], ...student };
+        seen.set(key, { ...student, studentKey: key });
       }
     });
-    return Object.values(seen);
+    return Array.from(seen.values());
   }, [students]);
+
+  const studentIdToKey = useMemo(() => {
+    const map = new Map();
+    displayStudents.forEach((student) => {
+      if (student?.id != null && student.studentKey) {
+        map.set(String(student.id), student.studentKey);
+      }
+    });
+    return map;
+  }, [displayStudents]);
+
+  const studentKeyToId = useMemo(() => {
+    const map = new Map();
+    displayStudents.forEach((student) => {
+      if (student?.id != null && student.studentKey) {
+        map.set(student.studentKey, student.id);
+      }
+    });
+    return map;
+  }, [displayStudents]);
+
+  const scoresByKey = useMemo(() => {
+    const map = new Map();
+    (scores || []).forEach((sc) => {
+      const key = studentIdToKey.get(String(sc.student));
+      if (!key) return;
+      map.set(`${key}|${sc.grade_item}`, Number(sc.score));
+    });
+    return map;
+  }, [scores, studentIdToKey]);
+
+  const classStandingsByKey = useMemo(() => {
+    const map = new Map();
+    (classStandings || []).forEach((cs) => {
+      const key = studentIdToKey.get(String(cs.student));
+      if (!key) return;
+      map.set(key, Number(cs.score));
+    });
+    return map;
+  }, [classStandings, studentIdToKey]);
 
   // IMPORTANT FIX:
   // backend expects integer grade_level, not "grade4"/"kinder"
@@ -320,19 +361,19 @@ const Grade = () => {
 
   const itemsByCategory = (cat) => items.filter((i) => i.category === cat);
 
-  const getScore = (studentId, itemId) => {
-    const s = scores.find(
-      (sc) => Number(sc.student) === Number(studentId) && Number(sc.grade_item) === Number(itemId)
-    );
-    return s ? Number(s.score) : null;
+  const getScore = (studentKey, itemId) => {
+    if (!studentKey) return null;
+    const value = scoresByKey.get(`${studentKey}|${itemId}`);
+    return value != null ? Number(value) : null;
   };
 
-  const getCS = (studentId) => {
-    const c = classStandings.find((cs) => Number(cs.student) === Number(studentId));
-    return c ? Number(c.score) : null;
+  const getCS = (studentKey) => {
+    if (!studentKey) return null;
+    const value = classStandingsByKey.get(studentKey);
+    return value != null ? Number(value) : null;
   };
 
-  const categoryAvg = (studentId, cat) => {
+  const categoryAvg = (studentKey, cat) => {
     const catItems = itemsByCategory(cat);
     if (!catItems.length) return null;
 
@@ -341,7 +382,7 @@ const Grade = () => {
     let hasAny = false;
 
     catItems.forEach((item) => {
-      const s = getScore(studentId, item.id);
+      const s = getScore(studentKey, item.id);
       if (s !== null && s !== undefined && s !== "") {
         totalEarned += Number(s);
         totalPossible += Number(item.total_score || 0);
@@ -353,11 +394,11 @@ const Grade = () => {
     return totalPossible > 0 ? (totalEarned / totalPossible) * 100 : 0;
   };
 
-  const quarterGrade = (studentId) => {
-    const actAvg = categoryAvg(studentId, "ACTIVITY");
-    const quizAvg = categoryAvg(studentId, "QUIZ");
-    const examAvg = categoryAvg(studentId, "EXAM");
-    const cs = getCS(studentId);
+  const quarterGrade = (studentKey) => {
+    const actAvg = categoryAvg(studentKey, "ACTIVITY");
+    const quizAvg = categoryAvg(studentKey, "QUIZ");
+    const examAvg = categoryAvg(studentKey, "EXAM");
+    const cs = getCS(studentKey);
 
     const parts = [];
     if (actAvg !== null) parts.push({ avg: Number(actAvg), w: Number(weights.activity_weight) || 0 });
@@ -536,12 +577,22 @@ const Grade = () => {
       return;
     }
 
+    const studentId =
+      scoreModal.student?.id != null
+        ? scoreModal.student.id
+        : studentKeyToId.get(scoreModal.studentKey);
+
+    if (!studentId) {
+      setError("Unable to determine the student for this score.");
+      return;
+    }
+
     try {
       const res = await apiFetch(`${API}/api/grades/scores/upsert/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          student: Number(scoreModal.student.id),
+          student: Number(studentId),
           grade_item: Number(scoreModal.item.id),
           score: numericScore,
         }),
@@ -587,12 +638,22 @@ const Grade = () => {
       return;
     }
 
+    const studentId =
+      csModal.student?.id != null
+        ? csModal.student.id
+        : studentKeyToId.get(csModal.studentKey);
+
+    if (!studentId) {
+      setError("Unable to determine the student for this class standing.");
+      return;
+    }
+
     try {
       const res = await apiFetch(`${API}/api/grades/class-standing/upsert/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          student: Number(csModal.student.id),
+          student: Number(studentId),
           subject: Number(teacherSubject.subject_id),
           quarter: Number(quarter),
           score: numericScore,
@@ -790,32 +851,33 @@ const Grade = () => {
       const gradeRowsHTML = displayStudents
         .map((student) => {
           try {
+            const studentKey = student.studentKey || getStudentKey(student);
             const activityHTML = activityItems
               .map((item) => {
-                const score = getScore(student.id, item.id);
+                const score = getScore(studentKey, item.id);
                 return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
               })
               .join("");
 
             const quizHTML = quizItems
               .map((item) => {
-                const score = getScore(student.id, item.id);
+                const score = getScore(studentKey, item.id);
                 return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
               })
               .join("");
 
             const examHTML = examItems
               .map((item) => {
-                const score = getScore(student.id, item.id);
+                const score = getScore(studentKey, item.id);
                 return `<td style="text-align: center; font-size: 12px;">${score !== null ? `${score}/${item.total_score}` : "—"}</td>`;
               })
               .join("");
 
-            const actAvg = categoryAvg(student.id, "ACTIVITY");
-            const quizAvg = categoryAvg(student.id, "QUIZ");
-            const examAvg = categoryAvg(student.id, "EXAM");
-            const cs = getCS(student.id);
-            const qg = quarterGrade(student.id);
+            const actAvg = categoryAvg(studentKey, "ACTIVITY");
+            const quizAvg = categoryAvg(studentKey, "QUIZ");
+            const examAvg = categoryAvg(studentKey, "EXAM");
+            const cs = getCS(studentKey);
+            const qg = quarterGrade(studentKey);
             
             // Ensure values are numbers
             const actAvgNum = actAvg !== null ? Number(actAvg) : null;
@@ -1452,24 +1514,26 @@ const Grade = () => {
               )}
 
               {displayStudents.map((stu) => {
-                const qg = quarterGrade(stu.id);
+                const studentKey = stu.studentKey || getStudentKey(stu);
+                const rowKey = studentKey || String(stu.id || "");
+                const qg = quarterGrade(studentKey);
 
                 return (
-                  <tr className="ge__tr" key={stu.id}>
+                  <tr className="ge__tr" key={rowKey}>
                     <td className="ge__td ge__td--left ge__td--sticky">
                       <div className="ge__name">{stu.student_name}</div>
                     </td>
 
                     {CATEGORIES.map(({ key }) =>
                       itemsByCategory(key).map((item) => {
-                        const sc = getScore(stu.id, item.id);
+                        const sc = getScore(studentKey, item.id);
 
                         return (
                           <td
                             key={item.id}
                             className="ge__td ge__td--clickable"
                             onClick={() => {
-                              setScoreModal({ student: stu, item });
+                              setScoreModal({ student: stu, item, studentKey });
                               setScoreValue(sc !== null ? String(sc) : "");
                             }}
                           >
@@ -1486,12 +1550,12 @@ const Grade = () => {
                     <td
                       className="ge__td ge__td--clickable"
                       onClick={() => {
-                        setCsModal({ student: stu });
-                        setCsValue(getCS(stu.id) !== null ? String(getCS(stu.id)) : "");
+                        setCsModal({ student: stu, studentKey });
+                        setCsValue(getCS(studentKey) !== null ? String(getCS(studentKey)) : "");
                       }}
                     >
-                      {getCS(stu.id) !== null ? (
-                        <span className="ge__scoreVal">{getCS(stu.id)}</span>
+                      {getCS(studentKey) !== null ? (
+                        <span className="ge__scoreVal">{getCS(studentKey)}</span>
                       ) : (
                         <span className="ge__scoreEmpty">—</span>
                       )}
