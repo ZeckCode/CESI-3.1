@@ -8,6 +8,7 @@ const NotificationList = ({ onClose, unreadCount, onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
+  const [markingAllAsRead, setMarkingAllAsRead] = useState(false);
 
   useEffect(() => {
     loadNotifications();
@@ -64,6 +65,35 @@ const NotificationList = ({ onClose, unreadCount, onNavigate }) => {
     }
   };
 
+  const handleMarkAllAsRead = async () => {
+    const unreadIds = reminders.filter(r => !r.is_read).map(r => r.id);
+    
+    if (unreadIds.length === 0) {
+      alert('All notifications are already marked as read.');
+      return;
+    }
+
+    setMarkingAllAsRead(true);
+    try {
+      const promises = unreadIds.map(id =>
+        apiFetch(`/api/reminders/${id}/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_read: true }),
+        })
+      );
+
+      await Promise.all(promises);
+
+      setReminders(reminders.map(r => ({ ...r, is_read: true })));
+    } catch (err) {
+      console.error('Error marking all as read:', err);
+      alert('Failed to mark all notifications as read.');
+    } finally {
+      setMarkingAllAsRead(false);
+    }
+  };
+
   const handleNotificationClick = (reminder) => {
     if (onNavigate) {
       onNavigate('payment-reminders', reminder);
@@ -85,14 +115,27 @@ const NotificationList = ({ onClose, unreadCount, onNavigate }) => {
               <span className="notification-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
             )}
           </div>
-          <button
-            className="notification-close-btn"
-            onClick={onClose}
-            title="Close"
-            type="button"
-          >
-            <X size={20} />
-          </button>
+          <div className="notification-header-actions">
+            {unreadCount > 0 && (
+              <button
+                className="notification-mark-all-btn"
+                onClick={handleMarkAllAsRead}
+                disabled={markingAllAsRead}
+                title="Mark all as read"
+                type="button"
+              >
+                {markingAllAsRead ? 'Marking...' : 'Mark all read'}
+              </button>
+            )}
+            <button
+              className="notification-close-btn"
+              onClick={onClose}
+              title="Close"
+              type="button"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
