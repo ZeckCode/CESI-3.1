@@ -6,7 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { apiFetch } from '../api/apiFetch';
 
-// Toast Notification Component
+// Toast Notification Component - TOP RIGHT
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -51,6 +51,7 @@ const Reports = () => {
   const [generatedReports, setGeneratedReports] = useState([]);
   const [currentAcademicYear, setCurrentAcademicYear] = useState('');
   const [toast, setToast] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   
   // Stats state
   const [enrollmentStats, setEnrollmentStats] = useState({
@@ -144,8 +145,9 @@ const Reports = () => {
         return expiry ? new Date() > expiry : false;
       }).length;
       
-      setEnrollmentStats({ total, active, pending, dropped, expired });
-      return { total, active, pending, dropped, expired };
+      const stats = { total, active, pending, dropped, expired };
+      setEnrollmentStats(stats);
+      return stats;
     } catch (error) {
       console.error('Error fetching enrollment stats:', error);
       return null;
@@ -251,6 +253,10 @@ const Reports = () => {
   const fetchGradeStats = async () => {
     try {
       const res = await apiFetch('/api/grades/admin-monitoring/?quarter=1');
+      if (!res.ok) {
+        console.warn('Grade monitoring endpoint returned:', res.status);
+        return null;
+      }
       const data = await res.json();
       const summary = data.summary || {};
       
@@ -263,8 +269,16 @@ const Reports = () => {
       setGradeStats(stats);
       return stats;
     } catch (error) {
-      console.error('Error fetching grade stats:', error);
-      return null;
+      console.error('Error fetching grade stats - endpoint may be unavailable:', error);
+      // Return default stats instead of failing
+      const defaultStats = {
+        total_students: 0,
+        graded_students: 0,
+        pending_grades: 0,
+        average_grade: '—'
+      };
+      setGradeStats(defaultStats);
+      return defaultStats;
     }
   };
 
@@ -296,7 +310,7 @@ const Reports = () => {
     }
   };
 
-  // Fetch all stats on mount
+  // Initial fetch - runs once on mount, no loading overlay for UI
   useEffect(() => {
     const fetchAllStats = async () => {
       setLoading(true);
@@ -339,8 +353,9 @@ const Reports = () => {
     let statsData = [];
     let headers = ['Metric', 'Value'];
     
-    if (report.type === 'students' || report.type === 'all') {
-      const data = report.type === 'students' ? report.data : report.data?.enrollment;
+    // Fix: Separate logic for 'all' vs specific report types
+    if (report.type === 'students') {
+      const data = report.data;
       statsData = [
         ['Total Enrollments', data?.total || 0],
         ['Active/Enrolled', data?.active || 0],
@@ -406,7 +421,151 @@ const Reports = () => {
         ['Average Final Grade', data?.averageFinal || '—'],
       ];
     }
+    else if (report.type === 'all') {
+      // Comprehensive report - show all sections
+      const data = report.data;
+      
+      doc.text('ENROLLMENT SUMMARY', 14, 38);
+      const enrollmentData = [
+        ['Total Enrollments', data?.enrollment?.total || 0],
+        ['Active/Enrolled', data?.enrollment?.active || 0],
+        ['Pending', data?.enrollment?.pending || 0],
+        ['Dropped', data?.enrollment?.dropped || 0],
+      ];
+      
+      autoTable(doc, {
+        startY: 43,
+        head: [['Metric', 'Value']],
+        body: enrollmentData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
+        bodyStyles: { fontSize: 9 },
+        margin: { left: 14, right: 14 },
+      });
+      
+      let currentY = doc.lastAutoTable.finalY + 10;
+      
+      doc.text('FINANCIAL SUMMARY', 14, currentY);
+      const financialData = [
+        ['Total Billed', `₱${(data?.financial?.total_billed || 0).toLocaleString()}`],
+        ['Total Collected', `₱${(data?.financial?.total_collected || 0).toLocaleString()}`],
+        ['Outstanding Balance', `₱${(data?.financial?.outstanding_balance || 0).toLocaleString()}`],
+      ];
+      
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [['Metric', 'Value']],
+        body: financialData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
+        bodyStyles: { fontSize: 9 },
+        margin: { left: 14, right: 14 },
+      });
+      
+      currentY = doc.lastAutoTable.finalY + 10;
+      
+      doc.text('CLASS & TEACHER SUMMARY', 14, currentY);
+      const classData = [
+        ['Total Sections', data?.classes?.total_sections || 0],
+        ['Total Students (All Sections)', data?.classes?.total_students || 0],
+        ['Active Sections', data?.classes?.active_sections || 0],
+        ['Subjects Offered', data?.classes?.total_subjects || 0],
+        ['Total Teachers', data?.teachers?.total_teachers || 0],
+        ['Active Teachers', data?.teachers?.active_teachers || 0],
+      ];
+      
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [['Metric', 'Value']],
+        body: classData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
+        bodyStyles: { fontSize: 9 },
+        margin: { left: 14, right: 14 },
+      });
+      
+      currentY = doc.lastAutoTable.finalY + 10;
+      
+      doc.text('ATTENDANCE SUMMARY', 14, currentY);
+      const attendanceData = [
+        ['Total Records', data?.attendance?.total_records || 0],
+        ['Present', data?.attendance?.present || 0],
+        ['Absent', data?.attendance?.absent || 0],
+        ['Late', data?.attendance?.late || 0],
+        ['Excused', data?.attendance?.excused || 0],
+      ];
+      
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [['Metric', 'Value']],
+        body: attendanceData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
+        bodyStyles: { fontSize: 9 },
+        margin: { left: 14, right: 14 },
+      });
+      
+      currentY = doc.lastAutoTable.finalY + 10;
+      
+      doc.text('GRADES SUMMARY', 14, currentY);
+      const gradesData = [
+        ['Total Students', data?.grades?.total_students || 0],
+        ['Students With Grades', data?.grades?.graded_students || 0],
+        ['Pending / Partial', data?.grades?.pending_grades || 0],
+        ['Average Grade', data?.grades?.average_grade || '—'],
+      ];
+      
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [['Metric', 'Value']],
+        body: gradesData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
+        bodyStyles: { fontSize: 9 },
+        margin: { left: 14, right: 14 },
+      });
+      
+      currentY = doc.lastAutoTable.finalY + 10;
+      
+      doc.text('ACADEMIC HISTORY SUMMARY', 14, currentY);
+      const historyData = [
+        ['Total Records', data?.history?.totalRecords || 0],
+        ['Unique Students', data?.history?.uniqueStudents || 0],
+        ['School Years', data?.history?.schoolYears || 0],
+        ['Average Final Grade', data?.history?.averageFinal || '—'],
+      ];
+      
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [['Metric', 'Value']],
+        body: historyData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
+        bodyStyles: { fontSize: 9 },
+        margin: { left: 14, right: 14 },
+      });
+      
+      // Add page numbers
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(108, 117, 125);
+        doc.text(
+          `Page ${i} of ${pageCount}`,
+          doc.internal.pageSize.width - 20,
+          doc.internal.pageSize.height - 10
+        );
+      }
+      
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, '_blank');
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
+      return;
+    }
     
+    // For non-comprehensive reports
     doc.setFontSize(12);
     doc.setTextColor(33, 37, 41);
     doc.text('Report Summary', 14, 38);
@@ -437,15 +596,10 @@ const Reports = () => {
       );
     }
     
-    // Open PDF in new tab (bypasses cross-origin issues)
     const pdfBlob = doc.output('blob');
     const pdfUrl = URL.createObjectURL(pdfBlob);
     window.open(pdfUrl, '_blank');
-    
-    // Clean up the URL after a short delay
-    setTimeout(() => {
-      URL.revokeObjectURL(pdfUrl);
-    }, 100);
+    setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
   };
 
   // -----------------------------
@@ -469,7 +623,7 @@ const Reports = () => {
   };
 
   // -----------------------------
-  // GENERATE REPORT
+  // GENERATE REPORT - NO PAGE LOADING OVERLAY
   // -----------------------------
   const generateReport = async () => {
     const today = new Date().toISOString().slice(0, 10);
@@ -478,61 +632,59 @@ const Reports = () => {
     let data = {};
     let reportName = '';
 
-    // Fetch fresh data for the report
-    setLoading(true);
-    
-    switch (reportType) {
-      case "students":
-        data = await fetchEnrollmentStats() || enrollmentStats;
-        reportName = `Student Enrollment Report - ${period}`;
-        break;
-      case "financial":
-        data = await fetchTransactionStats() || transactionStats;
-        reportName = `Financial Summary Report - ${period}`;
-        break;
-      case "classes":
-        data = await fetchClassStats() || classStats;
-        reportName = `Class Statistics Report - ${period}`;
-        break;
-      case "teachers":
-        data = await fetchTeacherStats() || teacherStats;
-        reportName = `Teacher Performance Report - ${period}`;
-        break;
-      case "attendance":
-        data = await fetchAttendanceStats() || attendanceStats;
-        reportName = `Attendance Summary Report - ${period}`;
-        break;
-      case "grades":
-        data = await fetchGradeStats() || gradeStats;
-        reportName = `Grade Monitoring Report - ${period}`;
-        break;
-      case "history":
-        data = await fetchHistoryStats() || historyStats;
-        reportName = `Academic History Report - ${period}`;
-        break;
-      default:
-        const [enrollment, financial, classes, teachers, attendance, grades, history] = await Promise.all([
-          fetchEnrollmentStats(),
-          fetchTransactionStats(),
-          fetchClassStats(),
-          fetchTeacherStats(),
-          fetchAttendanceStats(),
-          fetchGradeStats(),
-          fetchHistoryStats()
-        ]);
-        data = {
-          enrollment: enrollment || enrollmentStats,
-          financial: financial || transactionStats,
-          classes: classes || classStats,
-          teachers: teachers || teacherStats,
-          attendance: attendance || attendanceStats,
-          grades: grades || gradeStats,
-          history: history || historyStats
-        };
-        reportName = `Comprehensive System Report - ${period}`;
+    // Show generating state on button only
+    setIsGenerating(true);
+
+    if (reportType === "students") {
+      data = await fetchEnrollmentStats() || enrollmentStats;
+      reportName = `Student Enrollment Report - ${period}`;
+    } 
+    else if (reportType === "financial") {
+      data = await fetchTransactionStats() || transactionStats;
+      reportName = `Financial Summary Report - ${period}`;
+    } 
+    else if (reportType === "classes") {
+      data = await fetchClassStats() || classStats;
+      reportName = `Class Statistics Report - ${period}`;
+    } 
+    else if (reportType === "teachers") {
+      data = await fetchTeacherStats() || teacherStats;
+      reportName = `Teacher Performance Report - ${period}`;
+    } 
+    else if (reportType === "attendance") {
+      data = await fetchAttendanceStats() || attendanceStats;
+      reportName = `Attendance Summary Report - ${period}`;
+    } 
+    else if (reportType === "grades") {
+      data = await fetchGradeStats() || gradeStats;
+      reportName = `Grade Monitoring Report - ${period}`;
+    } 
+    else if (reportType === "history") {
+      data = await fetchHistoryStats() || historyStats;
+      reportName = `Academic History Report - ${period}`;
+    } 
+    else {
+      // All reports - fetch fresh data in background
+      const [enrollment, financial, classes, teachers, attendance, grades, history] = await Promise.all([
+        fetchEnrollmentStats(),
+        fetchTransactionStats(),
+        fetchClassStats(),
+        fetchTeacherStats(),
+        fetchAttendanceStats(),
+        fetchGradeStats(),
+        fetchHistoryStats()
+      ]);
+      data = {
+        enrollment: enrollment || enrollmentStats,
+        financial: financial || transactionStats,
+        classes: classes || classStats,
+        teachers: teachers || teacherStats,
+        attendance: attendance || attendanceStats,
+        grades: grades || gradeStats,
+        history: history || historyStats
+      };
+      reportName = `Comprehensive System Report - ${period}`;
     }
-    
-    setLoading(false);
 
     const newReport = {
       id: Date.now(),
@@ -545,6 +697,7 @@ const Reports = () => {
     };
 
     setGeneratedReports((prev) => [newReport, ...prev]);
+    setIsGenerating(false);
     showToast('Report generated successfully!', 'success');
   };
 
@@ -553,30 +706,30 @@ const Reports = () => {
   // -----------------------------
   useEffect(() => {
     const checkMonthlyReport = async () => {
-      const now = new Date();
       const lastGenerated = localStorage.getItem("lastMonthlyReport");
 
       if (!lastGenerated) {
         await generateMonthlyReport();
-        localStorage.setItem("lastMonthlyReport", now.toISOString());
+        localStorage.setItem("lastMonthlyReport", new Date().toISOString());
       } else {
         const lastDate = new Date(lastGenerated);
+        const nowDate = new Date();
 
         if (
-          lastDate.getMonth() !== now.getMonth() ||
-          lastDate.getFullYear() !== now.getFullYear()
+          lastDate.getMonth() !== nowDate.getMonth() ||
+          lastDate.getFullYear() !== nowDate.getFullYear()
         ) {
           await generateMonthlyReport();
-          localStorage.setItem("lastMonthlyReport", now.toISOString());
+          localStorage.setItem("lastMonthlyReport", nowDate.toISOString());
         }
       }
     };
     
-    // Only run after stats are loaded
+    // Only run after initial stats are loaded
     if (!loading && enrollmentStats.total > 0) {
       checkMonthlyReport();
     }
-  }, [loading, enrollmentStats, transactionStats, classStats, teacherStats, attendanceStats, gradeStats, historyStats, currentAcademicYear]);
+  }, [loading, enrollmentStats]);
 
   const generateMonthlyReport = async () => {
     const today = new Date().toISOString().slice(0, 10);
@@ -665,7 +818,7 @@ const Reports = () => {
 
   return (
     <div className="class-management">
-      {/* Toast Notification */}
+      {/* Toast Notification - TOP RIGHT */}
       {toast && (
         <Toast 
           message={toast.message} 
@@ -699,8 +852,8 @@ const Reports = () => {
           </select>
         </div>
 
-        <button className="btn-primary btn-generate-sm" onClick={generateReport} disabled={loading}>
-          Generate Report
+        <button className="btn-primary btn-generate-sm" onClick={generateReport} disabled={isGenerating}>
+          {isGenerating ? 'Generating...' : 'Generate Report'}
         </button>
       </div>
 
@@ -821,10 +974,10 @@ const Reports = () => {
           100% { transform: rotate(360deg); }
         }
         
-        /* Toast Notification Styles */
+        /* Toast Notification Styles - TOP RIGHT */
         .toast-notification {
           position: fixed;
-          bottom: 24px;
+          top: 24px;
           right: 24px;
           display: flex;
           align-items: center;
