@@ -1,10 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   FileText, Download, BookOpen, Award, TrendingUp, CheckCircle, AlertCircle 
 } from 'lucide-react';
 import "../StudentWebsiteCSS/Grades.css";
 import { apiFetch } from "../api/apiFetch";
 import PreviewModal from "../PreviewModal";
+
+const toNumberOrNull = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
 
 const Grades = () => {
   const [grades, setGrades] = useState([]);
@@ -50,6 +56,8 @@ const Grades = () => {
     return 4;
   };
 
+  const currentQuarter = getCurrentQuarter();
+
   const validFinals = grades.filter((g) => g.final_grade !== null);
   const gwa = validFinals.length
     ? (validFinals.reduce((s, g) => s + g.final_grade, 0) / validFinals.length).toFixed(2)
@@ -57,6 +65,87 @@ const Grades = () => {
   
   const passedSubjects = validFinals.filter(g => g.final_grade >= 75).length;
   const pendingSubjects = grades.filter(g => g.final_grade === null).length;
+
+  const gradeInsights = useMemo(() => {
+    const scoredSubjects = grades
+      .map((g) => {
+        const final = toNumberOrNull(g.final_grade);
+        const quarter = toNumberOrNull(g[`q${currentQuarter}`]);
+        const score = final ?? quarter;
+        return {
+          subject: g.subject_name || g.subject_code || "Subject",
+          score,
+          source: final !== null ? "Final grade" : `Q${currentQuarter}`,
+        };
+      })
+      .filter((g) => g.score !== null);
+
+    const quarterAverages = [1, 2, 3, 4].map((q) => {
+      const vals = grades
+        .map((g) => toNumberOrNull(g[`q${q}`]))
+        .filter((v) => v !== null);
+      if (vals.length === 0) return null;
+      return vals.reduce((sum, v) => sum + v, 0) / vals.length;
+    });
+
+    const completedSlots = grades.reduce(
+      (acc, g) =>
+        acc + [1, 2, 3, 4].reduce((inner, q) => inner + (toNumberOrNull(g[`q${q}`]) !== null ? 1 : 0), 0),
+      0
+    );
+    const totalSlots = grades.length * 4;
+    const completionRate = totalSlots > 0 ? (completedSlots / totalSlots) * 100 : 0;
+
+    if (scoredSubjects.length === 0) {
+      return {
+        summary: "No graded subjects yet. Insights will appear as teachers post scores.",
+        strongest: null,
+        focus: null,
+        passRate: 0,
+        trendDelta: null,
+        trendLabel: "Trend unavailable yet.",
+        quarterAverages,
+        completionRate,
+      };
+    }
+
+    const sorted = [...scoredSubjects].sort((a, b) => b.score - a.score);
+    const strongest = sorted[0];
+    const focus = sorted[sorted.length - 1];
+    const passRate = (scoredSubjects.filter((s) => s.score >= 75).length / scoredSubjects.length) * 100;
+
+    const firstAvg = quarterAverages.find((v) => v !== null);
+    const lastAvg = [...quarterAverages].reverse().find((v) => v !== null);
+    const trendDelta =
+      firstAvg !== undefined && firstAvg !== null && lastAvg !== undefined && lastAvg !== null
+        ? Number((lastAvg - firstAvg).toFixed(2))
+        : null;
+
+    let trendLabel = "Trend unavailable yet.";
+    if (trendDelta !== null) {
+      if (trendDelta > 1.5) trendLabel = `Improving trend (+${trendDelta.toFixed(2)} pts).`;
+      else if (trendDelta < -1.5) trendLabel = `Downward trend (${trendDelta.toFixed(2)} pts).`;
+      else trendLabel = "Stable quarter performance.";
+    }
+
+    const summary =
+      passRate >= 90
+        ? "Excellent overall standing across evaluated subjects."
+        : passRate >= 75
+        ? "Good standing with a few subjects to strengthen."
+        : "Several subjects need immediate attention to raise passing rate.";
+
+    return {
+      summary,
+      strongest,
+      focus,
+      passRate,
+      trendDelta,
+      trendLabel,
+      quarterAverages,
+      completionRate,
+    };
+  }, [grades, currentQuarter]);
 
   const getGradeColor = (grade) => {
     if (grade === null) return 'sg-grade-pending';
@@ -68,11 +157,10 @@ const Grades = () => {
 
   const getQuarterGradeDisplay = (grade, quarter) => {
     if (grade !== null) return grade.toFixed(1);
-    return getCurrentQuarter() === quarter ? 'Pending' : '—';
+    return currentQuarter === quarter ? 'Pending' : '—';
   };
 
   const getSubjectStatusBadge = (subject) => {
-    const currentQuarter = getCurrentQuarter();
     const currentQuarterGrade = subject[`q${currentQuarter}`];
     if (currentQuarterGrade === null) return { status: 'pending', label: 'Pending' };
     if (subject.final_grade !== null) {
@@ -144,6 +232,58 @@ const Grades = () => {
             <div className={`sg-stat-change ${gwa && parseFloat(gwa) >= 85 ? 'positive' : ''}`}>
               {gwa && parseFloat(gwa) >= 85 ? 'Excellent standing' : 'General Weighted Average'}
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="sg-section sg-no-print">
+        <div className="sg-insights-panel">
+          <div className="sg-insights-header">
+            <h3>Performance Insights</h3>
+            <span>Descriptive analysis based on posted grades</span>
+          </div>
+
+          <div className="sg-insights-grid">
+            <article className="sg-insight-card">
+              <p className="sg-insight-label">Academic Snapshot</p>
+              <p className="sg-insight-value">{gradeInsights.passRate.toFixed(1)}%</p>
+              <p className="sg-insight-note">{gradeInsights.summary}</p>
+            </article>
+
+            <article className="sg-insight-card">
+              <p className="sg-insight-label">Strongest Subject</p>
+              <p className="sg-insight-value">
+                {gradeInsights.strongest ? gradeInsights.strongest.subject : '—'}
+              </p>
+              <p className="sg-insight-note">
+                {gradeInsights.strongest
+                  ? `${gradeInsights.strongest.score.toFixed(1)} (${gradeInsights.strongest.source})`
+                  : 'Waiting for graded entries.'}
+              </p>
+            </article>
+
+            <article className="sg-insight-card">
+              <p className="sg-insight-label">Needs Focus</p>
+              <p className="sg-insight-value">
+                {gradeInsights.focus ? gradeInsights.focus.subject : '—'}
+              </p>
+              <p className="sg-insight-note">
+                {gradeInsights.focus
+                  ? `${gradeInsights.focus.score.toFixed(1)} (${gradeInsights.focus.source}). ${gradeInsights.trendLabel}`
+                  : 'Trend unavailable yet.'}
+              </p>
+            </article>
+          </div>
+
+          <div className="sg-quarter-strip">
+            {[1, 2, 3, 4].map((q, idx) => (
+              <span key={q} className="sg-quarter-pill">
+                Q{q}: {gradeInsights.quarterAverages[idx] !== null ? gradeInsights.quarterAverages[idx].toFixed(1) : '—'}
+              </span>
+            ))}
+            <span className="sg-quarter-pill sg-quarter-pill--accent">
+              Quarter Completion: {gradeInsights.completionRate.toFixed(0)}%
+            </span>
           </div>
         </div>
       </section>

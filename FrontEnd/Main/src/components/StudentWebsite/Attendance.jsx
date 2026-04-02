@@ -12,10 +12,26 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December"
 ];
 
+const toNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const normalizeAttendanceStats = (payload = {}) => ({
+  school_year: payload.school_year || "",
+  total_classes: toNumber(payload.total_classes ?? payload.total),
+  present_count: toNumber(payload.present_count ?? payload.present),
+  absent_count: toNumber(payload.absent_count ?? payload.absent),
+  late_count: toNumber(payload.late_count ?? payload.late),
+  excused_count: toNumber(payload.excused_count ?? payload.excused),
+  attendance_rate: toNumber(payload.attendance_rate ?? payload.percentage),
+});
+
 const Attendance = () => {
   const [view, setView] = useState("calendar");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
+    school_year: "",
     total_classes: 0,
     present_count: 0,
     absent_count: 0,
@@ -51,7 +67,8 @@ const Attendance = () => {
         ]);
         
         if (statsRes.ok) {
-          setStats(await statsRes.json());
+          const statsPayload = await statsRes.json();
+          setStats(normalizeAttendanceStats(statsPayload));
         }
         if (attendanceRes.ok) {
           const data = await attendanceRes.json();
@@ -100,6 +117,96 @@ const Attendance = () => {
         : calendarData.filter((d) => d.overall_status === filterStatus),
     [calendarData, filterStatus]
   );
+
+  const calendarTotals = useMemo(
+    () =>
+      displayedCalendarData.reduce(
+        (acc, day) => {
+          acc.total += toNumber(day.total);
+          acc.present += toNumber(day.present);
+          acc.absent += toNumber(day.absent);
+          acc.late += toNumber(day.late);
+          acc.excused += toNumber(day.excused);
+          return acc;
+        },
+        { total: 0, present: 0, absent: 0, late: 0, excused: 0 }
+      ),
+    [displayedCalendarData]
+  );
+
+  const effectiveStats = useMemo(() => {
+    const hasServerStats =
+      stats.total_classes > 0 ||
+      stats.present_count > 0 ||
+      stats.absent_count > 0 ||
+      stats.late_count > 0 ||
+      stats.excused_count > 0;
+
+    if (hasServerStats || calendarTotals.total === 0) {
+      return stats;
+    }
+
+    const attended = calendarTotals.present + calendarTotals.late + calendarTotals.excused;
+    const attendanceRate = calendarTotals.total
+      ? (attended / calendarTotals.total) * 100
+      : 0;
+
+    return {
+      school_year: stats.school_year,
+      total_classes: calendarTotals.total,
+      present_count: calendarTotals.present,
+      absent_count: calendarTotals.absent,
+      late_count: calendarTotals.late,
+      excused_count: calendarTotals.excused,
+      attendance_rate: attendanceRate,
+    };
+  }, [stats, calendarTotals]);
+
+  const attendanceInsights = useMemo(() => {
+    const total = effectiveStats.total_classes;
+    const attended =
+      effectiveStats.present_count +
+      effectiveStats.late_count +
+      effectiveStats.excused_count;
+    const rate = total > 0 ? (attended / total) * 100 : 0;
+    const onTimeRate = attended > 0 ? (effectiveStats.present_count / attended) * 100 : 0;
+    const trackedDays = displayedCalendarData.length;
+    const cleanDays = displayedCalendarData.filter(
+      (d) => toNumber(d.absent) === 0 && toNumber(d.late) === 0 && toNumber(d.present) > 0
+    ).length;
+
+    let profileText = "No classes logged yet for this period.";
+    if (rate >= 95) profileText = "Excellent consistency. Keep this rhythm to stay ahead.";
+    else if (rate >= 90) profileText = "Strong attendance habit with only minor gaps.";
+    else if (rate >= 80) profileText = "Fair attendance. A few more present days will boost performance.";
+    else if (total > 0) profileText = "Attendance is below target. Focus on reducing absences this month.";
+
+    const absenceShare = total > 0 ? (effectiveStats.absent_count / total) * 100 : 0;
+    let focusText = "On-time arrivals look stable.";
+    if (onTimeRate < 80 && attended > 0) {
+      focusText = "Late arrivals are frequent. Target earlier check-in for stronger routine.";
+    } else if (absenceShare > 15) {
+      focusText = "Absences are affecting momentum. Prioritize consistent attendance this week.";
+    }
+
+    return {
+      profile: {
+        value: `${rate.toFixed(1)}%`,
+        label: "Attendance Profile",
+        note: profileText,
+      },
+      punctuality: {
+        value: `${onTimeRate.toFixed(1)}%`,
+        label: "On-Time Rate",
+        note: "Share of attended classes that started on time.",
+      },
+      momentum: {
+        value: `${cleanDays}/${trackedDays || 0}`,
+        label: "Clean Attendance Days",
+        note: focusText,
+      },
+    };
+  }, [effectiveStats, displayedCalendarData]);
 
   const getAttendanceForDate = (day) => {
     const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -197,7 +304,7 @@ const Attendance = () => {
               <span className="sa-stat-label">Total Classes</span>
               <Calendar size={24} className="sa-stat-icon" />
             </div>
-            <div className="sa-stat-value">{stats.total_classes}</div>
+            <div className="sa-stat-value">{effectiveStats.total_classes}</div>
             <div className="sa-stat-change">This school year</div>
           </div>
 
@@ -206,7 +313,7 @@ const Attendance = () => {
               <span className="sa-stat-label">Present</span>
               <CheckCircle size={24} className="sa-stat-icon" />
             </div>
-            <div className="sa-stat-value">{stats.present_count}</div>
+            <div className="sa-stat-value">{effectiveStats.present_count}</div>
             <div className="sa-stat-change positive">On time attendance</div>
           </div>
 
@@ -215,7 +322,7 @@ const Attendance = () => {
               <span className="sa-stat-label">Late</span>
               <Clock size={24} className="sa-stat-icon" />
             </div>
-            <div className="sa-stat-value">{stats.late_count}</div>
+            <div className="sa-stat-value">{effectiveStats.late_count}</div>
             <div className="sa-stat-change">Arrived late</div>
           </div>
 
@@ -224,7 +331,7 @@ const Attendance = () => {
               <span className="sa-stat-label">Absent</span>
               <XCircle size={24} className="sa-stat-icon" />
             </div>
-            <div className="sa-stat-value">{stats.absent_count}</div>
+            <div className="sa-stat-value">{effectiveStats.absent_count}</div>
             <div className="sa-stat-change">Days missed</div>
           </div>
 
@@ -233,7 +340,7 @@ const Attendance = () => {
               <span className="sa-stat-label">Excused</span>
               <AlertCircle size={24} className="sa-stat-icon" />
             </div>
-            <div className="sa-stat-value">{stats.excused_count}</div>
+            <div className="sa-stat-value">{effectiveStats.excused_count}</div>
             <div className="sa-stat-change">Legitimate absences</div>
           </div>
 
@@ -242,10 +349,36 @@ const Attendance = () => {
               <span className="sa-stat-label">Attendance Rate</span>
               <AlertCircle size={24} className="sa-stat-icon" />
             </div>
-            <div className="sa-stat-value">{stats.attendance_rate?.toFixed(1) || 0}%</div>
-            <div className={`sa-stat-change ${stats.attendance_rate >= 90 ? 'positive' : ''}`}>
-              {stats.attendance_rate >= 90 ? 'Excellent' : stats.attendance_rate >= 75 ? 'Good' : 'Needs improvement'}
+            <div className="sa-stat-value">{effectiveStats.attendance_rate?.toFixed(1) || 0}%</div>
+            <div className={`sa-stat-change ${effectiveStats.attendance_rate >= 90 ? 'positive' : ''}`}>
+              {effectiveStats.attendance_rate >= 90 ? 'Excellent' : effectiveStats.attendance_rate >= 75 ? 'Good' : 'Needs improvement'}
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="sa-section">
+        <div className="sa-insights-panel">
+          <div className="sa-insights-header">
+            <h3>Attendance Insights</h3>
+            <span>Quick interpretation of your current attendance pattern</span>
+          </div>
+          <div className="sa-insights-grid">
+            <article className="sa-insight-card">
+              <p className="sa-insight-label">{attendanceInsights.profile.label}</p>
+              <p className="sa-insight-value">{attendanceInsights.profile.value}</p>
+              <p className="sa-insight-note">{attendanceInsights.profile.note}</p>
+            </article>
+            <article className="sa-insight-card">
+              <p className="sa-insight-label">{attendanceInsights.punctuality.label}</p>
+              <p className="sa-insight-value">{attendanceInsights.punctuality.value}</p>
+              <p className="sa-insight-note">{attendanceInsights.punctuality.note}</p>
+            </article>
+            <article className="sa-insight-card">
+              <p className="sa-insight-label">{attendanceInsights.momentum.label}</p>
+              <p className="sa-insight-value">{attendanceInsights.momentum.value}</p>
+              <p className="sa-insight-note">{attendanceInsights.momentum.note}</p>
+            </article>
           </div>
         </div>
       </section>
@@ -255,7 +388,7 @@ const Attendance = () => {
         <div className="sa-section-header">
           <div>
             
-            <p className="sa-section-subtitle">S.Y. {stats.school_year || '2025-2026'}</p>
+            <p className="sa-section-subtitle">S.Y. {effectiveStats.school_year || '2025-2026'}</p>
           </div>
           <div className="sa-header-actions">
             <div className="sa-view-toggle">
