@@ -376,7 +376,9 @@ const TransactionHistory = () => {
         due_date: formData.due_date || null,
         transaction_date: formData.transaction_date || null,
       };
-
+      if (editingTxn) {
+      delete body.parent;
+    }
       const isEdit = !!editingTxn;
       const url = isEdit
         ? `/api/finance/transactions/${editingTxn.id}/`
