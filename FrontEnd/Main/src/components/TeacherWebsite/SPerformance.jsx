@@ -107,6 +107,35 @@ const getPerformanceKey = (row) => {
   return nameValue ? `name:${nameValue.toLowerCase()}` : "";
 };
 
+const getPeakBand = (dist) => {
+  const entries = Object.entries(dist || {});
+  if (entries.length === 0) return null;
+
+  let best = entries[0];
+  for (let i = 1; i < entries.length; i += 1) {
+    if (entries[i][1] > best[1]) best = entries[i];
+  }
+
+  return best[1] > 0 ? { label: best[0], count: best[1] } : null;
+};
+
+const getTopIssue = (list) => {
+  if (!Array.isArray(list) || list.length === 0) return null;
+
+  const counts = list.reduce((acc, item) => {
+    const key = item?.issue || "Other";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  let top = null;
+  Object.entries(counts).forEach(([label, count]) => {
+    if (!top || count > top.count) top = { label, count };
+  });
+
+  return top;
+};
+
 const SPerformance = () => {
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState("");
@@ -116,6 +145,10 @@ const SPerformance = () => {
   const [loading, setLoading] = useState(false);
   const [initLoading, setInitLoading] = useState(true);
   const [sendingReminderId, setSendingReminderId] = useState(null);
+  const [isNarrow, setIsNarrow] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 640px)").matches;
+  });
 
   useEffect(() => {
     (async () => {
@@ -136,6 +169,23 @@ const SPerformance = () => {
         setInitLoading(false);
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const mq = window.matchMedia("(max-width: 640px)");
+    const handleChange = (event) => setIsNarrow(event.matches);
+
+    handleChange(mq);
+
+    if (mq.addEventListener) {
+      mq.addEventListener("change", handleChange);
+      return () => mq.removeEventListener("change", handleChange);
+    }
+
+    mq.addListener(handleChange);
+    return () => mq.removeListener(handleChange);
   }, []);
 
   const fetchPerformance = useCallback(async () => {
@@ -339,6 +389,62 @@ const SPerformance = () => {
     };
   }, [displayPerformance]);
 
+  const insights = useMemo(() => {
+    if (stats.total === 0) {
+      return ["No students enrolled in this section yet."];
+    }
+
+    const lines = [];
+    const graded = stats.gradedCount || 0;
+    const missing = Math.max(stats.total - graded, 0);
+
+    if (graded > 0) {
+      lines.push(
+        `Grades encoded for ${graded} of ${stats.total} students.` +
+          (missing > 0 ? ` ${missing} missing grades.` : "")
+      );
+
+      const passRate = Math.round((stats.passed / graded) * 100);
+      lines.push(`Pass rate is ${passRate}% (${stats.passed}/${graded} graded students).`);
+
+      if (stats.classAvg !== null) {
+        const top =
+          stats.topGrade !== null ? ` Top grade is ${stats.topGrade.toFixed(1)}%.` : "";
+        lines.push(`Class average is ${stats.classAvg.toFixed(1)}%.${top}`);
+      }
+
+      const peak = getPeakBand(stats.dist);
+      if (peak) {
+        lines.push(
+          `Largest grade band is ${peak.label} with ${peak.count} student${
+            peak.count === 1 ? "" : "s"
+          }.`
+        );
+      }
+    } else {
+      lines.push("No graded students yet for this quarter.");
+    }
+
+    if (stats.atRiskList.length > 0) {
+      const topIssue = getTopIssue(stats.atRiskList);
+      lines.push(
+        topIssue
+          ? `At risk: ${stats.atRiskList.length} student${
+              stats.atRiskList.length === 1 ? "" : "s"
+            }. Most common issue is ${topIssue.label} (${topIssue.count}).`
+          : `At risk: ${stats.atRiskList.length} student${
+              stats.atRiskList.length === 1 ? "" : "s"
+            }.`
+      );
+    } else {
+      lines.push("No students flagged as at risk this quarter.");
+    }
+
+    return lines;
+  }, [stats]);
+
+
+  
   const histogramData = {
     labels: Object.keys(stats.dist),
     datasets: [
@@ -417,10 +523,19 @@ const SPerformance = () => {
   const histogramOptions = {
     ...commonOptions,
     scales: {
+      x: {
+        ticks: {
+          autoSkip: true,
+          maxRotation: 0,
+          minRotation: 0,
+          font: { size: isNarrow ? 10 : 11 },
+        },
+      },
       y: {
         beginAtZero: true,
         ticks: {
           stepSize: 1,
+          font: { size: isNarrow ? 10 : 11 },
         },
       },
     },
@@ -428,21 +543,27 @@ const SPerformance = () => {
 
   const stackedBarOptions = {
     ...commonOptions,
-    indexAxis: "y",
+    indexAxis: isNarrow ? "x" : "y",
     scales: {
       x: {
         stacked: true,
         beginAtZero: true,
+        ticks: { font: { size: isNarrow ? 10 : 11 } },
       },
       y: {
         stacked: true,
+        ticks: { font: { size: isNarrow ? 10 : 11 } },
       },
     },
     plugins: {
       ...commonOptions.plugins,
       legend: {
         ...commonOptions.plugins.legend,
-        position: "right",
+        position: isNarrow ? "bottom" : "right",
+        labels: {
+          ...commonOptions.plugins.legend.labels,
+          font: { size: isNarrow ? 10 : 11 },
+        },
       },
     },
   };
@@ -532,6 +653,19 @@ const SPerformance = () => {
               </span>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="spInsights">
+        <div className="spPanel spPanel--insights">
+          <div className="spPanel__title">Descriptive Summary</div>
+          <ul className="spInsights__list">
+            {insights.map((line, idx) => (
+              <li key={idx} className="spInsights__item">
+                {line}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

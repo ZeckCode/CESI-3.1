@@ -109,7 +109,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         # Hide legacy unlinked rows by default. Keep an escape hatch for diagnostics.
         include_unlinked = self.request.query_params.get("include_unlinked") == "1"
         if not include_unlinked:
-            queryset = queryset.filter(subject__isnull=False)
+            queryset = queryset.filter(Q(subject__isnull=False) | Q(schedule__isnull=False))
 
         return queryset
 
@@ -193,6 +193,75 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
             "message": f"Attendance saved: {created_count} created, {updated_count} updated",
             "created": created_count,
             "updated": updated_count,
+        })
+
+    @action(detail=False, methods=["post"])
+    def bulk_update(self, request):
+        """
+        Update attendance records in bulk without creating new rows.
+        Expected payload:
+        {
+            "section": 1,
+            "date": "2025-01-15",
+            "schedule": 5,  // optional - for per-subject attendance
+            "records": [
+                {"student_id": 10, "status": "PRESENT", "notes": ""},
+                {"student_id": 11, "status": "ABSENT", "notes": "Sick"},
+            ]
+        }
+        """
+        serializer = BulkAttendanceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        section_id = serializer.validated_data["section"]
+        record_date = serializer.validated_data["date"]
+        schedule_id = serializer.validated_data.get("schedule", None)
+        subject_id = serializer.validated_data.get("subject", None)
+        records = serializer.validated_data["records"]
+
+        if schedule_id is not None:
+            from classmanagement.models import Schedule
+            schedule_obj = Schedule.objects.select_related("subject").filter(
+                id=schedule_id,
+                section_id=section_id,
+            ).first()
+            if not schedule_obj:
+                return Response(
+                    {"error": "Selected schedule is invalid for the given section."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            subject_id = schedule_obj.subject_id
+
+        updated_count = 0
+        skipped_count = 0
+
+        for record_data in records:
+            student_id = record_data["student_id"]
+            status_value = record_data["status"]
+            notes = record_data.get("notes", "")
+
+            record = AttendanceRecord.objects.filter(
+                student_id=student_id,
+                date=record_date,
+                schedule_id=schedule_id,
+            ).first()
+
+            if not record:
+                skipped_count += 1
+                continue
+
+            record.section_id = section_id
+            record.status = status_value
+            record.notes = notes
+            record.marked_by = request.user
+            record.subject_id = subject_id
+            record.save()
+            updated_count += 1
+
+        return Response({
+            "message": f"Attendance updated: {updated_count} updated, {skipped_count} skipped",
+            "updated": updated_count,
+            "skipped": skipped_count,
         })
 
     @action(detail=False, methods=["get"])

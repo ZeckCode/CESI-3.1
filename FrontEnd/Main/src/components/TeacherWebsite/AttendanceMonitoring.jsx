@@ -114,6 +114,8 @@ const AttendanceMonitoring = () => {
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState({});
   const [notes, setNotes] = useState({});
+  const [existingRecordsByStudent, setExistingRecordsByStudent] = useState({});
+  const [existingRecordCount, setExistingRecordCount] = useState(0);
 
   // ── UI State ──
   const [loading, setLoading] = useState(false);
@@ -212,14 +214,33 @@ const AttendanceMonitoring = () => {
 
         const attendanceRes = await apiFetch(url);
         if (attendanceRes.ok) {
-          const existingRecords = await attendanceRes.json();
+          const existingData = await attendanceRes.json();
+          const existingRecords = Array.isArray(existingData)
+            ? existingData
+            : Array.isArray(existingData?.results)
+            ? existingData.results
+            : [];
+          const recordMap = {};
+
           existingRecords.forEach((rec) => {
-            const key = idToKey.get(String(rec.student || ""));
+            const studentIdRaw = rec?.student_id ?? rec?.student?.id ?? rec?.student;
+            const studentId = studentIdRaw != null ? String(studentIdRaw) : null;
+            if (studentId && rec?.id != null) {
+              recordMap[studentId] = rec.id;
+            }
+
+            const key = idToKey.get(studentId || String(rec.student || ""));
             if (key && Object.prototype.hasOwnProperty.call(initialAttendance, key)) {
               initialAttendance[key] = rec.status;
               initialNotes[key] = rec.notes || "";
             }
           });
+
+          setExistingRecordsByStudent(recordMap);
+          setExistingRecordCount(existingRecords.length);
+        } else {
+          setExistingRecordsByStudent({});
+          setExistingRecordCount(0);
         }
 
         setAttendance(initialAttendance);
@@ -266,6 +287,41 @@ const AttendanceMonitoring = () => {
     }
   }, [selectedSection, selectedSchedule]);
 
+  const loadExistingRecords = useCallback(async () => {
+    if (!selectedSection || !selectedSchedule) {
+      return { existingRecords: [], recordMap: {} };
+    }
+
+    let url = `${API}/api/attendance/records/?section=${selectedSection}&date=${selectedDate}`;
+    url += `&schedule=${selectedSchedule}`;
+
+    try {
+      const res = await apiFetch(url);
+      if (!res.ok) return { existingRecords: [], recordMap: {} };
+
+      const existingData = await res.json();
+      const existingRecords = Array.isArray(existingData)
+        ? existingData
+        : Array.isArray(existingData?.results)
+        ? existingData.results
+        : [];
+      const recordMap = {};
+
+      existingRecords.forEach((rec) => {
+        const studentIdRaw = rec?.student_id ?? rec?.student?.id ?? rec?.student;
+        const studentId = studentIdRaw != null ? String(studentIdRaw) : null;
+        if (studentId && rec?.id != null) {
+          recordMap[studentId] = rec.id;
+        }
+      });
+
+      return { existingRecords, recordMap };
+    } catch (e) {
+      console.error("Failed to refresh attendance records:", e);
+      return { existingRecords: [], recordMap: {} };
+    }
+  }, [selectedSection, selectedSchedule, selectedDate]);
+
   useEffect(() => {
     if (!showHistory) return;
     fetchHistory();
@@ -276,11 +332,31 @@ const AttendanceMonitoring = () => {
     setAttendance((prev) => ({ ...prev, [studentKey]: newStatus }));
   };
 
-  const handleSave = async () => {
+  const handleSave = async (updateOnly = false) => {
+    if (loading) {
+      setMessage({ type: "error", text: "Please wait for attendance data to finish loading." });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
     if (!selectedSection || !selectedSchedule || students.length === 0) {
       setMessage({ type: "error", text: "Please select a subject schedule before saving attendance." });
       setTimeout(() => setMessage(null), 3000);
       return;
+    }
+
+    if (!updateOnly && existingRecordCount > 0) {
+      const proceed = window.confirm(
+        "Attendance is already saved for this date. Saving again will overwrite existing statuses. Continue?"
+      );
+      if (!proceed) {
+        setMessage({
+          type: "error",
+          text: "Save cancelled. Use History > Edit to update existing records.",
+        });
+        setTimeout(() => setMessage(null), 3000);
+        return;
+      }
     }
 
     setSaving(true);
@@ -308,18 +384,76 @@ const AttendanceMonitoring = () => {
 
       body.schedule = parseInt(selectedSchedule, 10);
 
-      const res = await apiFetch(`${API}/api/attendance/records/bulk_upsert/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      if (updateOnly) {
+        const { existingRecords, recordMap } = await loadExistingRecords();
+        setExistingRecordsByStudent(recordMap);
+        setExistingRecordCount(existingRecords.length);
 
-      if (res.ok) {
-        const result = await res.json();
-        setMessage({ type: "success", text: result.message || "Attendance saved successfully!" });
-        if (showHistory) fetchHistory();
+        if (existingRecords.length === 0) {
+          setMessage({
+            type: "error",
+            text: "No saved records found for this date. Use Save Attendance to create records first.",
+          });
+          return;
+        }
+
+        const updates = records
+          .filter((record) => recordMap[String(record.student_id)])
+          .map((record) => ({
+            student_id: record.student_id,
+            status: record.status,
+            notes: record.notes,
+          }));
+
+        const skippedCount = records.length - updates.length;
+        if (updates.length === 0) {
+          setMessage({
+            type: "error",
+            text: "No matching records to update for this date.",
+          });
+          return;
+        }
+
+        const res = await apiFetch(`${API}/api/attendance/records/bulk_upsert/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...body,
+            records: updates,
+          }),
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          const created = Number(result?.created || 0);
+          const updated = Number(result?.updated || updates.length);
+          const createdNote = created > 0 ? ` (${created} new record${created === 1 ? "" : "s"} added)` : "";
+          const skippedNote = skippedCount > 0 ? `, ${skippedCount} skipped` : "";
+          setMessage({
+            type: "success",
+            text: `Attendance updated: ${updated} updated${skippedNote}${createdNote}`,
+          });
+          await fetchStudentsAndAttendance();
+          if (showHistory) fetchHistory();
+        } else {
+          setMessage({ type: "error", text: "Failed to update attendance" });
+        }
       } else {
-        setMessage({ type: "error", text: "Failed to save attendance" });
+        const res = await apiFetch(`${API}/api/attendance/records/bulk_upsert/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          setMessage({ type: "success", text: result.message || "Attendance saved successfully!" });
+          setExistingRecordCount(records.length);
+          await fetchStudentsAndAttendance();
+          if (showHistory) fetchHistory();
+        } else {
+          setMessage({ type: "error", text: "Failed to save attendance" });
+        }
       }
     } catch (e) {
       console.error("Save error:", e);
@@ -832,7 +966,7 @@ const AttendanceMonitoring = () => {
             className="am__saveBtn"
             type="button"
             onClick={handleSave}
-            disabled={saving || !selectedSection || !selectedSchedule || students.length === 0}
+            disabled={loading || saving || !selectedSection || !selectedSchedule || students.length === 0}
           >
             <Save size={16} />
             {saving ? "Saving..." : "Save Attendance"}
@@ -956,11 +1090,11 @@ const AttendanceMonitoring = () => {
                 <button
                   type="button"
                   className="am__saveBtn"
-                  onClick={handleSave}
-                  disabled={saving || !selectedSection || students.length === 0}
+                  onClick={() => handleSave(true)}
+                  disabled={loading || saving || !selectedSection || students.length === 0}
                 >
                   <Save size={16} />
-                  {saving ? "Saving..." : "Save Changes"}
+                  {saving ? "Saving..." : "Update Attendance"}
                 </button>
                 <button type="button" className="am__closeBtn" onClick={() => setShowEditModal(false)}>
                   Close

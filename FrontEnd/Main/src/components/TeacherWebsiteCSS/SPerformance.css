@@ -269,6 +269,30 @@
   }
 }
 
+/* Insights */
+.spInsights {
+  margin-bottom: 24px;
+}
+
+.spInsights__list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .spInsights__list {
+    font-size: 13px;
+  }
+}
+
+.spInsights__item {
+  line-height: 1.5;
+}
+
 .spCard {
   background: var(--card-bg);
   border: 1px solid var(--border);
@@ -384,6 +408,7 @@
   box-shadow: var(--shadow);
   padding: 18px;
   transition: box-shadow 0.2s;
+  min-width: 0;
 }
 
 @media (max-width: 600px) {
@@ -417,6 +442,12 @@
   height: 340px;
   position: relative;
   width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.spPanel__chart canvas {
+  max-width: 100% !important;
 }
 
 @media (max-width: 900px) {
