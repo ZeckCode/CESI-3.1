@@ -44,19 +44,51 @@ export const getGradeLevelDisplay = (code) => {
   return GRADE_LEVEL_MAP[code] || code || "N/A";
 };
 
+// Get priority parent info from enrollment data
+// Priority: Mother > Father > Guardian
+export const getPriorityParent = (parentInfo) => {
+  if (!parentInfo) return { name: "N/A", phone: "N/A" };
+
+  let parentName = "N/A";
+  let parentPhone = "N/A";
+
+  // Priority 1: Mother
+  if (parentInfo.mother_name) {
+    parentName = parentInfo.mother_name;
+    parentPhone = parentInfo.mother_contact || "N/A";
+  }
+  // Priority 2: Father
+  else if (parentInfo.father_name) {
+    parentName = parentInfo.father_name;
+    parentPhone = parentInfo.father_contact || "N/A";
+  }
+  // Priority 3: Guardian
+  else if (parentInfo.guardian_name) {
+    parentName = parentInfo.guardian_name;
+    parentPhone = parentInfo.guardian_contact || "N/A";
+  }
+
+  return { name: parentName, phone: parentPhone };
+};
+
 // Format enrollment data for ID display
-export const prepareIdData = (enrollment) => ({
-  first_name: enrollment.first_name || "",
-  last_name: enrollment.last_name || "",
-  middle_name: enrollment.middle_name || "",
-  grade_level: enrollment.grade_level || "",
-  academic_year: enrollment.academic_year || "2024-2025",
-  lrn: enrollment.lrn || "",
-  birth_date: enrollment.birth_date || "",
-  id_image_url: enrollment.id_image_url || "",
-  section_name: enrollment.section_name || "",
-  student_type: enrollment.student_type || "",
-  parent_name: enrollment.parent_name || "",
-  parent_phone: enrollment.parent_phone || "",
-  id: enrollment.id || enrollment.student_id || "",
-});
+export const prepareIdData = (enrollment) => {
+  // Get priority parent info
+  const parentData = getPriorityParent(enrollment.parent_info);
+
+  return {
+    first_name: enrollment.first_name || "",
+    last_name: enrollment.last_name || "",
+    middle_name: enrollment.middle_name || "",
+    grade_level: enrollment.grade_level || "",
+    academic_year: enrollment.academic_year || "2025-2026",
+    lrn: enrollment.lrn || "",
+    birth_date: enrollment.birth_date || "",
+    id_image_url: enrollment.id_image_url || "",
+    section_name: enrollment.section_name || "",
+    student_type: enrollment.student_type || "",
+    parent_name: parentData.name,
+    parent_phone: parentData.phone,
+    id: enrollment.student_number || enrollment.id || "",
+  };
+};
