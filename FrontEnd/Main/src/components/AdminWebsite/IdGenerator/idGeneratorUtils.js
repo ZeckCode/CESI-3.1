@@ -2,7 +2,7 @@
 export const DEFAULT_SCHOOL_INFO = {
   name: "Caloocan Evangelical School Inc.",
   motto: "Quality Christian Education for All",
-  logo_url: "/assets/CESI-logo.jpg",
+  logo_url: "/CESI-logo.jpg",
   colors: {
     primary: "#667eea",
     secondary: "#764ba2",
@@ -39,4 +39,6 @@ export const prepareIdData = (enrollment) => ({
   id_image_url: enrollment.id_image_url || "",
   section_name: enrollment.section_name || "",
   student_type: enrollment.student_type || "",
+  parent_name: enrollment.parent_name || "",
+  parent_phone: enrollment.parent_phone || "",
 });
