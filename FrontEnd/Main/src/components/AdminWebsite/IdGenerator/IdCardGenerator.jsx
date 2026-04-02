@@ -3,6 +3,7 @@ import { Download, X, Settings } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { getGradeLevelDisplay } from "./idGeneratorUtils";
+import CESI_background from "./CESI-id-background.jpg";
 
 export default function IdCardGenerator({
   isOpen,
@@ -460,7 +461,10 @@ const IdCardPreview = React.forwardRef(
           boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
           position: "relative",
           overflow: "hidden",
-          background: cardSide === "front" ? "white" : "white",
+          background: cardSide === "front" ? `url(${CESI_background})` : "white",
+          backgroundSize: cardSide === "front" ? "cover" : "auto",
+          backgroundPosition: cardSide === "front" ? "center" : "auto",
+          backgroundRepeat: cardSide === "front" ? "no-repeat" : "auto",
         }}
       >
         {cardSide === "front" ? (
@@ -502,7 +506,7 @@ const IdCardPreview = React.forwardRef(
             {/* White Center Section - Main Content */}
             <div
               style={{
-                background: "white",
+                background: "rgba(255, 255, 255, 0.95)",
                 flex: 1,
                 padding: "12px 14px",
                 display: "flex",

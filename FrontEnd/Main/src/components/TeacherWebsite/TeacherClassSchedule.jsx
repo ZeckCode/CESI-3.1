@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { List, Calendar, BookOpen, Users, Clock, MapPin, Download, Printer } from "lucide-react";
 import "../TeacherWebsiteCSS/TeacherClassSchedule.css";
 import { apiFetch } from "../api/apiFetch";
+import PreviewModal from "../PreviewModal";
 
 const API = "";
 
@@ -110,6 +111,8 @@ const TeacherClassSchedule = () => {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [schoolYear, setSchoolYear] = useState(null);
+  const [schedulePreviewOpen, setSchedulePreviewOpen] = useState(false);
+  const [schedulePreviewData, setSchedulePreviewData] = useState([]);
   const printRef = useRef(null);
 
   // Fetch schedules + sections on mount
@@ -231,7 +234,6 @@ const TeacherClassSchedule = () => {
   };
 
   const handlePrint = () => {
-    const printWindow = window.open("", "", "width=1000,height=800");
     const sortedSchedules = schedules.sort((a, b) => {
       const dayA = DAY_MAP[a.day_of_week]?.order ?? 99;
       const dayB = DAY_MAP[b.day_of_week]?.order ?? 99;
@@ -239,490 +241,16 @@ const TeacherClassSchedule = () => {
       return (a.start_time || "").localeCompare(b.start_time || "");
     });
 
-    const schoolYearText = schoolYear
-      ? `S.Y. ${schoolYear.name || `${schoolYear.start_year}-${schoolYear.end_year}`}`
-      : "N/A";
+    const previewData = sortedSchedules.map((sched) => ({
+      "Subject": `${sched.subject_name || "-"} ${sched.subject_code ? `[${sched.subject_code}]` : ""}`.trim(),
+      "Section": sectionLabel(sched) || "N/A",
+      "Day": DAY_MAP[sched.day_of_week]?.full || sched.day_of_week || "N/A",
+      "Time": `${formatTime(sched.start_time)} - ${formatTime(sched.end_time)}`,
+      "Room": sched.room_code || "TBA",
+    }));
 
-    const currentDate = new Date().toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-
-    const scheduleTableHTML = sortedSchedules
-      .map(
-        (sched) => `
-        <tr>
-          <td>${sched.subject_name || "-"} ${
-          sched.subject_code ? `<span class="code-label">${sched.subject_code}</span>` : ""
-        }</td>
-          <td>${sectionLabel(sched)}</td>
-          <td>${DAY_MAP[sched.day_of_week]?.full || sched.day_of_week}</td>
-          <td>${formatTime(sched.start_time)} - ${formatTime(sched.end_time)}</td>
-          <td>${sched.room_code || "TBA"}</td>
-        </tr>
-      `
-      )
-      .join("");
-
-    const calendarTableHTML = TIME_SLOTS.map((timeSlot) => {
-      const cells = DAYS_ORDER.map((day) => {
-        const sched = getClassForSlot(day, timeSlot);
-        if (sched) {
-          return `
-            <td class="cal-cell filled">
-              <div class="cal-subject">${sched.subject_name || "-"}</div>
-              <div class="cal-section">${sectionLabel(sched)}</div>
-              <div class="cal-room">${sched.room_code || "TBA"}</div>
-              <div class="cal-time">${formatTime(sched.start_time)} - ${formatTime(sched.end_time)}</div>
-            </td>
-          `;
-        }
-        return '<td class="cal-cell empty"></td>';
-      }).join("");
-
-      return `
-        <tr>
-          <td class="cal-time">${formatTime(timeSlot + ":00")}</td>
-          ${cells}
-        </tr>
-      `;
-    }).join("");
-
-    const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Teacher Schedule</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: white;
-      color: #1f2937;
-      line-height: 1.6;
-    }
-
-    .print-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-
-    .print-header {
-      text-align: center;
-      margin-bottom: 16px;
-      border-bottom: 2px solid #1f2937;
-      padding-bottom: 12px;
-    }
-
-    .print-header h1 {
-      font-size: 22px;
-      font-weight: 800;
-      margin-bottom: 6px;
-      letter-spacing: -0.5px;
-    }
-
-    .print-header .metadata {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 8px;
-    }
-
-    .metadata-item {
-      display: flex;
-      gap: 4px;
-      align-items: center;
-    }
-
-    .metadata-label {
-      font-weight: 600;
-      color: #1f2937;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .stat-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 12px;
-      background: #f3f4f6;
-    }
-
-    .stat-card .label {
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #6b7280;
-      margin-bottom: 4px;
-    }
-
-    .stat-card .value {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1f2937;
-    }
-
-    .section-title {
-      font-size: 14px;
-      font-weight: 700;
-      margin: 16px 0 8px 0;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #1f2937;
-      border-bottom: 2px solid #5ba3c7;
-      padding-bottom: 6px;
-    }
-
-    .table-wrapper {
-      margin-bottom: 20px;
-      overflow: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    th {
-      background: #1f2937;
-      color: white;
-      padding: 10px 12px;
-      text-align: left;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    td {
-      padding: 8px 12px;
-      text-align: left;
-      border-bottom: 1px solid #e5e7eb;
-      font-size: 12px;
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    tr:nth-child(even) {
-      background: #f9fafb;
-    }
-
-    .code-label {
-      display: inline-block;
-      background: #e0f2f9;
-      color: #5ba3c7;
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-size: 11px;
-      font-weight: 600;
-      margin-left: 6px;
-    }
-
-    .pill {
-      display: inline-block;
-      background: #f0f0f0;
-      border: 1px solid #d5d5d5;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    /* Calendar view styles */
-    .cal-table-wrapper {
-      overflow: auto;
-    }
-
-    .cal-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .cal-table th,
-    .cal-table td {
-      border: 1px solid #d5d5d5;
-      padding: 5px 4px;
-      font-size: 11px;
-      text-align: center;
-    }
-
-    .cal-table th {
-      background: #1f2937;
-      color: white;
-      font-weight: 700;
-      padding: 8px 4px;
-    }
-
-    .cal-time {
-      background: #f3f4f6;
-      font-weight: 600;
-      width: 75px;
-      min-width: 75px;
-    }
-
-    .cal-cell {
-      height: 70px;
-      vertical-align: top;
-      padding: 4px;
-      font-size: 10px;
-    }
-
-    .cal-cell.filled {
-      background: #e0f2f9;
-      border: 1px solid #5ba3c7;
-    }
-
-    .cal-cell.empty {
-      background: white;
-    }
-
-    .cal-subject {
-      font-weight: 700;
-      color: #1f2937;
-      margin-bottom: 1px;
-      font-size: 10px;
-    }
-
-    .cal-section {
-      color: #5ba3c7;
-      font-weight: 600;
-      font-size: 9px;
-      margin-bottom: 1px;
-    }
-
-    .cal-room {
-      color: #6b7280;
-      font-size: 9px;
-      margin-bottom: 1px;
-    }
-
-    .cal-time-slot {
-      color: #6b7280;
-      font-size: 9px;
-      font-weight: 500;
-    }
-
-    .footer {
-      margin-top: 16px;
-      padding-top: 12px;
-      border-top: 1px solid #e5e7eb;
-      text-align: center;
-      color: #6b7280;
-      font-size: 11px;
-    }
-
-    @media print {
-      body {
-        background: white;
-        line-height: 1.3;
-      }
-      .print-container {
-        padding: 12px;
-        max-width: 100%;
-      }
-      .print-header {
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-      }
-      .print-header h1 {
-        font-size: 20px;
-        margin-bottom: 4px;
-      }
-      .print-header .metadata {
-        gap: 16px;
-        font-size: 11px;
-        margin-top: 6px;
-      }
-      .stats-grid {
-        page-break-inside: avoid;
-        gap: 12px;
-        margin-bottom: 16px;
-      }
-      .stat-card {
-        padding: 10px;
-      }
-      .stat-card .label {
-        font-size: 10px;
-        margin-bottom: 3px;
-      }
-      .stat-card .value {
-        font-size: 18px;
-      }
-      .section-title {
-        font-size: 13px;
-        margin: 12px 0 8px 0;
-        padding-bottom: 6px;
-      }
-      .table-wrapper,
-      .cal-table-wrapper {
-        page-break-inside: avoid;
-        margin-bottom: 16px;
-      }
-      th {
-        padding: 8px 10px;
-        font-size: 11px;
-      }
-      td {
-        padding: 7px 10px;
-        font-size: 11px;
-      }
-      .code-label {
-        padding: 1px 4px;
-        font-size: 9px;
-      }
-      .cal-table th,
-      .cal-table td {
-        border: 1px solid #d5d5d5;
-        padding: 4px 3px;
-        font-size: 10px;
-      }
-      .cal-time {
-        width: 70px;
-        min-width: 70px;
-        font-size: 10px;
-      }
-      .cal-cell {
-        height: 60px;
-        padding: 3px;
-        font-size: 9px;
-      }
-      .cal-subject {
-        font-size: 9px;
-        margin-bottom: 1px;
-      }
-      .cal-section {
-        font-size: 8px;
-        margin-bottom: 1px;
-      }
-      .cal-room {
-        font-size: 8px;
-        margin-bottom: 1px;
-      }
-      .cal-time-slot {
-        font-size: 8px;
-      }
-      .footer {
-        margin-top: 16px;
-        padding-top: 12px;
-        font-size: 10px;
-      }
-    }
-
-    @media screen {
-      .print-container {
-        background: white;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="print-container">
-    <div class="print-header">
-      <h1>CLASS SCHEDULE</h1>
-      <div class="metadata">
-        <div class="metadata-item">
-          <span class="metadata-label">School Year:</span>
-          <span>${schoolYearText}</span>
-        </div>
-        <div class="metadata-item">
-          <span class="metadata-label">Generated:</span>
-          <span>${currentDate}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="label">Total Classes</div>
-        <div class="value">${stats.totalClasses}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Sections</div>
-        <div class="value">${stats.totalSections}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Hours / Week</div>
-        <div class="value">${stats.totalHours}</div>
-      </div>
-    </div>
-
-    <div class="section-title">TABLE VIEW</div>
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Subject</th>
-            <th>Section</th>
-            <th>Day</th>
-            <th>Time</th>
-            <th>Room</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            scheduleTableHTML ||
-            "<tr><td colspan='5' style='text-align: center; color: #6b7280;'>No schedules assigned</td></tr>"
-          }
-        </tbody>
-      </table>
-    </div>
-
-    <div class="section-title">WEEK VIEW</div>
-    <div class="cal-table-wrapper">
-      <table class="cal-table">
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Monday</th>
-            <th>Tuesday</th>
-            <th>Wednesday</th>
-            <th>Thursday</th>
-            <th>Friday</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${calendarTableHTML}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="footer">
-      <p>This schedule is confidential and for official use only.</p>
-    </div>
-  </div>
-</body>
-</html>
-    `;
-
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+    setSchedulePreviewData(previewData);
+    setSchedulePreviewOpen(true);
   };
 
   const handleExportPDF = () => {
@@ -915,6 +443,21 @@ const TeacherClassSchedule = () => {
           </div>
         </section>
       )}
+
+      <PreviewModal
+        isOpen={schedulePreviewOpen}
+        onClose={() => setSchedulePreviewOpen(false)}
+        title="Class Schedule"
+        data={schedulePreviewData}
+        columns={[
+          { key: "Subject", label: "Subject" },
+          { key: "Section", label: "Section" },
+          { key: "Day", label: "Day" },
+          { key: "Time", label: "Time" },
+          { key: "Room", label: "Room" },
+        ]}
+        filename="Class-Schedule"
+      />
     </div>
   );
 };

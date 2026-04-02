@@ -98,12 +98,7 @@ export default function AdminPasswordResetRequests() {
   return (
     <div className="reset-requests-page">
       <div className="reset-requests-header">
-        <div>
-          <h2>
-            <ShieldCheck size={24} /> Password Reset Requests
-          </h2>
-          <p>Review user requests and track their reset status.</p>
-        </div>
+       
 
         <button className="refresh-btn" onClick={fetchRequests}>
           <RefreshCw size={16} /> Refresh

@@ -63,6 +63,7 @@ import IdUploadModal from "./Enrollment/IdUploadModal";
 import TableActionMenu from "./TableActionMenu";
 import EnrollmentDetailsModal from "./Enrollment/EnrollmentDetailsModal";
 import IdCardGenerator from "./IdGenerator/IdCardGenerator";
+import PreviewModal from "../PreviewModal";
 import { DEFAULT_SCHOOL_INFO, prepareIdData } from "./IdGenerator/idGeneratorUtils";
 
 export default function EnrollmentManagement() {
@@ -96,6 +97,8 @@ export default function EnrollmentManagement() {
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [toasts, setToasts] = useState([]);
+  const [enrollmentPreviewOpen, setEnrollmentPreviewOpen] = useState(false);
+  const [enrollmentPreviewData, setEnrollmentPreviewData] = useState([]);
 
   const [docUploadFile, setDocUploadFile] = useState(null);
   const [docUploadType, setDocUploadType] = useState("other");
@@ -1577,6 +1580,20 @@ const handleApprove = async (id) => {
     setSelectedStudentForId(null);
   };
 
+  const handleEnrollmentPreview = () => {
+    const previewData = normalized.map((enr) => ({
+      "Student Name": enr.studentName || "N/A",
+      "Grade Level": enr.gradeLevel || "N/A",
+      "Section": enr.sectionName || "N/A",
+      "Status": enr.statusText || "N/A",
+      "Payment Method": enr.paymentMethod || "N/A",
+      "Academic Year": enr.academicYear || "N/A",
+    }));
+
+    setEnrollmentPreviewData(previewData);
+    setEnrollmentPreviewOpen(true);
+  };
+
   return (
     <div className="enrollment-management">
       <Toast toasts={toasts} onDismiss={dismissToast} />
@@ -1595,8 +1612,8 @@ const handleApprove = async (id) => {
 
             <button
               className="btn-icon"
-              onClick={() => exportToPDF(normalized, stats, window_)}
-              title="Export to PDF"
+              onClick={handleEnrollmentPreview}
+              title="View and Export Enrollment Data"
             >
               <FileText size={16} />
             </button>
@@ -2383,6 +2400,22 @@ const handleApprove = async (id) => {
         onClose={closeIdGenerator}
         studentData={selectedStudentForId || {}}
         schoolInfo={schoolInfo}
+      />
+
+      <PreviewModal
+        isOpen={enrollmentPreviewOpen}
+        onClose={() => setEnrollmentPreviewOpen(false)}
+        title="Enrollment Management Report"
+        data={enrollmentPreviewData}
+        columns={[
+          { key: "Student Name", label: "Student Name" },
+          { key: "Grade Level", label: "Grade Level" },
+          { key: "Section", label: "Section" },
+          { key: "Status", label: "Status" },
+          { key: "Payment Method", label: "Payment Method" },
+          { key: "Academic Year", label: "Academic Year" },
+        ]}
+        filename="Enrollment-Management-Report"
       />
     </div>
   );
