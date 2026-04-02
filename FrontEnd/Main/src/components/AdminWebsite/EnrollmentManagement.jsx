@@ -503,37 +503,50 @@ export default function EnrollmentManagement() {
     if (!next) {
       return {
         ready: false,
-        reason: "Completed Grade 6",
+        reason: "Completed Grade 6 - Cannot promote further",
         status: "completed",
         icon: "check",
       };
     }
 
-    // Check if enrollment is active (approved by admin)
+    // Check if enrollment is active (payment approved by admin)
     if (row.statusCode !== "ACTIVE") {
       return {
         ready: false,
-        reason: `Status: ${row.statusCode} (awaiting approval)`,
+        reason: `Enrollment status: ${row.statusCode} - Payment must be approved before promotion`,
         status: "pending",
         icon: "clock",
       };
     }
 
-    // Check if student type allows promotion
+    // Check if payment proof is approved (balance requirement)
+    if (row.paymentProof) {
+      const proofStatus = String(row.paymentProof?.status || "").toLowerCase();
+      if (proofStatus !== "approved") {
+        return {
+          ready: false,
+          reason: `Payment proof: ${row.paymentProof?.status || "pending"} - Must be approved`,
+          status: "pending",
+          icon: "clock",
+        };
+      }
+    }
+
+    // Check if student type allows promotion (old students only)
     const studentType = String(e.student_type || "").toLowerCase();
     if (studentType !== "old") {
       return {
         ready: false,
-        reason: "New students cannot be promoted",
+        reason: "New students only - Returning students can be promoted",
         status: "ineligible",
         icon: "x",
       };
     }
 
-    // All checks passed
+    // All checks passed - Student meets all promotion standards
     return {
       ready: true,
-      reason: `Ready to promote to ${next}`,
+      reason: `✓ All standards met - Ready to promote to ${next}`,
       status: "ready",
       icon: "arrow-up",
     };
