@@ -4,33 +4,7 @@ import StatCard, { StatsGrid } from './StatCard';
 import '../AdminWebsiteCSS/ClassManagement.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { getToken } from '../Auth/auth';
-
-const API_BASE = 'http://127.0.0.1:8000';
-
-function authHeaders(json = true) {
-  const token = getToken();
-  return {
-    ...(json ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-  };
-}
-
-// Helper function for academic year expiry
-const getAcademicYearExpiry = (academicYear) => {
-  if (!academicYear) return null;
-  const parts = String(academicYear).split("-");
-  if (parts.length !== 2) return null;
-  const endYear = parseInt(parts[1], 10);
-  if (isNaN(endYear)) return null;
-  return new Date(endYear, 2, 31, 23, 59, 59);
-};
-
-const getCurrentAcademicYear = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  return today.getMonth() >= 5 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-};
+import { apiFetch } from '../api/apiFetch';
 
 // Toast Notification Component
 const Toast = ({ message, type, onClose }) => {
@@ -53,6 +27,22 @@ const Toast = ({ message, type, onClose }) => {
       </button>
     </div>
   );
+};
+
+// Helper function for academic year expiry
+const getAcademicYearExpiry = (academicYear) => {
+  if (!academicYear) return null;
+  const parts = String(academicYear).split("-");
+  if (parts.length !== 2) return null;
+  const endYear = parseInt(parts[1], 10);
+  if (isNaN(endYear)) return null;
+  return new Date(endYear, 2, 31, 23, 59, 59);
+};
+
+const getCurrentAcademicYear = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  return today.getMonth() >= 5 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 };
 
 const Reports = () => {
@@ -127,14 +117,9 @@ const Reports = () => {
   // -----------------------------
   const fetchAcademicYear = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/enrollment-settings/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/enrollment-settings/');
       const data = await res.json();
       setCurrentAcademicYear(data.academic_year || getCurrentAcademicYear());
-      console.log('Academic year loaded:', data.academic_year);
     } catch (error) {
       console.error('Error fetching academic year:', error);
       setCurrentAcademicYear(getCurrentAcademicYear());
@@ -142,15 +127,11 @@ const Reports = () => {
   };
 
   // -----------------------------
-  // FETCH REAL DATA FROM API
+  // FETCH REAL DATA FROM API using apiFetch
   // -----------------------------
   const fetchEnrollmentStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/enrollments/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/enrollments/');
       const enrollments = await res.json();
       const list = Array.isArray(enrollments) ? enrollments : [];
       
@@ -164,42 +145,35 @@ const Reports = () => {
       }).length;
       
       setEnrollmentStats({ total, active, pending, dropped, expired });
+      return { total, active, pending, dropped, expired };
     } catch (error) {
       console.error('Error fetching enrollment stats:', error);
+      return null;
     }
   };
 
   const fetchTransactionStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/finance/transactions/stats/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/finance/transactions/stats/');
       const data = await res.json();
-      setTransactionStats({
+      const stats = {
         total_billed: data.total_billed || 0,
         total_collected: data.total_collected || 0,
         outstanding_balance: data.outstanding_balance || 0
-      });
+      };
+      setTransactionStats(stats);
+      return stats;
     } catch (error) {
       console.error('Error fetching transaction stats:', error);
+      return null;
     }
   };
 
   const fetchClassStats = async () => {
     try {
       const [sectionsRes, subjectsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/accounts/sections/`, {
-          method: "GET",
-          headers: authHeaders(),
-          credentials: "include",
-        }),
-        fetch(`${API_BASE}/api/accounts/subjects/`, {
-          method: "GET",
-          headers: authHeaders(),
-          credentials: "include",
-        })
+        apiFetch('/api/accounts/sections/'),
+        apiFetch('/api/accounts/subjects/')
       ]);
       
       const sections = await sectionsRes.json();
@@ -211,48 +185,46 @@ const Reports = () => {
       const total_students = sectionsList.reduce((sum, s) => sum + (s.student_count || 0), 0);
       const active_sections = sectionsList.filter(s => s.student_count > 0).length;
       
-      setClassStats({
+      const stats = {
         total_sections: sectionsList.length,
         total_students: total_students,
         active_sections: active_sections,
         total_subjects: subjectsList.length
-      });
+      };
+      setClassStats(stats);
+      return stats;
     } catch (error) {
       console.error('Error fetching class stats:', error);
+      return null;
     }
   };
 
   const fetchTeacherStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/accounts/users/?role=TEACHER`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/accounts/users/?role=TEACHER');
       const teachers = await res.json();
       const teachersList = Array.isArray(teachers) ? teachers : [];
       
-      const active_teachers = teachersList.filter(t => t.is_active).length;
+      const active_teachers = teachersList.filter(t => t.status === 'ACTIVE').length;
       
-      setTeacherStats({
+      const stats = {
         total_teachers: teachersList.length,
         active_teachers: active_teachers,
         total_subjects: 0,
         total_classes: 0
-      });
+      };
+      setTeacherStats(stats);
+      return stats;
     } catch (error) {
       console.error('Error fetching teacher stats:', error);
+      return null;
     }
   };
 
   const fetchAttendanceStats = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const res = await fetch(`${API_BASE}/api/attendance/records/?date=${today}`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch(`/api/attendance/records/?date=${today}`);
       const records = await res.json();
       const recordsList = Array.isArray(records) ? records : [];
       
@@ -261,46 +233,44 @@ const Reports = () => {
       const late = recordsList.filter(r => r.status === 'LATE').length;
       const excused = recordsList.filter(r => r.status === 'EXCUSED').length;
       
-      setAttendanceStats({
+      const stats = {
         total_records: recordsList.length,
         present: present,
         absent: absent,
         late: late,
         excused: excused
-      });
+      };
+      setAttendanceStats(stats);
+      return stats;
     } catch (error) {
       console.error('Error fetching attendance stats:', error);
+      return null;
     }
   };
 
   const fetchGradeStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/grades/admin-monitoring/?quarter=1`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/grades/admin-monitoring/?quarter=1');
       const data = await res.json();
       const summary = data.summary || {};
       
-      setGradeStats({
+      const stats = {
         total_students: summary.total_students || 0,
         graded_students: summary.graded_students || 0,
         pending_grades: summary.pending_grades || 0,
         average_grade: summary.average_grade || '—'
-      });
+      };
+      setGradeStats(stats);
+      return stats;
     } catch (error) {
       console.error('Error fetching grade stats:', error);
+      return null;
     }
   };
 
   const fetchHistoryStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/grades/academic-history/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/grades/academic-history/');
       const history = await res.json();
       const historyList = Array.isArray(history) ? history : [];
       
@@ -312,14 +282,17 @@ const Reports = () => {
         ? (finalGrades.reduce((sum, v) => sum + v, 0) / finalGrades.length).toFixed(2)
         : '—';
       
-      setHistoryStats({
+      const stats = {
         totalRecords: historyList.length,
         uniqueStudents: new Set(historyList.map(r => r.student)).size,
         schoolYears: new Set(historyList.map(r => r.school_year)).size,
         averageFinal: averageFinal
-      });
+      };
+      setHistoryStats(stats);
+      return stats;
     } catch (error) {
       console.error('Error fetching history stats:', error);
+      return null;
     }
   };
 
@@ -344,17 +317,9 @@ const Reports = () => {
   }, []);
 
   // -----------------------------
-  // OPEN PRINT VIEW (instead of direct download)
+  // OPEN PRINT VIEW (opens in new tab)
   // -----------------------------
   const openPrintView = (report) => {
-    // Create a temporary iframe for print view
-    const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'absolute';
-    printFrame.style.width = '0px';
-    printFrame.style.height = '0px';
-    printFrame.style.border = '0';
-    document.body.appendChild(printFrame);
-    
     const doc = new jsPDF('landscape');
     
     doc.setFontSize(18);
@@ -472,25 +437,15 @@ const Reports = () => {
       );
     }
     
-    // Convert PDF to data URL and show in iframe for print
-    const pdfDataUrl = doc.output('datauristring');
-    printFrame.src = pdfDataUrl;
+    // Open PDF in new tab (bypasses cross-origin issues)
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    window.open(pdfUrl, '_blank');
     
-    // Wait for iframe to load then trigger print
-    printFrame.onload = () => {
-      setTimeout(() => {
-        try {
-          printFrame.contentWindow.print();
-          // Remove iframe after print dialog closes (or after timeout)
-          setTimeout(() => {
-            document.body.removeChild(printFrame);
-          }, 100);
-        } catch (e) {
-          console.error('Print error:', e);
-          document.body.removeChild(printFrame);
-        }
-      }, 100);
-    };
+    // Clean up the URL after a short delay
+    setTimeout(() => {
+      URL.revokeObjectURL(pdfUrl);
+    }, 100);
   };
 
   // -----------------------------
@@ -516,54 +471,68 @@ const Reports = () => {
   // -----------------------------
   // GENERATE REPORT
   // -----------------------------
-  const generateReport = () => {
+  const generateReport = async () => {
     const today = new Date().toISOString().slice(0, 10);
     const period = getPeriodLabel();
 
     let data = {};
     let reportName = '';
 
+    // Fetch fresh data for the report
+    setLoading(true);
+    
     switch (reportType) {
       case "students":
-        data = enrollmentStats;
+        data = await fetchEnrollmentStats() || enrollmentStats;
         reportName = `Student Enrollment Report - ${period}`;
         break;
       case "financial":
-        data = transactionStats;
+        data = await fetchTransactionStats() || transactionStats;
         reportName = `Financial Summary Report - ${period}`;
         break;
       case "classes":
-        data = classStats;
+        data = await fetchClassStats() || classStats;
         reportName = `Class Statistics Report - ${period}`;
         break;
       case "teachers":
-        data = teacherStats;
+        data = await fetchTeacherStats() || teacherStats;
         reportName = `Teacher Performance Report - ${period}`;
         break;
       case "attendance":
-        data = attendanceStats;
+        data = await fetchAttendanceStats() || attendanceStats;
         reportName = `Attendance Summary Report - ${period}`;
         break;
       case "grades":
-        data = gradeStats;
+        data = await fetchGradeStats() || gradeStats;
         reportName = `Grade Monitoring Report - ${period}`;
         break;
       case "history":
-        data = historyStats;
+        data = await fetchHistoryStats() || historyStats;
         reportName = `Academic History Report - ${period}`;
         break;
       default:
+        const [enrollment, financial, classes, teachers, attendance, grades, history] = await Promise.all([
+          fetchEnrollmentStats(),
+          fetchTransactionStats(),
+          fetchClassStats(),
+          fetchTeacherStats(),
+          fetchAttendanceStats(),
+          fetchGradeStats(),
+          fetchHistoryStats()
+        ]);
         data = {
-          enrollment: enrollmentStats,
-          financial: transactionStats,
-          classes: classStats,
-          teachers: teacherStats,
-          attendance: attendanceStats,
-          grades: gradeStats,
-          history: historyStats
+          enrollment: enrollment || enrollmentStats,
+          financial: financial || transactionStats,
+          classes: classes || classStats,
+          teachers: teachers || teacherStats,
+          attendance: attendance || attendanceStats,
+          grades: grades || gradeStats,
+          history: history || historyStats
         };
         reportName = `Comprehensive System Report - ${period}`;
     }
+    
+    setLoading(false);
 
     const newReport = {
       id: Date.now(),
@@ -583,26 +552,33 @@ const Reports = () => {
   // MONTHLY AUTO REPORT
   // -----------------------------
   useEffect(() => {
-    const now = new Date();
-    const lastGenerated = localStorage.getItem("lastMonthlyReport");
+    const checkMonthlyReport = async () => {
+      const now = new Date();
+      const lastGenerated = localStorage.getItem("lastMonthlyReport");
 
-    if (!lastGenerated) {
-      generateMonthlyReport();
-      localStorage.setItem("lastMonthlyReport", now.toISOString());
-    } else {
-      const lastDate = new Date(lastGenerated);
-
-      if (
-        lastDate.getMonth() !== now.getMonth() ||
-        lastDate.getFullYear() !== now.getFullYear()
-      ) {
-        generateMonthlyReport();
+      if (!lastGenerated) {
+        await generateMonthlyReport();
         localStorage.setItem("lastMonthlyReport", now.toISOString());
-      }
-    }
-  }, [enrollmentStats, transactionStats, classStats, teacherStats, attendanceStats, gradeStats, historyStats, currentAcademicYear]);
+      } else {
+        const lastDate = new Date(lastGenerated);
 
-  const generateMonthlyReport = () => {
+        if (
+          lastDate.getMonth() !== now.getMonth() ||
+          lastDate.getFullYear() !== now.getFullYear()
+        ) {
+          await generateMonthlyReport();
+          localStorage.setItem("lastMonthlyReport", now.toISOString());
+        }
+      }
+    };
+    
+    // Only run after stats are loaded
+    if (!loading && enrollmentStats.total > 0) {
+      checkMonthlyReport();
+    }
+  }, [loading, enrollmentStats, transactionStats, classStats, teacherStats, attendanceStats, gradeStats, historyStats, currentAcademicYear]);
+
+  const generateMonthlyReport = async () => {
     const today = new Date().toISOString().slice(0, 10);
     const monthName = now.toLocaleString('default', { month: 'long' });
 
@@ -723,12 +699,12 @@ const Reports = () => {
           </select>
         </div>
 
-        <button className="btn-primary btn-generate-sm" onClick={generateReport}>
+        <button className="btn-primary btn-generate-sm" onClick={generateReport} disabled={loading}>
           Generate Report
         </button>
       </div>
 
-      {/* STATS CARDS - Only report generation stats */}
+      {/* STATS CARDS */}
       <StatsGrid>
         <StatCard 
           label="Total Reports" 
@@ -915,17 +891,6 @@ const Reports = () => {
           to {
             transform: translateX(0);
             opacity: 1;
-          }
-        }
-        
-        @keyframes slideOutRight {
-          from {
-            transform: translateX(0);
-            opacity: 1;
-          }
-          to {
-            transform: translateX(100%);
-            opacity: 0;
           }
         }
         
