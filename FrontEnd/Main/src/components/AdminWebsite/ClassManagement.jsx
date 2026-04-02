@@ -10,6 +10,7 @@ import { apiFetch } from '../api/apiFetch';
 import '../AdminWebsiteCSS/AdminClassManagement.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import PreviewModal from '../PreviewModal';
 
 /* ───────────────────────── helpers ───────────────────────── */
 const GRADE_LEVELS = [
@@ -159,6 +160,8 @@ const overlapsHour = (s, dayCode, slotHour) => {
 const ClassManagement = () => {
   const [activeTab, setActiveTab] = useState('classes');
   const [loading, setLoading] = useState(true);
+  const [classPreviewOpen, setClassPreviewOpen] = useState(false);
+  const [classPreviewData, setClassPreviewData] = useState([]);
 
   /* data from API */
   const [sections, setSections] = useState([]);
@@ -285,7 +288,16 @@ const ClassManagement = () => {
 
   // Print Function for Class Management
   const printClassesToPDF = (sections, enrollments) => {
-    window.print();
+    const previewData = sections.map((sec) => ({
+      "Section": sec.name || "N/A",
+      "Grade Level": sec.grade_level || "N/A",
+      "Room": sec.room_code || "TBA",
+      "Students": enrollments.filter((e) => String(e.section?.id || e.section) === String(sec.id)).length,
+      "Capacity": sec.capacity || "N/A",
+    }));
+
+    setClassPreviewData(previewData);
+    setClassPreviewOpen(true);
   };
 
   if (loading) {
@@ -2711,6 +2723,21 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
           })
         )}
       </div>
+
+      <PreviewModal
+        isOpen={classPreviewOpen}
+        onClose={() => setClassPreviewOpen(false)}
+        title="Class Management Report"
+        data={classPreviewData}
+        columns={[
+          { key: "Section", label: "Section" },
+          { key: "Grade Level", label: "Grade Level" },
+          { key: "Room", label: "Room" },
+          { key: "Students", label: "Students" },
+          { key: "Capacity", label: "Capacity" },
+        ]}
+        filename="Class-Management-Report"
+      />
     </>
   );
 }
