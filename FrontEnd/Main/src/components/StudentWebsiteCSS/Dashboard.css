@@ -424,6 +424,69 @@
   .sd__statsRow { grid-template-columns: 1fr; }
 }
 
+/* Dashboard Interpretations */
+.sdInsights {
+  background: linear-gradient(135deg, #f8fbff, #f1f7ff);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-sm);
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.sdInsights__head {
+  margin-bottom: 0.875rem;
+}
+
+.sdInsights__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.sdInsights__sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.sdInsights__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 700px) {
+  .sdInsights__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sdInsights__card {
+  background: #fff;
+  border: 1px solid #dbeafe;
+  border-left: 4px solid var(--primary);
+  border-radius: 0.75rem;
+  padding: 0.8rem 0.9rem;
+}
+
+.sdInsights__cardTitle {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  text-transform: capitalize;
+}
+
+.sdInsights__cardText {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
 .sdStat {
   display: flex;
   align-items: center;

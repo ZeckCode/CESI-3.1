@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -632,6 +632,102 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
 
   const formatCurrency = (val) => `₱${Number(val || 0).toLocaleString()}`;
 
+  const filteredPerformanceMetrics = useMemo(
+    () =>
+      performanceMetrics.filter(
+        (student) =>
+          selectedGradeLevel === "All" || student.gradeLevel === selectedGradeLevel
+      ),
+    [performanceMetrics, selectedGradeLevel]
+  );
+
+  const dashboardInsights = useMemo(() => {
+    const latestRevenue = revenueMonthly[revenueMonthly.length - 1];
+    const previousRevenue = revenueMonthly[revenueMonthly.length - 2];
+
+    const revenueDeltaPct =
+      latestRevenue && previousRevenue && Number(previousRevenue.revenue) > 0
+        ? ((latestRevenue.revenue - previousRevenue.revenue) /
+            previousRevenue.revenue) *
+          100
+        : null;
+
+    const paidCount = paymentBreakdown.find((item) => item.name === "Paid")?.value || 0;
+    const pendingCount =
+      paymentBreakdown.find((item) => item.name === "Pending")?.value || 0;
+    const overdueCount =
+      paymentBreakdown.find((item) => item.name === "Overdue")?.value || 0;
+
+    const receivablesTotal = paidCount + pendingCount + overdueCount;
+    const receivableRiskPct =
+      receivablesTotal > 0
+        ? Math.round(((pendingCount + overdueCount) / receivablesTotal) * 100)
+        : null;
+
+    const attendanceDelta = stats.todayAttendanceRate - stats.attendanceRate;
+    const attendanceDirection =
+      attendanceDelta > 0 ? "above" : attendanceDelta < 0 ? "below" : "aligned with";
+
+    const atRiskStudents = filteredPerformanceMetrics.filter(
+      (student) => Number(student.performanceScore) < 70
+    ).length;
+
+    const highPerformers = filteredPerformanceMetrics.filter(
+      (student) => Number(student.performanceScore) >= 80
+    ).length;
+
+    return [
+      {
+        title: "Enrollment Interpretation",
+        body: `Admissions queue has ${stats.pendingEnrollments} pending application${
+          stats.pendingEnrollments === 1 ? "" : "s"
+        }. ${
+          stats.pendingEnrollments >= 10
+            ? "This is a high-load cycle that may require faster review throughput."
+            : "Current queue is manageable with routine review cadence."
+        }`,
+      },
+      {
+        title: "Finance Interpretation",
+        body:
+          revenueDeltaPct === null
+            ? `Latest collected total is ${formatCurrency(
+                stats.totalRevenue
+              )}. Revenue trend will become clearer after another monthly point.`
+            : `Latest monthly revenue is ${formatCurrency(
+                latestRevenue?.revenue || 0
+              )}, ${Math.abs(revenueDeltaPct).toFixed(1)}% ${
+                revenueDeltaPct >= 0 ? "higher" : "lower"
+              } than the previous month.`,
+      },
+      {
+        title: "Attendance Interpretation",
+        body: `Today's attendance is ${stats.todayAttendanceRate}% (${stats.todayPresent}/${stats.todayTotal}) which is ${attendanceDirection} the overall rate of ${stats.attendanceRate}%.`,
+      },
+      {
+        title: "Performance Interpretation",
+        body: `${highPerformers} student${highPerformers === 1 ? "" : "s"} are in the high-performance band and ${atRiskStudents} student${
+          atRiskStudents === 1 ? "" : "s"
+        } are flagged below 70 in ${
+          selectedGradeLevel === "All" ? "the full cohort" : selectedGradeLevel
+        }. Financial risk exposure is ${
+          receivableRiskPct === null ? "not yet available" : `${receivableRiskPct}%`
+        } of all payment records.`,
+      },
+    ];
+  }, [
+    revenueMonthly,
+    paymentBreakdown,
+    stats.pendingEnrollments,
+    stats.totalRevenue,
+    stats.todayAttendanceRate,
+    stats.todayPresent,
+    stats.todayTotal,
+    stats.attendanceRate,
+    filteredPerformanceMetrics,
+    selectedGradeLevel,
+  ]);
+
   if (loading) {
     return (
       <main className="dashboard-main">
@@ -686,6 +782,25 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
             <span className="dash-stat-value">{stats.pendingEnrollments}</span>
             <span className="dash-stat-label">Pending Applications</span>
           </div>
+        </div>
+      </section>
+
+      <section className="dash-insights">
+        <div className="dash-insights-head">
+          <h3 className="dash-insights-title">Dashboard Interpretations</h3>
+          <p className="dash-insights-sub">
+            Cross-module interpretation of enrollment, finance, attendance, and
+            performance signals.
+          </p>
+        </div>
+
+        <div className="dash-insights-grid">
+          {dashboardInsights.map((insight) => (
+            <article key={insight.title} className="dash-insight-card">
+              <h4 className="dash-insight-title">{insight.title}</h4>
+              <p className="dash-insight-text">{insight.body}</p>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -794,8 +909,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
           )}
           {performanceMetrics.length > 0 && (
             <div className="dash-pending-list">
-              {performanceMetrics
-                .filter(student => selectedGradeLevel === "All" || student.gradeLevel === selectedGradeLevel)
+              {filteredPerformanceMetrics
                 .slice(0, 10)
                 .map((student, idx) => {
                   const rank = idx + 1;

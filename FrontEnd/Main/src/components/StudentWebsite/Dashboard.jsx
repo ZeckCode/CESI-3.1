@@ -210,6 +210,80 @@ const Dashboard = () => {
       ? attStats.attendance_percentage
       : attStats?.attendance_pct ?? null;
 
+  const studentInsights = useMemo(() => {
+    const attendanceValue =
+      attPct !== null && Number.isFinite(Number(attPct)) ? Number(attPct) : null;
+
+    const attendanceBand =
+      attendanceValue === null
+        ? "Attendance data is still syncing."
+        : attendanceValue >= 95
+        ? "Excellent attendance consistency."
+        : attendanceValue >= 85
+        ? "Attendance is stable with room to improve."
+        : attendanceValue >= 75
+        ? "Attendance is at watch level and should be monitored weekly."
+        : "Attendance needs immediate recovery support.";
+
+    const gradeBand =
+      avgGrade === null
+        ? "No finalized grades yet."
+        : avgGrade >= 90
+        ? "You are performing at a high-achievement level."
+        : avgGrade >= 85
+        ? "You are in strong academic standing."
+        : avgGrade >= 80
+        ? "You are meeting expectations with room for growth."
+        : "You may need targeted help in key subjects.";
+
+    const atRiskSubjects = gradedSubjects.filter((g) => {
+      const numeric = Number(g.final_grade);
+      const remarks = String(g.remarks || "").toUpperCase();
+
+      if (Number.isFinite(numeric)) return numeric < 75;
+      return remarks === "FAILED";
+    }).length;
+
+    const profileText =
+      (gradeLabelStr || "Current grade") +
+      (sectionName ? ` • ${sectionName}` : "") +
+      ".";
+
+    return [
+      {
+        title: "Learner Profile",
+        body: `${profileText} You have ${todaySchedule.length} class${
+          todaySchedule.length === 1 ? "" : "es"
+        } on schedule today.`,
+      },
+      {
+        title: "Attendance Interpretation",
+        body: `${attendanceBand} Current attendance is ${
+          attendanceValue === null ? "not yet available" : `${attendanceValue.toFixed(0)}%`
+        }.`,
+      },
+      {
+        title: "Grade Interpretation",
+        body: `${gradeBand} Current average is ${
+          avgGrade === null ? "not yet available" : avgGrade.toFixed(1)
+        } across ${gradedSubjects.length} graded subject${
+          gradedSubjects.length === 1 ? "" : "s"
+        }.`,
+      },
+      {
+        title: "Focus Recommendation",
+        body:
+          gradedSubjects.length === 0
+            ? "Complete more graded outputs so trend analysis can be more accurate."
+            : atRiskSubjects === 0
+            ? "No at-risk subjects detected. Keep your current study rhythm consistent."
+            : `${atRiskSubjects} subject${
+                atRiskSubjects === 1 ? "" : "s"
+              } need attention. Prioritize review sessions before the next assessment window.`,
+      },
+    ];
+  }, [attPct, avgGrade, gradedSubjects, gradeLabelStr, sectionName, todaySchedule.length]);
+
   return (
     <div className="dashboard-content">
       <header className="content-header">
@@ -260,6 +334,24 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      <section className="sdInsights">
+        <div className="sdInsights__head">
+          <h6 className="sdInsights__title">Dashboard Interpretations</h6>
+          <p className="sdInsights__sub">
+            Personalized reading of your attendance, grades, and schedule.
+          </p>
+        </div>
+
+        <div className="sdInsights__grid">
+          {studentInsights.map((insight) => (
+            <article key={insight.title} className="sdInsights__card">
+              <h6 className="sdInsights__cardTitle">{insight.title}</h6>
+              <p className="sdInsights__cardText">{insight.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
 
       {/* Main grid: schedule + announcements */}
       <div className="dashboard-grid">

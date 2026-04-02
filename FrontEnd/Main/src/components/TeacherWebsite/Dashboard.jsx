@@ -246,9 +246,74 @@ const Dashboard = () => {
     [schedule]
   );
 
+  const todayScheduleSorted = useMemo(() => {
+    const toMinutes = (rawTime) => {
+      if (!rawTime) return Number.MAX_SAFE_INTEGER;
+      const [h = "0", m = "0"] = String(rawTime).split(":");
+      return Number(h) * 60 + Number(m);
+    };
+
+    return [...todaySchedule].sort(
+      (a, b) => toMinutes(a.start_time) - toMinutes(b.start_time)
+    );
+  }, [todaySchedule]);
+
   const subjectName =
     teacherInfo?.teacher_profile?.subject?.name || "No subject assigned";
   const teacherName = teacherInfo?.username || "Teacher";
+
+  const gradeCoverage = useMemo(() => {
+    const source = schedule.length ? schedule : sections;
+    const grades = source
+      .map((item) => item?.grade_level)
+      .filter((g) => g !== null && g !== undefined && g !== "");
+
+    return Array.from(new Set(grades)).map((g) => GRADE_LBL(g));
+  }, [schedule, sections]);
+
+  const teacherInsights = useMemo(() => {
+    const classCount = todayScheduleSorted.length;
+    const firstClass = todayScheduleSorted[0];
+    const lastClass = todayScheduleSorted[classCount - 1];
+
+    const workIntensity =
+      classCount >= 5
+        ? "High-load teaching day"
+        : classCount >= 3
+        ? "Balanced class load"
+        : classCount > 0
+        ? "Light class load"
+        : "No classes scheduled";
+
+    const coverageText =
+      gradeCoverage.length > 0
+        ? `You are covering ${gradeCoverage.join(", ")} this cycle.`
+        : "Grade-level coverage will appear once your schedule syncs.";
+
+    const windowText =
+      classCount > 0
+        ? `Teaching window is ${FMT_TIME(firstClass.start_time)} to ${FMT_TIME(
+            lastClass.end_time
+          )}.`
+        : "You currently have an open day for planning or remediation tasks.";
+
+    return [
+      {
+        title: "Workload Interpretation",
+        body: `${workIntensity}. You are assigned to ${sections.length} section${
+          sections.length === 1 ? "" : "s"
+        } for ${subjectName}.`,
+      },
+      {
+        title: "Schedule Interpretation",
+        body: windowText,
+      },
+      {
+        title: "Coverage Interpretation",
+        body: coverageText,
+      },
+    ];
+  }, [todayScheduleSorted, sections.length, subjectName, gradeCoverage]);
 
   const toggleScheduleExpand = (id) => {
     setExpandedScheduleId(expandedScheduleId === id ? null : id);
@@ -282,6 +347,24 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      <section className="tdbInsight">
+        <div className="tdbInsight__head">
+          <h2 className="tdbInsight__title">Dashboard Interpretations</h2>
+          <p className="tdbInsight__sub">
+            Planning cues for {teacherName} based on live class and section data.
+          </p>
+        </div>
+
+        <div className="tdbInsight__grid">
+          {teacherInsights.map((insight) => (
+            <article key={insight.title} className="tdbInsight__card">
+              <h3 className="tdbInsight__cardTitle">{insight.title}</h3>
+              <p className="tdbInsight__cardText">{insight.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
 
       {/* Main Grid */}
       <div className="tdb__grid">

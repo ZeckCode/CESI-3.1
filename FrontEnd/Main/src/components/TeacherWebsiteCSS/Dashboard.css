@@ -257,6 +257,68 @@ html, body {
 .tdbStat--info { border-left-color: var(--info); }
 .tdbStat--info:hover { background: var(--info-light); }
 
+/* ── Insights Panel ────────────────────────────────────── */
+
+.tdbInsight {
+  background: linear-gradient(135deg, #f8fbff, #f1f7ff);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  margin-bottom: 22px;
+}
+
+.tdbInsight__head {
+  margin-bottom: 12px;
+}
+
+.tdbInsight__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--gray-dark);
+}
+
+.tdbInsight__sub {
+  margin: 6px 0 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.tdbInsight__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .tdbInsight__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tdbInsight__card {
+  background: #fff;
+  border: 1px solid rgba(91, 163, 199, 0.25);
+  border-left: 4px solid var(--primary);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.tdbInsight__cardTitle {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.tdbInsight__cardText {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 /* ── Main Grid Layout ──────────────────────────────────── */
 
 .tdb__grid {

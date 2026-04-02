@@ -159,6 +159,73 @@
   letter-spacing: .4px;
 }
 
+/* ─── Dashboard Insights ─── */
+.dash-insights {
+  background: linear-gradient(135deg, #f8fbff, #f2f7ff);
+  border: 1px solid #e4ebff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+
+.dash-insights-head {
+  margin-bottom: 12px;
+}
+
+.dash-insights-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.dash-insights-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+.dash-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 1100px) {
+  .dash-insights-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .dash-insights-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dash-insight-card {
+  background: #ffffff;
+  border: 1px solid #dbe5ff;
+  border-left: 4px solid #6366f1;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.dash-insight-title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4f46e5;
+}
+
+.dash-insight-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #4b5563;
+}
+
 /* ─── Rows ─── */
 .dash-row {
   display: grid;
