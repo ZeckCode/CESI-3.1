@@ -441,7 +441,16 @@ const AttendanceMonitoring = () => {
           await fetchStudentsAndAttendance();
           if (showHistory) fetchHistory();
         } else {
-          setMessage({ type: "error", text: "Failed to update attendance" });
+          const err = await res.json().catch(() => ({}));
+          const detail = err?.detail || err?.error || "Failed to update attendance";
+          if (res.status === 401) {
+            setMessage({
+              type: "error",
+              text: "Session expired or missing. Please log in again, then retry update.",
+            });
+          } else {
+            setMessage({ type: "error", text: detail });
+          }
         }
       } else {
         const res = await apiFetch(`${API}/api/attendance/records/bulk_upsert/`, {
@@ -460,7 +469,16 @@ const AttendanceMonitoring = () => {
           await fetchStudentsAndAttendance();
           if (showHistory) fetchHistory();
         } else {
-          setMessage({ type: "error", text: "Failed to save attendance" });
+          const err = await res.json().catch(() => ({}));
+          const detail = err?.detail || err?.error || "Failed to save attendance";
+          if (res.status === 401) {
+            setMessage({
+              type: "error",
+              text: "Session expired or missing. Please log in again, then retry save.",
+            });
+          } else {
+            setMessage({ type: "error", text: detail });
+          }
         }
       }
     } catch (e) {

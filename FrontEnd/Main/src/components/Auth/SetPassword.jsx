@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../../config/api.js";
+import { setToken } from "./auth";
 import "./SetPassword.css";
 
 export default function SetPassword() {
@@ -54,7 +55,7 @@ export default function SetPassword() {
       }
 
       if (data?.token) {
-        localStorage.setItem("token", data.token);
+        setToken(data.token);
       }
 
       setMsg("✅ Password set successfully! Redirecting to login...");
