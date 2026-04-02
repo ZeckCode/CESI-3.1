@@ -329,6 +329,7 @@ const AttendanceMonitoring = () => {
 
   const updateStatus = (studentKey, newStatus) => {
     if (!studentKey) return;
+    console.debug("updateStatus", studentKey, newStatus);
     setAttendance((prev) => ({ ...prev, [studentKey]: newStatus }));
   };
 
@@ -381,9 +382,10 @@ const AttendanceMonitoring = () => {
         section: parseInt(selectedSection, 10),
         date: selectedDate,
         records,
+        schedule: parseInt(selectedSchedule, 10),
       };
 
-      body.schedule = parseInt(selectedSchedule, 10);
+      console.debug("handleSave", { isUpdateOnly, body, existingRecordCount });
 
       if (isUpdateOnly) {
         const { existingRecords, recordMap } = await loadExistingRecords();
@@ -426,6 +428,7 @@ const AttendanceMonitoring = () => {
 
         if (res.ok) {
           const result = await res.json();
+          console.debug("bulk_upsert update result", result);
           const created = Number(result?.created || 0);
           const updated = Number(result?.updated || updates.length);
           const createdNote = created > 0 ? ` (${created} new record${created === 1 ? "" : "s"} added)` : "";
@@ -434,6 +437,7 @@ const AttendanceMonitoring = () => {
             type: "success",
             text: `Attendance updated: ${updated} updated${skippedNote}${createdNote}`,
           });
+          setExistingRecordCount(created + updated);
           await fetchStudentsAndAttendance();
           if (showHistory) fetchHistory();
         } else {
@@ -448,8 +452,11 @@ const AttendanceMonitoring = () => {
 
         if (res.ok) {
           const result = await res.json();
+          console.debug("bulk_upsert save result", result);
+          const created = Number(result?.created || 0);
+          const updated = Number(result?.updated || 0);
           setMessage({ type: "success", text: result.message || "Attendance saved successfully!" });
-          setExistingRecordCount(records.length);
+          setExistingRecordCount(created + updated);
           await fetchStudentsAndAttendance();
           if (showHistory) fetchHistory();
         } else {
