@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { Download, X, Settings } from "lucide-react";
-import html2pdf from "html2pdf.js";
+import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
 export default function IdCardGenerator({
@@ -34,15 +34,18 @@ export default function IdCardGenerator({
 
     setIsDownloading(true);
     try {
-      const element = cardRef.current;
-      const opt = {
-        margin: 5,
-        filename: `${studentData.first_name}_${studentData.last_name}_ID.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { orientation: "portrait", unit: "mm", format: "a4" },
-      };
-      html2pdf().set(opt).from(element).save();
+      const canvas = await html2canvas(cardRef.current, { scale: 2 });
+      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const imgWidth = pdfWidth - 10;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      pdf.addImage(imgData, "JPEG", 5, 5, imgWidth, imgHeight);
+      pdf.save(`${studentData.first_name}_${studentData.last_name}_ID.pdf`);
     } catch (error) {
       console.error("PDF download failed:", error);
       alert("Failed to download ID card");
