@@ -115,8 +115,12 @@ class Schedule(models.Model):
 
     def __str__(self):
         room_str = f" in {self.room.code}" if self.room else ""
+        teacher_name = self.teacher.username if self.teacher else "(No teacher)"
+        subject_name = self.subject.name if self.subject else "(No subject)"
+        section_name = self.section.name if self.section else "(No section)"
+
         return (
-            f"{self.teacher.username} — {self.subject.name} "
-            f"@ {self.section.name} ({self.get_day_of_week_display()} "
+            f"{teacher_name} — {subject_name} "
+            f"@ {section_name} ({self.get_day_of_week_display()} "
             f"{self.start_time:%H:%M}–{self.end_time:%H:%M}){room_str}"
         )

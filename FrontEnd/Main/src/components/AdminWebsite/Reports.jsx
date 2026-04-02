@@ -430,14 +430,15 @@ const Reports = () => {
     else if (report.type === 'attendance' && report.data.attendanceRecords?.length > 0) {
       doc.text('Attendance Record Details', 14, startY);
       const tableData = report.data.attendanceRecords.map(a => [
-        a.student_name || '—',
-        a.student_number || '—',
-        a.grade_level || '—',
-        a.section_name || '—',
-        a.subject_name || '—',
+        a.student_name || a.student?.first_name ? `${a.student?.first_name || ''} ${a.student?.last_name || ''}`.trim() : 
+          (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '—'),
+        a.student_number || a.student?.student_number || '—',
+        a.grade_level || a.student?.grade_level || '—',
+        a.section_name || a.section?.name || '—',
+        a.subject_name || a.subject?.name || '—',
         a.status || '—',
         a.date || '—',
-        a.marked_by_name || '—'
+        a.marked_by_name || a.marked_by?.username || '—'
       ]);
       autoTable(doc, {
         startY: startY + 5,
@@ -453,11 +454,12 @@ const Reports = () => {
       doc.text('Academic History Record Details', 14, startY);
       const tableData = report.data.historyRecords.map(h => [
         h.school_year || '—',
-        h.student_name || '—',
-        h.student_number || '—',
-        h.grade_level || '—',
-        h.section_name || '—',
-        h.subject_name || '—',
+        h.student_name || h.student?.first_name ? `${h.student?.first_name || ''} ${h.student?.last_name || ''}`.trim() : 
+          (h.first_name ? `${h.first_name} ${h.last_name || ''}`.trim() : '—'),
+        h.student_number || h.student?.student_number || '—',
+        h.grade_level || h.student?.grade_level || '—',
+        h.section_name || h.section?.name || '—',
+        h.subject_name || h.subject?.name || '—',
         h.final_grade || '—',
         h.remarks || '—'
       ]);
@@ -519,9 +521,10 @@ const Reports = () => {
           startY: startY + 5,
           head: [['Student', 'Section', 'Subject', 'Status', 'Date']],
           body: report.data.attendanceRecords.slice(0, 20).map(a => [
-            a.student_name || '—',
-            a.section_name || '—',
-            a.subject_name || '—',
+            a.student_name || a.student?.first_name ? `${a.student?.first_name || ''} ${a.student?.last_name || ''}`.trim() : 
+              (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '—'),
+            a.section_name || a.section?.name || '—',
+            a.subject_name || a.subject?.name || '—',
             a.status || '—',
             a.date || '—'
           ]),
@@ -532,7 +535,7 @@ const Reports = () => {
         });
         startY = doc.lastAutoTable.finalY + 15;
       }
-      
+
       if (report.data.historyRecords?.length > 0) {
         if (startY > 250) { doc.addPage(); startY = 20; }
         doc.text('Academic History Records', 14, startY);
@@ -540,9 +543,10 @@ const Reports = () => {
           startY: startY + 5,
           head: [['Student', 'School Year', 'Subject', 'Final Grade', 'Remarks']],
           body: report.data.historyRecords.slice(0, 20).map(h => [
-            h.student_name || '—',
+            h.student_name || h.student?.first_name ? `${h.student?.first_name || ''} ${h.student?.last_name || ''}`.trim() : 
+              (h.first_name ? `${h.first_name} ${h.last_name || ''}`.trim() : '—'),
             h.school_year || '—',
-            h.subject_name || '—',
+            h.subject_name || h.subject?.name || '—',
             h.final_grade || '—',
             h.remarks || '—'
           ]),
