@@ -17,6 +17,7 @@ export default function EnrollmentDetailsModal({
   gradeOptions,
   currentDocs,
   paymentProof,
+  studentPhoto,
   docUploadType,
   docUploadLabel,
   docSaving,
@@ -41,6 +42,7 @@ export default function EnrollmentDetailsModal({
   onCancelEditDocument,
   onUpdateDocument,
   onDeleteDocument,
+  onOpenIdUploadModal,
   calcAge,
   todayISO,
   gradeLabel,
@@ -139,6 +141,7 @@ export default function EnrollmentDetailsModal({
             <DocumentsTab
               currentDocs={currentDocs}
               paymentProof={paymentProof}
+              studentPhoto={studentPhoto}
               docUploadType={docUploadType}
               docUploadLabel={docUploadLabel}
               docSaving={docSaving}
@@ -157,6 +160,7 @@ export default function EnrollmentDetailsModal({
               onCancelEditDocument={onCancelEditDocument}
               onUpdateDocument={onUpdateDocument}
               onDeleteDocument={onDeleteDocument}
+              onOpenIdUploadModal={onOpenIdUploadModal}
               DOCUMENT_TYPE_OPTIONS={DOCUMENT_TYPE_OPTIONS}
             />
           )}

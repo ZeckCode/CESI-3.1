@@ -495,6 +495,50 @@ export default function EnrollmentManagement() {
     [getMissingFieldsForApproval, addToast]
   );
 
+  const getPromotionReadiness = useCallback((row) => {
+    const e = row?.raw || {};
+    const { next } = getNextGrade(e.grade_level);
+
+    // Check if already at highest grade
+    if (!next) {
+      return {
+        ready: false,
+        reason: "Completed Grade 6",
+        status: "completed",
+        icon: "check",
+      };
+    }
+
+    // Check if enrollment is active (approved by admin)
+    if (row.statusCode !== "ACTIVE") {
+      return {
+        ready: false,
+        reason: `Status: ${row.statusCode} (awaiting approval)`,
+        status: "pending",
+        icon: "clock",
+      };
+    }
+
+    // Check if student type allows promotion
+    const studentType = String(e.student_type || "").toLowerCase();
+    if (studentType !== "old") {
+      return {
+        ready: false,
+        reason: "New students cannot be promoted",
+        status: "ineligible",
+        icon: "x",
+      };
+    }
+
+    // All checks passed
+    return {
+      ready: true,
+      reason: `Ready to promote to ${next}`,
+      status: "ready",
+      icon: "arrow-up",
+    };
+  }, []);
+
   const openModal = (row, mode = "view") => {
     const e = row.raw;
     const inferredEdu =
@@ -1050,6 +1094,18 @@ const handleApprove = async (id) => {
 
   const handlePromote = (row) => {
     const e = row.raw;
+    const promotion = getPromotionReadiness(row);
+
+    // Check if student is ready to promote
+    if (!promotion.ready) {
+      addToast(
+        "Cannot Promote",
+        promotion.reason,
+        "warning"
+      );
+      return;
+    }
+
     const { next, nextEdu } = getNextGrade(e.grade_level);
 
     if (!next) {
@@ -1360,6 +1416,33 @@ const handleApprove = async (id) => {
     setIdUploadFile(null);
     setIdUploadPreview(null);
     setIdUploadOpen(true);
+  };
+
+  const handleUseSubmittedPhoto = async () => {
+    if (!idUploadEnrollmentId) return;
+
+    const enrollment = enrollments.find((e) => e.id === idUploadEnrollmentId);
+    if (!enrollment?.id_image_url) {
+      addToast("No Photo Available", "No submitted photo found.", "error");
+      return;
+    }
+
+    setIdUploading(true);
+    try {
+      // The photo is already stored as id_image in the enrollment
+      // Just close the modal and show success
+      addToast(
+        "Photo Confirmed",
+        "Student's submitted 2x2 photo is now set as their ID photo.",
+        "success"
+      );
+      closeIdUploadModal();
+    } catch (err) {
+      console.error("Error using submitted photo:", err);
+      addToast("Failed", "Could not confirm photo.", "error");
+    } finally {
+      setIdUploading(false);
+    }
   };
 
   const closeIdUploadModal = () => {
@@ -1734,6 +1817,7 @@ const handleApprove = async (id) => {
                 <th>Student</th>
                 <th>Enrollment Date</th>
                 <th>Status</th>
+                <th>Promotion Ready</th>
                 <th>Fee Status</th>
                 <th>Payment Method</th>
                 <th>Payment Proof</th>
@@ -1767,6 +1851,43 @@ const handleApprove = async (id) => {
 
                   <td>
                     <StatusBadge code={row.statusCode} />
+                  </td>
+
+                  <td>
+                    {row.statusCode === "ACTIVE" && (
+                      (() => {
+                        const promotion = getPromotionReadiness(row);
+                        const colors = {
+                          ready: { bg: "#ecfdf5", color: "#065f46", border: "#a7f3d0" },
+                          completed: { bg: "#ffedd5", color: "#7c2d12", border: "#fdba74" },
+                          pending: { bg: "#fef3c7", color: "#92400e", border: "#fcd34d" },
+                          ineligible: { bg: "#fef2f2", color: "#991b1b", border: "#fecaca" },
+                        };
+                        const style = colors[promotion.status];
+                        return (
+                          <div
+                            style={{
+                              display: "inline-block",
+                              padding: "4px 10px",
+                              borderRadius: "4px",
+                              fontSize: "11px",
+                              fontWeight: "600",
+                              background: style.bg,
+                              color: style.color,
+                              border: `1px solid ${style.border}`,
+                              whiteSpace: "nowrap",
+                              title: promotion.reason,
+                            }}
+                            title={promotion.reason}
+                          >
+                            {promotion.status === "ready" && "✓ Ready"}
+                            {promotion.status === "completed" && "✓ Completed"}
+                            {promotion.status === "pending" && "⏱ Pending"}
+                            {promotion.status === "ineligible" && "✕ Ineligible"}
+                          </div>
+                        );
+                      })()
+                    )}
                   </td>
 
                   <td>
@@ -1900,6 +2021,7 @@ const handleApprove = async (id) => {
         gradeOptions={gradeOptions}
         currentDocs={currentDocs}
         paymentProof={currentPaymentProof}
+        studentPhoto={editingId ? enrollments.find((e) => e.id === editingId)?.id_image_url : null}
         docUploadType={docUploadType}
         docUploadLabel={docUploadLabel}
         docSaving={docSaving}
@@ -1926,6 +2048,11 @@ const handleApprove = async (id) => {
         onCancelEditDocument={cancelEditDocument}
         onUpdateDocument={handleUpdateDocument}
         onDeleteDocument={handleDeleteDocument}
+        onOpenIdUploadModal={() => {
+          if (editingId) {
+            openIdUploadModal(normalized.find((r) => r.id === editingId));
+          }
+        }}
         calcAge={calcAge}
         todayISO={todayISO}
         gradeLabel={gradeLabel}
@@ -1938,6 +2065,11 @@ const handleApprove = async (id) => {
         idUploadOpen={idUploadOpen}
         idUploadPreview={idUploadPreview}
         idUploading={idUploading}
+        submittedStudentPhoto={
+          idUploadEnrollmentId
+            ? enrollments.find((e) => e.id === idUploadEnrollmentId)?.id_image_url
+            : null
+        }
         onClose={closeIdUploadModal}
         onSelectImage={handleIdImageSelect}
         onClearImage={() => {
@@ -1945,10 +2077,11 @@ const handleApprove = async (id) => {
           setIdUploadPreview(null);
         }}
         onUpload={handleUploadIdImage}
+        onUseSubmittedPhoto={handleUseSubmittedPhoto}
       />
 
-      {/* Payment Proof Approval Modal */}
-      {paymentProofModalOpen && selectedProofId && (
+      {/* Payment Proof Modal */}
+      {paymentProofModalOpen && (
         <div style={{
           position: "fixed",
           top: 0,

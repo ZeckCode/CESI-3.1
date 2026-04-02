@@ -11,6 +11,8 @@ export default function DocumentsTab({
   editingDocLabel,
   editingDocType,
   isReadOnly,
+  studentPhoto,
+  onOpenIdUploadModal,
   setDocUploadType,
   setDocUploadLabel,
   setDocUploadFile,
@@ -26,6 +28,49 @@ export default function DocumentsTab({
 }) {
   return (
     <div className="tab-content-scroll">
+      {/* Submitted 2x2 Photo Section */}
+      {studentPhoto && (
+        <div className="tab-section" style={{ background: "#ecfdf5", borderLeft: "4px solid #10b981" }}>
+          <div className="tab-section-title">
+            <span className="section-icon">📷</span>
+            Submitted Student Photo (2x2)
+          </div>
+
+          <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+            <div style={{ flex: 1 }}>
+              <img
+                src={studentPhoto}
+                alt="Student 2x2 Photo"
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: 200,
+                  borderRadius: 8,
+                  border: "2px solid #10b981",
+                }}
+              />
+            </div>
+
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 12, color: "#059669", fontWeight: 600 }}>
+                ✓ Ready for ID
+              </div>
+              <p style={{ fontSize: 13, color: "#047857", margin: 0 }}>
+                Student submitted their 2x2 photo during enrollment. Use for student ID photo?
+              </p>
+              {!isReadOnly && (
+                <button
+                  className="btn-primary"
+                  onClick={onOpenIdUploadModal}
+                  style={{ background: "#10b981", borderColor: "#059669", width: "fit-content" }}
+                >
+                  Use As ID Photo
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add New Document Section */}
       {!isReadOnly && (
         <div className="tab-section">

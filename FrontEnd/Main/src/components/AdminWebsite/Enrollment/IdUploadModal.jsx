@@ -5,10 +5,12 @@ export default function IdUploadModal({
   idUploadOpen,
   idUploadPreview,
   idUploading,
+  submittedStudentPhoto,
   onClose,
   onSelectImage,
   onClearImage,
   onUpload,
+  onUseSubmittedPhoto,
 }) {
   if (!idUploadOpen) return null;
 
@@ -20,9 +22,9 @@ export default function IdUploadModal({
       <div className="modal-content" style={{ maxWidth: 460, width: "92vw" }}>
         <div className="enrollment-modal-header">
           <div className="enrollment-modal-title-wrap">
-            <h2>Upload Student 1x1 Image</h2>
+            <h2>Choose Student Photo</h2>
             <div className="enrollment-modal-subtitle">
-              Upload or replace the student's 1x1 image after enrollment approval.
+              Use the submitted 2x2 photo or upload a 1x1 image for ID.
             </div>
           </div>
 
@@ -34,6 +36,51 @@ export default function IdUploadModal({
             <X size={18} />
           </button>
         </div>
+
+        {/* Submitted Photo Option */}
+        {submittedStudentPhoto && !idUploadPreview && (
+          <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: "1px solid #e5e7eb" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", marginBottom: 12 }}>
+              ✓ SUBMITTED 2x2 PHOTO
+            </div>
+            <img
+              src={submittedStudentPhoto}
+              alt="Submitted Student Photo"
+              style={{
+                maxWidth: "100%",
+                maxHeight: 250,
+                borderRadius: 8,
+                border: "2px solid #10b981",
+                marginBottom: 12,
+              }}
+            />
+            <button
+              className="btn-primary"
+              onClick={onUseSubmittedPhoto}
+              disabled={idUploading}
+              style={{
+                width: "100%",
+                background: "#10b981",
+                borderColor: "#059669",
+              }}
+            >
+              {idUploading ? "Processing..." : "✓ Use This Photo"}
+            </button>
+          </div>
+        )}
+
+        {/* Or Divider */}
+        {submittedStudentPhoto && !idUploadPreview && (
+          <div style={{
+            textAlign: "center",
+            marginBottom: 20,
+            fontSize: 12,
+            color: "#9ca3af",
+            fontWeight: 600,
+          }}>
+            — OR UPLOAD NEW PHOTO —
+          </div>
+        )}
 
         {idUploadPreview ? (
           <div style={{ marginBottom: 20, textAlign: "center" }}>
