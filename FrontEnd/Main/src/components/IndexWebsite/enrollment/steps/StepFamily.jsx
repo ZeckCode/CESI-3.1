@@ -7,11 +7,11 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
     <div className="step-card">
       <h3>👨‍👩‍👧 Parent / Guardian Information</h3>
 
-      {errors.familyContact && (
-        <div className="error-banner">
-          <FieldError error={errors.familyContact} />
-        </div>
-      )}
+     {errors.familyRequired && (
+      <div className="error-banner">
+        <FieldError error={errors.familyRequired} />
+      </div>
+    )}
 
       <p className="parent-section-label">Mother</p>
       <div className="form-grid">

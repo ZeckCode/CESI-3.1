@@ -96,29 +96,115 @@ export const validateStudentStep = (data) => {
   return errors;
 };
 
-export const validateFamilyStep = ({ motherContact, fatherContact, guardianContact }) => {
+export const validateFamilyStep = ({
+  motherFirst,
+  motherMiddle,
+  motherLast,
+  motherContact,
+  fatherFirst,
+  fatherMiddle,
+  fatherLast,
+  fatherContact,
+  guardianFirst,
+  guardianMiddle,
+  guardianLast,
+  guardianContact,
+}) => {
   const errors = {};
 
-  // Check if at least one contact is provided
-  const hasAnyContact = motherContact?.trim() || fatherContact?.trim() || guardianContact?.trim();
-  if (!hasAnyContact) {
-    errors.familyContact = "Please provide at least one parent/guardian contact number.";
+  const isFilled = (value) => !!value?.trim();
+
+  const motherHasAny =
+    isFilled(motherFirst) ||
+    isFilled(motherMiddle) ||
+    isFilled(motherLast) ||
+    isFilled(motherContact);
+
+  const fatherHasAny =
+    isFilled(fatherFirst) ||
+    isFilled(fatherMiddle) ||
+    isFilled(fatherLast) ||
+    isFilled(fatherContact);
+
+  const guardianHasAny =
+    isFilled(guardianFirst) ||
+    isFilled(guardianMiddle) ||
+    isFilled(guardianLast) ||
+    isFilled(guardianContact);
+
+  const motherComplete =
+    isFilled(motherFirst) &&
+    isFilled(motherMiddle) &&
+    isFilled(motherLast) &&
+    isFilled(motherContact);
+
+  const fatherComplete =
+    isFilled(fatherFirst) &&
+    isFilled(fatherMiddle) &&
+    isFilled(fatherLast) &&
+    isFilled(fatherContact);
+
+  const guardianComplete =
+    isFilled(guardianFirst) &&
+    isFilled(guardianMiddle) &&
+    isFilled(guardianLast) &&
+    isFilled(guardianContact);
+
+  const hasAtLeastOneComplete = motherComplete || fatherComplete || guardianComplete;
+
+  // Require at least one complete parent/guardian block
+  if (!hasAtLeastOneComplete) {
+    errors.familyRequired =
+      "Please complete at least one parent or guardian information block.";
   }
 
-  if (motherContact && !normalizePHMobile(motherContact)) {
-    errors.motherContact = "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
+  // If a block was started, it must be completed
+  if (motherHasAny && !motherComplete) {
+    errors.motherFirst = !isFilled(motherFirst) ? "Mother's first name is required." : "";
+    errors.motherMiddle = !isFilled(motherMiddle) ? "Mother's middle name is required." : "";
+    errors.motherLast = !isFilled(motherLast) ? "Mother's last name is required." : "";
+    errors.motherContact = !isFilled(motherContact)
+      ? "Mother's contact number is required."
+      : "";
   }
 
-  if (fatherContact && !normalizePHMobile(fatherContact)) {
-    errors.fatherContact = "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
+  if (fatherHasAny && !fatherComplete) {
+    errors.fatherFirst = !isFilled(fatherFirst) ? "Father's first name is required." : "";
+    errors.fatherMiddle = !isFilled(fatherMiddle) ? "Father's middle name is required." : "";
+    errors.fatherLast = !isFilled(fatherLast) ? "Father's last name is required." : "";
+    errors.fatherContact = !isFilled(fatherContact)
+      ? "Father's contact number is required."
+      : "";
   }
 
-  if (guardianContact && !normalizePHMobile(guardianContact)) {
-    errors.guardianContact = "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
+  if (guardianHasAny && !guardianComplete) {
+    errors.guardianFirst = !isFilled(guardianFirst) ? "Guardian's first name is required." : "";
+    errors.guardianMiddle = !isFilled(guardianMiddle) ? "Guardian's middle name is required." : "";
+    errors.guardianLast = !isFilled(guardianLast) ? "Guardian's last name is required." : "";
+    errors.guardianContact = !isFilled(guardianContact)
+      ? "Guardian's contact number is required."
+      : "";
+  }
+
+  // Contact format validation only when value exists
+  if (isFilled(motherContact) && !normalizePHMobile(motherContact)) {
+    errors.motherContact =
+      "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
+  }
+
+  if (isFilled(fatherContact) && !normalizePHMobile(fatherContact)) {
+    errors.fatherContact =
+      "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
+  }
+
+  if (isFilled(guardianContact) && !normalizePHMobile(guardianContact)) {
+    errors.guardianContact =
+      "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
   }
 
   return errors;
 };
+
 
 export const validateDocumentsStep = ({ studentPhotoFile }) => {
   const errors = {};
