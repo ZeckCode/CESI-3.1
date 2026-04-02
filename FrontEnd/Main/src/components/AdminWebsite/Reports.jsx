@@ -4,8 +4,17 @@ import StatCard, { StatsGrid } from './StatCard';
 import '../AdminWebsiteCSS/ClassManagement.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { apiFetch } from '../api/apiFetch';
-import PreviewModal from '../PreviewModal';
+import { getToken } from '../Auth/auth';
+
+const API_BASE = 'http://127.0.0.1:8000';
+
+function authHeaders(json = true) {
+  const token = getToken();
+  return {
+    ...(json ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Token ${token}` } : {}),
+  };
+}
 
 // Helper function for academic year expiry
 const getAcademicYearExpiry = (academicYear) => {
@@ -81,9 +90,6 @@ const Reports = () => {
   });
   
   const [loading, setLoading] = useState(true);
-
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewAction, setPreviewAction] = useState(null); // 'link' will be the report file
   
   const now = new Date();
 
@@ -92,7 +98,11 @@ const Reports = () => {
   // -----------------------------
   const fetchAcademicYear = async () => {
     try {
-      const res = await apiFetch('/api/enrollment-settings/');
+      const res = await fetch(`${API_BASE}/api/enrollment-settings/`, {
+        method: "GET",
+        headers: authHeaders(),
+        credentials: "include",
+      });
       const data = await res.json();
       setCurrentAcademicYear(data.academic_year || getCurrentAcademicYear());
       console.log('Academic year loaded:', data.academic_year);
@@ -107,7 +117,11 @@ const Reports = () => {
   // -----------------------------
   const fetchEnrollmentStats = async () => {
     try {
-      const res = await apiFetch('/api/enrollments/');
+      const res = await fetch(`${API_BASE}/api/enrollments/`, {
+        method: "GET",
+        headers: authHeaders(),
+        credentials: "include",
+      });
       const enrollments = await res.json();
       const list = Array.isArray(enrollments) ? enrollments : [];
       
@@ -128,7 +142,11 @@ const Reports = () => {
 
   const fetchTransactionStats = async () => {
     try {
-      const res = await apiFetch('/api/finance/transactions/stats/');
+      const res = await fetch(`${API_BASE}/api/finance/transactions/stats/`, {
+        method: "GET",
+        headers: authHeaders(),
+        credentials: "include",
+      });
       const data = await res.json();
       setTransactionStats({
         total_billed: data.total_billed || 0,
@@ -143,8 +161,16 @@ const Reports = () => {
   const fetchClassStats = async () => {
     try {
       const [sectionsRes, subjectsRes] = await Promise.all([
-        apiFetch('/api/accounts/sections/'),
-        apiFetch('/api/accounts/subjects/')
+        fetch(`${API_BASE}/api/accounts/sections/`, {
+          method: "GET",
+          headers: authHeaders(),
+          credentials: "include",
+        }),
+        fetch(`${API_BASE}/api/accounts/subjects/`, {
+          method: "GET",
+          headers: authHeaders(),
+          credentials: "include",
+        })
       ]);
       
       const sections = await sectionsRes.json();
@@ -169,7 +195,11 @@ const Reports = () => {
 
   const fetchTeacherStats = async () => {
     try {
-      const res = await apiFetch('/api/accounts/users/?role=TEACHER');
+      const res = await fetch(`${API_BASE}/api/accounts/users/?role=TEACHER`, {
+        method: "GET",
+        headers: authHeaders(),
+        credentials: "include",
+      });
       const teachers = await res.json();
       const teachersList = Array.isArray(teachers) ? teachers : [];
       
@@ -189,7 +219,11 @@ const Reports = () => {
   const fetchAttendanceStats = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const res = await apiFetch(`/api/attendance/records/?date=${today}`);
+      const res = await fetch(`${API_BASE}/api/attendance/records/?date=${today}`, {
+        method: "GET",
+        headers: authHeaders(),
+        credentials: "include",
+      });
       const records = await res.json();
       const recordsList = Array.isArray(records) ? records : [];
       
@@ -212,7 +246,11 @@ const Reports = () => {
 
   const fetchGradeStats = async () => {
     try {
-      const res = await apiFetch('/api/grades/admin-monitoring/?quarter=1');
+      const res = await fetch(`${API_BASE}/api/grades/admin-monitoring/?quarter=1`, {
+        method: "GET",
+        headers: authHeaders(),
+        credentials: "include",
+      });
       const data = await res.json();
       const summary = data.summary || {};
       
@@ -229,7 +267,11 @@ const Reports = () => {
 
   const fetchHistoryStats = async () => {
     try {
-      const res = await apiFetch('/api/grades/academic-history/');
+      const res = await fetch(`${API_BASE}/api/grades/academic-history/`, {
+        method: "GET",
+        headers: authHeaders(),
+        credentials: "include",
+      });
       const history = await res.json();
       const historyList = Array.isArray(history) ? history : [];
       
@@ -535,9 +577,7 @@ const Reports = () => {
   // DOWNLOAD FUNCTION
   // -----------------------------
   const handleDownload = (report) => {
-    // For Reports component, we show a preview modal with download/print options
-    setPreviewAction(report);
-    setShowPreview(true);
+    exportReportToPDF(report);
   };
 
   // -----------------------------
@@ -743,74 +783,6 @@ const Reports = () => {
         }
       `}</style>
 
-      {showPreview && previewAction && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9000
-        }} onClick={() => setShowPreview(false)}>
-          <div style={{
-            background: 'white',
-            borderRadius: '8px',
-            padding: '30px',
-            maxWidth: '500px',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-          }} onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ marginTop: 0 }}>Report Preview</h2>
-            <div style={{ marginBottom: '20px', fontSize: '14px', color: '#555' }}>
-              <p><strong>Type:</strong> {previewAction.type}</p>
-              <p><strong>Generated:</strong> {new Date(previewAction.date).toLocaleString()}</p>
-              {previewAction.description && <p><strong>Description:</strong> {previewAction.description}</p>}
-            </div>
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowPreview(false)} style={{
-                padding: '10px 20px',
-                background: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}>
-                Close
-              </button>
-              <button onClick={() => {
-                window.open(previewAction.link, '_blank');
-                setShowPreview(false);
-              }} style={{
-                padding: '10px 20px',
-                background: '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}>
-                Download
-              </button>
-              <button onClick={() => {
-                window.open(previewAction.link);
-                setTimeout(() => { window.print(); }, 500);
-                setShowPreview(false);
-              }} style={{
-                padding: '10px 20px',
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}>
-                Print
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
