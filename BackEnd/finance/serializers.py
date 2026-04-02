@@ -176,7 +176,10 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
     due_date = serializers.DateField(required=False, allow_null=True)
     transaction_date = serializers.DateField(required=False, allow_null=True)
     student_name = serializers.CharField(required=False, allow_blank=True)
-
+    parent = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role='PARENT_STUDENT'),
+        required=False
+    )
     class Meta:
         model = Transaction
         fields = [
@@ -400,6 +403,7 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
                 row.save(update_fields=['balance'])
 
         return tx
+    
 class ParentDropdownSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     parent_name = serializers.SerializerMethodField()
