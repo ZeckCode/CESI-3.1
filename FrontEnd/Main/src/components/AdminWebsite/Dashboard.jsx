@@ -799,6 +799,25 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         </div>
       </section>
 
+      <section className="dash-insights">
+        <div className="dash-insights-head">
+          <h3 className="dash-insights-title">Dashboard Interpretations</h3>
+          <p className="dash-insights-sub">
+            Cross-module interpretation of enrollment, finance, attendance, and
+            performance signals.
+          </p>
+        </div>
+
+        <div className="dash-insights-grid">
+          {dashboardInsights.map((insight) => (
+            <article key={insight.title} className="dash-insight-card">
+              <h4 className="dash-insight-title">{insight.title}</h4>
+              <p className="dash-insight-text">{insight.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="dash-row dash-row--2col">
         <div className="dash-card">
           <h3 className="dash-card-title">Students per Grade Level</h3>

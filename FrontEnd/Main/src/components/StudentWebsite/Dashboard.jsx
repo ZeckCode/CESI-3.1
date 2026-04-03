@@ -351,6 +351,24 @@ const Dashboard = () => {
         </div>
       </div>
 
+      <section className="sdInsights">
+        <div className="sdInsights__head">
+          <h6 className="sdInsights__title">Dashboard Interpretations</h6>
+          <p className="sdInsights__sub">
+            Personalized reading of your attendance, grades, and schedule.
+          </p>
+        </div>
+
+        <div className="sdInsights__grid">
+          {studentInsights.map((insight) => (
+            <article key={insight.title} className="sdInsights__card">
+              <h6 className="sdInsights__cardTitle">{insight.title}</h6>
+              <p className="sdInsights__cardText">{insight.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       {/* Main grid: schedule + announcements */}
       <div className="dashboard-grid">
         {/* Today's Schedule */}
