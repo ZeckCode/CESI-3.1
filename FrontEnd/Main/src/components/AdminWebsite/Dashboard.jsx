@@ -17,6 +17,7 @@ import {
   Area,
   RadialBarChart,
   RadialBar,
+  ReferenceDot,
 } from "recharts";
 import {
   Users,
@@ -34,6 +35,7 @@ import {
   Send,
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
+import { generateRevenueInsight, detectRevenueDips, generateEnrollmentInsight, generateAttendanceInsight, generatePaymentInsight, getChartInsightColor } from "../../utils/chartInsights";
 import "../AdminWebsiteCSS/Dashboard.css";
 
 const COLORS = [
@@ -844,6 +846,12 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
               </defs>
             </BarChart>
           </ResponsiveContainer>
+          <div 
+            className="chart-insight" 
+            style={{ color: getChartInsightColor(generateEnrollmentInsight(enrollmentByLevel)) }}
+          >
+            {generateEnrollmentInsight(enrollmentByLevel)}
+          </div>
         </div>
 
         <div className="dash-card">
@@ -877,8 +885,26 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
                 strokeWidth={2.5}
                 fill="url(#areaGradient)"
               />
+              {detectRevenueDips(revenueMonthly).map((dip, idx) => (
+                <ReferenceDot
+                  key={`dip-${idx}`}
+                  x={dip.label}
+                  y={dip.value}
+                  r={6}
+                  fill="#ef4444"
+                  stroke="#fff"
+                  strokeWidth={2}
+                  title={`Dip: ${dip.percentDrop}% drop`}
+                />
+              ))}
             </AreaChart>
           </ResponsiveContainer>
+          <div 
+            className="chart-insight" 
+            style={{ color: getChartInsightColor(generateRevenueInsight(revenueMonthly)) }}
+          >
+            {generateRevenueInsight(revenueMonthly)}
+          </div>
         </div>
       </section>
 
@@ -1020,6 +1046,12 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
               />
             </PieChart>
           </ResponsiveContainer>
+          <div 
+            className="chart-insight" 
+            style={{ color: getChartInsightColor(generatePaymentInsight(paymentBreakdown)) }}
+          >
+            {generatePaymentInsight(paymentBreakdown)}
+          </div>
         </div>
 
         <div className="dash-card dash-card--list">
