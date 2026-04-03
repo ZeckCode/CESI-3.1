@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, Download, FileText, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import 'jspdf-autotable';
 import './PreviewModal.css';
 
 const PreviewModal = ({ 
@@ -53,23 +53,38 @@ const PreviewModal = ({
       if (onDownloadPDF) {
         await onDownloadPDF();
       } else {
-        // Default PDF export using jsPDF and autoTable
-        const doc = new jsPDF();
-        const timestamp = new Date().toISOString().slice(0, 10);
+        // Default PDF export using jsPDF (manual table drawing)
+        const doc = new jsPDF('l', 'mm', 'a4'); // Landscape mode for wider table
+        const timestamp = new Date().toLocaleString();
+        const dateOnly = new Date().toISOString().slice(0, 10);
+        
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 14;
+        const usableWidth = pageWidth - 2 * margin;
         
         // Add title
         doc.setFontSize(16);
-        doc.text(title || 'Report', 14, 15);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text(title || 'Report', margin, 15);
+        
+        // Add underline below title
+        doc.setDrawColor(0, 123, 255);
+        doc.setLineWidth(1);
+        doc.line(margin, 19, pageWidth - margin, 19);
         
         // Add timestamp
-        doc.setFontSize(10);
-        doc.text(`Generated: ${timestamp}`, 14, 25);
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Generated: ${timestamp}`, margin, 28);
         
         // Get formatted data for PDF
         let pdfData = data;
         
         if (Array.isArray(pdfData) && pdfData.length > 0) {
-          // Extract column headers from first object if not provided
+          // Extract column headers
           const headers = columns ? columns.map(c => c.label || c.key) : Object.keys(pdfData[0]);
           
           // Format rows
@@ -80,35 +95,105 @@ const PreviewModal = ({
             })
           );
           
-          // Add table
-          autoTable(doc, {
-            head: [headers],
-            body: rows,
-            startY: 35,
-            margin: { top: 30 },
-            styles: {
-              fontSize: 9,
-              cellPadding: 3,
-              overflow: 'linebreak',
-            },
-            columnStyles: {
-              0: { cellWidth: 'auto' }
-            },
-            didDrawPage: (data) => {
-              // Footer
-              const pageCount = doc.internal.getPages().length;
-              doc.setFontSize(8);
-              doc.text(
-                `Page ${data.pageNumber} of ${pageCount}`,
-                doc.internal.pageSize.getWidth() / 2,
-                doc.internal.pageSize.getHeight() - 10,
-                { align: 'center' }
-              );
+          // Table dimensions - make first column wider for student names
+          const firstColWidth = usableWidth * 0.20; // 20% for student name
+          const remainingWidth = usableWidth - firstColWidth;
+          const otherColWidth = remainingWidth / (headers.length - 1);
+          
+          const getColWidth = (idx) => {
+            return idx === 0 ? firstColWidth : otherColWidth;
+          };
+          
+          const headerRowHeight = 10;
+          const rowHeight = 8;
+          let yPos = 35;
+          
+          // Draw header row
+          headers.forEach((header, idx) => {
+            const xPos = margin + (idx === 0 ? 0 : firstColWidth + (idx - 1) * otherColWidth);
+            const colW = getColWidth(idx);
+            
+            // Fill header cell with blue
+            doc.setFillColor(0, 123, 255);
+            doc.rect(xPos, yPos, colW, headerRowHeight, 'F');
+            
+            // Draw border
+            doc.setDrawColor(0, 123, 255);
+            doc.setLineWidth(0.5);
+            doc.rect(xPos, yPos, colW, headerRowHeight);
+            
+            // Draw vertical separator between columns
+            if (idx < headers.length - 1) {
+              doc.setDrawColor(255, 255, 255); // White separator for contrast
+              doc.setLineWidth(1.5); // Thicker line for visibility
+              const nextXPos = xPos + colW;
+              doc.line(nextXPos, yPos, nextXPos, yPos + headerRowHeight);
             }
+          });
+          
+          // Draw header text (no wrapping, just simple text)
+          doc.setTextColor(255, 255, 255);
+          doc.setFont(undefined, 'bold');
+          doc.setFontSize(10);
+          headers.forEach((header, idx) => {
+            const xPos = margin + (idx === 0 ? 0 : firstColWidth + (idx - 1) * otherColWidth);
+            const colW = getColWidth(idx);
+            const centerX = xPos + colW / 2;
+            doc.text(header, centerX, yPos + 6, { maxWidth: colW - 4, align: 'center' });
+          });
+          
+          yPos += headerRowHeight;
+          
+          // Draw body rows
+          doc.setFont(undefined, 'normal');
+          doc.setFontSize(10);
+          
+          rows.forEach((row, rowIdx) => {
+            // Check for new page
+            if (yPos + rowHeight > pageHeight - 20) {
+              doc.addPage();
+              yPos = margin;
+            }
+            
+            // Determine row color
+            const isEvenRow = rowIdx % 2 === 0;
+            const bgColor = isEvenRow ? [255, 255, 255] : [245, 245, 245];
+            
+            // Draw all cells in row
+            row.forEach((cell, colIdx) => {
+              const xPos = margin + (colIdx === 0 ? 0 : firstColWidth + (colIdx - 1) * otherColWidth);
+              const colW = getColWidth(colIdx);
+              
+              // Fill cell
+              doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+              doc.rect(xPos, yPos, colW, rowHeight, 'F');
+              
+              // Border
+              doc.setDrawColor(200, 200, 200);
+              doc.setLineWidth(0.3);
+              doc.rect(xPos, yPos, colW, rowHeight);
+            });
+            
+            // Draw text for all cells
+            doc.setTextColor(0, 0, 0);
+            row.forEach((cell, colIdx) => {
+              const xPos = margin + (colIdx === 0 ? 0 : firstColWidth + (colIdx - 1) * otherColWidth);
+              const colW = getColWidth(colIdx);
+              
+              // Center align all columns except first (Student Name)
+              if (colIdx === 0) {
+                doc.text(String(cell), xPos + 2, yPos + 5, { maxWidth: colW - 4 });
+              } else {
+                const centerX = xPos + colW / 2;
+                doc.text(String(cell), centerX, yPos + 5, { maxWidth: colW - 4, align: 'center' });
+              }
+            });
+            
+            yPos += rowHeight;
           });
         }
         
-        doc.save(`${filename}_${timestamp}.pdf`);
+        doc.save(`${filename}_${dateOnly}.pdf`);
       }
       alert('✓ PDF file downloaded successfully!');
     } catch (err) {
@@ -219,12 +304,22 @@ const PreviewModal = ({
                   <thead>
                     <tr>
                       {columns && columns.length > 0 ? (
-                        columns.map((col) => (
-                          <th key={col.key}>{col.label || col.key}</th>
+                        columns.map((col, colIdx) => (
+                          <th 
+                            key={col.key}
+                            className={colIdx === 0 ? 'left-align' : 'center-align'}
+                          >
+                            {col.label || col.key}
+                          </th>
                         ))
                       ) : (
-                        Object.keys(data[0]).map((key) => (
-                          <th key={key}>{key}</th>
+                        Object.keys(data[0]).map((key, colIdx) => (
+                          <th 
+                            key={key}
+                            className={colIdx === 0 ? 'left-align' : 'center-align'}
+                          >
+                            {key}
+                          </th>
                         ))
                       )}
                     </tr>
@@ -233,16 +328,24 @@ const PreviewModal = ({
                     {data.map((row, idx) => (
                       <tr key={idx}>
                         {columns && columns.length > 0 ? (
-                          columns.map((col) => (
-                            <td key={col.key}>
+                          columns.map((col, colIdx) => (
+                            <td 
+                              key={col.key}
+                              className={colIdx === 0 ? 'left-align' : 'center-align'}
+                            >
                               {row[col.key] !== undefined
                                 ? String(row[col.key])
                                 : '—'}
                             </td>
                           ))
                         ) : (
-                          Object.keys(row).map((key) => (
-                            <td key={key}>{String(row[key]) || '—'}</td>
+                          Object.keys(row).map((key, colIdx) => (
+                            <td 
+                              key={key}
+                              className={colIdx === 0 ? 'left-align' : 'center-align'}
+                            >
+                              {String(row[key]) || '—'}
+                            </td>
                           ))
                         )}
                       </tr>

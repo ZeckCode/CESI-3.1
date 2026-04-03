@@ -94,10 +94,26 @@
   border-bottom: 2px solid #667eea;
 }
 
+.preview-table th.center-align {
+  text-align: center;
+}
+
+.preview-table th.left-align {
+  text-align: left;
+}
+
 .preview-table td {
   padding: 12px 15px;
   border-bottom: 1px solid #e0e0e0;
   word-break: break-word;
+}
+
+.preview-table td.center-align {
+  text-align: center;
+}
+
+.preview-table td.left-align {
+  text-align: left;
 }
 
 .preview-table tbody tr {
