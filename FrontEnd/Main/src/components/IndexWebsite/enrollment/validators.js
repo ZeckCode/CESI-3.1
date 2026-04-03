@@ -1,7 +1,10 @@
-// validators.js
 import { GRADE_AGE_RULES } from "../../../config/EnrollmentConfig.js";
 import { LRN_REQUIRED_GRADES } from "./constants";
 import { calcAge, normalizePHMobile } from "./helpers";
+
+const isValidEmail = (email = "") => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+};
 
 export const validateAgeForGrade = (birthDate, gradeLevel) => {
   if (!birthDate || !gradeLevel) return null;
@@ -58,7 +61,9 @@ export const validateAcademicStep = ({ studentType, educationLevel, gradeLevel, 
 
     if (LRN_REQUIRED_GRADES.includes(gradeLevel)) {
       if (!lrn) errors.lrn = "LRN is required for this grade level.";
-      else if (lrn.length !== 12) errors.lrn = "LRN must be exactly 12 digits.";
+      else if (!/^\d{12}$/.test(lrn.trim())) {
+        errors.lrn = "LRN must be exactly 12 digits.";
+      }
     }
   }
 
@@ -76,7 +81,13 @@ export const validateStudentStep = (data) => {
   else if (ageValidation && !ageValidation.ok) errors.birthDate = ageValidation.msg;
 
   if (!data.gender) errors.gender = "Please select gender.";
-  if (!data.email.trim()) errors.email = "Email is required.";
+
+  if (!data.email?.trim()) {
+    errors.email = "Email is required.";
+  } else if (!isValidEmail(data.email)) {
+    errors.email = "Enter a valid email address.";
+  }
+
   if (!data.religion) errors.religion = "Please select religion.";
   else if (data.religion === "Others" && !data.customReligion?.trim()) {
     errors.customReligion = "Please specify your religion.";
@@ -84,7 +95,8 @@ export const validateStudentStep = (data) => {
 
   if (!data.mobile.trim()) errors.mobile = "Mobile number is required.";
   else if (!normalizePHMobile(data.mobile)) {
-    errors.mobile = "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
+    errors.mobile =
+      "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
   }
 
   if (!data.street.trim()) errors.street = "Street is required.";
@@ -152,13 +164,11 @@ export const validateFamilyStep = ({
 
   const hasAtLeastOneComplete = motherComplete || fatherComplete || guardianComplete;
 
-  // Require at least one complete parent/guardian block
   if (!hasAtLeastOneComplete) {
     errors.familyRequired =
       "Please complete at least one parent or guardian information block.";
   }
 
-  // If a block was started, it must be completed
   if (motherHasAny && !motherComplete) {
     errors.motherFirst = !isFilled(motherFirst) ? "Mother's first name is required." : "";
     errors.motherMiddle = !isFilled(motherMiddle) ? "Mother's middle name is required." : "";
@@ -186,7 +196,6 @@ export const validateFamilyStep = ({
       : "";
   }
 
-  // Contact format validation only when value exists
   if (isFilled(motherContact) && !normalizePHMobile(motherContact)) {
     errors.motherContact =
       "Enter a valid PH mobile number that starts with 09 or 639 (e.g., 09XXXXXXXXX or 639XXXXXXXXX).";
@@ -205,19 +214,15 @@ export const validateFamilyStep = ({
   return errors;
 };
 
-
 export const validateDocumentsStep = ({ studentPhotoFile }) => {
   const errors = {};
 
   if (!studentPhotoFile) {
     errors.studentPhotoFile = "Please upload a 2x2 picture (JPG, JPEG, or PNG).";
   } else {
-    // Validate file type if available
-    if (studentPhotoFile.type && !['image/jpeg', 'image/png'].includes(studentPhotoFile.type)) {
+    if (studentPhotoFile.type && !["image/jpeg", "image/png"].includes(studentPhotoFile.type)) {
       errors.studentPhotoFile = "Photo must be in JPG or PNG format.";
-    }
-    // Validate file size (max 5MB)
-    else if (studentPhotoFile.size && studentPhotoFile.size > 5 * 1024 * 1024) {
+    } else if (studentPhotoFile.size && studentPhotoFile.size > 5 * 1024 * 1024) {
       errors.studentPhotoFile = "Photo size must be less than 5MB.";
     }
   }
