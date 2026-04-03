@@ -295,6 +295,16 @@
   letter-spacing: 0.2px;
 }
 
+.as-userhandle {
+  font-size: 0.76rem;
+  color: var(--as-accent);
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .as-usersub {
   margin-top: 3px;
   font-size: 0.72rem;

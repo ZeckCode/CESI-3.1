@@ -17,28 +17,46 @@ import "../AdminWebsiteCSS/Sidebar.css";
 import { useAuth } from "../Auth/useAuth";
 import { apiFetch } from "../api/apiFetch";
 
-function getInitials(name = "User") {
-  const parts = String(name).trim().split(/\s+/);
-  const first = parts[0]?.[0] || "U";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (first + last).toUpperCase();
-}
-
-function roleLabel(role) {
-  if (!role) return "Faculty Member";
-  const r = String(role).toLowerCase();
-  if (r.includes("admin")) return "Administrator";
-  if (r.includes("teacher")) return "Faculty Member";
-  return role;
+function getAvatarLetter(username = "User") {
+  const value = String(username || "").trim();
+  return value ? value.charAt(0).toUpperCase() : "U";
 }
 
 export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, onToggleCollapse }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [currentUser, setCurrentUser] = useState(user || null);
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const sidebarRef = useRef(null);
+
+  useEffect(() => {
+    if (user) setCurrentUser(user);
+  }, [user]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCurrentUser = async () => {
+      try {
+        const res = await apiFetch("/api/accounts/me/detail/");
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (mounted && data) {
+          setCurrentUser((prev) => ({ ...(prev || {}), ...data }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch current user:", error);
+      }
+    };
+
+    loadCurrentUser();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const menuSections = useMemo(
     () => [
@@ -120,6 +138,8 @@ export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, o
 
   const visible = !isMobile || drawerOpen;
   const showLabels = !isCollapsed || isMobile;
+  const displayUsername = currentUser?.username || currentUser?.email || "User";
+  const avatarLetter = getAvatarLetter(displayUsername);
 
   return (
     <>
@@ -150,23 +170,23 @@ export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, o
         ].join(" ")}
       >
         <div className="as-top-section">
-          {user && showLabels && (
+          {showLabels && (
             <div className="as-usercard">
-              <div className="as-avatar">{getInitials(user?.full_name || user?.username || user?.email)}</div>
+              <div className="as-avatar">{avatarLetter}</div>
               <div className="as-usermeta">
                 <div className="as-userrow">
                   <div className="as-username">Teacher Portal</div>
                 </div>
                 <div className="as-usersub">
-                  <div className="as-role">{roleLabel(user?.role)}</div>
+                  <div className="as-userhandle">@{displayUsername}</div>
                 </div>
               </div>
             </div>
           )}
 
-          {user && isCollapsed && !isMobile && (
+          {isCollapsed && !isMobile && (
             <div className="as-usercard-collapsed">
-              <div className="as-avatar">{getInitials(user?.full_name || user?.username || user?.email)}</div>
+              <div className="as-avatar">{avatarLetter}</div>
             </div>
           )}
         </div>

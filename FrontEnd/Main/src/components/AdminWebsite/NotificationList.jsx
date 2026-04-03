@@ -176,10 +176,10 @@ const NotificationList = ({ onClose, unreadCount, onNavigate, reminderType = 'PA
                         <div className="notification-dot" />
                         <div className="notification-item-content">
                           <div className="notification-item-title">
-                            {reminder.student_name || 'Payment Reminder'}
+                            {reminder.title || reminder.student_name || 'Notification'}
                           </div>
                           <div className="notification-item-text">
-                            {reminder.message || 'Payment reminder pending'}
+                            {reminder.message || 'New notification'}
                           </div>
                           <div className="notification-item-time">
                             {reminder.created_at && formatDate(reminder.created_at)}
@@ -230,10 +230,10 @@ const NotificationList = ({ onClose, unreadCount, onNavigate, reminderType = 'PA
                       <div className="notification-item-left">
                         <div className="notification-item-content">
                           <div className="notification-item-title">
-                            {reminder.student_name || 'Payment Reminder'}
+                            {reminder.title || reminder.student_name || 'Notification'}
                           </div>
                           <div className="notification-item-text">
-                            {reminder.message || 'Payment reminder sent'}
+                            {reminder.message || 'Notification sent'}
                           </div>
                           <div className="notification-item-time">
                             {reminder.created_at && formatDate(reminder.created_at)}

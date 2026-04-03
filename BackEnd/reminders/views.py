@@ -5,6 +5,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 
 
 from accounts.models import UserProfile
@@ -111,7 +112,15 @@ class ReminderListCreateView(generics.ListCreateAPIView):
 
         if reminder_type:
             reminder_type = reminder_type.upper()
-            queryset = queryset.filter(reminder_type=reminder_type)
+            if reminder_type == "PAYMENT" and not is_admin(self.request.user):
+                # Backward-compatible bell/API behavior: PAYMENT feed also includes
+                # star-award notifications sent by teachers.
+                star_filter = Q(reminder_type="PERFORMANCE") & (
+                    Q(title__icontains="star") | Q(message__icontains="given you a star")
+                )
+                queryset = queryset.filter(Q(reminder_type="PAYMENT") | star_filter)
+            else:
+                queryset = queryset.filter(reminder_type=reminder_type)
 
         if recipient_id:
             queryset = queryset.filter(recipient_id=recipient_id)
