@@ -643,7 +643,7 @@ const IdCardPreview = React.forwardRef(
             <div
               style={{
                 position: "absolute",
-                top: 146,
+                top: 170,
                 left: "50%",
                 marginLeft: "-56px",
                 width: 112,
