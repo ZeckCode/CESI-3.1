@@ -81,6 +81,10 @@ const normalizeGradeCode = (value) => {
     'grade 5': 'grade5',
     'grade 6': 'grade6',
     'pre-kinder': 'prek',
+    'pre kinder': 'prek',
+    'pre_kinder': 'prek',
+    'prekindergarten': 'prek',
+    'pre-kindergarten': 'prek',
     'prek': 'prek',
   };
 
@@ -116,6 +120,33 @@ const getEnrollmentSectionId = (enrollment) => {
   }
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getSectionRoomId = (section) => {
+  if (!section) return null;
+  const raw = section.room;
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'object') {
+    const nestedId = Number(raw.id);
+    return Number.isFinite(nestedId) ? nestedId : null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getSectionCapacityLimit = (section, rooms) => {
+  const roomId = getSectionRoomId(section);
+  const linkedRoom = roomId
+    ? (rooms || []).find((room) => Number(room.id) === Number(roomId))
+    : null;
+
+  const roomCapacity = Number(linkedRoom?.capacity);
+  if (Number.isFinite(roomCapacity) && roomCapacity > 0) return roomCapacity;
+
+  const sectionCapacity = Number(section?.capacity);
+  if (Number.isFinite(sectionCapacity) && sectionCapacity > 0) return sectionCapacity;
+
+  return 40;
 };
 
 const gradeRoomPrefix = (gradeLevel) => {
@@ -175,7 +206,7 @@ const getClassStatus = (section, enrollments) => {
     (e) => normalizeGradeCode(e.grade_level) === gradeCode && e.status === 'ACTIVE'
   );
   const assignedToSection = activeForGrade.filter(
-    (e) => Number(e.section) === Number(section.id)
+    (e) => Number(getEnrollmentSectionId(e)) === Number(section.id)
   );
   // Ongoing if has active students; Expired if no active students
   return assignedToSection.length > 0 ? 'ONGOING' : 'EXPIRED';
@@ -489,6 +520,21 @@ const ClassManagement = () => {
       {activeTab === 'schoolyear' && (
         <SchoolYearTab schoolYears={schoolYears} onRefresh={refreshAll} />
       )}
+
+      <PreviewModal
+        isOpen={classPreviewOpen}
+        onClose={() => setClassPreviewOpen(false)}
+        title="Class Management Report"
+        data={classPreviewData}
+        columns={[
+          { key: 'Section', label: 'Section' },
+          { key: 'Grade Level', label: 'Grade Level' },
+          { key: 'Room', label: 'Room' },
+          { key: 'Students', label: 'Students' },
+          { key: 'Capacity', label: 'Capacity' },
+        ]}
+        filename="Class-Management-Report"
+      />
     </div>
   );
 };
@@ -511,7 +557,7 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
   const fullSections = useMemo(() => {
     return sections
       .map((sec) => {
-        const capacity = Number(sec.capacity) > 0 ? Number(sec.capacity) : 40;
+        const capacity = getSectionCapacityLimit(sec, rooms);
         const activeAssigned = enrollments.filter((e) => {
           return e.status === 'ACTIVE' && Number(getEnrollmentSectionId(e)) === Number(sec.id);
         });
@@ -538,7 +584,7 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
         }
         return String(a.section.grade_level).localeCompare(String(b.section.grade_level));
       });
-  }, [sections, enrollments]);
+  }, [sections, enrollments, rooms]);
 
   const openNewRoomAndSection = async (fullEntry) => {
     if (!fullEntry?.section) return;
@@ -558,7 +604,9 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
 
     try {
       const roomSeed = buildNextRoomCode(section.grade_level, rooms);
-      const currentRoom = rooms.find((r) => Number(r.id) === Number(section.room));
+      const currentRoom = rooms.find(
+        (r) => Number(r.id) === Number(getSectionRoomId(section))
+      );
       const roomCapacity = Number(currentRoom?.capacity) > 0
         ? Number(currentRoom.capacity)
         : Number(section.capacity) > 0
@@ -588,7 +636,7 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
       const sectionPayload = {
         name: newSectionName,
         grade_level: section.grade_level,
-        capacity: Number(section.capacity) > 0 ? Number(section.capacity) : roomCapacity,
+        capacity: roomCapacity,
         adviser: null,
         room: createdRoomId,
       };
@@ -762,11 +810,11 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
     : [];
 
   const inSection = activeGradeEnrollments.filter(
-    (e) => Number(e.section) === Number(selectedSection?.id)
+    (e) => Number(getEnrollmentSectionId(e)) === Number(selectedSection?.id)
   );
 
   const availableForSection = activeGradeEnrollments.filter(
-    (e) => Number(e.section) !== Number(selectedSection?.id)
+    (e) => Number(getEnrollmentSectionId(e)) !== Number(selectedSection?.id)
   );
 
   return (
@@ -928,10 +976,10 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
           );
 
           const assignedToSection = activeForGrade.filter(
-            (e) => Number(e.section) === Number(sec.id)
+            (e) => Number(getEnrollmentSectionId(e)) === Number(sec.id)
           );
 
-          const unassignedForGrade = activeForGrade.filter((e) => !e.section);
+          const unassignedForGrade = activeForGrade.filter((e) => !getEnrollmentSectionId(e));
 
           return (
             <div key={sec.id} className="admin-class-card">
@@ -1084,7 +1132,9 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
                   </thead>
                   <tbody>
                     {availableForSection.map((e) => {
-                      const currentSection = sections.find((s) => Number(s.id) === Number(e.section));
+                      const currentSection = sections.find(
+                        (s) => Number(s.id) === Number(getEnrollmentSectionId(e))
+                      );
                       return (
                         <tr key={e.id}>
                           <td>
@@ -2948,20 +2998,6 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
         )}
       </div>
 
-      <PreviewModal
-        isOpen={classPreviewOpen}
-        onClose={() => setClassPreviewOpen(false)}
-        title="Class Management Report"
-        data={classPreviewData}
-        columns={[
-          { key: "Section", label: "Section" },
-          { key: "Grade Level", label: "Grade Level" },
-          { key: "Room", label: "Room" },
-          { key: "Students", label: "Students" },
-          { key: "Capacity", label: "Capacity" },
-        ]}
-        filename="Class-Management-Report"
-      />
     </>
   );
 }

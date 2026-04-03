@@ -416,18 +416,18 @@ export default function EnrollmentManagement() {
           paymentProof: tempRow.paymentProof,
           promotionStatus: promotionInfo.status,
           parentName:
-            e?.parent_info?.guardian_name ||
-            e?.parent_info?.mother_name ||
-            e?.parent_info?.father_name ||
-            "(not set)",
-          phone:
-            e?.parent_info?.guardian_contact ||
-            e?.parent_info?.mother_contact ||
-            e?.parent_info?.father_contact ||
-            e?.mobile_number ||
-            e?.telephone_number ||
-            "(not set)",
-        };
+          e?.parent_info?.mother_name ||
+          e?.parent_info?.father_name ||
+          e?.parent_info?.guardian_name ||
+          "(not set)",
+        phone:
+          e?.parent_info?.mother_contact ||
+          e?.parent_info?.father_contact ||
+          e?.parent_info?.guardian_contact ||
+          e?.mobile_number ||
+          e?.telephone_number ||
+          "(not set)",
+                };
       }),
     [enrollments, sections, proofs, getPromotionReadiness]
   );
@@ -982,7 +982,7 @@ export default function EnrollmentManagement() {
     openDeclineDialog(id);
   };
     const openApproveDialog = (row) => {
-      
+
     const proof = row.paymentProof || null;
 
     setApproveTargetRow(row);
@@ -1593,19 +1593,21 @@ const handleApproveModal = async () => {
     }
   };
 
-  const openIdGenerator = (row) => {
-    // If student has no photo yet, open upload modal first
-    if (!row.id_image_url) {
-      setIdUploadEnrollmentId(row.id);
-      setIdUploadOpen(true);
-      return;
-    }
-    
-    // Otherwise directly open ID generator
-    const studentData = prepareIdData(row);
-    setSelectedStudentForId(studentData);
-    setIdGeneratorOpen(true);
-  };
+const openIdGenerator = (row) => {
+  const enrollment = row?.raw || row;
+
+  // If student has no photo yet, open upload modal first
+  if (!enrollment?.id_image_url) {
+    setIdUploadEnrollmentId(enrollment?.id);
+    setIdUploadOpen(true);
+    return;
+  }
+
+  // Otherwise directly open ID generator
+  const studentData = prepareIdData(enrollment);
+  setSelectedStudentForId(studentData);
+  setIdGeneratorOpen(true);
+};
 
   const closeIdGenerator = () => {
     setIdGeneratorOpen(false);

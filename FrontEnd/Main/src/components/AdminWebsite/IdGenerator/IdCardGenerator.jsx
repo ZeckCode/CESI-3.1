@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect  } from "react";
 import { Download, X, Settings } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -27,6 +27,23 @@ export default function IdCardGenerator({
     parentPhone: studentData?.parent_phone || "",
   });
   const [isDownloading, setIsDownloading] = useState(false);
+  
+    useEffect(() => {
+    setCardSettings((prev) => ({
+      ...prev,
+      schoolName: schoolInfo?.name || "CESI School",
+      schoolMotto: schoolInfo?.motto || "Excellence in Education",
+      acYear: studentData?.academic_year || "2024-2025",
+      section: studentData?.section_name || "N/A",
+      logo_url: schoolInfo?.logo_url || "",
+      address: schoolInfo?.address || "",
+      phone: schoolInfo?.phone || "",
+      email: schoolInfo?.email || "",
+      copyright: schoolInfo?.copyright || "© 2025 CESI. All rights reserved.",
+      parentName: studentData?.parent_name || "",
+      parentPhone: studentData?.parent_phone || "",
+    }));
+  }, [studentData, schoolInfo]);
 
   if (!isOpen) return null;
 
@@ -44,6 +61,8 @@ export default function IdCardGenerator({
   const missingFields = Object.keys(requiredFields).filter(
     (key) => !requiredFields[key]
   );
+
+  
 
   const canDownload = missingFields.length === 0;
 
@@ -461,15 +480,24 @@ const IdCardPreview = React.forwardRef(
           boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
           position: "relative",
           overflow: "hidden",
-          background: cardSide === "front" ? `url(${CESI_background})` : "white",
-          backgroundSize: cardSide === "front" ? "cover" : "auto",
-          backgroundPosition: cardSide === "front" ? "center" : "auto",
-          backgroundRepeat: cardSide === "front" ? "no-repeat" : "auto",
+          background: "white",
         }}
       >
         {cardSide === "front" ? (
           <>
             {/* FRONT SIDE - Professional ID Card Design */}
+              <img
+                src={CESI_background}
+                alt="ID Background"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  zIndex: 0,
+                }}
+              />
             {/* Header Section - Blue Gradient */}
             <div
               style={{
