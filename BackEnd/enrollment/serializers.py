@@ -322,6 +322,30 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
                         }
                     })
 
+        section_obj = merged_value("section")
+        effective_status = str(merged_value("status") or "").upper()
+        if section_obj is not None and effective_status == "ACTIVE":
+            room_capacity = None
+            if getattr(section_obj, "room", None) is not None:
+                room_capacity = getattr(section_obj.room, "capacity", None)
+
+            capacity = room_capacity or getattr(section_obj, "capacity", None) or 40
+
+            active_assigned = Enrollment.objects.filter(section=section_obj, status="ACTIVE")
+            if self.instance is not None:
+                active_assigned = active_assigned.exclude(pk=self.instance.pk)
+
+            active_count = active_assigned.count()
+            if active_count >= int(capacity):
+                raise serializers.ValidationError(
+                    {
+                        "section": (
+                            f"Section {section_obj.name} is full ({active_count}/{int(capacity)}). "
+                            f"Please open a new room/section for {section_obj.get_grade_level_display()}."
+                        )
+                    }
+                )
+
         return attrs
 
     def create(self, validated_data):
