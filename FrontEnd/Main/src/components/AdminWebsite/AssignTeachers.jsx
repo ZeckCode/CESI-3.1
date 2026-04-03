@@ -32,18 +32,30 @@ const AssignTeachers = () => {
         <div className="admin-stat-card">
           <h3>Total Teachers</h3>
           <p className="admin-stat-number">{availableTeachers.length}</p>
+          <p className="admin-stat-insight">
+            {availableTeachers.length < 5 ? 'Understaffed - Consider hiring' : availableTeachers.length < 15 ? 'Adequate staffing' : availableTeachers.length < 30 ? 'Well-staffed' : 'Excellent coverage'}
+          </p>
         </div>
         <div className="admin-stat-card">
           <h3>Classes Assigned</h3>
           <p className="admin-stat-number">{classes.length}</p>
+          <p className="admin-stat-insight">
+            {classes.length === 0 ? 'No classes yet' : classes.length < 5 ? 'Few classes offered' : classes.length < 15 ? 'Good variety' : 'Comprehensive program'}
+          </p>
         </div>
         <div className="admin-stat-card">
           <h3>Total Students</h3>
           <p className="admin-stat-number">{classes.reduce((sum, c) => sum + c.enrolled, 0)}</p>
+          <p className="admin-stat-insight">
+            {classes.reduce((sum, c) => sum + c.enrolled, 0) === 0 ? 'No enrollments yet' : classes.reduce((sum, c) => sum + c.enrolled, 0) < 30 ? 'Small class' : classes.reduce((sum, c) => sum + c.enrolled, 0) < 100 ? 'Healthy enrollment' : 'Strong student body'}
+          </p>
         </div>
         <div className="admin-stat-card">
           <h3>Avg. Students/Teacher</h3>
           <p className="admin-stat-number">{Math.round(classes.reduce((sum, c) => sum + c.enrolled, 0) / availableTeachers.length)}</p>
+          <p className="admin-stat-insight">
+            {availableTeachers.length === 0 ? 'No teachers' : Math.round(classes.reduce((sum, c) => sum + c.enrolled, 0) / availableTeachers.length) < 20 ? 'Good ratio - Low class sizes' : Math.round(classes.reduce((sum, c) => sum + c.enrolled, 0) / availableTeachers.length) < 40 ? 'Balanced workload' : 'High - Consider more teachers'}
+          </p>
         </div>
       </div>
 

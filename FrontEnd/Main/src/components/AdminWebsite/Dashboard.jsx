@@ -709,7 +709,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         body: `${highPerformers} student${highPerformers === 1 ? "" : "s"} are in the high-performance band and ${atRiskStudents} student${
           atRiskStudents === 1 ? "" : "s"
         } are flagged below 70 in ${
-          selectedGradeLevel === "All" ? "the full cohort" : selectedGradeLevel
+          selectedGradeLevel === "All" ? "all students" : selectedGradeLevel
         }. Financial risk exposure is ${
           receivableRiskPct === null ? "not yet available" : `${receivableRiskPct}%`
         } of all payment records.`,
@@ -750,7 +750,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
             <span className="dash-stat-value">{stats.totalStudents}</span>
             <span className="dash-stat-label">Total of Enrolled Students</span>
             <span className="dash-stat-insight">
-              {stats.totalStudents === 0 ? 'Empty - No enrollments yet' : stats.totalStudents < 30 ? 'Low - Small student group' : stats.totalStudents < 100 ? 'Good - Healthy enrollment' : 'Strong - Large student body'}
+              {stats.totalStudents === 0 ? 'No enrollments yet' : stats.totalStudents < 30 ? 'Growing enrollment' : stats.totalStudents < 100 ? 'Strong enrollment trend' : 'Excellent - Large class'}
             </span>
           </div>
         </div>
@@ -765,7 +765,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
             </span>
             <span className="dash-stat-label">Total Collected</span>
             <span className="dash-stat-insight">
-              {stats.totalRevenue === 0 ? 'None - No payments yet' : stats.totalRevenue < 50000 ? 'Low - Limited revenue' : stats.totalRevenue < 500000 ? 'Good - Regular collection' : 'Strong - Excellent revenue'}
+              {stats.totalRevenue === 0 ? 'No payments collected' : stats.totalRevenue < 50000 ? 'Building revenue stream' : stats.totalRevenue < 500000 ? 'Good revenue collection' : 'Excellent revenue! ✓'}
             </span>
           </div>
         </div>
@@ -778,7 +778,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
             <span className="dash-stat-value">{stats.overduePayments}</span>
             <span className="dash-stat-label">Overdue Payments</span>
             <span className="dash-stat-insight">
-              {stats.overduePayments === 0 ? 'Clear - All payments current' : stats.overduePayments < 5 ? 'Minor - Few overdue' : stats.overduePayments < 15 ? 'Alert - Review needed' : 'Urgent - Many overdue'}
+              {stats.overduePayments === 0 ? 'All payments current ✓' : stats.overduePayments < 5 ? 'Few overdue - Monitor' : stats.overduePayments < 15 ? 'Review needed!' : 'Critical - Act now!'}
             </span>
           </div>
         </div>
@@ -791,7 +791,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
             <span className="dash-stat-value">{stats.pendingEnrollments}</span>
             <span className="dash-stat-label">Pending Applications</span>
             <span className="dash-stat-insight">
-              {stats.pendingEnrollments === 0 ? 'Clear - All processed' : stats.pendingEnrollments < 5 ? 'Few - Light workload' : stats.pendingEnrollments < 20 ? 'Alert - Review needed' : 'Busy - High volume'}
+              {stats.pendingEnrollments === 0 ? 'All processed ✓' : stats.pendingEnrollments < 5 ? 'Light workflow' : stats.pendingEnrollments < 20 ? 'Review needed!' : 'High volume - Process now!'}
             </span>
           </div>
         </div>
