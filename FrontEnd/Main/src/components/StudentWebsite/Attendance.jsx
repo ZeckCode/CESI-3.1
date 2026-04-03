@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { 
   Calendar, CheckCircle, XCircle, Clock, AlertCircle, 
-  ChevronLeft, ChevronRight, X, List, LayoutGrid 
+  ChevronLeft, ChevronRight, X, List, LayoutGrid, Info
 } from 'lucide-react';
 import "../StudentWebsiteCSS/Attendance.css";
 import { apiFetch } from "../api/apiFetch";
@@ -30,6 +30,7 @@ const normalizeAttendanceStats = (payload = {}) => ({
 const Attendance = () => {
   const [view, setView] = useState("calendar");
   const [loading, setLoading] = useState(true);
+  const [activeTooltip, setActiveTooltip] = useState(null);
   const [stats, setStats] = useState({
     school_year: "",
     total_classes: 0,
@@ -365,17 +366,59 @@ const Attendance = () => {
           </div>
           <div className="sa-insights-grid">
             <article className="sa-insight-card">
-              <p className="sa-insight-label">{attendanceInsights.profile.label}</p>
+              <div className="sa-insight-header">
+                <p className="sa-insight-label">{attendanceInsights.profile.label}</p>
+                <button 
+                  className="sa-info-btn"
+                  onClick={() => setActiveTooltip(activeTooltip === 'profile' ? null : 'profile')}
+                  title="Learn more about Attendance Profile"
+                >
+                  <Info size={16} />
+                </button>
+              </div>
+              {activeTooltip === 'profile' && (
+                <div className="sa-tooltip">
+                  <p>Your overall attendance percentage for this school year. More than 90% is considered excellent attendance.</p>
+                </div>
+              )}
               <p className="sa-insight-value">{attendanceInsights.profile.value}</p>
               <p className="sa-insight-note">{attendanceInsights.profile.note}</p>
             </article>
             <article className="sa-insight-card">
-              <p className="sa-insight-label">{attendanceInsights.punctuality.label}</p>
+              <div className="sa-insight-header">
+                <p className="sa-insight-label">{attendanceInsights.punctuality.label}</p>
+                <button 
+                  className="sa-info-btn"
+                  onClick={() => setActiveTooltip(activeTooltip === 'punctuality' ? null : 'punctuality')}
+                  title="Learn more about On-Time Rate"
+                >
+                  <Info size={16} />
+                </button>
+              </div>
+              {activeTooltip === 'punctuality' && (
+                <div className="sa-tooltip">
+                  <p>The percentage of your attended classes where you arrived on time. Higher rates show good punctuality habits.</p>
+                </div>
+              )}
               <p className="sa-insight-value">{attendanceInsights.punctuality.value}</p>
               <p className="sa-insight-note">{attendanceInsights.punctuality.note}</p>
             </article>
             <article className="sa-insight-card">
-              <p className="sa-insight-label">{attendanceInsights.momentum.label}</p>
+              <div className="sa-insight-header">
+                <p className="sa-insight-label">{attendanceInsights.momentum.label}</p>
+                <button 
+                  className="sa-info-btn"
+                  onClick={() => setActiveTooltip(activeTooltip === 'momentum' ? null : 'momentum')}
+                  title="Learn more about Clean Attendance Days"
+                >
+                  <Info size={16} />
+                </button>
+              </div>
+              {activeTooltip === 'momentum' && (
+                <div className="sa-tooltip">
+                  <p>Days where you attended all classes on time with no absences or late arrivals. These show your best attendance days.</p>
+                </div>
+              )}
               <p className="sa-insight-value">{attendanceInsights.momentum.value}</p>
               <p className="sa-insight-note">{attendanceInsights.momentum.note}</p>
             </article>
