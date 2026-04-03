@@ -1,6 +1,7 @@
 from decimal import Decimal
 from datetime import date
 import logging
+from urllib import request
 
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode
@@ -31,7 +32,7 @@ from .serializers import (
     EnrollmentCreateSerializer,
     OldStudentLookupSerializer,
 )
-from finance.models import Transaction, TuitionConfig
+from finance.models import Transaction, TuitionConfig, ProofOfPayment
 
 
 logger = logging.getLogger(__name__)
@@ -704,41 +705,108 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         semester = self._semester_from_date(today)
 
         if payment_mode == "cash":
+            cash = Decimal(str(tuition.cash or 0))
+            reservation_fee = Decimal(str(tuition.reservation_fee or 0))
+            assessment = Decimal(str(tuition.assessment or 0))
+            misc_aug = Decimal(str(tuition.misc_aug or 0))
+            misc_nov = Decimal(str(tuition.misc_nov or 0))
             total_cash = Decimal(str(tuition.total_cash or 0))
 
-            self._create_transaction(
-                enrollment=enrollment,
-                parent_user=enrollment.parent_user,
-                student_name=student_name,
-                school_year=school_year,
-                semester=semester,
-                transaction_type="TUITION",
-                entry_type="DEBIT",
-                item="REGISTRATION",
-                amount=total_cash,
-                description="Cash Tuition Billing",
-                payment_method="CASH",
-                transaction_date=today,
-                due_date=None,
-                status_value="POSTED",
-            )
+            tuition_only = total_cash - reservation_fee - assessment - misc_aug - misc_nov
+            if tuition_only < 0:
+                tuition_only = cash if cash > 0 else Decimal("0.00")
 
-            self._create_transaction(
-                enrollment=enrollment,
-                parent_user=enrollment.parent_user,
-                student_name=student_name,
-                school_year=school_year,
-                semester=semester,
-                transaction_type="TUITION",
-                entry_type="CREDIT",
-                item="PAYMENT",
-                amount=total_cash,
-                description="Cash Tuition Payment",
-                payment_method="CASH",
-                transaction_date=today,
-                due_date=None,
-                status_value="PAID",
-            )
+            if reservation_fee > 0:
+                self._create_transaction(
+                    enrollment=enrollment,
+                    parent_user=enrollment.parent_user,
+                    student_name=student_name,
+                    school_year=school_year,
+                    semester=semester,
+                    transaction_type="TUITION",
+                    entry_type="DEBIT",
+                    item="RESERVATION",
+                    amount=reservation_fee,
+                    description="Reservation Fee Billing",
+                    payment_method="CASH",
+                    transaction_date=today,
+                    due_date=None,
+                    status_value="POSTED",
+                )
+
+            if assessment > 0:
+                self._create_transaction(
+                    enrollment=enrollment,
+                    parent_user=enrollment.parent_user,
+                    student_name=student_name,
+                    school_year=school_year,
+                    semester=semester,
+                    transaction_type="TUITION",
+                    entry_type="DEBIT",
+                    item="ASSESSMENT",
+                    amount=assessment,
+                    description="Assessment Fee Billing",
+                    payment_method="CASH",
+                    transaction_date=today,
+                    due_date=None,
+                    status_value="POSTED",
+                )
+
+            if tuition_only > 0:
+                self._create_transaction(
+                    enrollment=enrollment,
+                    parent_user=enrollment.parent_user,
+                    student_name=student_name,
+                    school_year=school_year,
+                    semester=semester,
+                    transaction_type="TUITION",
+                    entry_type="DEBIT",
+                    item="REGISTRATION",
+                    amount=tuition_only,
+                    description="Cash Tuition Billing",
+                    payment_method="CASH",
+                    transaction_date=today,
+                    due_date=None,
+                    status_value="POSTED",
+                )
+
+            if misc_aug > 0:
+                aug_due = date(2026, 8, 31)
+                self._create_transaction(
+                    enrollment=enrollment,
+                    parent_user=enrollment.parent_user,
+                    student_name=student_name,
+                    school_year=school_year,
+                    semester=self._semester_from_date(aug_due),
+                    transaction_type="TUITION",
+                    entry_type="DEBIT",
+                    item="MISC",
+                    amount=misc_aug,
+                    description="Miscellaneous (August)",
+                    payment_method="CASH",
+                    transaction_date=aug_due,
+                    due_date=aug_due,
+                    status_value="POSTED",
+                )
+
+            if misc_nov > 0:
+                nov_due = date(2026, 11, 30)
+                self._create_transaction(
+                    enrollment=enrollment,
+                    parent_user=enrollment.parent_user,
+                    student_name=student_name,
+                    school_year=school_year,
+                    semester=self._semester_from_date(nov_due),
+                    transaction_type="TUITION",
+                    entry_type="DEBIT",
+                    item="MISC",
+                    amount=misc_nov,
+                    description="Miscellaneous (November)",
+                    payment_method="CASH",
+                    transaction_date=nov_due,
+                    due_date=nov_due,
+                    status_value="POSTED",
+                )
 
         elif payment_mode == "installment":
             schedule = self._build_installment_schedule(tuition)
@@ -763,25 +831,25 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     status_value=debit_status,
                 )
 
-            initial = Decimal(str(tuition.initial or 0))
-            if initial > 0:
-                initial_due = date(2026, 5, 31)
-                self._create_transaction(
-                    enrollment=enrollment,
-                    parent_user=enrollment.parent_user,
-                    student_name=student_name,
-                    school_year=school_year,
-                    semester=self._semester_from_date(initial_due),
-                    transaction_type="TUITION",
-                    entry_type="CREDIT",
-                    item="INITIAL",
-                    amount=initial,
-                    description="Initial Tuition Payment",
-                    payment_method="CASH",
-                    transaction_date=today,
-                    due_date=initial_due,
-                    status_value="PAID",
-                )
+            # initial = Decimal(str(tuition.initial or 0))
+            # if initial > 0:
+            #     initial_due = date(2026, 5, 31)
+            #     self._create_transaction(
+            #         enrollment=enrollment,
+            #         parent_user=enrollment.parent_user,
+            #         student_name=student_name,
+            #         school_year=school_year,
+            #         semester=self._semester_from_date(initial_due),
+            #         transaction_type="TUITION",
+            #         entry_type="CREDIT",
+            #         item="INITIAL",
+            #         amount=initial,
+            #         description="Initial Tuition Payment",
+            #         payment_method="CASH",
+            #         transaction_date=today,
+            #         due_date=initial_due,
+            #         status_value="PAID",
+            #     )
 
         self._recompute_parent_ledger_balances(enrollment.parent_user)
 
@@ -1296,6 +1364,24 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     def mark_active(self, request, pk=None):
         enrollment = self.get_object()
 
+        amount_raw = request.data.get("amount")
+        approval_remarks = (request.data.get("remarks") or "").strip()
+        payment_method = (request.data.get("payment_method") or "CASH").strip().upper()
+
+        try:
+            approved_amount = Decimal(str(amount_raw or "0"))
+        except Exception:
+            return Response(
+                {"detail": "Invalid payment amount."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if approved_amount <= 0:
+            return Response(
+                {"detail": "Approved payment amount must be greater than 0."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
         if (enrollment.student_type or "").strip().lower() == "old" and enrollment.parent_user:
             balance_block = self._ensure_old_student_has_no_balance(enrollment.parent_user)
             if balance_block:
@@ -1368,6 +1454,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         email_error = None
 
         with transaction.atomic():
+            
             if enrollment.section_id is None:
                 section_level = self._grade_code_to_section_level(grade_code)
                 if section_level is not None:
@@ -1407,6 +1494,18 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
             enrollment.save(update_fields=update_fields)
 
+            proof = ProofOfPayment.objects.filter(enrollment=enrollment).order_by("-created_at").first()
+            proof_reference = proof.reference_number if proof else ""
+            if proof:
+                proof.status = "approved"
+                proof.admin_remarks = (
+                    approval_remarks or "Approved during enrollment approval."
+                )
+                proof.save(update_fields=["status", "admin_remarks", "updated_at"])      
+            payment_description = approval_remarks or "Admin-approved enrollment payment"
+            if proof_reference:
+                payment_description = f"{payment_description} | Proof Ref: {proof_reference}"      
+
             if recipient_email:
                 existing_user = User.objects.filter(email__iexact=recipient_email).first()
                 had_existing_user = existing_user is not None
@@ -1436,6 +1535,29 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
             if enrollment.parent_user:
                 self._create_finance_ledger_for_enrollment(enrollment)
+
+                student_name = self._student_full_name(enrollment)
+                today = timezone.localdate()
+                semester = self._semester_from_date(today)
+
+                self._create_transaction(
+                    enrollment=enrollment,
+                    parent_user=enrollment.parent_user,
+                    student_name=student_name,
+                    school_year=enrollment.academic_year,
+                    semester=semester,
+                    transaction_type="TUITION",
+                    entry_type="CREDIT",
+                    item="PAYMENT",
+                    amount=approved_amount,
+                    description=payment_description,
+                    payment_method=payment_method,
+                    transaction_date=today,
+                    due_date=None,
+                    status_value="PAID",
+                )
+
+                self._recompute_parent_ledger_balances(enrollment.parent_user)
 
         serializer = self.get_serializer(enrollment)
         data = serializer.data

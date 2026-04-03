@@ -146,7 +146,7 @@ const StepStudent = ({
         </div>
 
         <div className="form-group">
-          <label>  <span className="required">*</span></label>
+          <label> Religion <span className="required">*</span></label>
           <select
             ref={registerFieldRef("religion")}
             value={form.religion}

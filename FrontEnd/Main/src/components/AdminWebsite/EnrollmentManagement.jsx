@@ -132,6 +132,14 @@ export default function EnrollmentManagement() {
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState(null);
 
+
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [approveTargetRow, setApproveTargetRow] = useState(null);
+  const [approveAmount, setApproveAmount] = useState("");
+  const [approveRemarks, setApproveRemarks] = useState("");
+  const [approveSubmitting, setApproveSubmitting] = useState(false);
+  const [approvePaymentMethod, setApprovePaymentMethod] = useState("CASH");
+
   // ID Generator States
   const [idGeneratorOpen, setIdGeneratorOpen] = useState(false);
   const [selectedStudentForId, setSelectedStudentForId] = useState(null);
@@ -158,20 +166,20 @@ export default function EnrollmentManagement() {
 
   const window_ = useMemo(() => computeEnrollmentWindow(settings), [settings]);
 
-  const fetchEnrollments = async () => {
-    setLoading(true);
-    try {
-      const res = await apiFetch("/api/enrollments/");
-      const data = await res.json().catch(() => []);
-      if (!res.ok) throw new Error();
-      setEnrollments(Array.isArray(data) ? data : []);
-    } catch {
-      addToast("Load Failed", "Failed to load enrollments.", "error");
-      setEnrollments([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchEnrollments = useCallback(async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch("/api/enrollments/");
+        const data = await res.json().catch(() => []);
+        if (!res.ok) throw new Error();
+        setEnrollments(Array.isArray(data) ? data : []);
+      } catch {
+        addToast("Load Failed", "Failed to load enrollments.", "error");
+        setEnrollments([]);
+      } finally {
+        setLoading(false);
+      }
+    }, [addToast]);
 
   const fetchSettings = useCallback(async () => {
     setSettingsLoading(true);
@@ -229,7 +237,8 @@ export default function EnrollmentManagement() {
     fetchSettings();
     fetchSections();
     fetchProofs();
-  }, [fetchSettings, fetchSections, fetchProofs]);
+
+  }, [fetchSettings, fetchSections, fetchProofs, fetchEnrollments]);
 
   const callAction = async (id, actionName, payload = null) => {
     const res = await apiFetch(`/api/enrollments/${id}/${actionName}/`, {
@@ -837,58 +846,62 @@ export default function EnrollmentManagement() {
     return true;
   };
 
-const handleApprove = async (id) => {
-  const row = normalized.find((r) => r.id === id);
-  if (!row) return;
+ const handleApproveConfirm = async () => {
+  if (!approveTargetRow) return;
+
+  const row = approveTargetRow;
   if (!validateBeforeApprove(row)) return;
-
-  try {
-    const body = row.raw?.section ? { section: row.raw.section } : {};
-
-    const res = await apiFetch(`/api/enrollments/${id}/mark_active/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    let data = {};
-    let text = "";
-
-    try {
-      data = await res.json();
-    } catch {
-      text = await res.text().catch(() => "");
-    }
-
-    if (!res.ok) {
-      throw new Error(
-        (data && data.detail) ||
-          (data && data.error) ||
-          text ||
-          JSON.stringify(data) ||
-          "Approval failed"
-      );
-    }
-
-    await fetchEnrollments();
-    
-    // Auto-approve the payment proof if it exists
-    await autoApprovePaymentProof(id);
-    
+  
+  const amountNum = Number(approveAmount);
+  if (!approveAmount || Number.isNaN(amountNum) || amountNum <= 0) {
     addToast(
-      "Approved",
-      "Enrollment approved successfully. Payment proof has been auto-approved.",
-      "success"
-    );
-  } catch (err) {
-    addToast(
-      "Approval Failed",
-      err.message || "Could not approve enrollment.",
+      "Invalid Amount",
+      "Please enter a valid payment amount before approving.",
       "error"
     );
+    return;
   }
-};
 
+ setApproveSubmitting(true);
+    try {
+      const body = {
+        ...(row.raw?.section ? { section: row.raw.section } : {}),
+        amount: amountNum,
+        remarks: approveRemarks,
+        payment_method: approvePaymentMethod,
+      };
+
+      const res = await apiFetch(`/api/enrollments/${row.id}/mark_active/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || data.error || "Approval failed");
+      }
+
+      await fetchEnrollments();
+      await fetchProofs();
+
+      addToast(
+        "Approved",
+        "Enrollment approved and payment posted successfully.",
+        "success"
+      );
+
+      closeApproveDialog();
+    } catch (err) {
+      addToast(
+        "Approval Failed",
+        err.message || "Could not approve enrollment.",
+        "error"
+      );
+    } finally {
+      setApproveSubmitting(false);
+    }
+    };
   const getDeclineTargetName = useCallback(() => {
     if (!declineTargetId) return "this enrollment";
 
@@ -967,6 +980,24 @@ const handleApprove = async (id) => {
 
   const handleDecline = (id) => {
     openDeclineDialog(id);
+  };
+    const openApproveDialog = (row) => {
+      
+    const proof = row.paymentProof || null;
+
+    setApproveTargetRow(row);
+    setApproveRemarks("");
+
+    // optional default amount from proof if later available
+    setApproveAmount("");
+    setApproveDialogOpen(true);
+  };
+
+  const closeApproveDialog = () => {
+    setApproveDialogOpen(false);
+    setApproveTargetRow(null);
+    setApproveAmount("");
+    setApproveRemarks("");
   };
 
   const autoApprovePaymentProof = async (enrollmentId) => {
@@ -1085,11 +1116,12 @@ const handleApprove = async (id) => {
     setSelectedIds(newSet);
   };
 
-  const handleApproveModal = async () => {
-    if (!editingId) return;
-    await handleApprove(editingId);
-    closeModal();
-  };
+const handleApproveModal = async () => {
+  if (!editingId) return;
+  const row = normalized.find((r) => r.id === editingId);
+  if (!row) return;
+  openApproveDialog(row);
+};
 
   const handleDeclineModal = () => {
     if (!editingId) return;
@@ -2053,9 +2085,9 @@ const handleApprove = async (id) => {
                   <td>
                     {row.statusCode === "PENDING" ? (
                       <div className="approve-decline-group">
-                        <button className="btn-approve" onClick={() => handleApprove(row.id)}>
-                          <CheckCircle size={12} /> Approve
-                        </button>
+                        <button className="btn-approve" onClick={() => openApproveDialog(row)}>
+                        <CheckCircle size={12} /> Approve
+                      </button>
                         <button className="btn-decline" onClick={() => handleDecline(row.id)}>
                           <XCircle size={12} /> Decline
                         </button>
@@ -2404,6 +2436,238 @@ const handleApprove = async (id) => {
         studentData={selectedStudentForId || {}}
         schoolInfo={schoolInfo}
       />
+
+       {approveDialogOpen && approveTargetRow && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1100,
+            padding: 16,
+          }}
+          onClick={closeApproveDialog}
+        >
+          <div
+            style={{
+              background: "#fff",
+              width: "100%",
+              maxWidth: 760,
+              maxHeight: "90vh",
+              overflow: "auto",
+              borderRadius: 12,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+              padding: 24,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 18,
+                borderBottom: "1px solid #e2e8f0",
+                paddingBottom: 12,
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+                Approve Enrollment
+              </h3>
+              <button
+                onClick={closeApproveDialog}
+                style={{
+                  border: "none",
+                  background: "none",
+                  fontSize: 22,
+                  cursor: "pointer",
+                  color: "#64748b",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 16,
+                marginBottom: 20,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+                  Student
+                </div>
+                <div style={{ fontWeight: 600 }}>{approveTargetRow.studentName}</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+                  Enrollment ID
+                </div>
+                <div style={{ fontWeight: 600 }}>#{approveTargetRow.id}</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+                  Grade Level
+                </div>
+                <div style={{ fontWeight: 600 }}>{approveTargetRow.gradeLevel}</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+                  Academic Year
+                </div>
+                <div style={{ fontWeight: 600 }}>{approveTargetRow.academicYear || "—"}</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+                  Payment Mode
+                </div>
+                <div style={{ fontWeight: 600 }}>{approveTargetRow.paymentMode || "—"}</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+                  Payment Method
+                </div>
+                <div style={{ fontWeight: 600 }}>{approveTargetRow.paymentMethod || "—"}</div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>
+                Proof of Payment
+              </div>
+
+              {approveTargetRow.paymentProof?.proof_image_url ? (
+                <img
+                  src={approveTargetRow.paymentProof.proof_image_url}
+                  alt="Proof of payment"
+                  style={{
+                    width: "100%",
+                    maxHeight: 320,
+                    objectFit: "contain",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 8,
+                    background: "#f8fafc",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    padding: 24,
+                    border: "1px dashed #cbd5e1",
+                    borderRadius: 8,
+                    color: "#94a3b8",
+                    textAlign: "center",
+                  }}
+                >
+                  No payment proof image found.
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                Payment Amount
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={approveAmount}
+                onChange={(e) => setApproveAmount(e.target.value)}
+                placeholder="Enter approved payment amount"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  fontSize: 14,
+                }}
+              />
+            </div>
+              <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                Payment Method
+              </label>
+              <select
+                value={approvePaymentMethod}
+                onChange={(e) => setApprovePaymentMethod(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  fontSize: 14,
+                }}
+              >
+                <option value="CASH">Cash</option>
+                <option value="GCASH">GCash</option>
+                <option value="BANK_TRANSFER">Bank Transfer</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: 22 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                Admin Remarks
+              </label>
+              <textarea
+                rows={3}
+                value={approveRemarks}
+                onChange={(e) => setApproveRemarks(e.target.value)}
+                placeholder="Optional remarks..."
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  fontSize: 14,
+                  resize: "vertical",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button
+                onClick={closeApproveDialog}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApproveConfirm}
+                disabled={approveSubmitting}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#16a34a",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                {approveSubmitting ? "Approving..." : "Approve Enrollment"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <PreviewModal
         isOpen={enrollmentPreviewOpen}
