@@ -514,19 +514,7 @@ export default function CMSModule() {
 
   return (
     <div className="cms-container">
-      <div className="cms-header">
-        <div>
-          <h2>CMS Module (CESI Website Control)</h2>
-          {editingPostId && activeMainTab === "announcements" && (
-            <p style={{ margin: "8px 0 0 0", fontSize: "14px", color: "#3b82f6", fontWeight: "600" }}>
-              ✏️ Editing post #{editingPostId}
-            </p>
-          )}
-        </div>
-        <button className="cms-refresh" onClick={load} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </button>
-      </div>
+      
 
       <div className="cms-main-tabs" style={{ display: "flex", gap: "10px", marginBottom: "20px", borderBottom: "2px solid #e2e8f0", paddingBottom: "10px" }}>
         <button 
@@ -545,6 +533,10 @@ export default function CMSModule() {
           onClick={() => setActiveMainTab("contact")}
           style={{ padding: "8px 16px", borderRadius: "8px", border: "none", cursor: "pointer", background: activeMainTab === "contact" ? "#3b82f6" : "#f1f5f9", color: activeMainTab === "contact" ? "white" : "black", fontWeight: "600" }}
         >Contact & Inquiry</button>
+
+          <button className="cms-refresh" onClick={load} disabled={loading}>
+          {loading ? "Refreshing..." : "Refresh"}
+        </button>
       </div>
 
       {activeMainTab === "announcements" && (
