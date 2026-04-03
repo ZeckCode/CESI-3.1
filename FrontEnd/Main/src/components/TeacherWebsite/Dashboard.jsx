@@ -247,43 +247,6 @@ const Dashboard = () => {
     [schedule]
   );
 
-  // Performance Metrics Calculation
-  const performanceMetrics = useMemo(() => {
-    // Collect all student grades across sections
-    const allGrades = sections.flatMap(section => {
-      const sectionGrades = section?.grades || section?.students || [];
-      return Array.isArray(sectionGrades) 
-        ? sectionGrades.map(item => {
-            const grade = item?.final_grade || item?.grade;
-            return parseFloat(grade) || 0;
-          })
-        : [];
-    });
-
-    if (allGrades.length === 0) {
-      return {
-        totalStudents: 0,
-        averageGrade: 0,
-        atRiskCount: 0,
-        successCount: 0,
-        successRate: 0
-      };
-    }
-
-    const averageGrade = (allGrades.reduce((a, b) => a + b, 0) / allGrades.length);
-    const atRiskCount = allGrades.filter(g => g < 70).length;
-    const successCount = allGrades.filter(g => g >= 70).length;
-    const successRate = (successCount / allGrades.length) * 100;
-
-    return {
-      totalStudents: allGrades.length,
-      averageGrade,
-      atRiskCount,
-      successCount,
-      successRate
-    };
-  }, [sections]);
-
   const todayScheduleSorted = useMemo(() => {
     const toMinutes = (rawTime) => {
       if (!rawTime) return Number.MAX_SAFE_INTEGER;
@@ -395,60 +358,8 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <section className="tdbInsight">
-        <div className="tdbInsight__head">
-          <h2 className="tdbInsight__title">Dashboard Interpretations</h2>
-          <p className="tdbInsight__sub">
-            Planning cues for {teacherName} based on live class and section data.
-          </p>
-        </div>
-
-        <div className="tdbInsight__grid">
-          {teacherInsights.map((insight) => (
-            <article key={insight.title} className="tdbInsight__card">
-              <h3 className="tdbInsight__cardTitle">{insight.title}</h3>
-              <p className="tdbInsight__cardText">{insight.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
       {/* Main Grid */}
       <div className="tdb__grid">
-        {/* Performance Metrics */}
-        <section className="tdbCard">
-          <div className="tdbCard__header tdbCard__header--success">
-            <h2 className="tdbCard__title">📊 Performance Metrics</h2>
-          </div>
-          <div className="tdbCard__body" style={{ padding: "1.5rem" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "1rem" }}>
-              <div style={{ textAlign: "center", padding: "1rem", borderRadius: "0.75rem", backgroundColor: "var(--primary-light)", border: "1px solid var(--primary)" }}>
-                <div style={{ fontSize: "0.65rem", fontWeight: "800", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "0.5rem", letterSpacing: "0.5px" }}>Class Average</div>
-                <div style={{ fontSize: "1.75rem", fontWeight: "900", color: "var(--text-primary)" }}>{loading ? "—" : performanceMetrics.averageGrade.toFixed(1)}</div>
-                <div style={{ fontSize: "0.7rem", fontWeight: "500", marginTop: "0.5rem", color: getTeacherMetricColor(generateTeacherMetricsInsight('classPerformance', performanceMetrics.averageGrade)), lineHeight: "1.3" }}>
-                  {loading ? "—" : generateTeacherMetricsInsight('classPerformance', performanceMetrics.averageGrade)}
-                </div>
-              </div>
-
-              <div style={{ textAlign: "center", padding: "1rem", borderRadius: "0.75rem", backgroundColor: "var(--success-light)", border: "1px solid var(--success)" }}>
-                <div style={{ fontSize: "0.65rem", fontWeight: "800", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "0.5rem", letterSpacing: "0.5px" }}>Success Rate</div>
-                <div style={{ fontSize: "1.75rem", fontWeight: "900", color: "var(--text-primary)" }}>{loading ? "—" : performanceMetrics.successRate.toFixed(0)}%</div>
-                <div style={{ fontSize: "0.7rem", fontWeight: "500", marginTop: "0.5rem", color: getTeacherMetricColor(generateTeacherMetricsInsight('successRate', performanceMetrics.successRate)), lineHeight: "1.3" }}>
-                  {loading ? "—" : generateTeacherMetricsInsight('successRate', performanceMetrics.successRate)}
-                </div>
-              </div>
-
-              <div style={{ textAlign: "center", padding: "1rem", borderRadius: "0.75rem", backgroundColor: "var(--warning-light)", border: "1px solid var(--warning)" }}>
-                <div style={{ fontSize: "0.65rem", fontWeight: "800", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "0.5rem", letterSpacing: "0.5px" }}>At-Risk Students</div>
-                <div style={{ fontSize: "1.75rem", fontWeight: "900", color: "var(--text-primary)" }}>{loading ? "—" : performanceMetrics.atRiskCount}</div>
-                <div style={{ fontSize: "0.7rem", fontWeight: "500", marginTop: "0.5rem", color: getTeacherMetricColor(generateTeacherMetricsInsight('atRiskStudents', performanceMetrics.atRiskCount)), lineHeight: "1.3" }}>
-                  {loading ? "—" : generateTeacherMetricsInsight('atRiskStudents', performanceMetrics.atRiskCount)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Today's Schedule Card */}
         <section className="tdbCard">
           <div className="tdbCard__header tdbCard__header--primary">
