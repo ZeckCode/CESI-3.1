@@ -483,7 +483,7 @@ const IdCardPreview = React.forwardRef(
           // background: "white",
         }}
       >
-       {cardSide === "front" ? (
+     {cardSide === "front" ? (
           <>
             <img
               src={CESI_background}
@@ -498,23 +498,34 @@ const IdCardPreview = React.forwardRef(
               }}
             />
 
+            {/* Soft overlay for readability */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(255,255,255,0.08))",
+                zIndex: 1,
+              }}
+            />
+
             {/* Student Photo */}
             <div
               style={{
                 position: "absolute",
-                top: 152,
+                top: 146,
                 left: "50%",
                 transform: "translateX(-50%)",
-                width: 118,
-                height: 118,
+                width: 108,
+                height: 108,
                 borderRadius: "50%",
                 overflow: "hidden",
                 border: "4px solid #e5cf16",
                 background: "#fff",
-                zIndex: 2,
+                zIndex: 3,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                boxShadow: "0 6px 18px rgba(0,0,0,0.18)",
               }}
             >
               {studentData.id_image_url ? (
@@ -525,9 +536,6 @@ const IdCardPreview = React.forwardRef(
                     width: "100%",
                     height: "100%",
                     objectFit: "cover",
-                  }}
-                  onError={(e) => {
-                    e.target.style.display = "none";
                   }}
                 />
               ) : (
@@ -542,75 +550,141 @@ const IdCardPreview = React.forwardRef(
               )}
             </div>
 
-    {/* Student Name */}
-    <div
-      style={{
-        position: "absolute",
-        top: 322,
-        left: 35,
-        right: 35,
-        textAlign: "center",
-        fontSize: 14,
-        fontWeight: 700,
-        color: "#1d4ed8",
-        zIndex: 2,
-      }}
-    >
-      {studentName || "—"}
-    </div>
+            {/* Name plate */}
+            <div
+              style={{
+                position: "absolute",
+                top: 288,
+                left: 38,
+                right: 38,
+                padding: "6px 10px",
+                textAlign: "center",
+                background: "rgba(255,255,255,0.82)",
+                backdropFilter: "blur(4px)",
+                borderRadius: 999,
+                zIndex: 3,
+                boxShadow: "0 3px 10px rgba(0,0,0,0.08)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#1d4ed8",
+                  lineHeight: 1.15,
+                  wordBreak: "break-word",
+                }}
+              >
+                {studentName || "—"}
+              </div>
+            </div>
 
-    {/* Grade */}
-    <div
-      style={{
-        position: "absolute",
-        top: 362,
-        left: 78,
-        width: 88,
-        textAlign: "center",
-        fontSize: 11,
-        fontWeight: 700,
-        color: "#7c5a00",
-        zIndex: 2,
-      }}
-    >
-      {getGradeLevelDisplay(studentData.grade_level)}
-    </div>
+            {/* Grade / Section info strip */}
+            <div
+              style={{
+                position: "absolute",
+                top: 334,
+                left: 44,
+                right: 44,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 10,
+                zIndex: 3,
+              }}
+            >
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.84)",
+                  backdropFilter: "blur(4px)",
+                  borderRadius: 10,
+                  padding: "7px 8px",
+                  textAlign: "center",
+                  boxShadow: "0 3px 10px rgba(0,0,0,0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 8,
+                    fontWeight: 700,
+                    color: "#6b7280",
+                    letterSpacing: 0.5,
+                    marginBottom: 2,
+                  }}
+                >
+                  GRADE
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#7c5a00",
+                  }}
+                >
+                  {getGradeLevelDisplay(studentData.grade_level)}
+                </div>
+              </div>
 
-    {/* Section */}
-    <div
-      style={{
-        position: "absolute",
-        top: 362,
-        right: 74,
-        width: 88,
-        textAlign: "center",
-        fontSize: 11,
-        fontWeight: 700,
-        color: "#7c5a00",
-        zIndex: 2,
-      }}
-    >
-      {settings.section || "N/A"}
-    </div>
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.84)",
+                  backdropFilter: "blur(4px)",
+                  borderRadius: 10,
+                  padding: "7px 8px",
+                  textAlign: "center",
+                  boxShadow: "0 3px 10px rgba(0,0,0,0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 8,
+                    fontWeight: 700,
+                    color: "#6b7280",
+                    letterSpacing: 0.5,
+                    marginBottom: 2,
+                  }}
+                >
+                  SECTION
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#7c5a00",
+                  }}
+                >
+                  {settings.section || "N/A"}
+                </div>
+              </div>
+            </div>
 
-    {/* School Year */}
-    <div
-      style={{
-        position: "absolute",
-        bottom: 18,
-        left: 0,
-        right: 0,
-        textAlign: "center",
-        fontSize: 9,
-        fontWeight: 500,
-        color: "#111",
-        zIndex: 2,
-      }}
-    >
-      School Year {settings.acYear}
-    </div>
-  </>
-) : (
+            {/* School Year */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 18,
+                left: "50%",
+                transform: "translateX(-50%)",
+                minWidth: 150,
+                padding: "4px 12px",
+                textAlign: "center",
+                background: "rgba(255,255,255,0.72)",
+                borderRadius: 999,
+                zIndex: 3,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#111827",
+                }}
+              >
+                School Year {settings.acYear}
+              </span>
+            </div>
+          </>
+        ) : (
           <>
             {/* BACK SIDE - White with Blue Lines & Yellow Accent */}
             <div
