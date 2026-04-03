@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Save, Users, Calendar, CheckCircle, XCircle, Clock, BookOpen, History, Printer, Download } from "lucide-react";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
 import "../TeacherWebsiteCSS/AttendanceMonitoring.css";
 import { apiFetch } from "../api/apiFetch";
@@ -916,22 +917,81 @@ const AttendanceMonitoring = () => {
         }
       });
       
-      // Build Excel data
-      const excelData = students.map((student) => {
+      // Create workbook
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet(monthYear);
+      
+      // Define header style
+      const headerStyle = {
+        fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFA500" } },
+        font: { bold: true, color: { argb: "FF000000" } },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        border: {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" }
+        }
+      };
+      
+      // Data cell styles
+      const leftAlignStyle = {
+        alignment: { horizontal: "left", vertical: "center" },
+        border: {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" }
+        }
+      };
+      
+      const centerAlignStyle = {
+        alignment: { horizontal: "center", vertical: "center" },
+        border: {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" }
+        }
+      };
+      
+      const lightGrayStyle = {
+        ...centerAlignStyle,
+        fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E8E8" } }
+      };
+      
+      const lightGrayLeftStyle = {
+        ...leftAlignStyle,
+        fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E8E8" } }
+      };
+      
+      // Add header row
+      const headers = ["STUDENT NAME"];
+      daysArray.forEach((day) => {
+        const dayOfWeek = new Date(year, month, day).getDay();
+        const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const dayName = dayNames[dayOfWeek].slice(0, 3);
+        headers.push(`${dayName} ${day}`);
+      });
+      headers.push("TOTAL ABSENT", "TOTAL LATE", "TOTAL PRESENT");
+      
+      const headerRow = worksheet.addRow(headers);
+      headerRow.height = 25;
+      headerRow.eachCell((cell) => {
+        cell.style = headerStyle;
+      });
+      
+      // Add data rows
+      students.forEach((student, studentIdx) => {
         const studentKey = getStudentKey(student);
-        const row = {
-          "STUDENT NAME": student.name || "N/A",
-        };
+        const rowData = [student.name || "N/A"];
         
-        // Add day columns
+        // Add attendance for each day
         daysArray.forEach((day) => {
-          const dayOfWeek = new Date(year, month, day).getDay();
-          const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-          const dayName = dayNames[dayOfWeek].slice(0, 3);
-          row[`${dayName} ${day}`] = attendanceByDay[studentKey]?.[day] || "";
+          rowData.push(attendanceByDay[studentKey]?.[day] || "");
         });
         
-        // Add totals
+        // Calculate totals
         let totalAbsent = 0;
         let totalLate = 0;
         let totalPresent = 0;
@@ -942,18 +1002,44 @@ const AttendanceMonitoring = () => {
           if (status === "P" || status === "L") totalPresent++;
         });
         
-        row["TOTAL ABSENT"] = totalAbsent;
-        row["TOTAL LATE"] = totalLate;
-        row["TOTAL PRESENT"] = totalPresent;
+        rowData.push(totalAbsent, totalLate, totalPresent);
         
-        return row;
+        const dataRow = worksheet.addRow(rowData);
+        dataRow.height = 18;
+        
+        // Apply styles based on row index (alternating colors)
+        const isEvenRow = studentIdx % 2 === 0;
+        const nameStyle = isEvenRow ? lightGrayLeftStyle : leftAlignStyle;
+        const dataStyle = isEvenRow ? lightGrayStyle : centerAlignStyle;
+        
+        // First cell (name) - left aligned
+        dataRow.getCell(1).style = nameStyle;
+        
+        // Day cells and totals - center aligned
+        for (let i = 2; i <= dataRow.cellCount; i++) {
+          dataRow.getCell(i).style = dataStyle;
+        }
       });
       
-      const ws = XLSX.utils.json_to_sheet(excelData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, monthYear);
+      // Set column widths
+      worksheet.getColumn(1).width = 25; // STUDENT NAME
+      daysArray.forEach((_, idx) => {
+        worksheet.getColumn(idx + 2).width = 12; // Day columns
+      });
+      worksheet.getColumn(daysArray.length + 2).width = 14; // TOTAL ABSENT
+      worksheet.getColumn(daysArray.length + 3).width = 12; // TOTAL LATE
+      worksheet.getColumn(daysArray.length + 4).width = 14; // TOTAL PRESENT
+      
+      // Generate file
       const timestamp = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `Monthly-Attendance-${currentSection?.name || "N/A"}_${timestamp}.xlsx`);
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Monthly-Attendance-${currentSection?.name || "N/A"}_${timestamp}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Error downloading attendance Excel:", err);
       throw err;
