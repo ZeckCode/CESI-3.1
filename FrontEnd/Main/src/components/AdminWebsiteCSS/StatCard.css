@@ -77,6 +77,18 @@
   color: #ef4444;
 }
 
+/* Automatic insight line */
+.unified-stat-insight {
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-top: 0.35rem;
+  color: #94a3b8;
+  line-height: 1.3;
+  letter-spacing: 0.2px;
+  opacity: 0.9;
+  transition: color 0.2s ease;
+}
+
 /* ========== RESPONSIVE ========== */
 @media (max-width: 768px) {
   .unified-stats-grid {
