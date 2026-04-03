@@ -1036,26 +1036,6 @@ const GradesRecords = () => {
 
       <section className="gr-section">{renderStats()}</section>
 
-      <section className="gr-section">
-        <div className="gr-insights-panel">
-          <div className="gr-insights-header">
-            <h3 className="gr-insights-title">Descriptive Analysis</h3>
-            <p className="gr-insights-subtitle">
-              Context-aware interpretation of the current {activeTab} view.
-            </p>
-          </div>
-
-          <div className="gr-insights-grid">
-            {descriptiveInsights.map((insight) => (
-              <article key={insight.title} className="gr-insight-card">
-                <h4 className="gr-insight-card-title">{insight.title}</h4>
-                <p className="gr-insight-card-text">{insight.body}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <div className="gr-tabs-container">
         <button
           className={`gr-tab-button ${activeTab === 'grades' ? 'gr-tab-active' : ''}`}
