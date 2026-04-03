@@ -112,6 +112,20 @@ const resolveAttendanceOverallStatus = ({ present, absent, late, excused }) => {
   return 'unknown';
 };
 
+const getStudentKey = (student) =>
+  String(student?.student_number || student?.student_id || student?.student_username || '');
+
+const getHistoryGroupKey = (record) => {
+  const base =
+    record?.student_number ||
+    record?.student ||
+    record?.student_id ||
+    record?.student_username ||
+    record?.student_name ||
+    'unknown';
+  return `${base}::${record?.school_year || 'unknown'}`;
+};
+
 const GradesRecords = () => {
   const [activeTab, setActiveTab] = useState('grades');
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,7 +136,7 @@ const GradesRecords = () => {
   const [selectedDate, setSelectedDate] = useState(todayString());
   const [quarter, setQuarter] = useState(1);
   const [expandedStudentId, setExpandedStudentId] = useState(null);
-  const [expandedHistoryStudentId, setExpandedHistoryStudentId] = useState(null);
+  const [expandedHistoryKey, setExpandedHistoryKey] = useState(null);
   const [expandedAttendanceStudentId, setExpandedAttendanceStudentId] = useState(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -260,11 +274,12 @@ const GradesRecords = () => {
 
   useEffect(() => {
     setExpandedAttendanceStudentId(null);
-  }, [activeTab, selectedDate, filterGrade, filterSection, filterStatus, searchTerm]);
+    setExpandedHistoryKey(null);
+  }, [activeTab, selectedDate, filterGrade, filterSection, filterStatus, searchTerm, filterSchoolYear]);
 
   useEffect(() => {
     setExpandedStudentId(null);
-    setExpandedHistoryStudentId(null);
+    setExpandedHistoryKey(null);
     setExpandedAttendanceStudentId(null);
   }, [activeTab]);
 
@@ -386,6 +401,71 @@ const GradesRecords = () => {
       return matchesSearch && matchesGrade && matchesSection && matchesSchoolYear && matchesStatus;
     });
   }, [filterGrade, filterSection, filterStatus, filterSchoolYear, historyRecords, searchTerm]);
+
+  const historyGroupMap = useMemo(() => {
+    const grouped = new Map();
+
+    historyRecords.forEach((record) => {
+      const key = getHistoryGroupKey(record);
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          key,
+          student: record.student,
+          student_number: record.student_number,
+          student_name: record.student_name,
+          student_username: record.student_username,
+          grade_level: record.grade_level,
+          section_name: record.section_name,
+          school_year: record.school_year,
+          subjects: [],
+        });
+      }
+
+      grouped.get(key).subjects.push(record);
+    });
+
+    grouped.forEach((group) => {
+      group.subjects.sort((a, b) =>
+        String(a.subject_name || '').localeCompare(String(b.subject_name || ''))
+      );
+    });
+
+    return grouped;
+  }, [historyRecords]);
+
+  const filteredHistoryGroups = useMemo(() => {
+    const groups = new Map();
+
+    filteredHistory.forEach((record) => {
+      const key = getHistoryGroupKey(record);
+      if (!groups.has(key)) {
+        const group = historyGroupMap.get(key);
+        if (group) {
+          groups.set(key, group);
+        } else {
+          groups.set(key, {
+            key,
+            student: record.student,
+            student_number: record.student_number,
+            student_name: record.student_name,
+            student_username: record.student_username,
+            grade_level: record.grade_level,
+            section_name: record.section_name,
+            school_year: record.school_year,
+            subjects: [record],
+          });
+        }
+      }
+    });
+
+    return [...groups.values()].sort((a, b) => {
+      const yearA = String(a.school_year || '');
+      const yearB = String(b.school_year || '');
+      if (yearA !== yearB) return yearB.localeCompare(yearA);
+      return String(a.student_name || '').localeCompare(String(b.student_name || ''));
+    });
+  }, [filteredHistory, historyGroupMap]);
 
   const filteredAttendanceRecords = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -515,7 +595,7 @@ const GradesRecords = () => {
     activeTab === 'grades'
       ? filteredStudents
       : activeTab === 'history'
-      ? filteredHistory
+      ? filteredHistoryGroups
       : filteredAttendanceStudents;
 
   const totalPages = Math.max(1, Math.ceil(activeRows.length / ITEMS_PER_PAGE));
@@ -1031,10 +1111,11 @@ const GradesRecords = () => {
               </thead>
               <tbody>
                 {paginatedRows.map((student) => {
-                  const expanded = expandedStudentId === student.student_id;
+                  const studentKey = getStudentKey(student);
+                  const expanded = expandedStudentId === studentKey;
 
                   return (
-                    <React.Fragment key={student.student_id}>
+                    <React.Fragment key={studentKey}>
                       <tr>
                         <td data-label="Student #" className="gr-student-id">
                           {student.student_number || '—'}
@@ -1080,7 +1161,7 @@ const GradesRecords = () => {
                           <button
                             className="gr-btn-icon"
                             onClick={() =>
-                              setExpandedStudentId(expanded ? null : student.student_id)
+                              setExpandedStudentId(expanded ? null : studentKey)
                             }
                             title="Toggle subject breakdown"
                           >
@@ -1127,53 +1208,82 @@ const GradesRecords = () => {
                   <th>Student</th>
                   <th>Grade Level</th>
                   <th>Section</th>
-                  <th>Subject</th>
-                  <th>Final Grade</th>
-                  <th>Remarks</th>
-                  <th>Teacher</th>
+                  <th>Subjects</th>
+                  <th>Details</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedRows.map((record) => (
-                  <tr key={record.id}>
-                    <td data-label="School Year">{record.school_year}</td>
-                    <td data-label="Student" className="gr-student-name">
-                      <div className="gr-stack">
-                        <span>{record.student_name}</span>
-                        <span className="gr-muted">
-                          {record.student_number || '@' + record.student_username}
-                        </span>
-                      </div>
-                    </td>
-                    <td data-label="Grade Level">{toGradeLabel(record.grade_level)}</td>
-                    <td data-label="Section">{record.section_name || '—'}</td>
-                    <td data-label="Subject">
-                      <div className="gr-stack">
-                        <span>{record.subject_name}</span>
-                        <span className="gr-muted">{record.subject_code || '—'}</span>
-                      </div>
-                    </td>
-                    <td data-label="Final Grade">
-                      {record.final_grade !== null ? (
-                        <span className={gradeChipClass(record.final_grade)}>
-                          {record.final_grade}
-                        </span>
-                      ) : (
-                        <span className="gr-muted">—</span>
+                {paginatedRows.map((group) => {
+                  const expanded = expandedHistoryKey === group.key;
+
+                  return (
+                    <React.Fragment key={group.key}>
+                      <tr>
+                        <td data-label="School Year">{group.school_year}</td>
+                        <td data-label="Student" className="gr-student-name">
+                          <div className="gr-stack">
+                            <span>{group.student_name}</span>
+                            <span className="gr-muted">
+                              {group.student_number || '@' + group.student_username}
+                            </span>
+                          </div>
+                        </td>
+                        <td data-label="Grade Level">{toGradeLabel(group.grade_level)}</td>
+                        <td data-label="Section">{group.section_name || '—'}</td>
+                        <td data-label="Subjects">{group.subjects.length}</td>
+                        <td data-label="Details">
+                          <button
+                            className="gr-btn-icon"
+                            onClick={() =>
+                              setExpandedHistoryKey(expanded ? null : group.key)
+                            }
+                            title="Toggle published subject grades"
+                          >
+                            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </button>
+                        </td>
+                      </tr>
+
+                      {expanded && (
+                        <tr className="gr-expand-row">
+                          <td colSpan={6}>
+                            <div className="gr-subject-list">
+                              {group.subjects.map((subject) => (
+                                <div key={subject.id} className="gr-subject-card">
+                                  <div className="gr-subject-top">
+                                    <strong>{subject.subject_name}</strong>
+                                    <span className="gr-subject-code">
+                                      {subject.subject_code || '—'}
+                                    </span>
+                                  </div>
+                                  <div className="gr-stack">
+                                    {subject.final_grade !== null ? (
+                                      <span className={gradeChipClass(subject.final_grade)}>
+                                        {subject.final_grade}
+                                      </span>
+                                    ) : (
+                                      <span className="gr-muted">—</span>
+                                    )}
+                                    <span
+                                      className={`gr-status-badge gr-status-${String(
+                                        subject.remarks || ''
+                                      ).toLowerCase() || 'pending'}`}
+                                    >
+                                      {subject.remarks || '—'}
+                                    </span>
+                                    <span className="gr-muted">
+                                      {subject.teacher_name || '—'}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td data-label="Remarks">
-                      <span
-                        className={`gr-status-badge gr-status-${String(
-                          record.remarks || ''
-                        ).toLowerCase() || 'pending'}`}
-                      >
-                        {record.remarks || '—'}
-                      </span>
-                    </td>
-                    <td data-label="Teacher">{record.teacher_name || '—'}</td>
-                  </tr>
-                ))}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           ) : (
