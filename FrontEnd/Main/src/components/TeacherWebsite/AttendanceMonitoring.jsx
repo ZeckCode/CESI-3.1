@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Save, Users, Calendar, CheckCircle, XCircle, Clock, BookOpen, History, Printer, Download } from "lucide-react";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
 import "../TeacherWebsiteCSS/AttendanceMonitoring.css";
 import { apiFetch } from "../api/apiFetch";
 import PreviewModal from "../PreviewModal";
@@ -111,7 +113,10 @@ const AttendanceMonitoring = () => {
   const [selectedSchedule, setSelectedSchedule] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
-    return today.toISOString().split("T")[0];
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   });
 
   // ── Data ──
@@ -131,6 +136,7 @@ const AttendanceMonitoring = () => {
   const [historyRows, setHistoryRows] = useState([]);
   const [attendancePreviewOpen, setAttendancePreviewOpen] = useState(false);
   const [attendancePreviewData, setAttendancePreviewData] = useState([]);
+  const [monthlyPreviewContent, setMonthlyPreviewContent] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -376,6 +382,15 @@ const AttendanceMonitoring = () => {
       return;
     }
 
+    // Validate that selected date is not in the future
+    const today = new Date();
+    const selectedDateObj = new Date(selectedDate + "T00:00:00");
+    if (selectedDateObj > today) {
+      setMessage({ type: "error", text: "Cannot save attendance for future dates." });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
     if (!selectedSection || !selectedSchedule || students.length === 0) {
       setMessage({ type: "error", text: "Please select a subject schedule before saving attendance." });
       setTimeout(() => setMessage(null), 3000);
@@ -440,7 +455,11 @@ const AttendanceMonitoring = () => {
         schedule: parseInt(selectedSchedule, 10),
       };
 
-      console.debug("handleSave", { isUpdateOnly, body, existingRecordCount });
+      console.debug("=== ATTENDANCE SAVE ===");
+      console.debug("Selected Date (string):", selectedDate);
+      const [savYr, savMo, savDy] = selectedDate.split("-");
+      console.debug(`Parsed as: Year=${savYr}, Month=${savMo}, Day=${savDy}`);
+      console.debug("Sending body:", body);
 
       if (isUpdateOnly) {
         const { existingRecords, recordMap } = await loadExistingRecords();
@@ -575,19 +594,664 @@ const AttendanceMonitoring = () => {
   };
 
   const handlePrintAttendance = () => {
-    const previewData = students.map((student) => {
-      const studentKey = getStudentKey(student);
-      const status = attendance[studentKey] || "PRESENT";
-      return {
-        "Student Name": student.name || "N/A",
-        "Student ID": student.username || "N/A",
-        "Status": status,
-        "Notes": notes[studentKey] || "-",
-      };
-    });
+    try {
+      // Parse date string without timezone conversion
+      const [yearStr, monthStr, dayStr] = selectedDate.split("-");
+      const month = parseInt(monthStr, 10) - 1; // Convert to 0-indexed
+      const year = parseInt(yearStr, 10);
+      
+      const monthYear = new Date(year, month).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      
+      // Get number of days in the month
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      // Filter to only weekdays (Monday-Friday), exclude Saturday (6) and Sunday (0)
+      const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1).filter((day) => {
+        const dayOfWeek = new Date(year, month, day).getDay();
+        return dayOfWeek !== 0 && dayOfWeek !== 6; // Exclude Sunday (0) and Saturday (6)
+      });
+      
+      // Fetch all historical records for this section to calculate totals
+      (async () => {
+        try {
+          let historyUrl = `${API}/api/attendance/records/?section=${selectedSection}`;
+          if (selectedSchedule) historyUrl += `&schedule=${selectedSchedule}`;
+          
+          const historyRes = await apiFetch(historyUrl);
+          let allHistoricalRecords = [];
+          
+          if (historyRes.ok) {
+            const historyData = await historyRes.json();
+            allHistoricalRecords = Array.isArray(historyData) ? historyData : 
+                                   Array.isArray(historyData?.results) ? historyData.results : [];
+          }
+          
+          // Build a map of all records by student key for calculating totals
+          const recordsByStudentKey = {};
+          const attendanceByDay = {}; // Map attendance by student and day
+          const idToKey = new Map();
+          const numberToKey = new Map();
+          
+          students.forEach((s) => {
+            const key = getStudentKey(s);
+            if (!key) return;
+            recordsByStudentKey[key] = [];
+            attendanceByDay[key] = {}; // Initialize day map for each student
+            
+            const idValue = getStudentId(s);
+            const studentNumber = getStudentNumber(s);
+            if (idValue != null) {
+              idToKey.set(String(idValue), key);
+            }
+            if (studentNumber) {
+              numberToKey.set(studentNumber.toLowerCase(), key);
+            }
+          });
+          
+          // Assign records to students and build day map
+          allHistoricalRecords.forEach((rec) => {
+            const studentIdRaw = rec?.student_id ?? rec?.student?.id ?? rec?.student;
+            const studentId = studentIdRaw != null ? String(studentIdRaw) : null;
+            const recStudentNumber = String(rec?.student_number || "").trim().toLowerCase();
+            
+            const key = (recStudentNumber && numberToKey.get(recStudentNumber)) ||
+                       idToKey.get(studentId || String(rec.student || ""));
+            
+            if (key && recordsByStudentKey[key]) {
+              recordsByStudentKey[key].push(rec);
+              
+              // Extract day from record's date and map to attendance (parse string directly to avoid timezone issues)
+              if (rec?.date) {
+                // Parse date string "YYYY-MM-DD" directly without timezone conversion
+                const [recYearStr, recMonthStr, recDayStr] = rec.date.split("-");
+                const recYear = parseInt(recYearStr, 10);
+                const recMonth = parseInt(recMonthStr, 10) - 1; // Convert to 0-indexed
+                const recDay = parseInt(recDayStr, 10);
+                
+                console.debug(`Record date from backend: "${rec.date}" → Day=${recDay}, Month=${recMonth}, Year=${recYear}`);
+                
+                // Only include records from the same month/year as selectedDate
+                if (recMonth === month && recYear === year) {
+                  const statusLetter = rec.status?.charAt(0) || "";
+                  attendanceByDay[key][recDay] = statusLetter;
+                  console.debug(`Added attendance for student ${key}: Day ${recDay} = ${statusLetter}`);
+                }
+              }
+            }
+          });
+          
+          // Build custom preview component
+          const customPreviewContent = (
+            <div className="monthly-attendance-grid" style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
+              <div style={{ marginBottom: "20px" }}>
+                <h3 style={{ margin: "0 0 10px 0", fontSize: "18px" }}>MONTH OF: <span style={{ borderBottom: "1px solid #000", marginLeft: "10px", paddingBottom: "5px", display: "inline-block", minWidth: "200px" }}>{monthYear}</span></h3>
+              </div>
+              
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ 
+                  borderCollapse: "collapse", 
+                  width: "100%",
+                  border: "1px solid #000"
+                }}>
+                  <thead>
+                    <tr>
+                      <th style={{ 
+                        backgroundColor: "#FFA500", 
+                        padding: "8px", 
+                        border: "1px solid #000",
+                        fontWeight: "bold",
+                        textAlign: "left",
+                        minWidth: "150px"
+                      }}>STUDENT NAME</th>
+                      {daysArray.map((day) => {
+                        const dayOfWeek = new Date(year, month, day).getDay();
+                        const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                        return (
+                          <th key={day} style={{
+                            backgroundColor: "#FFA500",
+                            padding: "4px 3px",
+                            border: "1px solid #000",
+                            fontWeight: "bold",
+                            textAlign: "center",
+                            fontSize: "11px",
+                            minWidth: "50px"
+                          }}>
+                            <div style={{ fontSize: "10px" }}>{dayNames[dayOfWeek].slice(0, 3)}</div>
+                            <div style={{ fontSize: "12px", fontWeight: "bold" }}>{day}</div>
+                          </th>
+                        );
+                      })}
+                      <th style={{
+                        backgroundColor: "#FFA500",
+                        padding: "8px",
+                        border: "1px solid #000",
+                        fontWeight: "bold",
+                        textAlign: "center",
+                        fontSize: "12px",
+                        minWidth: "80px"
+                      }}>TOTAL ABSENT</th>
+                      <th style={{
+                        backgroundColor: "#FFA500",
+                        padding: "8px",
+                        border: "1px solid #000",
+                        fontWeight: "bold",
+                        textAlign: "center",
+                        fontSize: "12px",
+                        minWidth: "80px"
+                      }}>TOTAL PRESENT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {students.map((student, idx) => {
+                      const studentKey = getStudentKey(student);
+                      
+                      // Count absences and presences from ONLY the current month
+                      let totalAbsent = 0;
+                      let totalPresent = 0;
+                      const studentDayAttendance = attendanceByDay[studentKey] || {};
+                      
+                      // Count only from the current month's days
+                      daysArray.forEach((day) => {
+                        const status = studentDayAttendance[day];
+                        if (status === "A") totalAbsent++;
+                        else if (status === "P") totalPresent++;
+                      });
+                      
+                      return (
+                        <tr key={studentKey || idx} style={{ backgroundColor: idx % 2 === 0 ? "#E8E8E8" : "#FFFFFF" }}>
+                          <td style={{
+                            padding: "8px",
+                            border: "1px solid #000",
+                            fontSize: "13px",
+                            fontWeight: "500"
+                          }}>
+                            {student.name || "N/A"}
+                          </td>
+                          {daysArray.map((day) => {
+                            const dayStatus = attendanceByDay[studentKey]?.[day] || "";
+                            return (
+                              <td key={day} style={{
+                                padding: "6px 3px",
+                                border: "1px solid #000",
+                                textAlign: "center",
+                                fontSize: "12px",
+                                height: "25px",
+                                fontWeight: dayStatus ? "bold" : "normal",
+                                color: dayStatus === "A" ? "#d32f2f" : dayStatus === "P" ? "#388e3c" : "#000"
+                              }}>
+                                {dayStatus}
+                              </td>
+                            );
+                          })}
+                          <td style={{
+                            padding: "8px",
+                            border: "1px solid #000",
+                            textAlign: "center",
+                            fontSize: "13px",
+                            fontWeight: "500"
+                          }}>
+                            {totalAbsent}
+                          </td>
+                          <td style={{
+                            padding: "8px",
+                            border: "1px solid #000",
+                            textAlign: "center",
+                            fontSize: "13px",
+                            fontWeight: "500"
+                          }}>
+                            {totalPresent}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              
+              <div style={{ marginTop: "20px", fontSize: "12px" }}>
+                <p><strong>Legend:</strong> P = Present | A = Absent | L = Late | E = Excused</p>
+              </div>
+            </div>
+          );
+          
+          setAttendancePreviewData([]);
+          setMonthlyPreviewContent(customPreviewContent);
+          setAttendancePreviewOpen(true);
+        } catch (err) {
+          console.error("Error fetching historical records:", err);
+          setMessage({ type: "error", text: "Failed to load attendance history for preview." });
+        }
+      })();
+    } catch (err) {
+      console.error("Error preparing attendance preview:", err);
+      setMessage({ type: "error", text: "Failed to prepare attendance preview." });
+    }
+  };
 
-    setAttendancePreviewData(previewData);
-    setAttendancePreviewOpen(true);
+  const handleDownloadAttendanceExcel = async () => {
+    try {
+      const [yearStr, monthStr] = selectedDate.split("-");
+      const month = parseInt(monthStr, 10) - 1;
+      const year = parseInt(yearStr, 10);
+      const monthYear = new Date(year, month).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      
+      // Get number of days in the month and filter weekdays
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1).filter((day) => {
+        const dayOfWeek = new Date(year, month, day).getDay();
+        return dayOfWeek !== 0 && dayOfWeek !== 6;
+      });
+      
+      // Fetch historical records
+      let historyUrl = `${API}/api/attendance/records/?section=${selectedSection}`;
+      if (selectedSchedule) historyUrl += `&schedule=${selectedSchedule}`;
+      
+      const historyRes = await apiFetch(historyUrl);
+      let allHistoricalRecords = [];
+      
+      if (historyRes.ok) {
+        const historyData = await historyRes.json();
+        allHistoricalRecords = Array.isArray(historyData) ? historyData : 
+                               Array.isArray(historyData?.results) ? historyData.results : [];
+      }
+      
+      // Build attendance map by student and day
+      const attendanceByDay = {};
+      const idToKey = new Map();
+      const numberToKey = new Map();
+      
+      students.forEach((s) => {
+        const key = getStudentKey(s);
+        if (!key) return;
+        attendanceByDay[key] = {};
+        
+        const idValue = getStudentId(s);
+        const studentNumber = getStudentNumber(s);
+        if (idValue != null) {
+          idToKey.set(String(idValue), key);
+        }
+        if (studentNumber) {
+          numberToKey.set(studentNumber.toLowerCase(), key);
+        }
+      });
+      
+      // Populate attendance from records
+      allHistoricalRecords.forEach((rec) => {
+        const studentIdRaw = rec?.student_id ?? rec?.student?.id ?? rec?.student;
+        const studentId = studentIdRaw != null ? String(studentIdRaw) : null;
+        const recStudentNumber = String(rec?.student_number || "").trim().toLowerCase();
+        
+        const key = (recStudentNumber && numberToKey.get(recStudentNumber)) ||
+                   idToKey.get(studentId || String(rec.student || ""));
+        
+        if (key && rec?.date) {
+          const [recYearStr, recMonthStr, recDayStr] = rec.date.split("-");
+          const recYear = parseInt(recYearStr, 10);
+          const recMonth = parseInt(recMonthStr, 10) - 1;
+          const recDay = parseInt(recDayStr, 10);
+          
+          if (recMonth === month && recYear === year) {
+            const statusLetter = rec.status?.charAt(0) || "";
+            attendanceByDay[key][recDay] = statusLetter;
+          }
+        }
+      });
+      
+      // Build Excel data
+      const excelData = students.map((student) => {
+        const studentKey = getStudentKey(student);
+        const row = {
+          "STUDENT NAME": student.name || "N/A",
+        };
+        
+        // Add day columns
+        daysArray.forEach((day) => {
+          const dayOfWeek = new Date(year, month, day).getDay();
+          const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+          const dayName = dayNames[dayOfWeek].slice(0, 3);
+          row[`${dayName} ${day}`] = attendanceByDay[studentKey]?.[day] || "";
+        });
+        
+        // Add totals
+        let totalAbsent = 0;
+        let totalPresent = 0;
+        daysArray.forEach((day) => {
+          const status = attendanceByDay[studentKey]?.[day];
+          if (status === "A") totalAbsent++;
+          else if (status === "P") totalPresent++;
+        });
+        
+        row["TOTAL ABSENT"] = totalAbsent;
+        row["TOTAL PRESENT"] = totalPresent;
+        
+        return row;
+      });
+      
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, monthYear);
+      const timestamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `Monthly-Attendance-${currentSection?.name || "N/A"}_${timestamp}.xlsx`);
+    } catch (err) {
+      console.error("Error downloading attendance Excel:", err);
+      throw err;
+    }
+  };
+
+  const handleDownloadAttendancePDF = async () => {
+    try {
+      const [yearStr, monthStr] = selectedDate.split("-");
+      const month = parseInt(monthStr, 10) - 1;
+      const year = parseInt(yearStr, 10);
+      const monthYear = new Date(year, month).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      
+      // Get number of days in the month and filter weekdays
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1).filter((day) => {
+        const dayOfWeek = new Date(year, month, day).getDay();
+        return dayOfWeek !== 0 && dayOfWeek !== 6;
+      });
+      
+      // Fetch historical records
+      let historyUrl = `${API}/api/attendance/records/?section=${selectedSection}`;
+      if (selectedSchedule) historyUrl += `&schedule=${selectedSchedule}`;
+      
+      const historyRes = await apiFetch(historyUrl);
+      let allHistoricalRecords = [];
+      
+      if (historyRes.ok) {
+        const historyData = await historyRes.json();
+        allHistoricalRecords = Array.isArray(historyData) ? historyData : 
+                               Array.isArray(historyData?.results) ? historyData.results : [];
+      }
+      
+      // Build attendance map by student and day
+      const attendanceByDay = {};
+      const idToKey = new Map();
+      const numberToKey = new Map();
+      
+      students.forEach((s) => {
+        const key = getStudentKey(s);
+        if (!key) return;
+        attendanceByDay[key] = {};
+        
+        const idValue = getStudentId(s);
+        const studentNumber = getStudentNumber(s);
+        if (idValue != null) {
+          idToKey.set(String(idValue), key);
+        }
+        if (studentNumber) {
+          numberToKey.set(studentNumber.toLowerCase(), key);
+        }
+      });
+      
+      // Populate attendance from records
+      allHistoricalRecords.forEach((rec) => {
+        const studentIdRaw = rec?.student_id ?? rec?.student?.id ?? rec?.student;
+        const studentId = studentIdRaw != null ? String(studentIdRaw) : null;
+        const recStudentNumber = String(rec?.student_number || "").trim().toLowerCase();
+        
+        const key = (recStudentNumber && numberToKey.get(recStudentNumber)) ||
+                   idToKey.get(studentId || String(rec.student || ""));
+        
+        if (key && rec?.date) {
+          const [recYearStr, recMonthStr, recDayStr] = rec.date.split("-");
+          const recYear = parseInt(recYearStr, 10);
+          const recMonth = parseInt(recMonthStr, 10) - 1;
+          const recDay = parseInt(recDayStr, 10);
+          
+          if (recMonth === month && recYear === year) {
+            const statusLetter = rec.status?.charAt(0) || "";
+            attendanceByDay[key][recDay] = statusLetter;
+          }
+        }
+      });
+      
+      // Create PDF document in landscape orientation
+      const pdf = new jsPDF("l", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      let yPosition = margin;
+      
+      // Add title and month
+      pdf.setFontSize(16);
+      pdf.setFont(undefined, "bold");
+      pdf.text("Monthly Attendance Report", margin, yPosition);
+      yPosition += 10;
+      
+      pdf.setFontSize(11);
+      pdf.setFont(undefined, "normal");
+      pdf.text(`Month: ${monthYear}`, margin, yPosition);
+      pdf.text(`Section: ${currentSection?.name || "N/A"}`, margin, yPosition + 6);
+      yPosition += 16;
+      
+      // Add legend
+      pdf.setFontSize(9);
+      pdf.text("P = Present | A = Absent | L = Late | E = Excused", margin, yPosition);
+      yPosition += 8;
+      
+      // Table dimensions
+      const firstColWidth = 45;
+      const dayColWidth = 8;
+      const totalsColWidth = 11;
+      
+      const headerHeight = 14;
+      const rowHeight = 8;
+      
+      // Draw header row
+      const headerY = yPosition;
+      
+      // First, draw all rectangles
+      pdf.setFillColor(41, 128, 185);
+      pdf.setDrawColor(25, 100, 155);
+      pdf.setLineWidth(0.5);
+      
+      let xPos = margin;
+      
+      // Fill and border all header cells
+      pdf.rect(xPos, headerY, firstColWidth, headerHeight, "F");
+      pdf.rect(xPos, headerY, firstColWidth, headerHeight);
+      xPos += firstColWidth;
+      
+      daysArray.forEach(() => {
+        pdf.rect(xPos, headerY, dayColWidth, headerHeight, "F");
+        pdf.rect(xPos, headerY, dayColWidth, headerHeight);
+        xPos += dayColWidth;
+      });
+      
+      pdf.rect(xPos, headerY, totalsColWidth, headerHeight, "F");
+      pdf.rect(xPos, headerY, totalsColWidth, headerHeight);
+      xPos += totalsColWidth;
+      
+      pdf.rect(xPos, headerY, totalsColWidth, headerHeight, "F");
+      pdf.rect(xPos, headerY, totalsColWidth, headerHeight);
+      
+      // Now draw all text
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont(undefined, "bold");
+      pdf.setFontSize(8);
+      
+      xPos = margin;
+      pdf.text("STUDENT", xPos + 2, headerY + 8);
+      xPos += firstColWidth;
+      
+      daysArray.forEach((day) => {
+        const dayOfWeek = new Date(year, month, day).getDay();
+        const dayNames = ["S", "M", "T", "W", "T", "F", "S"];
+        const dayLetter = dayNames[dayOfWeek];
+        
+        // Draw day letter and number
+        pdf.text(dayLetter, xPos + 2.5, headerY + 4);
+        pdf.text(String(day), xPos + 2.5, headerY + 10);
+        xPos += dayColWidth;
+      });
+      
+      pdf.text("ABS", xPos + 1.5, headerY + 8);
+      xPos += totalsColWidth;
+      
+      pdf.text("PRS", xPos + 1.5, headerY + 8);
+      
+      yPosition += headerHeight;
+      
+      // Draw data rows
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont(undefined, "normal");
+      
+      students.forEach((student, studentIdx) => {
+        // Check for page break
+        if (yPosition + rowHeight > pageHeight - 10) {
+          pdf.addPage();
+          yPosition = margin;
+          
+          // Redraw header on new page - Draw all rectangles first
+          pdf.setFillColor(41, 128, 185);
+          pdf.setDrawColor(25, 100, 155);
+          pdf.setLineWidth(0.5);
+          
+          let headerXPos = margin;
+          
+          // Fill and border all header cells
+          pdf.rect(headerXPos, yPosition, firstColWidth, headerHeight, "F");
+          pdf.rect(headerXPos, yPosition, firstColWidth, headerHeight);
+          headerXPos += firstColWidth;
+          
+          daysArray.forEach(() => {
+            pdf.rect(headerXPos, yPosition, dayColWidth, headerHeight, "F");
+            pdf.rect(headerXPos, yPosition, dayColWidth, headerHeight);
+            headerXPos += dayColWidth;
+          });
+          
+          pdf.rect(headerXPos, yPosition, totalsColWidth, headerHeight, "F");
+          pdf.rect(headerXPos, yPosition, totalsColWidth, headerHeight);
+          headerXPos += totalsColWidth;
+          
+          pdf.rect(headerXPos, yPosition, totalsColWidth, headerHeight, "F");
+          pdf.rect(headerXPos, yPosition, totalsColWidth, headerHeight);
+          
+          // Now draw all text
+          pdf.setTextColor(255, 255, 255);
+          pdf.setFont(undefined, "bold");
+          pdf.setFontSize(8);
+          
+          headerXPos = margin;
+          pdf.text("STUDENT", headerXPos + 2, yPosition + 8);
+          headerXPos += firstColWidth;
+          
+          daysArray.forEach((day) => {
+            const dayOfWeek = new Date(year, month, day).getDay();
+            const dayNames = ["S", "M", "T", "W", "T", "F", "S"];
+            const dayLetter = dayNames[dayOfWeek];
+            
+            pdf.text(dayLetter, headerXPos + 2.5, yPosition + 4);
+            pdf.text(String(day), headerXPos + 2.5, yPosition + 10);
+            headerXPos += dayColWidth;
+          });
+          
+          pdf.text("ABS", headerXPos + 1.5, yPosition + 8);
+          headerXPos += totalsColWidth;
+          
+          pdf.text("PRS", headerXPos + 1.5, yPosition + 8);
+          
+          yPosition += headerHeight;
+          
+          pdf.setTextColor(0, 0, 0);
+          pdf.setFont(undefined, "normal");
+        }
+        
+        const studentKey = getStudentKey(student);
+        const rowBgColor = studentIdx % 2 === 0 ? [245, 245, 245] : [255, 255, 255];
+        
+        // Draw row background
+        let xPos = margin;
+        pdf.setFillColor(rowBgColor[0], rowBgColor[1], rowBgColor[2]);
+        pdf.rect(xPos, yPosition, firstColWidth + (dayColWidth * daysArray.length) + (totalsColWidth * 2), rowHeight, "F");
+        
+        // Draw borders
+        pdf.setDrawColor(200, 200, 200);
+        pdf.setLineWidth(0.3);
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFont(undefined, "normal");
+        pdf.setFontSize(7);
+        
+        // Student name cell
+        pdf.rect(xPos, yPosition, firstColWidth, rowHeight);
+        pdf.text((student.name || "N/A").substring(0, 18), xPos + 2, yPosition + 5);
+        xPos += firstColWidth;
+        
+        // Day cells with color coding
+        daysArray.forEach((day) => {
+          const status = attendanceByDay[studentKey]?.[day] || "";
+          
+          if (status === "P") {
+            pdf.setFillColor(36, 161, 72);
+            pdf.rect(xPos, yPosition, dayColWidth, rowHeight, "F");
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFont(undefined, "bold");
+          } else if (status === "A") {
+            pdf.setFillColor(198, 40, 40);
+            pdf.rect(xPos, yPosition, dayColWidth, rowHeight, "F");
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFont(undefined, "bold");
+          } else {
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont(undefined, "normal");
+          }
+          
+          pdf.text(status, xPos + 2, yPosition + 5);
+          pdf.setTextColor(0, 0, 0);
+          pdf.setFont(undefined, "normal");
+          pdf.setDrawColor(200, 200, 200);
+          pdf.setLineWidth(0.3);
+          pdf.rect(xPos, yPosition, dayColWidth, rowHeight);
+          xPos += dayColWidth;
+        });
+        
+        // Totals
+        let totalAbsent = 0;
+        let totalPresent = 0;
+        daysArray.forEach((day) => {
+          const status = attendanceByDay[studentKey]?.[day];
+          if (status === "A") totalAbsent++;
+          else if (status === "P") totalPresent++;
+        });
+        
+        pdf.rect(xPos, yPosition, totalsColWidth, rowHeight);
+        pdf.text(String(totalAbsent), xPos + 3, yPosition + 5);
+        xPos += totalsColWidth;
+        
+        pdf.rect(xPos, yPosition, totalsColWidth, rowHeight);
+        pdf.text(String(totalPresent), xPos + 3, yPosition + 5);
+        
+        yPosition += rowHeight;
+      });
+      
+      // Add footer on all pages
+      const pageCount = pdf.internal.getNumberOfPages();
+      const timestamp = new Date().toISOString().slice(0, 10);
+      
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(100, 100, 100);
+        pdf.text(
+          `Generated: ${new Date().toLocaleDateString()}`,
+          margin,
+          pageHeight - 5
+        );
+        pdf.text(
+          `Page ${i} of ${pageCount}`,
+          pageWidth - margin - 20,
+          pageHeight - 5
+        );
+      }
+      
+      // Save PDF
+      pdf.save(`Monthly-Attendance-${currentSection?.name || "N/A"}_${timestamp}.pdf`);
+    } catch (err) {
+      console.error("Error downloading attendance PDF:", err);
+      alert("Failed to download PDF file. Please try again.");
+      throw err;
+    }
   };
 
   const attendanceTable = (
@@ -726,7 +1390,29 @@ const AttendanceMonitoring = () => {
               type="date"
               className="am__dateInput"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              max={(() => {
+                const today = new Date();
+                const yr = today.getFullYear();
+                const mo = String(today.getMonth() + 1).padStart(2, "0");
+                const dy = String(today.getDate()).padStart(2, "0");
+                return `${yr}-${mo}-${dy}`;
+              })()}
+              onChange={(e) => {
+                const selected = e.target.value;
+                const today = new Date();
+                const selectedDate = new Date(selected + "T00:00:00");
+                
+                // Check if selected date is in the future
+                if (selectedDate > today) {
+                  setMessage({
+                    type: "error",
+                    text: "Cannot set attendance for future dates. Please select today or an earlier date.",
+                  });
+                  setTimeout(() => setMessage(null), 3000);
+                  return;
+                }
+                setSelectedDate(selected);
+              }}
             />
           </div>
 
@@ -926,15 +1612,12 @@ const AttendanceMonitoring = () => {
       <PreviewModal
         isOpen={attendancePreviewOpen}
         onClose={() => setAttendancePreviewOpen(false)}
-        title={`Attendance Report - ${currentSectionLabel || "N/A"}`}
+        title={`Monthly Attendance Report - ${currentSectionLabel || "N/A"}`}
         data={attendancePreviewData}
-        columns={[
-          { key: "Student Name", label: "Student Name" },
-          { key: "Student ID", label: "Student ID" },
-          { key: "Status", label: "Status" },
-          { key: "Notes", label: "Notes" },
-        ]}
-        filename={`Attendance-Report-${currentSection?.name || "N/A"}`}
+        customPreview={monthlyPreviewContent}
+        filename={`Monthly-Attendance-${currentSection?.name || "N/A"}`}
+        onDownloadExcel={handleDownloadAttendanceExcel}
+        onDownloadPDF={handleDownloadAttendancePDF}
       />
     </div>
   );
