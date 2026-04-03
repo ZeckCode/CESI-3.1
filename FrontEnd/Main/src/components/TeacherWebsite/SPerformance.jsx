@@ -12,6 +12,7 @@ import {
 import { Bar, Doughnut } from "react-chartjs-2";
 import "../TeacherWebsiteCSS/SPerformance.css";
 import { apiFetch } from "../api/apiFetch";
+import { generateTeacherMetricsInsight, getTeacherMetricColor } from "../../utils/roleInsights";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 ChartJS.defaults.set({ responsive: true, maintainAspectRatio: false });
@@ -480,6 +481,38 @@ const SPerformance = () => {
     return lines;
   }, [stats]);
 
+  const chartInsights = useMemo(() => {
+    if (stats.classAvg === null) {
+      return { histogram: "No grade data available yet", passBreakdown: "No grade data available yet" };
+    }
+
+    // Histogram insight
+    let histogramInsight = "";
+    if (stats.classAvg >= 85) {
+      histogramInsight = "Strong distribution - Most students performing above average";
+    } else if (stats.classAvg >= 75) {
+      histogramInsight = "Good distribution - Students spreading across middle range";
+    } else if (stats.classAvg >= 70) {
+      histogramInsight = "Developing distribution - Some students need extra support";
+    } else {
+      histogramInsight = "Concerning distribution - Cluster in lower grades, interventions recommended";
+    }
+
+    // Pass/Fail breakdown insight
+    const passRate = Math.round((stats.passed / (stats.gradedCount || 1)) * 100);
+    let passBreakdownInsight = "";
+    if (passRate >= 90) {
+      passBreakdownInsight = "Excellent - Nearly all students passing with minimal failures";
+    } else if (passRate >= 80) {
+      passBreakdownInsight = "Very good - Majority passing, few near-pass concerns";
+    } else if (passRate >= 70) {
+      passBreakdownInsight = "Satisfactory - Most passing but notable group at near-pass line";
+    } else {
+      passBreakdownInsight = "Alert - Significant near-pass and fail group, targeted help needed";
+    }
+
+    return { histogram: histogramInsight, passBreakdown: passBreakdownInsight };
+  }, [stats.classAvg, stats.passed, stats.gradedCount]);
 
   
   const histogramData = {
@@ -666,6 +699,11 @@ const SPerformance = () => {
             <div className="spCard__value">
               {stats.classAvg !== null ? `${stats.classAvg.toFixed(1)}%` : "—"}
             </div>
+            {stats.classAvg !== null && (
+              <div className="spCard__insight" style={{ color: getTeacherMetricColor(generateTeacherMetricsInsight('classPerformance', stats.classAvg)) }}>
+                {generateTeacherMetricsInsight('classPerformance', stats.classAvg)}
+              </div>
+            )}
           </div>
         </div>
 
@@ -676,6 +714,11 @@ const SPerformance = () => {
             <div className="spCard__value">
               {stats.topGrade !== null ? `${stats.topGrade.toFixed(1)}%` : "—"}
             </div>
+            {stats.topGrade !== null && (
+              <div className="spCard__insight" style={{ color: "#10b981" }}>
+                Peak performance in class
+              </div>
+            )}
           </div>
         </div>
 
@@ -689,20 +732,12 @@ const SPerformance = () => {
                 {stats.atRiskList.length === 1 ? "Student" : "Students"}
               </span>
             </div>
+            {stats.atRiskList.length >= 0 && (
+              <div className="spCard__insight" style={{ color: getTeacherMetricColor(generateTeacherMetricsInsight('atRiskStudents', stats.atRiskList.length)) }}>
+                {generateTeacherMetricsInsight('atRiskStudents', stats.atRiskList.length)}
+              </div>
+            )}
           </div>
-        </div>
-      </section>
-
-      <section className="spInsights">
-        <div className="spPanel spPanel--insights">
-          <div className="spPanel__title">Descriptive Summary</div>
-          <ul className="spInsights__list">
-            {insights.map((line, idx) => (
-              <li key={idx} className="spInsights__item">
-                {line}
-              </li>
-            ))}
-          </ul>
         </div>
       </section>
 
@@ -716,6 +751,11 @@ const SPerformance = () => {
               <div className="sp__empty">No grade data yet for this quarter.</div>
             )}
           </div>
+          {stats.classAvg !== null && (
+            <div className="spChart__insight" style={{ fontSize: "0.85rem", fontWeight: "500", marginTop: "1rem", padding: "0.75rem", backgroundColor: "var(--primary-light)", borderLeft: "3px solid var(--primary)", borderRadius: "4px" }}>
+              {chartInsights.histogram}
+            </div>
+          )}
         </div>
 
         <div className="spPanel">
@@ -727,6 +767,11 @@ const SPerformance = () => {
               <div className="sp__empty">No graded students yet.</div>
             )}
           </div>
+          {stats.gradedCount > 0 && (
+            <div className="spChart__insight" style={{ fontSize: "0.85rem", fontWeight: "500", marginTop: "1rem", padding: "0.75rem", backgroundColor: "var(--success-light)", borderLeft: "3px solid var(--success)", borderRadius: "4px" }}>
+              {chartInsights.passBreakdown}
+            </div>
+          )}
         </div>
       </section>
 

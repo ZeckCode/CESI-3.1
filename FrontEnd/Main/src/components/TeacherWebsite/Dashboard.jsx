@@ -395,42 +395,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Performance Stats */}
-      <div className="tdb__stats" style={{ marginTop: "1.5rem" }}>
-        <div className="tdbStat tdbStat--primary">
-          <div className="tdbStat__icon">📊</div>
-          <div className="tdbStat__content">
-            <div className="tdbStat__label">Class Average</div>
-            <div className="tdbStat__value">{loading ? "—" : performanceMetrics.averageGrade.toFixed(1)}</div>
-            <div className="tdbStat__insight" style={{ color: getTeacherMetricColor(generateTeacherMetricsInsight('classPerformance', performanceMetrics.averageGrade)) }}>
-              {loading ? "—" : generateTeacherMetricsInsight('classPerformance', performanceMetrics.averageGrade)}
-            </div>
-          </div>
-        </div>
-
-        <div className="tdbStat tdbStat--success">
-          <div className="tdbStat__icon">✅</div>
-          <div className="tdbStat__content">
-            <div className="tdbStat__label">Success Rate</div>
-            <div className="tdbStat__value">{loading ? "—" : performanceMetrics.successRate.toFixed(0)}%</div>
-            <div className="tdbStat__insight" style={{ color: getTeacherMetricColor(generateTeacherMetricsInsight('successRate', performanceMetrics.successRate)) }}>
-              {loading ? "—" : generateTeacherMetricsInsight('successRate', performanceMetrics.successRate)}
-            </div>
-          </div>
-        </div>
-
-        <div className="tdbStat tdbStat--warning">
-          <div className="tdbStat__icon">⚠️</div>
-          <div className="tdbStat__content">
-            <div className="tdbStat__label">At-Risk Students</div>
-            <div className="tdbStat__value">{loading ? "—" : performanceMetrics.atRiskCount}</div>
-            <div className="tdbStat__insight" style={{ color: getTeacherMetricColor(generateTeacherMetricsInsight('atRiskStudents', performanceMetrics.atRiskCount)) }}>
-              {loading ? "—" : generateTeacherMetricsInsight('atRiskStudents', performanceMetrics.atRiskCount)}
-            </div>
-          </div>
-        </div>
-      </div>
-
       <section className="tdbInsight">
         <div className="tdbInsight__head">
           <h2 className="tdbInsight__title">Dashboard Interpretations</h2>
@@ -451,6 +415,40 @@ const Dashboard = () => {
 
       {/* Main Grid */}
       <div className="tdb__grid">
+        {/* Performance Metrics */}
+        <section className="tdbCard">
+          <div className="tdbCard__header tdbCard__header--success">
+            <h2 className="tdbCard__title">📊 Performance Metrics</h2>
+          </div>
+          <div className="tdbCard__body" style={{ padding: "1.5rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "1rem" }}>
+              <div style={{ textAlign: "center", padding: "1rem", borderRadius: "0.75rem", backgroundColor: "var(--primary-light)", border: "1px solid var(--primary)" }}>
+                <div style={{ fontSize: "0.65rem", fontWeight: "800", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "0.5rem", letterSpacing: "0.5px" }}>Class Average</div>
+                <div style={{ fontSize: "1.75rem", fontWeight: "900", color: "var(--text-primary)" }}>{loading ? "—" : performanceMetrics.averageGrade.toFixed(1)}</div>
+                <div style={{ fontSize: "0.7rem", fontWeight: "500", marginTop: "0.5rem", color: getTeacherMetricColor(generateTeacherMetricsInsight('classPerformance', performanceMetrics.averageGrade)), lineHeight: "1.3" }}>
+                  {loading ? "—" : generateTeacherMetricsInsight('classPerformance', performanceMetrics.averageGrade)}
+                </div>
+              </div>
+
+              <div style={{ textAlign: "center", padding: "1rem", borderRadius: "0.75rem", backgroundColor: "var(--success-light)", border: "1px solid var(--success)" }}>
+                <div style={{ fontSize: "0.65rem", fontWeight: "800", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "0.5rem", letterSpacing: "0.5px" }}>Success Rate</div>
+                <div style={{ fontSize: "1.75rem", fontWeight: "900", color: "var(--text-primary)" }}>{loading ? "—" : performanceMetrics.successRate.toFixed(0)}%</div>
+                <div style={{ fontSize: "0.7rem", fontWeight: "500", marginTop: "0.5rem", color: getTeacherMetricColor(generateTeacherMetricsInsight('successRate', performanceMetrics.successRate)), lineHeight: "1.3" }}>
+                  {loading ? "—" : generateTeacherMetricsInsight('successRate', performanceMetrics.successRate)}
+                </div>
+              </div>
+
+              <div style={{ textAlign: "center", padding: "1rem", borderRadius: "0.75rem", backgroundColor: "var(--warning-light)", border: "1px solid var(--warning)" }}>
+                <div style={{ fontSize: "0.65rem", fontWeight: "800", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "0.5rem", letterSpacing: "0.5px" }}>At-Risk Students</div>
+                <div style={{ fontSize: "1.75rem", fontWeight: "900", color: "var(--text-primary)" }}>{loading ? "—" : performanceMetrics.atRiskCount}</div>
+                <div style={{ fontSize: "0.7rem", fontWeight: "500", marginTop: "0.5rem", color: getTeacherMetricColor(generateTeacherMetricsInsight('atRiskStudents', performanceMetrics.atRiskCount)), lineHeight: "1.3" }}>
+                  {loading ? "—" : generateTeacherMetricsInsight('atRiskStudents', performanceMetrics.atRiskCount)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Today's Schedule Card */}
         <section className="tdbCard">
           <div className="tdbCard__header tdbCard__header--primary">

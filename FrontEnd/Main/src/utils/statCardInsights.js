@@ -79,7 +79,7 @@ export const generateStatInsight = (label, value, subtitle = '', metricType = 'd
   // Students - enrollment quality
   if (label.toLowerCase().includes('student')) {
     if (numValue === 0) return 'No enrollments yet';
-    if (numValue < 30) return 'Small cohort';
+    if (numValue < 30) return 'Small Group';
     if (numValue < 100) return 'Healthy enrollment';
     if (numValue < 300) return 'Strong student body';
     return 'Large enrollment';
