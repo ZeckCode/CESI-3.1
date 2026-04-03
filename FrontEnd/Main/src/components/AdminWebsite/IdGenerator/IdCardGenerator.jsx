@@ -678,24 +678,27 @@ const IdCardPreview = React.forwardRef(
       : "—";
 
     return (
-      <div
-        ref={ref}
-        style={{
-          width: 350,
-          height: 550,
-          borderRadius: isExport ? 0 : 14,
-          padding: 0,
-          display: "flex",
-          flexDirection: "column",
-          fontFamily: "'Poppins', 'Inter', 'Arial', sans-serif",
-          boxShadow: isExport ? "none" : "0 12px 36px rgba(0,0,0,0.24)",
-          position: "relative",
-          overflow: "hidden",
-          background: "#fff",
-          backfaceVisibility: "hidden",
-          WebkitBackfaceVisibility: "hidden",
-        }}
-      >
+        <div
+          ref={ref}
+          style={{
+            width: 350,
+            height: 550,
+            borderRadius: isExport ? 10 : 14,
+            padding: 0,
+            display: "flex",
+            flexDirection: "column",
+            fontFamily: "'Poppins', 'Inter', 'Arial', sans-serif",
+            boxShadow: isExport
+              ? "0 1px 6px rgba(0,0,0,0.08)"
+              : "0 12px 36px rgba(0,0,0,0.24)",
+            border: "1px solid rgba(15, 23, 42, 0.12)",
+            position: "relative",
+            overflow: "hidden",
+            background: "#fff",
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+          }}
+        >
         {cardSide === "front" ? (
           <>
             <img
