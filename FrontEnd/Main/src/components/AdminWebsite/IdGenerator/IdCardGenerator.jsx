@@ -16,6 +16,8 @@ export default function IdCardGenerator({
   const backExportRef = useRef(null);
 
   const [cardSide, setCardSide] = useState("front");
+  const [isFlipped, setIsFlipped] = useState(false);
+
   const [cardSettings, setCardSettings] = useState({
     schoolName: schoolInfo?.name || "CESI School",
     schoolMotto: schoolInfo?.motto || "Excellence in Education",
@@ -48,6 +50,10 @@ export default function IdCardGenerator({
       parentPhone: studentData?.parent_phone || "",
     }));
   }, [studentData, schoolInfo]);
+
+  useEffect(() => {
+    setCardSide(isFlipped ? "back" : "front");
+  }, [isFlipped]);
 
   if (!isOpen) return null;
 
@@ -87,7 +93,7 @@ export default function IdCardGenerator({
       try {
         await document.fonts.ready;
       } catch {
-        // ignore font readiness issues
+        // ignore
       }
     }
   };
@@ -107,20 +113,23 @@ export default function IdCardGenerator({
     const frontCanvas = await captureCard(frontExportRef.current);
     const backCanvas = await captureCard(backExportRef.current);
 
-    const gap = 40;
+    const gap = 60;
+    const padding = 40;
+
     const combined = document.createElement("canvas");
-    combined.width = Math.max(frontCanvas.width, backCanvas.width);
-    combined.height = frontCanvas.height + backCanvas.height + gap;
+    combined.width = frontCanvas.width + backCanvas.width + gap + padding * 2;
+    combined.height =
+      Math.max(frontCanvas.height, backCanvas.height) + padding * 2;
 
     const ctx = combined.getContext("2d");
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, combined.width, combined.height);
 
-    const frontX = Math.floor((combined.width - frontCanvas.width) / 2);
-    const backX = Math.floor((combined.width - backCanvas.width) / 2);
+    const frontY = Math.floor((combined.height - frontCanvas.height) / 2);
+    const backY = Math.floor((combined.height - backCanvas.height) / 2);
 
-    ctx.drawImage(frontCanvas, frontX, 0);
-    ctx.drawImage(backCanvas, backX, frontCanvas.height + gap);
+    ctx.drawImage(frontCanvas, padding, frontY);
+    ctx.drawImage(backCanvas, padding + frontCanvas.width + gap, backY);
 
     return combined;
   };
@@ -138,31 +147,36 @@ export default function IdCardGenerator({
     setIsDownloading(true);
 
     try {
-      const frontCanvas = await captureCard(frontExportRef.current);
-      const backCanvas = await captureCard(backExportRef.current);
+      const combinedCanvas = await combineFrontBackCanvas();
+      const imgData = combinedCanvas.toDataURL("image/png");
 
       const pdf = new jsPDF({
-        orientation: "portrait",
+        orientation: "landscape",
         unit: "mm",
         format: "a4",
       });
 
       const pageWidth = pdf.internal.pageSize.getWidth();
-      const margin = 10;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+
       const maxWidth = pageWidth - margin * 2;
+      const maxHeight = pageHeight - margin * 2;
 
-      const frontHeight = (frontCanvas.height * maxWidth) / frontCanvas.width;
-      const backHeight = (backCanvas.height * maxWidth) / backCanvas.width;
+      let imgWidth = maxWidth;
+      let imgHeight = (combinedCanvas.height * imgWidth) / combinedCanvas.width;
 
-      const frontImg = frontCanvas.toDataURL("image/png");
-      const backImg = backCanvas.toDataURL("image/png");
+      if (imgHeight > maxHeight) {
+        imgHeight = maxHeight;
+        imgWidth = (combinedCanvas.width * imgHeight) / combinedCanvas.height;
+      }
 
-      pdf.addImage(frontImg, "PNG", margin, 10, maxWidth, frontHeight);
-      pdf.addPage();
-      pdf.addImage(backImg, "PNG", margin, 10, maxWidth, backHeight);
+      const x = (pageWidth - imgWidth) / 2;
+      const y = (pageHeight - imgHeight) / 2;
 
+      pdf.addImage(imgData, "PNG", x, y, imgWidth, imgHeight);
       pdf.save(
-        `${studentData.first_name}_${studentData.last_name}_ID_front_back.pdf`
+        `${studentData.first_name}_${studentData.last_name}_ID_front_back_landscape.pdf`
       );
     } catch (error) {
       console.error("PDF download failed:", error);
@@ -405,33 +419,40 @@ export default function IdCardGenerator({
               style={{
                 marginTop: 20,
                 display: "flex",
-                gap: 8,
-                borderBottom: "2px solid #e2e8f0",
-                paddingBottom: 0,
+                flexDirection: "column",
+                gap: 10,
+                borderTop: "1px solid #e2e8f0",
+                paddingTop: 16,
               }}
             >
               <button
-                onClick={() => setCardSide("front")}
+                type="button"
+                onClick={() => setIsFlipped((prev) => !prev)}
                 style={{
-                  ...tabBtnStyle,
-                  color: cardSide === "front" ? "#2563eb" : "#94a3b8",
-                  borderBottom:
-                    cardSide === "front" ? "3px solid #2563eb" : "none",
+                  width: "100%",
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  background: "#ffffff",
+                  color: "#1e293b",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
                 }}
               >
-                📇 Front Side
+                {isFlipped ? "↩ Show Front Side" : "🔄 Flip to Back Side"}
               </button>
-              <button
-                onClick={() => setCardSide("back")}
+
+              <div
                 style={{
-                  ...tabBtnStyle,
-                  color: cardSide === "back" ? "#2563eb" : "#94a3b8",
-                  borderBottom:
-                    cardSide === "back" ? "3px solid #2563eb" : "none",
+                  fontSize: 11,
+                  color: "#64748b",
+                  textAlign: "center",
                 }}
               >
-                📋 Back Side
-              </button>
+                You can also click the card preview to flip it.
+              </div>
             </div>
 
             <div
@@ -479,13 +500,22 @@ export default function IdCardGenerator({
               gap: 16,
             }}
           >
-            <IdCardPreview
-              ref={previewRef}
-              studentData={studentData}
-              settings={cardSettings}
-              studentName={studentName}
-              cardSide={cardSide}
-            />
+            <div
+              onClick={() => setIsFlipped((prev) => !prev)}
+              style={{
+                perspective: "1400px",
+                cursor: "pointer",
+              }}
+              title="Click to flip card"
+            >
+              <IdCardFlipPreview
+                ref={previewRef}
+                studentData={studentData}
+                settings={cardSettings}
+                studentName={studentName}
+                isFlipped={isFlipped}
+              />
+            </div>
 
             <div
               style={{
@@ -583,6 +613,57 @@ export default function IdCardGenerator({
   );
 }
 
+const IdCardFlipPreview = React.forwardRef(
+  ({ studentData, settings, studentName, isFlipped }, ref) => {
+    return (
+      <div
+        ref={ref}
+        style={{
+          width: 350,
+          height: 550,
+          position: "relative",
+          transformStyle: "preserve-3d",
+          transition: "transform 0.7s ease",
+          transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+          }}
+        >
+          <IdCardPreview
+            studentData={studentData}
+            settings={settings}
+            studentName={studentName}
+            cardSide="front"
+          />
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            transform: "rotateY(180deg)",
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+          }}
+        >
+          <IdCardPreview
+            studentData={studentData}
+            settings={settings}
+            studentName={studentName}
+            cardSide="back"
+          />
+        </div>
+      </div>
+    );
+  }
+);
+
 const IdCardPreview = React.forwardRef(
   ({ studentData, settings, studentName, cardSide, isExport = false }, ref) => {
     const lrnValue =
@@ -611,6 +692,8 @@ const IdCardPreview = React.forwardRef(
           position: "relative",
           overflow: "hidden",
           background: "#fff",
+          backfaceVisibility: "hidden",
+          WebkitBackfaceVisibility: "hidden",
         }}
       >
         {cardSide === "front" ? (
@@ -1034,13 +1117,5 @@ const inputStyle = {
   fontSize: 13,
 };
 
-const tabBtnStyle = {
-  padding: "8px 16px",
-  background: "transparent",
-  border: "none",
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: 13,
-};
-
+IdCardFlipPreview.displayName = "IdCardFlipPreview";
 IdCardPreview.displayName = "IdCardPreview";
