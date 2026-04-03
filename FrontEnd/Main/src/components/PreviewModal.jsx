@@ -60,11 +60,11 @@ const PreviewModal = ({
         
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 14;
+        const margin = 10; // Reduced from 14 for more space
         const usableWidth = pageWidth - 2 * margin;
         
         // Add title
-        doc.setFontSize(16);
+        doc.setFontSize(14); // Reduced from 16
         doc.setFont(undefined, 'bold');
         doc.setTextColor(0, 0, 0);
         doc.text(title || 'Report', margin, 15);
@@ -72,13 +72,13 @@ const PreviewModal = ({
         // Add underline below title
         doc.setDrawColor(0, 123, 255);
         doc.setLineWidth(1);
-        doc.line(margin, 19, pageWidth - margin, 19);
+        doc.line(margin, 18, pageWidth - margin, 18); // Adjusted y position
         
         // Add timestamp
-        doc.setFontSize(11);
+        doc.setFontSize(10); // Reduced from 11
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0);
-        doc.text(`Generated: ${timestamp}`, margin, 28);
+        doc.text(`Generated: ${timestamp}`, margin, 25); // Adjusted y position
         
         // Get formatted data for PDF
         let pdfData = data;
@@ -106,7 +106,7 @@ const PreviewModal = ({
           
           const headerRowHeight = 10;
           const rowHeight = 8;
-          let yPos = 35;
+          let yPos = 32; // Adjusted from 35 to account for reduced header/footer
           
           // Draw header row
           headers.forEach((header, idx) => {
@@ -134,19 +134,19 @@ const PreviewModal = ({
           // Draw header text (no wrapping, just simple text)
           doc.setTextColor(255, 255, 255);
           doc.setFont(undefined, 'bold');
-          doc.setFontSize(10);
+          doc.setFontSize(8); // Reduced from 10 for narrower columns
           headers.forEach((header, idx) => {
             const xPos = margin + (idx === 0 ? 0 : firstColWidth + (idx - 1) * otherColWidth);
             const colW = getColWidth(idx);
             const centerX = xPos + colW / 2;
-            doc.text(header, centerX, yPos + 6, { maxWidth: colW - 4, align: 'center' });
+            doc.text(header, centerX, yPos + 6, { maxWidth: colW - 2, align: 'center' });
           });
           
           yPos += headerRowHeight;
           
           // Draw body rows
           doc.setFont(undefined, 'normal');
-          doc.setFontSize(10);
+          doc.setFontSize(8); // Reduced from 10 to match header
           
           rows.forEach((row, rowIdx) => {
             // Check for new page

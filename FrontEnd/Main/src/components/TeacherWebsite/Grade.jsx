@@ -72,7 +72,7 @@ const gradeLabel = (value) => {
     grade6: "Grade 6",
   };
 
-  return labels[code] || String(value || "â€”");
+  return labels[code] || String(value || "–");
 };
 
 const QUARTERS = [1, 2, 3, 4];
@@ -140,6 +140,7 @@ const Grade = () => {
   const [error, setError] = useState("");
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
   const [printPreviewData, setPrintPreviewData] = useState([]);
+  const [gradePreviewColumns, setGradePreviewColumns] = useState([]);
 
   const currentSection =
     sections.find((s) => String(s.id) === String(selectedSection)) || null;
@@ -867,44 +868,82 @@ const Grade = () => {
     }
 
     try {
-      // Build grade data for preview
+      // Build detailed grade breakdown by category
       const previewData = displayStudents.map((student) => {
         try {
           const studentKey = student.studentKey || getStudentKey(student);
           const studentId = student.id;
           
-          const actAvg = categoryAvg(studentKey, studentId, "ACTIVITY");
-          const quizAvg = categoryAvg(studentKey, studentId, "QUIZ");
-          const examAvg = categoryAvg(studentKey, studentId, "EXAM");
-          const cs = getCS(studentKey, studentId);
-          const qg = quarterGrade(studentKey, studentId);
-          
-          // Ensure values are numbers
-          const actAvgNum = actAvg !== null ? Number(actAvg) : null;
-          const quizAvgNum = quizAvg !== null ? Number(quizAvg) : null;
-          const examAvgNum = examAvg !== null ? Number(examAvg) : null;
-          const csNum = cs !== null ? Number(cs) : null;
-          const qgNum = qg !== null ? Number(qg) : null;
-          
-          const status = qgNum !== null ? (qgNum >= 75 ? "PASSED" : "FAILED") : "â€”";
-
-          return {
+          const row = {
             "Student Name": student.student_name,
-            "Activity %": actAvgNum !== null ? actAvgNum.toFixed(1) : "â€”",
-            "Quiz %": quizAvgNum !== null ? quizAvgNum.toFixed(1) : "â€”",
-            "Exam %": examAvgNum !== null ? examAvgNum.toFixed(1) : "â€”",
-            "Class Standing": csNum !== null ? csNum.toFixed(1) : "â€”",
-            "Quarter Grade": qgNum !== null ? qgNum.toFixed(2) : "â€”",
-            "Status": status
           };
+
+          // Add individual items and category averages
+          CATEGORIES.forEach(({ key, label }) => {
+            const catItems = itemsByCategory(key);
+            
+            // Add individual item scores
+            catItems.forEach((item, idx) => {
+              const score = getScore(studentKey, item.id, studentId);
+              const displayScore = score !== null ? `${score}/${item.total_score}` : "–";
+              row[`${label} ${idx + 1}`] = displayScore;
+            });
+            
+            // Add category average percentage
+            const catAvgVal = categoryAvg(studentKey, studentId, key);
+            const catAvgDisplay = catAvgVal !== null ? catAvgVal.toFixed(1) : "–";
+            row[`${label} %`] = catAvgDisplay;
+          });
+
+          // Add Class Standing
+          const cs = getCS(studentKey, studentId);
+          row["Class Standing"] = cs !== null ? cs.toFixed(1) : "–";
+
+          // Add Quarter Grade
+          const qg = quarterGrade(studentKey, studentId);
+          row["Quarter Grade"] = qg !== null ? qg.toFixed(2) : "–";
+
+          // Add Status
+          row["Status"] = qg !== null ? (qg >= 75 ? "PASSED" : "FAILED") : "–";
+
+          return row;
         } catch (err) {
           console.error("Error building grade row for student:", student.student_name, err);
           return null;
         }
       }).filter(row => row !== null);
 
-      // Set preview data and open modal
+      // Build columns dynamically based on items
+      const columns = [{ key: "Student Name", label: "Student Name" }];
+
+      CATEGORIES.forEach(({ key, label }) => {
+        const catItems = itemsByCategory(key);
+        
+        // Add individual item columns
+        catItems.forEach((item, idx) => {
+          columns.push({
+            key: `${label} ${idx + 1}`,
+            label: `${label} ${idx + 1}`
+          });
+        });
+        
+        // Add category percentage column
+        columns.push({
+          key: `${label} %`,
+          label: `${label} %`
+        });
+      });
+
+      // Add remaining columns
+      columns.push(
+        { key: "Class Standing", label: "Class Standing" },
+        { key: "Quarter Grade", label: "Quarter Grade" },
+        { key: "Status", label: "Status" }
+      );
+
+      // Set preview data and columns
       setPrintPreviewData(previewData);
+      setGradePreviewColumns(columns);
       setPrintPreviewOpen(true);
     } catch (err) {
       console.error("Error in handlePrintGradeSheet:", err);
@@ -1047,11 +1086,11 @@ const Grade = () => {
                     {publishPreviewRows.map((row) => (
                       <tr key={`${row.student_id}-${row.student_name}`}>
                         <td style={{ padding: "6px", borderBottom: "1px solid #eee" }}>{row.student_name}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q1 != null ? row.q1 : "â€”"}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q2 != null ? row.q2 : "â€”"}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q3 != null ? row.q3 : "â€”"}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q4 != null ? row.q4 : "â€”"}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.final_grade != null ? row.final_grade : "â€”"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q1 != null ? row.q1 : "–"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q2 != null ? row.q2 : "–"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q3 != null ? row.q3 : "–"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q4 != null ? row.q4 : "–"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.final_grade != null ? row.final_grade : "–"}</td>
                         <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee", color: row.complete ? "#1f621f" : "#b91c1c" }}>
                           {row.complete ? "Complete" : "Incomplete"}
                         </td>
@@ -1165,7 +1204,7 @@ const Grade = () => {
       </section>
 
       <section className="ge__card">
-        <h3 className="ge__tableTitle">Student Scores â€” Q{quarter}</h3>
+        <h3 className="ge__tableTitle">Student Scores – Q{quarter}</h3>
         <div className="ge__tableWrap">
           <table className="ge__table">
             <thead>
@@ -1184,7 +1223,7 @@ const Grade = () => {
                           {abbr}
                         </span>
                         <span className="ge__thTitle">
-                          {item.title.length > 8 ? item.title.slice(0, 8) + "â€¦" : item.title}
+                          {item.title.length > 8 ? item.title.slice(0, 8) + "…" : item.title}
                         </span>
                         <span className="ge__thMax">/{item.total_score}</span>
                       </th>
@@ -1235,7 +1274,7 @@ const Grade = () => {
                             {sc !== null ? (
                               <span className="ge__scoreVal">{sc}</span>
                             ) : (
-                              <span className="ge__scoreEmpty">â€”</span>
+                              <span className="ge__scoreEmpty">–</span>
                             )}
                           </td>
                         );
@@ -1252,7 +1291,7 @@ const Grade = () => {
                       {getCS(studentKey, studentId) !== null ? (
                         <span className="ge__scoreVal">{getCS(studentKey, studentId)}</span>
                       ) : (
-                        <span className="ge__scoreEmpty">â€”</span>
+                        <span className="ge__scoreEmpty">–</span>
                       )}
                     </td>
 
@@ -1266,7 +1305,7 @@ const Grade = () => {
                           {qg.toFixed(1)}
                         </span>
                       ) : (
-                        <span className="ge__scoreEmpty">â€”</span>
+                        <span className="ge__scoreEmpty">–</span>
                       )}
                     </td>
 
@@ -1280,7 +1319,7 @@ const Grade = () => {
                           {qg >= 75 ? "PASSED" : "FAILED"}
                         </span>
                       ) : (
-                        <span className="ge__scoreEmpty">â€”</span>
+                        <span className="ge__scoreEmpty">–</span>
                       )}
                     </td>
                   </tr>
@@ -1302,7 +1341,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div className="ge__error">âš ï¸ {error}</div>}
+              {error && <div className="ge__error">⚠️ {error}</div>}
               <label>Title</label>
               <input
                 className="ge__input"
@@ -1392,7 +1431,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div className="ge__error">âš ï¸ {error}</div>}
+              {error && <div className="ge__error">⚠️ {error}</div>}
               <label>Title</label>
               <input
                 className="ge__input"
@@ -1473,7 +1512,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div className="ge__error">âš ï¸ {error}</div>}
+              {error && <div className="ge__error">⚠️ {error}</div>}
               <p className="ge__scoreInfo">
                 <strong>{scoreModal.student.student_name}</strong>
                 <br />
@@ -1518,7 +1557,7 @@ const Grade = () => {
             </div>
 
             <div className="ge__modalBody">
-              {error && <div className="ge__error">âš ï¸ {error}</div>}
+              {error && <div className="ge__error">⚠️ {error}</div>}
               <p className="ge__scoreInfo">
                 <strong>{csModal.student.student_name}</strong>
                 <br />
@@ -1554,14 +1593,14 @@ const Grade = () => {
         <div className="ge__overlay" onClick={() => setShowWeights(false)}>
           <div className="ge__modal" onClick={(e) => e.stopPropagation()}>
             <div className="ge__modalHeader">
-              <h3>Grade Weights â€” {teacherSubject.subject_name}</h3>
+              <h3>Grade Weights – {teacherSubject.subject_name}</h3>
               <button className="ge__modalClose" onClick={() => { setShowWeights(false); setError(""); }}>
                 <X size={18} />
               </button>
             </div>
 
             <div className="ge__modalBody">
-              {error && <div className="ge__error">âš ï¸ {error}</div>}
+              {error && <div className="ge__error">⚠️ {error}</div>}
               <p className="ge__weightNote">
                 Adjust how much each category contributes to the quarter grade.
                 Total must equal 100%.
@@ -1624,7 +1663,7 @@ const Grade = () => {
         onClose={() => setPrintPreviewOpen(false)}
         title={`Grade Sheet - ${teacherSubject?.subject_name || "N/A"} (${currentSection?.name || "N/A"})`}
         data={printPreviewData}
-        columns={[
+        columns={gradePreviewColumns.length > 0 ? gradePreviewColumns : [
           { key: "Student Name", label: "Student Name" },
           { key: "Activity %", label: "Activity %" },
           { key: "Quiz %", label: "Quiz %" },
