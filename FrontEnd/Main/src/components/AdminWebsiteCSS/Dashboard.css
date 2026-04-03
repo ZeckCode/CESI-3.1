@@ -336,6 +336,21 @@
   color: #1f2937;
 }
 
+/* ─── Chart Insight Line ─── */
+.chart-insight {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  margin-top: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.2px;
+  padding: 8px 0;
+  border-top: 1px solid #f0f0f0;
+  text-align: center;
+  opacity: 0.9;
+  transition: color 0.2s ease;
+}
+
 /* ─── Gauge Label ─── */
 .dash-gauge-label {
   position: absolute;
