@@ -487,7 +487,7 @@ const IdCardPreview = React.forwardRef(
       >
         {cardSide === "front" ? (
           <>
-            {/* Background Image */}
+            {/* Background Image – no overlay */}
             <img
               src={CESI_background}
               alt="ID Template"
@@ -501,17 +501,7 @@ const IdCardPreview = React.forwardRef(
               }}
             />
 
-            {/* Semi-transparent overlay to improve text readability */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.1) 100%)",
-                zIndex: 1,
-              }}
-            />
-
-            {/* Content Container */}
+            {/* Content Container – directly on background */}
             <div
               style={{
                 position: "relative",
@@ -525,7 +515,7 @@ const IdCardPreview = React.forwardRef(
                 padding: "20px 16px",
               }}
             >
-              {/* Student Photo - positioned lower on the image */}
+              {/* Student Photo */}
               <div
                 style={{
                   width: 110,
@@ -556,7 +546,7 @@ const IdCardPreview = React.forwardRef(
                 )}
               </div>
 
-              {/* Student Name with background for readability */}
+              {/* Student Name – pill background only for text */}
               <div
                 style={{
                   backgroundColor: "rgba(0,0,0,0.6)",
@@ -573,6 +563,7 @@ const IdCardPreview = React.forwardRef(
                     color: "#ffffff",
                     textAlign: "center",
                     letterSpacing: 0.5,
+                    textShadow: "0 1px 2px rgba(0,0,0,0.3)",
                   }}
                 >
                   {studentName || "—"}
@@ -601,7 +592,7 @@ const IdCardPreview = React.forwardRef(
                   <div style={{ fontSize: 9, fontWeight: 600, color: "#ffd700", marginBottom: 2 }}>
                     STUDENT NO.
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#ffffff" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#ffffff", textShadow: "0 1px 1px black" }}>
                     {studentData.id || "—"}
                   </div>
                 </div>
@@ -618,7 +609,7 @@ const IdCardPreview = React.forwardRef(
                   <div style={{ fontSize: 9, fontWeight: 600, color: "#ffd700", marginBottom: 2 }}>
                     LRN
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#ffffff" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#ffffff", textShadow: "0 1px 1px black" }}>
                     {studentData.grade_level === "prek" ? "N/A" : (studentData.lrn || "—")}
                   </div>
                 </div>
@@ -646,7 +637,7 @@ const IdCardPreview = React.forwardRef(
                   <div style={{ fontSize: 9, fontWeight: 600, color: "#ffd700", marginBottom: 2 }}>
                     GRADE
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#ffffff" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#ffffff", textShadow: "0 1px 1px black" }}>
                     {getGradeLevelDisplay(studentData.grade_level)}
                   </div>
                 </div>
@@ -663,7 +654,7 @@ const IdCardPreview = React.forwardRef(
                   <div style={{ fontSize: 9, fontWeight: 600, color: "#ffd700", marginBottom: 2 }}>
                     SECTION
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#ffffff" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#ffffff", textShadow: "0 1px 1px black" }}>
                     {settings.section || "N/A"}
                   </div>
                 </div>
@@ -691,7 +682,7 @@ const IdCardPreview = React.forwardRef(
                   <div style={{ fontSize: 9, fontWeight: 600, color: "#ffd700", marginBottom: 2 }}>
                     AGE
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#ffffff" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#ffffff", textShadow: "0 1px 1px black" }}>
                     {age ? `${age} years` : "—"}
                   </div>
                 </div>
@@ -708,7 +699,7 @@ const IdCardPreview = React.forwardRef(
                   <div style={{ fontSize: 9, fontWeight: 600, color: "#ffd700", marginBottom: 2 }}>
                     BIRTHDATE
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#ffffff" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#ffffff", textShadow: "0 1px 1px black" }}>
                     {studentData.birth_date
                       ? new Date(studentData.birth_date).toLocaleDateString()
                       : "—"}
@@ -731,6 +722,7 @@ const IdCardPreview = React.forwardRef(
                     fontSize: 11,
                     fontWeight: 600,
                     color: "#ffd700",
+                    textShadow: "0 1px 1px black",
                   }}
                 >
                   School Year {settings.acYear}
@@ -739,7 +731,7 @@ const IdCardPreview = React.forwardRef(
             </div>
           </>
         ) : (
-          // BACK SIDE - Improved layout with better visibility
+          // Back side unchanged
           <div
             style={{
               background: "linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%)",
@@ -750,7 +742,6 @@ const IdCardPreview = React.forwardRef(
               position: "relative",
             }}
           >
-            {/* Yellow Accent Bar */}
             <div
               style={{
                 height: 5,
@@ -759,8 +750,6 @@ const IdCardPreview = React.forwardRef(
                 borderRadius: 3,
               }}
             />
-
-            {/* Blue Header Bar */}
             <div
               style={{
                 background: "#1d4ed8",
@@ -776,7 +765,6 @@ const IdCardPreview = React.forwardRef(
             </div>
 
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
-              {/* Parent Info Card */}
               <div
                 style={{
                   padding: 10,
@@ -796,7 +784,6 @@ const IdCardPreview = React.forwardRef(
                 </div>
               </div>
 
-              {/* Contact Info */}
               <div
                 style={{
                   padding: 10,
@@ -816,7 +803,6 @@ const IdCardPreview = React.forwardRef(
                 </div>
               </div>
 
-              {/* School Address */}
               <div
                 style={{
                   padding: 10,
@@ -834,7 +820,6 @@ const IdCardPreview = React.forwardRef(
               </div>
             </div>
 
-            {/* Footer */}
             <div
               style={{
                 borderTop: "2px solid #e2e8f0",
