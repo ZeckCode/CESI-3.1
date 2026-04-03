@@ -7,6 +7,7 @@ from .views import (
     send_payment_reminder,
     send_bulk_payment_reminders,
     send_performance_reminder,
+    send_star_notification,
     send_paid_notification,
 )
 
@@ -20,4 +21,5 @@ urlpatterns = [
     path("payments/send-bulk/", send_bulk_payment_reminders, name="send-bulk-payment-reminders"),
     path("payments/<int:transaction_id>/paid/", send_paid_notification, name="send-paid-notification"),
     path("performance/send/", send_performance_reminder, name="send-performance-reminder"),
+    path("performance/star/send/", send_star_notification, name="send-star-notification"),
 ]

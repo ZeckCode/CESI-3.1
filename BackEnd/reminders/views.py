@@ -79,6 +79,23 @@ def is_admin(user):
     )
 
 
+def _resolve_student_recipient(student_id=None, student_number=None):
+    profiles = UserProfile.objects.select_related("user")
+
+    if student_id not in (None, ""):
+        profile = profiles.filter(user_id=student_id).first()
+        if profile and profile.user:
+            return profile.user, profile
+
+    normalized_number = str(student_number or "").strip()
+    if normalized_number:
+        profile = profiles.filter(student_number__iexact=normalized_number).first()
+        if profile and profile.user:
+            return profile.user, profile
+
+    return None, None
+
+
 class ReminderListCreateView(generics.ListCreateAPIView):
     serializer_class = ReminderSerializer
     permission_classes = [IsAuthenticated]
@@ -280,23 +297,24 @@ def send_performance_reminder(request):
         return Response({"detail": "Only teachers can send performance reminders."}, status=403)
 
     student_id = request.data.get("student_id")
+    student_number = request.data.get("student_number")
     student_name = request.data.get("student_name")
     issue = request.data.get("issue")
     quarter = request.data.get("quarter")
     quarter_grade = request.data.get("quarter_grade")
     attendance_pct = request.data.get("attendance_pct")
 
-    if not student_id:
-        return Response({"detail": "student_id is required."}, status=400)
+    if not student_id and not student_number:
+        return Response({"detail": "student_id or student_number is required."}, status=400)
 
-    
-
-    try:
-        profile = UserProfile.objects.select_related("user").get(user_id=student_id)
-    except UserProfile.DoesNotExist:
+    recipient, profile = _resolve_student_recipient(student_id, student_number)
+    if not recipient:
         return Response({"detail": "Student profile not found."}, status=404)
 
-    recipient = profile.user
+    if not student_name and profile:
+        student_name = " ".join(
+            p for p in [profile.student_first_name or "", profile.student_last_name or ""] if p
+        ).strip() or getattr(recipient, "username", "the student")
 
     details = []
     if quarter_grade is not None:
@@ -332,4 +350,56 @@ def send_performance_reminder(request):
             "reminder": ReminderSerializer(reminder).data,
         },
         status=201,
-    )   
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def send_star_notification(request):
+    if getattr(request.user, "role", "").upper() != "TEACHER":
+        return Response({"detail": "Only teachers can send stars."}, status=403)
+
+    student_id = request.data.get("student_id")
+    student_number = request.data.get("student_number")
+    student_name = request.data.get("student_name")
+    quarter = request.data.get("quarter")
+    quarter_grade = request.data.get("quarter_grade")
+
+    if not student_id and not student_number:
+        return Response({"detail": "student_id or student_number is required."}, status=400)
+
+    recipient, profile = _resolve_student_recipient(student_id, student_number)
+    if not recipient:
+        return Response({"detail": "Student profile not found."}, status=404)
+
+    if not student_name and profile:
+        student_name = " ".join(
+            p for p in [profile.student_first_name or "", profile.student_last_name or ""] if p
+        ).strip() or getattr(recipient, "username", "the student")
+
+    message = "A teacher has given you a star for good performance. Keep it up!"
+    details = []
+    if quarter:
+        details.append(f"Quarter {quarter}")
+    if quarter_grade is not None:
+        details.append(f"grade {quarter_grade}")
+
+    if details:
+        message = f"{message} ({', '.join(details)})"
+
+    reminder = Reminder.objects.create(
+        recipient=recipient,
+        sender=request.user,
+        title="Star Award Received",
+        message=message,
+        reminder_type="PERFORMANCE",
+        is_read=False,
+    )
+
+    return Response(
+        {
+            "detail": f"Star sent to {student_name or 'student'}.",
+            "reminder": ReminderSerializer(reminder).data,
+        },
+        status=201,
+    )

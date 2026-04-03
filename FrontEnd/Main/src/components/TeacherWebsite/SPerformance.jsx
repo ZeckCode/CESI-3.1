@@ -145,6 +145,7 @@ const SPerformance = () => {
   const [loading, setLoading] = useState(false);
   const [initLoading, setInitLoading] = useState(true);
   const [sendingReminderId, setSendingReminderId] = useState(null);
+  const [sendingStarKey, setSendingStarKey] = useState("");
   const [isNarrow, setIsNarrow] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(max-width: 640px)").matches;
@@ -264,6 +265,42 @@ const SPerformance = () => {
       alert(e.message || "Failed to send performance reminder.");
     } finally {
       setSendingReminderId(null);
+    }
+  };
+
+  const sendStarNotification = async (student) => {
+    const starKey = getPerformanceKey(student) || String(student?.student_name || "");
+    if (!starKey) return;
+
+    setSendingStarKey(starKey);
+    try {
+      const res = await apiFetch(`${API}/api/reminders/performance/star/send/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          student_id: student.student_id,
+          student_number: student.student_number,
+          student_name: student.student_name,
+          section_id: selectedSection,
+          quarter,
+          quarter_grade: student.quarter_grade,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to send star notification.");
+      }
+
+      alert(
+        data.detail ||
+          `Star sent successfully to ${student.student_name || "the student"}.`
+      );
+    } catch (e) {
+      console.error(e);
+      alert(e.message || "Failed to send star notification.");
+    } finally {
+      setSendingStarKey("");
     }
   };
 
@@ -710,6 +747,7 @@ const SPerformance = () => {
                   <th className="spTh spTh--left">STUDENT NAME</th>
                   <th className="spTh">GRADE</th>
                   <th className="spTh">REMARKS</th>
+                  <th className="spTh">ACTION</th>
                 </tr>
               </thead>
               <tbody>
@@ -735,6 +773,22 @@ const SPerformance = () => {
                       <td className="spTd spGwa">{g.toFixed(1)}%</td>
                       <td className="spTd">
                         <span className={"spPill " + remarksCls}>{remarks}</span>
+                      </td>
+                      <td className="spTd">
+                        <button
+                          className="spActionBtn spActionBtn--star"
+                          onClick={() => sendStarNotification(s)}
+                          disabled={
+                            sendingStarKey ===
+                              (getPerformanceKey(s) || String(s?.student_name || "")) ||
+                            (!s?.student_id && !s?.student_number)
+                          }
+                        >
+                          {sendingStarKey ===
+                          (getPerformanceKey(s) || String(s?.student_name || ""))
+                            ? "Sending..."
+                            : "Send Star"}
+                        </button>
                       </td>
                     </tr>
                   );

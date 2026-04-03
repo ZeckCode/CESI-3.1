@@ -727,3 +727,14 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.spActionBtn--star {
+  background: var(--warn);
+  color: var(--dark);
+}
+
+.spActionBtn--star:hover:not(:disabled) {
+  background: #d97706;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+}

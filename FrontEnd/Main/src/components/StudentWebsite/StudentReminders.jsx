@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Bell, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Bell, CheckCircle, Clock, AlertCircle, Star } from "lucide-react";
 import { getToken } from "../Auth/auth";
 import "../StudentWebsiteCSS/StudentReminders.css";
 
@@ -74,7 +74,9 @@ export default function StudentReminders() {
     }
   };
 
-  const iconForType = (type) => {
+  const iconForType = (type, title, message) => {
+    const starText = `${title || ""} ${message || ""}`.toLowerCase();
+    if (starText.includes("star")) return <Star size={18} color="#f59e0b" />;
     if (type === "PAYMENT") return <AlertCircle size={18} />;
     if (type === "PERFORMANCE") return <Clock size={18} />;
     return <Bell size={18} />;
@@ -129,7 +131,9 @@ export default function StudentReminders() {
                 className={`sr-card ${reminder.is_read ? "read" : "unread"}`}
               >
                 <div className="sr-card-top">
-                  <div className="sr-type-icon">{iconForType(reminder.reminder_type)}</div>
+                  <div className="sr-type-icon">
+                    {iconForType(reminder.reminder_type, reminder.title, reminder.message)}
+                  </div>
                   <div className="sr-content">
                     <div className="sr-card-header">
                       <h3>{reminder.title}</h3>
