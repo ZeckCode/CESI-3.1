@@ -738,16 +738,7 @@ const Reports = () => {
     <div className="class-management">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
-      <div className="enrollment-stats-section">
-        <div className="enrollment-stats-header">
-          <div className="enrollment-stats-title">Reports Module</div>
-          <div className="header-actions">
-            <button className="btn-icon" onClick={refreshAllData} title="Refresh Data" disabled={refreshing}>
-              <RefreshCw size={16} className={refreshing ? 'spin' : ''} />
-            </button>
-          </div>
-        </div>
-      </div>
+      
       
       <div className="class-controls">
         <div className="filter-box">
@@ -776,6 +767,10 @@ const Reports = () => {
         <button className="btn-primary" onClick={generateReport} disabled={isGenerating}>
           <FileText size={18} />
           {isGenerating ? 'Generating...' : 'Generate Report'}
+        </button>
+
+        <button className="btn-icon" onClick={refreshAllData} title="Refresh Data" disabled={refreshing}>
+              <RefreshCw size={16} className={refreshing ? 'spin' : ''} />
         </button>
       </div>
       
