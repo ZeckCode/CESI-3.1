@@ -365,6 +365,73 @@
   border-radius: 0.75rem;
 }
 
+.gr-insights-panel {
+  background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%);
+  border: 1px solid #dbe8ff;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.gr-insights-header {
+  margin-bottom: 0.85rem;
+}
+
+.gr-insights-title {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.gr-insights-subtitle {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.gr-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 1024px) {
+  .gr-insights-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .gr-insights-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gr-insight-card {
+  background: #ffffff;
+  border: 1px solid #dbe3ef;
+  border-left: 4px solid #2196F3;
+  border-radius: 0.65rem;
+  padding: 0.8rem;
+}
+
+.gr-insight-card-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.gr-insight-card-text {
+  margin: 0;
+  color: #475569;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
 /* Tabs */
 .gr-tabs-container {
   display: flex;

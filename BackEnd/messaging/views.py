@@ -593,14 +593,24 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
 
         flag = self.get_object()
         action_type = request.data.get('action')  # 'delete', 'restrict', 'approve', 'dismiss'
-        admin_notes = request.data.get('admin_notes', '')
+        admin_notes = request.data.get('admin_notes', '').strip()
 
         if action_type == 'delete':
+            reason = admin_notes or (
+                f"Flagged words: {flag.flagged_words}" if flag.flagged_words else "Deleted from flagged review."
+            )
             flag.message.is_deleted = True
             flag.message.deleted_by = request.user
             flag.message.deleted_at = timezone.now()
+            flag.message.deletion_reason = reason
             flag.message.save()
+            MessageDeletionLog.objects.create(
+                message=flag.message,
+                deleted_by=request.user,
+                reason=reason,
+            )
             flag.status = 'DELETED'
+            admin_notes = reason
 
         elif action_type == 'restrict':
             # Restrict user globally (across all chats) - temp mute or permanent remove

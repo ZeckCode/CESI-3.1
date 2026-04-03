@@ -1080,6 +1080,79 @@ const TransactionHistory = () => {
 
   const canProcessRequest = (req) => req.status === 'APPROVED';
 
+  const financialInsights = useMemo(() => {
+    const totalBilled = Number(stats.total_billed || 0);
+    const totalCollected = Number(stats.total_collected || 0);
+    const outstanding = Number(stats.outstanding_balance || 0);
+
+    const collectionRate =
+      totalBilled > 0 ? Math.round((totalCollected / totalBilled) * 100) : 0;
+
+    const exposureRate =
+      totalBilled > 0 ? Math.round((outstanding / totalBilled) * 100) : 0;
+
+    const overdueLedgers = groupedTransactions.filter(
+      (group) => group.account_status === 'OVERDUE'
+    ).length;
+
+    const partialLedgers = groupedTransactions.filter(
+      (group) => group.account_status === 'PARTIAL'
+    ).length;
+
+    const reminderQueue = groupedTransactions.filter(
+      (group) =>
+        Number(group.balance || 0) > 0 &&
+        ['PENDING', 'OVERDUE', 'PARTIAL', 'POSTED'].includes(group.account_status)
+    ).length;
+
+    const advancePool = groupedTransactions.reduce(
+      (sum, group) => sum + Number(getRefundableAmount(group) || 0),
+      0
+    );
+
+    const pendingRequests = advanceRequests.filter(
+      (req) => String(req.status || '').toUpperCase() === 'PENDING'
+    ).length;
+
+    const approvedRequests = advanceRequests.filter(
+      (req) => String(req.status || '').toUpperCase() === 'APPROVED'
+    ).length;
+
+    return [
+      {
+        title: 'Collection Interpretation',
+        body: `Collected ${formatCurrency(totalCollected)} out of ${formatCurrency(
+          totalBilled
+        )} (${collectionRate}% collection rate).`,
+      },
+      {
+        title: 'Outstanding Exposure',
+        body: `Current unpaid exposure is ${formatCurrency(outstanding)} (${exposureRate}% of billed amount), with ${overdueLedgers} overdue and ${partialLedgers} partial ledgers.`,
+      },
+      {
+        title: 'Action Queue',
+        body: `${reminderQueue} ledger${
+          reminderQueue === 1 ? '' : 's'
+        } are reminder-eligible. Advance/refund queue has ${pendingRequests} pending and ${approvedRequests} approved request${
+          approvedRequests === 1 ? '' : 's'
+        }.`,
+      },
+      {
+        title: 'Advance Credit Signal',
+        body:
+          advancePool > 0
+            ? `Refundable advance currently totals ${formatCurrency(advancePool)}, which can offset payable balances before additional billing.`
+            : 'No refundable advance credit detected in the current ledger scope.',
+      },
+    ];
+  }, [
+    stats.total_billed,
+    stats.total_collected,
+    stats.outstanding_balance,
+    groupedTransactions,
+    advanceRequests,
+  ]);
+
   return (
     <main className="transaction-history-main">
       <section className="th-section">
@@ -1113,6 +1186,26 @@ const TransactionHistory = () => {
             </div>
             <div className="th-stat-value">{formatCurrency(stats.outstanding_balance)}</div>
             <div className="th-stat-change">Unpaid balance</div>
+          </div>
+        </div>
+      </section>
+
+      <section className="th-section">
+        <div className="th-insights-panel">
+          <div className="th-insights-header">
+            <h3 className="th-insights-title">Descriptive Financial Analysis</h3>
+            <p className="th-insights-subtitle">
+              Interpreted finance signals from ledger, collection, and request activity.
+            </p>
+          </div>
+
+          <div className="th-insights-grid">
+            {financialInsights.map((insight) => (
+              <article key={insight.title} className="th-insight-card">
+                <h4 className="th-insight-card-title">{insight.title}</h4>
+                <p className="th-insight-card-text">{insight.body}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>

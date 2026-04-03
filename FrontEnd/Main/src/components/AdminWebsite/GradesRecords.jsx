@@ -591,6 +591,133 @@ const GradesRecords = () => {
     };
   }, [filteredAttendanceRecords]);
 
+  const descriptiveInsights = useMemo(() => {
+    if (activeTab === 'grades') {
+      const summary = gradeMonitoring.summary || {};
+      const totalStudents = Number(summary.total_students || filteredStudents.length || 0);
+      const gradedStudents = Number(summary.graded_students || 0);
+      const pendingGrades = Number(
+        summary.pending_grades ?? Math.max(totalStudents - gradedStudents, 0)
+      );
+
+      const completionRate =
+        totalStudents > 0 ? Math.round((gradedStudents / totalStudents) * 100) : 0;
+
+      const highPerformers = filteredStudents.filter(
+        (student) => Number(student.average_grade) >= 90
+      ).length;
+
+      const atRisk = filteredStudents.filter((student) => {
+        const numeric = Number(student.average_grade);
+        return !Number.isNaN(numeric) && numeric < 75;
+      }).length;
+
+      return [
+        {
+          title: 'Quarter Coverage',
+          body: `Quarter ${quarter} has ${gradedStudents}/${totalStudents} students with recorded grades (${completionRate}% completion).`,
+        },
+        {
+          title: 'Pending Workload',
+          body:
+            pendingGrades === 0
+              ? 'No pending grade records detected in current filters.'
+              : `${pendingGrades} student${pendingGrades === 1 ? '' : 's'} still need quarter grading completion.`,
+        },
+        {
+          title: 'Performance Signal',
+          body: `${highPerformers} student${highPerformers === 1 ? '' : 's'} are high-performing (90+), while ${atRisk} student${
+            atRisk === 1 ? '' : 's'
+          } are below 75 and may need intervention support.`,
+        },
+      ];
+    }
+
+    if (activeTab === 'history') {
+      const passingCount = filteredHistory.filter((record) =>
+        ['passed', 'promoted'].includes(String(record.remarks || '').toLowerCase())
+      ).length;
+
+      const passRate =
+        filteredHistory.length > 0
+          ? Math.round((passingCount / filteredHistory.length) * 100)
+          : null;
+
+      const latestYear = filteredHistory
+        .map((record) => record.school_year)
+        .filter(Boolean)
+        .sort((a, b) => String(b).localeCompare(String(a)))[0];
+
+      return [
+        {
+          title: 'Historical Coverage',
+          body: `Filtered view includes ${historyStats.totalRecords} records across ${historyStats.schoolYears} school year${
+            historyStats.schoolYears === 1 ? '' : 's'
+          } and ${historyStats.uniqueStudents} students.`,
+        },
+        {
+          title: 'Achievement Trend',
+          body:
+            passRate === null
+              ? 'No historical remarks available to compute pass trend.'
+              : `Pass/promote indicators are at ${passRate}% for the current filtered history set.`,
+        },
+        {
+          title: 'Recent Snapshot',
+          body: `Latest school year in view is ${latestYear || 'not available'} with average final grade ${
+            historyStats.averageFinal ?? '—'
+          }.`,
+        },
+      ];
+    }
+
+    const presentRate =
+      attendanceStats.totalRecords > 0
+        ? Math.round((attendanceStats.present / attendanceStats.totalRecords) * 100)
+        : 0;
+
+    const absentStudents = filteredAttendanceStudents.filter(
+      (student) => student.overall_status === 'absent'
+    ).length;
+
+    const partialStudents = filteredAttendanceStudents.filter(
+      (student) => student.overall_status === 'partial'
+    ).length;
+
+    return [
+      {
+        title: 'Daily Attendance Health',
+        body: `For ${selectedDate}, present entries are ${attendanceStats.present}/${attendanceStats.totalRecords} (${presentRate}%).`,
+      },
+      {
+        title: 'Risk Watchlist',
+        body: `${absentStudents} student${absentStudents === 1 ? '' : 's'} are fully absent and ${partialStudents} student${
+          partialStudents === 1 ? '' : 's'
+        } have partial attendance patterns.`,
+      },
+      {
+        title: 'Punctuality Signal',
+        body: `${attendanceStats.late} late and ${attendanceStats.excused} excused entries recorded for this date.`,
+      },
+    ];
+  }, [
+    activeTab,
+    gradeMonitoring.summary,
+    filteredStudents,
+    quarter,
+    filteredHistory,
+    historyStats.totalRecords,
+    historyStats.schoolYears,
+    historyStats.uniqueStudents,
+    historyStats.averageFinal,
+    attendanceStats.totalRecords,
+    attendanceStats.present,
+    attendanceStats.late,
+    attendanceStats.excused,
+    filteredAttendanceStudents,
+    selectedDate,
+  ]);
+
   const activeRows =
     activeTab === 'grades'
       ? filteredStudents
@@ -908,6 +1035,26 @@ const GradesRecords = () => {
       )}
 
       <section className="gr-section">{renderStats()}</section>
+
+      <section className="gr-section">
+        <div className="gr-insights-panel">
+          <div className="gr-insights-header">
+            <h3 className="gr-insights-title">Descriptive Analysis</h3>
+            <p className="gr-insights-subtitle">
+              Context-aware interpretation of the current {activeTab} view.
+            </p>
+          </div>
+
+          <div className="gr-insights-grid">
+            {descriptiveInsights.map((insight) => (
+              <article key={insight.title} className="gr-insight-card">
+                <h4 className="gr-insight-card-title">{insight.title}</h4>
+                <p className="gr-insight-card-text">{insight.body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <div className="gr-tabs-container">
         <button
