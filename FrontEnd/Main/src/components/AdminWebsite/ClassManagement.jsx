@@ -106,6 +106,68 @@ const gradeLabel = (lvl) => {
 
 const dayShort = (code) => DAYS.find((d) => d.value === code)?.short ?? code;
 
+const getEnrollmentSectionId = (enrollment) => {
+  if (!enrollment) return null;
+  const raw = enrollment.section;
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'object') {
+    const nestedId = Number(raw.id);
+    return Number.isFinite(nestedId) ? nestedId : null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const gradeRoomPrefix = (gradeLevel) => {
+  const code = normalizeGradeCode(gradeLevel);
+  const map = {
+    prek: 'PREK',
+    kinder: 'KD',
+    grade1: 'G1',
+    grade2: 'G2',
+    grade3: 'G3',
+    grade4: 'G4',
+    grade5: 'G5',
+    grade6: 'G6',
+  };
+  return map[code] || 'GEN';
+};
+
+const buildNextRoomCode = (gradeLevel, rooms) => {
+  const prefix = `${gradeRoomPrefix(gradeLevel)}-RM`;
+  const existing = new Set((rooms || []).map((r) => String(r.code || '').trim().toUpperCase()));
+  let sequence = 1;
+  while (sequence <= 999) {
+    const candidate = `${prefix}${String(sequence).padStart(2, '0')}`;
+    if (!existing.has(candidate)) {
+      return { code: candidate, sequence };
+    }
+    sequence += 1;
+  }
+  return { code: `${prefix}${Date.now()}`, sequence: 0 };
+};
+
+const buildNextSectionName = (gradeLevel, sections, sourceName) => {
+  const normalizedGrade = normalizeGradeCode(gradeLevel);
+  const gradeSections = (sections || []).filter(
+    (s) => normalizeGradeCode(s.grade_level) === normalizedGrade
+  );
+  const existingNames = new Set(
+    gradeSections.map((s) => String(s.name || '').trim().toLowerCase()).filter(Boolean)
+  );
+
+  const baseName = String(sourceName || '').trim() || 'Section';
+
+  let sequence = 2;
+  while (sequence <= 999) {
+    const candidate = `${baseName} ${sequence}`;
+    if (!existingNames.has(candidate.toLowerCase())) return candidate;
+    sequence += 1;
+  }
+
+  return `${baseName} ${Date.now()}`;
+};
+
 /* Helper: determine if a class is Ongoing (has active students) or Expired (no active students) */
 const getClassStatus = (section, enrollments) => {
   const gradeCode = normalizeGradeCode(section.grade_level);
@@ -440,9 +502,122 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
   const [form, setForm] = useState({ name: '', grade_level: '', adviser: '', room: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [capacityActionMessage, setCapacityActionMessage] = useState('');
+  const [openingSectionId, setOpeningSectionId] = useState(null);
   const [showStudentsModal, setShowStudentsModal] = useState(false);
   const [selectedSection, setSelectedSection] = useState(null);
   const [assigningEnrollmentId, setAssigningEnrollmentId] = useState(null);
+
+  const fullSections = useMemo(() => {
+    return sections
+      .map((sec) => {
+        const capacity = Number(sec.capacity) > 0 ? Number(sec.capacity) : 40;
+        const activeAssigned = enrollments.filter((e) => {
+          return e.status === 'ACTIVE' && Number(getEnrollmentSectionId(e)) === Number(sec.id);
+        });
+        const unassignedSameGrade = enrollments.filter((e) => {
+          return (
+            e.status === 'ACTIVE' &&
+            normalizeGradeCode(e.grade_level) === normalizeGradeCode(sec.grade_level) &&
+            !getEnrollmentSectionId(e)
+          );
+        });
+
+        return {
+          section: sec,
+          assignedCount: activeAssigned.length,
+          capacity,
+          availableSameGrade: unassignedSameGrade.length,
+          isFull: activeAssigned.length >= capacity,
+        };
+      })
+      .filter((entry) => entry.isFull)
+      .sort((a, b) => {
+        if (a.section.grade_level === b.section.grade_level) {
+          return String(a.section.name).localeCompare(String(b.section.name));
+        }
+        return String(a.section.grade_level).localeCompare(String(b.section.grade_level));
+      });
+  }, [sections, enrollments]);
+
+  const openNewRoomAndSection = async (fullEntry) => {
+    if (!fullEntry?.section) return;
+
+    const section = fullEntry.section;
+    const sectionTitle = `${gradeLabel(section.grade_level)} - ${section.name}`;
+
+    const shouldOpen = window.confirm(
+      `${sectionTitle} is already full (${fullEntry.assignedCount}/${fullEntry.capacity}).\n\nOpen a new room and section for ${gradeLabel(section.grade_level)} now?`
+    );
+    if (!shouldOpen) return;
+
+    setCapacityActionMessage('');
+    setOpeningSectionId(section.id);
+
+    let createdRoomId = null;
+
+    try {
+      const roomSeed = buildNextRoomCode(section.grade_level, rooms);
+      const currentRoom = rooms.find((r) => Number(r.id) === Number(section.room));
+      const roomCapacity = Number(currentRoom?.capacity) > 0
+        ? Number(currentRoom.capacity)
+        : Number(section.capacity) > 0
+        ? Number(section.capacity)
+        : 40;
+
+      const roomPayload = {
+        code: roomSeed.code,
+        name: `${gradeLabel(section.grade_level)} Expansion Room ${roomSeed.sequence || 'New'}`,
+        capacity: roomCapacity,
+        is_active: true,
+      };
+
+      const roomRes = await apiFetch('/api/classmanagement/rooms/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(roomPayload),
+      });
+      const roomData = await roomRes.json().catch(() => ({}));
+      if (!roomRes.ok) {
+        throw new Error(roomData.detail || JSON.stringify(roomData) || 'Failed to create room.');
+      }
+
+      createdRoomId = roomData.id;
+
+      const newSectionName = buildNextSectionName(section.grade_level, sections, section.name);
+      const sectionPayload = {
+        name: newSectionName,
+        grade_level: section.grade_level,
+        capacity: Number(section.capacity) > 0 ? Number(section.capacity) : roomCapacity,
+        adviser: null,
+        room: createdRoomId,
+      };
+
+      const sectionRes = await apiFetch('/api/accounts/sections/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sectionPayload),
+      });
+      const sectionData = await sectionRes.json().catch(() => ({}));
+      if (!sectionRes.ok) {
+        throw new Error(sectionData.detail || JSON.stringify(sectionData) || 'Failed to create section.');
+      }
+
+      await onRefresh();
+      setCapacityActionMessage(
+        `New class opened for ${gradeLabel(section.grade_level)}: ${sectionData.name} in room ${roomData.code}.`
+      );
+    } catch (e) {
+      if (createdRoomId) {
+        await apiFetch(`/api/classmanagement/rooms/${createdRoomId}/`, {
+          method: 'DELETE',
+        }).catch(() => null);
+      }
+      setCapacityActionMessage(e.message || 'Unable to open a new room and section right now.');
+    } finally {
+      setOpeningSectionId(null);
+    }
+  };
 
   const teacherProfiles = teachers
     .filter((t) => t.teacher_profile)
@@ -604,6 +779,51 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
           </button>
         </div>
       </div>
+
+      {fullSections.length > 0 && (
+        <div className="cm-capacity-alert">
+          <div className="cm-capacity-alert-head">
+            <AlertTriangle size={18} />
+            <div>
+              <strong>
+                Capacity alert: {fullSections.length} section{fullSections.length > 1 ? 's are' : ' is'} full
+              </strong>
+              <p>
+                These sections reached full capacity. You can open a new room and section for the same grade level with one click.
+              </p>
+            </div>
+          </div>
+
+          <div className="cm-capacity-alert-list">
+            {fullSections.map((entry) => (
+              <div className="cm-capacity-alert-item" key={entry.section.id}>
+                <div>
+                  <div className="cm-capacity-alert-title">
+                    {gradeLabel(entry.section.grade_level)} - {entry.section.name}
+                  </div>
+                  <div className="cm-capacity-alert-meta">
+                    <span>{entry.assignedCount}/{entry.capacity} enrolled</span>
+                    <span>{entry.availableSameGrade} unassigned in grade</span>
+                    <span>{entry.section.room_code ? `Current room: ${entry.section.room_code}` : 'Current room: Unassigned'}</span>
+                  </div>
+                </div>
+
+                <button
+                  className="admin-btn-primary cm-capacity-alert-btn"
+                  onClick={() => openNewRoomAndSection(entry)}
+                  disabled={openingSectionId === entry.section.id}
+                >
+                  {openingSectionId === entry.section.id ? 'Opening...' : 'Open Room + Section'}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {capacityActionMessage && (
+            <div className="cm-capacity-alert-msg">{capacityActionMessage}</div>
+          )}
+        </div>
+      )}
 
       {showForm && (
         <div className="admin-modal-overlay">
