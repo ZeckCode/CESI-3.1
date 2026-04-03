@@ -604,13 +604,24 @@ def admin_grade_records_monitoring(request):
     normalized_grade_filter = normalize_grade_level(grade_level_filter) if grade_level_filter else None
 
     subjects = list(Subject.objects.all().order_by("name"))
-    history_by_student = {
-        row["student_id"]: row
-        for row in AcademicRecord.objects.values("student_id").annotate(
-            record_count=Count("id"),
-            latest_school_year=Max("school_year"),
-        )
+    subject_ids = [subject.id for subject in subjects]
+    default_weights = {
+        "activity": 40,
+        "quiz": 20,
+        "exam": 20,
+        "class_standing": 20,
     }
+    weights_by_subject = {
+        subject.id: default_weights.copy()
+        for subject in subjects
+    }
+    for weight in GradeWeight.objects.filter(subject_id__in=subject_ids):
+        weights_by_subject[weight.subject_id] = {
+            "activity": weight.activity_weight,
+            "quiz": weight.quiz_weight,
+            "exam": weight.exam_weight,
+            "class_standing": weight.class_standing_weight,
+        }
 
     enrollments = (
         Enrollment.objects.filter(status="ACTIVE")
@@ -618,23 +629,82 @@ def admin_grade_records_monitoring(request):
         .order_by("grade_level", "section__name", "last_name", "first_name")
     )
 
-    students = []
-    student_averages = []
-    completed_count = 0
-
+    filtered_enrollments = []
     for enrollment in enrollments:
         student = enrollment.student
         if not student:
             continue
 
         section_grade = getattr(enrollment.section, "grade_level", None)
-        normalized_grade = normalize_grade_level(section_grade if section_grade is not None else enrollment.grade_level)
+        normalized_grade = normalize_grade_level(
+            section_grade if section_grade is not None else enrollment.grade_level
+        )
         if normalized_grade_filter is not None and normalized_grade != normalized_grade_filter:
             continue
 
         if section_filter and enrollment.section and enrollment.section.name != section_filter:
             continue
 
+        filtered_enrollments.append((enrollment, student, normalized_grade))
+
+    student_ids = [student.id for _, student, _ in filtered_enrollments]
+
+    history_by_student = {}
+    if student_ids:
+        history_by_student = {
+            row["student_id"]: row
+            for row in AcademicRecord.objects.filter(student_id__in=student_ids)
+            .values("student_id")
+            .annotate(
+                record_count=Count("id"),
+                latest_school_year=Max("school_year"),
+            )
+        }
+
+    score_map = {}
+    class_standing_map = {}
+    if student_ids and subject_ids:
+        score_rows = (
+            StudentScore.objects.filter(
+                student_id__in=student_ids,
+                grade_item__subject_id__in=subject_ids,
+                grade_item__quarter=quarter,
+            )
+            .values("student_id", "grade_item__subject_id", "grade_item__category")
+            .annotate(
+                total_earned=Sum("score"),
+                total_possible=Sum("grade_item__total_score"),
+            )
+        )
+        for row in score_rows:
+            score_map[(
+                row["student_id"],
+                row["grade_item__subject_id"],
+                row["grade_item__category"],
+            )] = row
+
+        class_standing_rows = ClassStanding.objects.filter(
+            student_id__in=student_ids,
+            subject_id__in=subject_ids,
+            quarter=quarter,
+        ).values("student_id", "subject_id", "score")
+        for row in class_standing_rows:
+            class_standing_map[(row["student_id"], row["subject_id"])] = row["score"]
+
+    def get_category_avg(student_id, subject_id, category):
+        row = score_map.get((student_id, subject_id, category))
+        if not row:
+            return None
+        total_possible = row["total_possible"] or 0
+        if total_possible == 0:
+            return Decimal("0")
+        return (Decimal(str(row["total_earned"])) / Decimal(str(total_possible))) * 100
+
+    students = []
+    student_averages = []
+    completed_count = 0
+
+    for enrollment, student, normalized_grade in filtered_enrollments:
         name = " ".join(
             part for part in [enrollment.first_name or "", enrollment.last_name or ""] if part
         ).strip()
@@ -644,14 +714,41 @@ def admin_grade_records_monitoring(request):
             ).strip()
         name = name or student.username
 
-        section_grade = getattr(enrollment.section, "grade_level", None)
-        normalized_grade = normalize_grade_level(section_grade if section_grade is not None else enrollment.grade_level)
         subject_breakdown = []
         graded_values = []
 
         for subject in subjects:
-            grade_data = _compute_quarter_grade(student.id, subject.id, quarter)
-            quarter_grade = grade_data["quarter_grade"]
+            weights = weights_by_subject.get(subject.id, default_weights)
+            act_avg = get_category_avg(student.id, subject.id, "ACTIVITY")
+            quiz_avg = get_category_avg(student.id, subject.id, "QUIZ")
+            exam_avg = get_category_avg(student.id, subject.id, "EXAM")
+            cs_score = class_standing_map.get((student.id, subject.id))
+
+            components = []
+            if act_avg is not None:
+                components.append((act_avg, weights["activity"]))
+            if quiz_avg is not None:
+                components.append((quiz_avg, weights["quiz"]))
+            if exam_avg is not None:
+                components.append((exam_avg, weights["exam"]))
+            if cs_score is not None:
+                components.append((Decimal(str(cs_score)), weights["class_standing"]))
+
+            if components:
+                total_weight = sum(weight for _, weight in components)
+                if total_weight > 0:
+                    weighted_total = (
+                        sum(val * wt for val, wt in components)
+                        / Decimal(str(total_weight))
+                        * 100
+                        / 100
+                    )
+                else:
+                    weighted_total = None
+            else:
+                weighted_total = None
+
+            quarter_grade = round(float(weighted_total), 2) if weighted_total is not None else None
             if quarter_grade is not None:
                 graded_values.append(quarter_grade)
             subject_breakdown.append({
