@@ -60,96 +60,136 @@ const pickFirstNonEmpty = (...values) => {
 // Get priority parent info from enrollment data
 // Priority: Mother > Father > Guardian
 export const getPriorityParent = (parentInfo, enrollment = {}) => {
-  // support array payloads too
   const info = Array.isArray(parentInfo) ? parentInfo[0] || {} : parentInfo || {};
 
   const motherName = pickFirstNonEmpty(
     info.mother_name,
     info.mother_full_name,
-    info.mother
+    info.mother,
+    enrollment?.parent_info?.mother_name
   );
   const motherPhone = pickFirstNonEmpty(
     info.mother_contact,
     info.mother_phone,
-    info.mother_contact_number
+    info.mother_contact_number,
+    enrollment?.parent_info?.mother_contact
   );
 
   const fatherName = pickFirstNonEmpty(
     info.father_name,
     info.father_full_name,
-    info.father
+    info.father,
+    enrollment?.parent_info?.father_name
   );
   const fatherPhone = pickFirstNonEmpty(
     info.father_contact,
     info.father_phone,
-    info.father_contact_number
+    info.father_contact_number,
+    enrollment?.parent_info?.father_contact
   );
 
   const guardianName = pickFirstNonEmpty(
     info.guardian_name,
     info.guardian_full_name,
-    info.guardian
+    info.guardian,
+    enrollment?.parent_info?.guardian_name
   );
   const guardianPhone = pickFirstNonEmpty(
     info.guardian_contact,
     info.guardian_phone,
-    info.guardian_contact_number
+    info.guardian_contact_number,
+    enrollment?.parent_info?.guardian_contact
   );
 
   const fallbackName = pickFirstNonEmpty(
     info.parent_name,
     info.contact_person,
-    enrollment.parent_name,
-    enrollment.guardian_name,
-    enrollment.mother_name,
-    enrollment.father_name
+    enrollment?.parent_name,
+    enrollment?.parentName,
+    enrollment?.guardian_name,
+    enrollment?.mother_name,
+    enrollment?.father_name
   );
 
   const fallbackPhone = pickFirstNonEmpty(
     info.parent_phone,
     info.contact_number,
-    enrollment.parent_phone,
-    enrollment.guardian_contact,
-    enrollment.mother_contact,
-    enrollment.father_contact
+    enrollment?.parent_phone,
+    enrollment?.phone,
+    enrollment?.guardian_contact,
+    enrollment?.mother_contact,
+    enrollment?.father_contact,
+    enrollment?.mobile_number,
+    enrollment?.telephone_number
   );
 
   if (motherName) {
-    return { name: motherName, phone: motherPhone || fallbackPhone || "N/A" };
+    return {
+      name: motherName,
+      phone: motherPhone || fallbackPhone || "",
+    };
   }
 
   if (fatherName) {
-    return { name: fatherName, phone: fatherPhone || fallbackPhone || "N/A" };
+    return {
+      name: fatherName,
+      phone: fatherPhone || fallbackPhone || "",
+    };
   }
 
   if (guardianName) {
-    return { name: guardianName, phone: guardianPhone || fallbackPhone || "N/A" };
+    return {
+      name: guardianName,
+      phone: guardianPhone || fallbackPhone || "",
+    };
   }
 
   return {
-    name: fallbackName || "N/A",
-    phone: fallbackPhone || "N/A",
+    name: fallbackName || "",
+    phone: fallbackPhone || "",
   };
 };
 
 // Format enrollment data for ID display
 export const prepareIdData = (source = {}) => {
-  const enrollment = source?.raw || source;
-  const parentData = getPriorityParent(enrollment.parent_info);
+  const enrollment = source?.raw || source || {};
+  const parentData = getPriorityParent(enrollment?.parent_info, enrollment);
 
   return {
-    first_name: enrollment.first_name || "",
-    last_name: enrollment.last_name || "",
-    middle_name: enrollment.middle_name || "",
-    grade_level: enrollment.grade_level || "",
-    academic_year: enrollment.academic_year || "2025-2026",
-    lrn: enrollment.lrn || "",
-    birth_date: enrollment.birth_date || "",
-    id_image_url: enrollment.id_image_url || "",
-    section_name: enrollment.section_name || "",
-    student_type: enrollment.student_type || "",
-    parent_name: parentData.name,
-    parent_phone: parentData.phone,
-    id: enrollment.student_number || enrollment.id || "",
+    first_name: enrollment?.first_name || source?.first_name || "",
+    last_name: enrollment?.last_name || source?.last_name || "",
+    middle_name: enrollment?.middle_name || source?.middle_name || "",
+    grade_level: enrollment?.grade_level || source?.grade_level || "",
+    academic_year:
+      enrollment?.academic_year || source?.academic_year || "2025-2026",
+    lrn: enrollment?.lrn || source?.lrn || "",
+    birth_date: enrollment?.birth_date || source?.birth_date || "",
+    id_image_url: enrollment?.id_image_url || source?.id_image_url || "",
+    section_name:
+      enrollment?.section_name ||
+      enrollment?.section_details?.name ||
+      enrollment?.section?.name ||
+      source?.section_name ||
+      source?.sectionName ||
+      "",
+    student_type: enrollment?.student_type || source?.student_type || "",
+    parent_name:
+      parentData.name ||
+      source?.parent_name ||
+      source?.parentName ||
+      "",
+    parent_phone:
+      parentData.phone ||
+      source?.parent_phone ||
+      source?.phone ||
+      "",
+    id:
+      enrollment?.student_number ||
+      enrollment?.student_id ||
+      enrollment?.id ||
+      source?.student_number ||
+      source?.student_id ||
+      source?.id ||
+      "",
   };
 };
