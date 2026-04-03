@@ -737,6 +737,15 @@ const AttendanceMonitoring = () => {
                         textAlign: "center",
                         fontSize: "12px",
                         minWidth: "80px"
+                      }}>TOTAL LATE</th>
+                      <th style={{
+                        backgroundColor: "#FFA500",
+                        padding: "8px",
+                        border: "1px solid #000",
+                        fontWeight: "bold",
+                        textAlign: "center",
+                        fontSize: "12px",
+                        minWidth: "80px"
                       }}>TOTAL PRESENT</th>
                     </tr>
                   </thead>
@@ -744,8 +753,9 @@ const AttendanceMonitoring = () => {
                     {students.map((student, idx) => {
                       const studentKey = getStudentKey(student);
                       
-                      // Count absences and presences from ONLY the current month
+                      // Count absences, late, and presences from ONLY the current month
                       let totalAbsent = 0;
+                      let totalLate = 0;
                       let totalPresent = 0;
                       const studentDayAttendance = attendanceByDay[studentKey] || {};
                       
@@ -753,7 +763,8 @@ const AttendanceMonitoring = () => {
                       daysArray.forEach((day) => {
                         const status = studentDayAttendance[day];
                         if (status === "A") totalAbsent++;
-                        else if (status === "P") totalPresent++;
+                        if (status === "L") totalLate++;
+                        if (status === "P" || status === "L") totalPresent++;
                       });
                       
                       return (
@@ -790,6 +801,15 @@ const AttendanceMonitoring = () => {
                             fontWeight: "500"
                           }}>
                             {totalAbsent}
+                          </td>
+                          <td style={{
+                            padding: "8px",
+                            border: "1px solid #000",
+                            textAlign: "center",
+                            fontSize: "13px",
+                            fontWeight: "500"
+                          }}>
+                            {totalLate}
                           </td>
                           <td style={{
                             padding: "8px",
@@ -913,14 +933,17 @@ const AttendanceMonitoring = () => {
         
         // Add totals
         let totalAbsent = 0;
+        let totalLate = 0;
         let totalPresent = 0;
         daysArray.forEach((day) => {
           const status = attendanceByDay[studentKey]?.[day];
           if (status === "A") totalAbsent++;
-          else if (status === "P") totalPresent++;
+          if (status === "L") totalLate++;
+          if (status === "P" || status === "L") totalPresent++;
         });
         
         row["TOTAL ABSENT"] = totalAbsent;
+        row["TOTAL LATE"] = totalLate;
         row["TOTAL PRESENT"] = totalPresent;
         
         return row;
@@ -1031,9 +1054,9 @@ const AttendanceMonitoring = () => {
       yPosition += 8;
       
       // Table dimensions
-      const firstColWidth = 45;
+      const firstColWidth = 35;
       const dayColWidth = 8;
-      const totalsColWidth = 11;
+      const totalsColWidth = 18;
       
       const headerHeight = 14;
       const rowHeight = 8;
@@ -1059,6 +1082,11 @@ const AttendanceMonitoring = () => {
         xPos += dayColWidth;
       });
       
+      // Three totals columns: ABS, LATE, PRS
+      pdf.rect(xPos, headerY, totalsColWidth, headerHeight, "F");
+      pdf.rect(xPos, headerY, totalsColWidth, headerHeight);
+      xPos += totalsColWidth;
+      
       pdf.rect(xPos, headerY, totalsColWidth, headerHeight, "F");
       pdf.rect(xPos, headerY, totalsColWidth, headerHeight);
       xPos += totalsColWidth;
@@ -1072,7 +1100,7 @@ const AttendanceMonitoring = () => {
       pdf.setFontSize(8);
       
       xPos = margin;
-      pdf.text("STUDENT", xPos + 2, headerY + 8);
+      pdf.text("STUDENT NAME", xPos + firstColWidth / 2, headerY + 8, {align: 'center'});
       xPos += firstColWidth;
       
       daysArray.forEach((day) => {
@@ -1086,10 +1114,13 @@ const AttendanceMonitoring = () => {
         xPos += dayColWidth;
       });
       
-      pdf.text("ABS", xPos + 1.5, headerY + 8);
+      pdf.text("ABSENT", xPos + totalsColWidth / 2, headerY + 8, {align: 'center'});
       xPos += totalsColWidth;
       
-      pdf.text("PRS", xPos + 1.5, headerY + 8);
+      pdf.text("LATE", xPos + totalsColWidth / 2, headerY + 8, {align: 'center'});
+      xPos += totalsColWidth;
+      
+      pdf.text("PRESENT", xPos + totalsColWidth / 2, headerY + 8, {align: 'center'});
       
       yPosition += headerHeight;
       
@@ -1127,6 +1158,10 @@ const AttendanceMonitoring = () => {
           
           pdf.rect(headerXPos, yPosition, totalsColWidth, headerHeight, "F");
           pdf.rect(headerXPos, yPosition, totalsColWidth, headerHeight);
+          headerXPos += totalsColWidth;
+          
+          pdf.rect(headerXPos, yPosition, totalsColWidth, headerHeight, "F");
+          pdf.rect(headerXPos, yPosition, totalsColWidth, headerHeight);
           
           // Now draw all text
           pdf.setTextColor(255, 255, 255);
@@ -1134,7 +1169,7 @@ const AttendanceMonitoring = () => {
           pdf.setFontSize(8);
           
           headerXPos = margin;
-          pdf.text("STUDENT", headerXPos + 2, yPosition + 8);
+          pdf.text("STUDENT NAME", headerXPos + firstColWidth / 2, yPosition + 8, {align: 'center'});
           headerXPos += firstColWidth;
           
           daysArray.forEach((day) => {
@@ -1147,10 +1182,13 @@ const AttendanceMonitoring = () => {
             headerXPos += dayColWidth;
           });
           
-          pdf.text("ABS", headerXPos + 1.5, yPosition + 8);
+          pdf.text("ABSENT", headerXPos + totalsColWidth / 2, yPosition + 8, {align: 'center'});
           headerXPos += totalsColWidth;
           
-          pdf.text("PRS", headerXPos + 1.5, yPosition + 8);
+          pdf.text("LATE", headerXPos + totalsColWidth / 2, yPosition + 8, {align: 'center'});
+          headerXPos += totalsColWidth;
+          
+          pdf.text("PRESENT", headerXPos + totalsColWidth / 2, yPosition + 8, {align: 'center'});
           
           yPosition += headerHeight;
           
@@ -1164,7 +1202,7 @@ const AttendanceMonitoring = () => {
         // Draw row background
         let xPos = margin;
         pdf.setFillColor(rowBgColor[0], rowBgColor[1], rowBgColor[2]);
-        pdf.rect(xPos, yPosition, firstColWidth + (dayColWidth * daysArray.length) + (totalsColWidth * 2), rowHeight, "F");
+        pdf.rect(xPos, yPosition, firstColWidth + (dayColWidth * daysArray.length) + (totalsColWidth * 3), rowHeight, "F");
         
         // Draw borders
         pdf.setDrawColor(200, 200, 200);
@@ -1197,7 +1235,7 @@ const AttendanceMonitoring = () => {
             pdf.setFont(undefined, "normal");
           }
           
-          pdf.text(status, xPos + 2, yPosition + 5);
+          pdf.text(status, xPos + dayColWidth / 2, yPosition + 5, {align: 'center'});
           pdf.setTextColor(0, 0, 0);
           pdf.setFont(undefined, "normal");
           pdf.setDrawColor(200, 200, 200);
@@ -1208,19 +1246,25 @@ const AttendanceMonitoring = () => {
         
         // Totals
         let totalAbsent = 0;
+        let totalLate = 0;
         let totalPresent = 0;
         daysArray.forEach((day) => {
           const status = attendanceByDay[studentKey]?.[day];
           if (status === "A") totalAbsent++;
-          else if (status === "P") totalPresent++;
+          if (status === "L") totalLate++;
+          if (status === "P" || status === "L") totalPresent++;
         });
         
         pdf.rect(xPos, yPosition, totalsColWidth, rowHeight);
-        pdf.text(String(totalAbsent), xPos + 3, yPosition + 5);
+        pdf.text(String(totalAbsent), xPos + totalsColWidth / 2, yPosition + 5, {align: 'center'});
         xPos += totalsColWidth;
         
         pdf.rect(xPos, yPosition, totalsColWidth, rowHeight);
-        pdf.text(String(totalPresent), xPos + 3, yPosition + 5);
+        pdf.text(String(totalLate), xPos + totalsColWidth / 2, yPosition + 5, {align: 'center'});
+        xPos += totalsColWidth;
+        
+        pdf.rect(xPos, yPosition, totalsColWidth, rowHeight);
+        pdf.text(String(totalPresent), xPos + totalsColWidth / 2, yPosition + 5, {align: 'center'});
         
         yPosition += rowHeight;
       });
