@@ -11,7 +11,10 @@ export default function IdCardGenerator({
   studentData,
   schoolInfo,
 }) {
-  const cardRef = useRef(null);
+  const previewRef = useRef(null);
+  const frontExportRef = useRef(null);
+  const backExportRef = useRef(null);
+
   const [cardSide, setCardSide] = useState("front");
   const [cardSettings, setCardSettings] = useState({
     schoolName: schoolInfo?.name || "CESI School",
@@ -26,6 +29,7 @@ export default function IdCardGenerator({
     parentName: studentData?.parent_name || "",
     parentPhone: studentData?.parent_phone || "",
   });
+
   const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
@@ -63,6 +67,64 @@ export default function IdCardGenerator({
 
   const canDownload = missingFields.length === 0;
 
+  const waitForImages = async (root) => {
+    if (!root) return;
+
+    const images = Array.from(root.querySelectorAll("img"));
+    await Promise.all(
+      images.map((img) => {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+
+        return new Promise((resolve) => {
+          const done = () => resolve();
+          img.onload = done;
+          img.onerror = done;
+        });
+      })
+    );
+
+    if (document.fonts?.ready) {
+      try {
+        await document.fonts.ready;
+      } catch {
+        // ignore font readiness issues
+      }
+    }
+  };
+
+  const captureCard = async (node) => {
+    await waitForImages(node);
+
+    return await html2canvas(node, {
+      scale: 3,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      logging: false,
+    });
+  };
+
+  const combineFrontBackCanvas = async () => {
+    const frontCanvas = await captureCard(frontExportRef.current);
+    const backCanvas = await captureCard(backExportRef.current);
+
+    const gap = 40;
+    const combined = document.createElement("canvas");
+    combined.width = Math.max(frontCanvas.width, backCanvas.width);
+    combined.height = frontCanvas.height + backCanvas.height + gap;
+
+    const ctx = combined.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, combined.width, combined.height);
+
+    const frontX = Math.floor((combined.width - frontCanvas.width) / 2);
+    const backX = Math.floor((combined.width - backCanvas.width) / 2);
+
+    ctx.drawImage(frontCanvas, frontX, 0);
+    ctx.drawImage(backCanvas, backX, frontCanvas.height + gap);
+
+    return combined;
+  };
+
   const downloadPDF = async () => {
     if (!canDownload) {
       alert(
@@ -73,32 +135,38 @@ export default function IdCardGenerator({
       return;
     }
 
-    if (!cardRef.current) return;
     setIsDownloading(true);
 
     try {
-      const canvas = await html2canvas(cardRef.current, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: null,
-      });
+      const frontCanvas = await captureCard(frontExportRef.current);
+      const backCanvas = await captureCard(backExportRef.current);
 
-      const imgData = canvas.toDataURL("image/jpeg", 0.98);
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
         format: "a4",
       });
 
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const imgWidth = pdfWidth - 10;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 10;
+      const maxWidth = pageWidth - margin * 2;
 
-      pdf.addImage(imgData, "JPEG", 5, 5, imgWidth, imgHeight);
-      pdf.save(`${studentData.first_name}_${studentData.last_name}_ID.pdf`);
+      const frontHeight = (frontCanvas.height * maxWidth) / frontCanvas.width;
+      const backHeight = (backCanvas.height * maxWidth) / backCanvas.width;
+
+      const frontImg = frontCanvas.toDataURL("image/png");
+      const backImg = backCanvas.toDataURL("image/png");
+
+      pdf.addImage(frontImg, "PNG", margin, 10, maxWidth, frontHeight);
+      pdf.addPage();
+      pdf.addImage(backImg, "PNG", margin, 10, maxWidth, backHeight);
+
+      pdf.save(
+        `${studentData.first_name}_${studentData.last_name}_ID_front_back.pdf`
+      );
     } catch (error) {
       console.error("PDF download failed:", error);
-      alert("Failed to download ID card");
+      alert("Failed to download ID card PDF");
     } finally {
       setIsDownloading(false);
     }
@@ -114,23 +182,18 @@ export default function IdCardGenerator({
       return;
     }
 
-    if (!cardRef.current) return;
     setIsDownloading(true);
 
     try {
-      const canvas = await html2canvas(cardRef.current, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: null,
-      });
+      const combinedCanvas = await combineFrontBackCanvas();
 
       const link = document.createElement("a");
-      link.href = canvas.toDataURL("image/png");
-      link.download = `${studentData.first_name}_${studentData.last_name}_ID.png`;
+      link.href = combinedCanvas.toDataURL("image/png");
+      link.download = `${studentData.first_name}_${studentData.last_name}_ID_front_back.png`;
       link.click();
     } catch (error) {
       console.error("Image download failed:", error);
-      alert("Failed to download ID card");
+      alert("Failed to download ID card image");
     } finally {
       setIsDownloading(false);
     }
@@ -169,6 +232,41 @@ export default function IdCardGenerator({
           >
             <X size={18} />
           </button>
+        </div>
+
+        {/* Hidden export area */}
+        <div
+          style={{
+            position: "fixed",
+            left: -10000,
+            top: 0,
+            width: 800,
+            height: 1400,
+            overflow: "hidden",
+            pointerEvents: "none",
+            opacity: 0,
+            zIndex: -1,
+            background: "#ffffff",
+            padding: 20,
+          }}
+        >
+          <IdCardPreview
+            ref={frontExportRef}
+            studentData={studentData}
+            settings={cardSettings}
+            studentName={studentName}
+            cardSide="front"
+            isExport={true}
+          />
+          <div style={{ height: 30 }} />
+          <IdCardPreview
+            ref={backExportRef}
+            studentData={studentData}
+            settings={cardSettings}
+            studentName={studentName}
+            cardSide="back"
+            isExport={true}
+          />
         </div>
 
         <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
@@ -382,7 +480,7 @@ export default function IdCardGenerator({
             }}
           >
             <IdCardPreview
-              ref={cardRef}
+              ref={previewRef}
               studentData={studentData}
               settings={cardSettings}
               studentName={studentName}
@@ -486,7 +584,7 @@ export default function IdCardGenerator({
 }
 
 const IdCardPreview = React.forwardRef(
-  ({ studentData, settings, studentName, cardSide }, ref) => {
+  ({ studentData, settings, studentName, cardSide, isExport = false }, ref) => {
     const lrnValue =
       studentData.grade_level === "prek" ? "N/A" : studentData.lrn || "—";
 
@@ -504,378 +602,376 @@ const IdCardPreview = React.forwardRef(
         style={{
           width: 350,
           height: 550,
-          borderRadius: 14,
+          borderRadius: isExport ? 0 : 14,
           padding: 0,
           display: "flex",
           flexDirection: "column",
           fontFamily: "'Poppins', 'Inter', 'Arial', sans-serif",
-          boxShadow: "0 12px 36px rgba(0,0,0,0.24)",
+          boxShadow: isExport ? "none" : "0 12px 36px rgba(0,0,0,0.24)",
           position: "relative",
           overflow: "hidden",
           background: "#fff",
         }}
       >
         {cardSide === "front" ? (
-                <>
-                  <img
-                    src={CESI_background}
-                    alt="ID Template"
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      zIndex: 0,
-                    }}
-                  />
-
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      background:
-                        "linear-gradient(to bottom, rgba(255,255,255,0.00), rgba(255,255,255,0.04) 42%, rgba(255,255,255,0.10) 100%)",
-                      zIndex: 1,
-                      pointerEvents: "none",
-                    }}
-                  />
-
-                  {/* Student Photo */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 146,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      width: 112,
-                      height: 112,
-                      borderRadius: "50%",
-                      overflow: "hidden",
-                      border: "3px solid #d8c31f",
-                      background: "#ffffff",
-                      zIndex: 3,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
-                    }}
-                  >
-                    {studentData.id_image_url ? (
-                      <img
-                        src={studentData.id_image_url}
-                        alt={studentName}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          objectPosition: "center top",
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          fontSize: 38,
-                          color: "#94a3b8",
-                        }}
-                      >
-                        👤
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Student Name */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 318,
-                      left: 28,
-                      right: 28,
-                      textAlign: "center",
-                      zIndex: 3,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 20,
-                        fontWeight: 900,
-                        color: "#0f172a",
-                        lineHeight: 1.1,
-                        letterSpacing: 0.6,
-                        textTransform: "uppercase",
-                        textShadow: "0 2px 6px rgba(255,255,255,0.98)",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {studentName || "—"}
-                    </div>
-                  </div>
-
-                  {/* Student Number and LRN */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 356,
-                      left: 32,
-                      right: 32,
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 8,
-                      zIndex: 3,
-                      textAlign: "center",
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 7,
-                          fontWeight: 800,
-                          color: "#475569",
-                          letterSpacing: 0.9,
-                          marginBottom: 4,
-                          textShadow: "0 2px 6px rgba(255,255,255,0.98)",
-                        }}
-                      >
-                        STUDENT NO.
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 900,
-                          color: "#1d4ed8",
-                          textShadow: "0 2px 6px rgba(255,255,255,0.98)",
-                        }}
-                      >
-                        {studentData.id || "—"}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 7,
-                          fontWeight: 800,
-                          color: "#475569",
-                          letterSpacing: 0.9,
-                          marginBottom: 4,
-                          textShadow: "0 2px 6px rgba(255,255,255,0.98)",
-                        }}
-                      >
-                        LRN
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 900,
-                          color: "#1d4ed8",
-                          textShadow: "0 2px 6px rgba(255,255,255,0.98)",
-                        }}
-                      >
-                        {studentData.grade_level === "prek" ? "N/A" : (studentData.lrn || "—")}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Grade and Section */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 402,
-                      left: 42,
-                      right: 42,
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 16,
-                      zIndex: 3,
-                      textAlign: "center",
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 7,
-                          fontWeight: 800,
-                          color: "#475569",
-                          letterSpacing: 0.9,
-                          marginBottom: 4,
-                          textShadow: "0 2px 6px rgba(255,255,255,0.98)",
-                        }}
-                      >
-                        GRADE
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 15,
-                          fontWeight: 900,
-                          color: "#92400e",
-                          letterSpacing: 0.2,
-                          textShadow: "0 2px 6px rgba(255,255,255,0.98)",
-                        }}
-                      >
-                        {getGradeLevelDisplay(studentData.grade_level) || "N/A"}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 7,
-                          fontWeight: 800,
-                          color: "#475569",
-                          letterSpacing: 0.9,
-                          marginBottom: 4,
-                          textShadow: "0 2px 6px rgba(255,255,255,0.98)",
-                        }}
-                      >
-                        SECTION
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 15,
-                          fontWeight: 900,
-                          color: "#92400e",
-                          letterSpacing: 0.2,
-                          textShadow: "0 2px 6px rgba(255,255,255,0.98)",
-                        }}
-                      >
-                        {settings.section || "N/A"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* School Year */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: 17,
-                      left: 0,
-                      right: 0,
-                      textAlign: "center",
-                      zIndex: 3,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 900,
-                        color: "#111827",
-                        letterSpacing: 0.5,
-                        textShadow: "0 2px 6px rgba(255,255,255,0.98)",
-                      }}
-                    >
-                      School Year {settings.acYear}
-                    </span>
-                  </div>
-                </>
-              ) : (
           <>
+            <img
+              src={CESI_background}
+              alt="ID Template"
+              crossOrigin="anonymous"
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                zIndex: 0,
+              }}
+            />
+
             <div
               style={{
-                background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
-                height: "100%",
-                padding: 18,
+                position: "absolute",
+                inset: 0,
+                background:
+                  "linear-gradient(to bottom, rgba(255,255,255,0.00), rgba(255,255,255,0.04) 42%, rgba(255,255,255,0.10) 100%)",
+                zIndex: 1,
+                pointerEvents: "none",
+              }}
+            />
+
+            <div
+              style={{
+                position: "absolute",
+                top: 146,
+                left: "50%",
+                marginLeft: "-56px",
+                width: 112,
+                height: 112,
+                borderRadius: "50%",
+                overflow: "hidden",
+                border: "3px solid #d8c31f",
+                background: "#ffffff",
+                zIndex: 3,
                 display: "flex",
-                flexDirection: "column",
-                color: "#111827",
-                position: "relative",
-                borderLeft: "5px solid #2563eb",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
+              }}
+            >
+              {studentData.id_image_url ? (
+                <img
+                  src={studentData.id_image_url}
+                  alt={studentName}
+                  crossOrigin="anonymous"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    objectPosition: "center top",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    fontSize: 38,
+                    color: "#94a3b8",
+                  }}
+                >
+                  👤
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                top: 318,
+                left: 28,
+                right: 28,
+                textAlign: "center",
+                zIndex: 3,
               }}
             >
               <div
                 style={{
-                  height: 4,
-                  background: "#facc15",
-                  marginBottom: 12,
-                  borderRadius: 999,
+                  fontSize: 20,
+                  fontWeight: 900,
+                  color: "#0f172a",
+                  lineHeight: 1.1,
+                  letterSpacing: 0.6,
+                  textTransform: "uppercase",
+                  textShadow: "0 2px 6px rgba(255,255,255,0.98)",
+                  wordBreak: "break-word",
                 }}
+              >
+                {studentName || "—"}
+              </div>
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                top: 356,
+                left: 32,
+                right: 32,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+                zIndex: 3,
+                textAlign: "center",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 7,
+                    fontWeight: 800,
+                    color: "#475569",
+                    letterSpacing: 0.9,
+                    marginBottom: 4,
+                    textShadow: "0 2px 6px rgba(255,255,255,0.98)",
+                  }}
+                >
+                  STUDENT NO.
+                </div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 900,
+                    color: "#1d4ed8",
+                    textShadow: "0 2px 6px rgba(255,255,255,0.98)",
+                  }}
+                >
+                  {studentData.id || "—"}
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    fontSize: 7,
+                    fontWeight: 800,
+                    color: "#475569",
+                    letterSpacing: 0.9,
+                    marginBottom: 4,
+                    textShadow: "0 2px 6px rgba(255,255,255,0.98)",
+                  }}
+                >
+                  LRN
+                </div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 900,
+                    color: "#1d4ed8",
+                    textShadow: "0 2px 6px rgba(255,255,255,0.98)",
+                  }}
+                >
+                  {lrnValue}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                top: 402,
+                left: 42,
+                right: 42,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 16,
+                zIndex: 3,
+                textAlign: "center",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 7,
+                    fontWeight: 800,
+                    color: "#475569",
+                    letterSpacing: 0.9,
+                    marginBottom: 4,
+                    textShadow: "0 2px 6px rgba(255,255,255,0.98)",
+                  }}
+                >
+                  GRADE
+                </div>
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 900,
+                    color: "#92400e",
+                    letterSpacing: 0.2,
+                    textShadow: "0 2px 6px rgba(255,255,255,0.98)",
+                  }}
+                >
+                  {getGradeLevelDisplay(studentData.grade_level) || "N/A"}
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    fontSize: 7,
+                    fontWeight: 800,
+                    color: "#475569",
+                    letterSpacing: 0.9,
+                    marginBottom: 4,
+                    textShadow: "0 2px 6px rgba(255,255,255,0.98)",
+                  }}
+                >
+                  SECTION
+                </div>
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 900,
+                    color: "#92400e",
+                    letterSpacing: 0.2,
+                    textShadow: "0 2px 6px rgba(255,255,255,0.98)",
+                  }}
+                >
+                  {settings.section || "N/A"}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                bottom: 17,
+                left: 0,
+                right: 0,
+                textAlign: "center",
+                zIndex: 3,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 14,
+                  fontWeight: 900,
+                  color: "#111827",
+                  letterSpacing: 0.5,
+                  textShadow: "0 2px 6px rgba(255,255,255,0.98)",
+                }}
+              >
+                School Year {settings.acYear}
+              </span>
+            </div>
+          </>
+        ) : (
+          <div
+            style={{
+              background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
+              height: "100%",
+              padding: 18,
+              display: "flex",
+              flexDirection: "column",
+              color: "#111827",
+              position: "relative",
+              borderLeft: "5px solid #2563eb",
+            }}
+          >
+            <div
+              style={{
+                height: 4,
+                background: "#facc15",
+                marginBottom: 12,
+                borderRadius: 999,
+              }}
+            />
+
+            <div
+              style={{
+                textAlign: "center",
+                marginBottom: 14,
+                paddingBottom: 10,
+                borderBottom: "2px solid #2563eb",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 800,
+                  color: "#1d4ed8",
+                  letterSpacing: 0.8,
+                }}
+              >
+                STUDENT INFORMATION
+              </div>
+            </div>
+
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <InfoBlock
+                label="PARENT / GUARDIAN"
+                value={settings.parentName || "—"}
+                extra={settings.parentPhone ? `📞 ${settings.parentPhone}` : "📞 —"}
               />
+
+              <InfoBlock label="BIRTHDATE" value={birthDateValue} />
+              <InfoBlock label="LRN" value={lrnValue} />
+              <InfoBlock
+                label="GRADE LEVEL"
+                value={getGradeLevelDisplay(studentData.grade_level) || "N/A"}
+              />
+              <InfoBlock label="SECTION" value={settings.section || "N/A"} />
 
               <div
                 style={{
-                  textAlign: "center",
-                  marginBottom: 14,
-                  paddingBottom: 10,
-                  borderBottom: "2px solid #2563eb",
+                  padding: "10px 12px",
+                  background: "#ffffff",
+                  borderRadius: 8,
+                  border: "1px solid #dbeafe",
+                  boxShadow: "0 3px 10px rgba(37,99,235,0.06)",
                 }}
               >
                 <div
                   style={{
-                    fontSize: 14,
-                    fontWeight: 800,
-                    color: "#1d4ed8",
+                    fontSize: 9,
+                    fontWeight: 700,
+                    color: "#2563eb",
+                    marginBottom: 4,
                     letterSpacing: 0.8,
                   }}
                 >
-                  STUDENT INFORMATION
+                  SCHOOL ADDRESS
                 </div>
-              </div>
-
-              <div
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
-                <InfoBlock
-                  label="PARENT / GUARDIAN"
-                  value={settings.parentName || "—"}
-                  extra={settings.parentPhone ? `📞 ${settings.parentPhone}` : "📞 —"}
-                />
-
-                <InfoBlock label="BIRTHDATE" value={birthDateValue} />
-                <InfoBlock label="LRN" value={lrnValue} />
-                <InfoBlock label="GRADE LEVEL" value={getGradeLevelDisplay(studentData.grade_level) || "N/A"} />
-                <InfoBlock label="SECTION" value={settings.section || "N/A"} />
-
                 <div
                   style={{
-                    padding: "10px 12px",
-                    background: "#ffffff",
-                    borderRadius: 8,
-                    border: "1px solid #dbeafe",
-                    boxShadow: "0 3px 10px rgba(37,99,235,0.06)",
+                    fontSize: 9,
+                    lineHeight: 1.5,
+                    color: "#334155",
                   }}
                 >
-                  <div
-                    style={{
-                      fontSize: 9,
-                      fontWeight: 700,
-                      color: "#2563eb",
-                      marginBottom: 4,
-                      letterSpacing: 0.8,
-                    }}
-                  >
-                    SCHOOL ADDRESS
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 9,
-                      lineHeight: 1.5,
-                      color: "#334155",
-                    }}
-                  >
-                    {settings.address || "—"}
-                  </div>
+                  {settings.address || "—"}
                 </div>
               </div>
-
-              <div
-                style={{
-                  borderTop: "2px solid #2563eb",
-                  paddingTop: 8,
-                  textAlign: "center",
-                  fontSize: 7,
-                  color: "#64748b",
-                  marginTop: 10,
-                  lineHeight: 1.4,
-                }}
-              >
-                If found, please return to Caloocan Evangelical School Inc.
-              </div>
             </div>
-          </>
+
+            <div
+              style={{
+                borderTop: "2px solid #2563eb",
+                paddingTop: 8,
+                textAlign: "center",
+                fontSize: 7,
+                color: "#64748b",
+                marginTop: 10,
+                lineHeight: 1.4,
+              }}
+            >
+              If found, please return to Caloocan Evangelical School Inc.
+            </div>
+          </div>
         )}
       </div>
     );
@@ -945,30 +1041,6 @@ const tabBtnStyle = {
   cursor: "pointer",
   fontWeight: 600,
   fontSize: 13,
-};
-
-const frontLabelStyle = {
-  fontSize: 7,
-  fontWeight: 800,
-  color: "#475569",
-  letterSpacing: 1,
-  marginBottom: 3,
-  textShadow: "0 2px 6px rgba(255,255,255,0.96)",
-};
-
-const frontValueBlueStyle = {
-  fontSize: 12,
-  fontWeight: 800,
-  color: "#1e3a8a",
-  textShadow: "0 2px 6px rgba(255,255,255,0.96)",
-};
-
-const frontValueGoldStyle = {
-  fontSize: 13,
-  fontWeight: 900,
-  color: "#78350f",
-  letterSpacing: 0.3,
-  textShadow: "0 2px 6px rgba(255,255,255,0.96)",
 };
 
 IdCardPreview.displayName = "IdCardPreview";
