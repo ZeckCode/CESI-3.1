@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect  } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Download, X, Settings } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -28,7 +28,7 @@ export default function IdCardGenerator({
   });
   const [isDownloading, setIsDownloading] = useState(false);
 
-    useEffect(() => {
+  useEffect(() => {
     setCardSettings((prev) => ({
       ...prev,
       schoolName: schoolInfo?.name || "CESI School",
@@ -61,8 +61,6 @@ export default function IdCardGenerator({
   const missingFields = Object.keys(requiredFields).filter(
     (key) => !requiredFields[key]
   );
-
-  
 
   const canDownload = missingFields.length === 0;
 
@@ -277,7 +275,7 @@ export default function IdCardGenerator({
 
             {/* Back Side Settings */}
             {cardSide === "back" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
                 <div className="form-group">
                   <label style={{ fontSize: 12, fontWeight: 600 }}>Parent/Guardian Name</label>
                   <input
@@ -466,6 +464,11 @@ export default function IdCardGenerator({
 
 const IdCardPreview = React.forwardRef(
   ({ studentData, settings, studentName, cardSide }, ref) => {
+    // Calculate age from birth date
+    const age = studentData.birth_date
+      ? Math.floor((new Date() - new Date(studentData.birth_date)) / (365.25 * 24 * 60 * 60 * 1000))
+      : null;
+
     return (
       <div
         ref={ref}
@@ -480,310 +483,371 @@ const IdCardPreview = React.forwardRef(
           boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
           position: "relative",
           overflow: "hidden",
-          // background: "white",
         }}
       >
-     {cardSide === "front" ? (
-  <>
-    <img
-      src={CESI_background}
-      alt="ID Template"
-      style={{
-        position: "absolute",
-        inset: 0,
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        zIndex: 0,
-      }}
-    />
-
-    {/* Student Photo */}
-    <div
-      style={{
-        position: "absolute",
-        top: 158,
-        left: "50%",
-        transform: "translateX(-50%)",
-        width: 104,
-        height: 104,
-        borderRadius: "50%",
-        overflow: "hidden",
-        border: "4px solid #e5cf16",
-        background: "#fff",
-        zIndex: 3,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxShadow: "0 6px 18px rgba(0,0,0,0.18)",
-      }}
-    >
-      {studentData.id_image_url ? (
-        <img
-          src={studentData.id_image_url}
-          alt={studentName}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-          }}
-        />
-      ) : (
-        <div
-          style={{
-            fontSize: 38,
-            color: "#94a3b8",
-          }}
-        >
-          👤
-        </div>
-      )}
-    </div>
-
-    {/* Student Name */}
-    <div
-      style={{
-        position: "absolute",
-        top: 300,
-        left: 35,
-        right: 35,
-        textAlign: "center",
-        zIndex: 3,
-      }}
-    >
-      <div
-        style={{
-          fontSize: 17,
-          fontWeight: 800,
-          color: "#1d4ed8",
-          lineHeight: 1.1,
-          textShadow: "0 1px 4px rgba(255,255,255,0.85)",
-          wordBreak: "break-word",
-        }}
-      >
-        {studentName || "—"}
-      </div>
-    </div>
-
-    {/* Grade */}
-    <div
-      style={{
-        position: "absolute",
-        top: 352,
-        left: 72,
-        width: 92,
-        textAlign: "center",
-        zIndex: 3,
-        textShadow: "0 1px 4px rgba(255,255,255,0.9)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: 8,
-          fontWeight: 700,
-          color: "#6b7280",
-          letterSpacing: 0.6,
-          marginBottom: 2,
-        }}
-      >
-        GRADE
-      </div>
-      <div
-        style={{
-          fontSize: 14,
-          fontWeight: 800,
-          color: "#7c5a00",
-        }}
-      >
-        {getGradeLevelDisplay(studentData.grade_level)}
-      </div>
-    </div>
-
-    {/* Section */}
-    <div
-      style={{
-        position: "absolute",
-        top: 352,
-        right: 72,
-        width: 92,
-        textAlign: "center",
-        zIndex: 3,
-        textShadow: "0 1px 4px rgba(255,255,255,0.9)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: 8,
-          fontWeight: 700,
-          color: "#6b7280",
-          letterSpacing: 0.6,
-          marginBottom: 2,
-        }}
-      >
-        SECTION
-      </div>
-      <div
-        style={{
-          fontSize: 14,
-          fontWeight: 800,
-          color: "#7c5a00",
-        }}
-      >
-        {settings.section || "N/A"}
-      </div>
-    </div>
-
-    {/* School Year */}
-    <div
-      style={{
-        position: "absolute",
-        bottom: 22,
-        left: 0,
-        right: 0,
-        textAlign: "center",
-        zIndex: 3,
-        textShadow: "0 1px 4px rgba(255,255,255,0.9)",
-      }}
-    >
-      <span
-        style={{
-          fontSize: 12,
-          fontWeight: 700,
-          color: "#111827",
-        }}
-      >
-        School Year {settings.acYear}
-      </span>
-    </div>
-  </>
-) : (
+        {cardSide === "front" ? (
           <>
-            {/* BACK SIDE - White with Blue Lines & Yellow Accent */}
+            {/* Background Image */}
+            <img
+              src={CESI_background}
+              alt="ID Template"
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                zIndex: 0,
+              }}
+            />
+
+            {/* Semi-transparent overlay to improve text readability */}
             <div
               style={{
-                background: "white",
-                height: "100%",
-                padding: 16,
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.1) 100%)",
+                zIndex: 1,
+              }}
+            />
+
+            {/* Content Container */}
+            <div
+              style={{
+                position: "relative",
+                zIndex: 2,
                 display: "flex",
                 flexDirection: "column",
-                color: "#111",
-                position: "relative",
-                borderLeft: "5px solid #3b82f6",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "100%",
+                width: "100%",
+                padding: "20px 16px",
               }}
             >
-              {/* Yellow Accent Bar */}
+              {/* Student Photo - positioned lower on the image */}
               <div
                 style={{
-                  height: 4,
-                  background: "#fbbf24",
-                  marginBottom: 12,
-                  borderRadius: 2,
-                }}
-              />
-
-              <div
-                style={{
-                  textAlign: "center",
-                  marginBottom: 12,
-                  paddingBottom: 8,
-                  borderBottom: "2px solid #3b82f6",
+                  width: 110,
+                  height: 110,
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  border: "3px solid #ffd700",
+                  background: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                  marginBottom: 16,
                 }}
               >
-                <div style={{ fontSize: 14, fontWeight: "bold", color: "#1d4ed8" }}>
-                  PARENT INFORMATION
+                {studentData.id_image_url ? (
+                  <img
+                    src={studentData.id_image_url}
+                    alt={studentName}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <div style={{ fontSize: 48, color: "#94a3b8" }}>👤</div>
+                )}
+              </div>
+
+              {/* Student Name with background for readability */}
+              <div
+                style={{
+                  backgroundColor: "rgba(0,0,0,0.6)",
+                  padding: "6px 16px",
+                  borderRadius: 20,
+                  marginBottom: 12,
+                  maxWidth: "90%",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 800,
+                    color: "#ffffff",
+                    textAlign: "center",
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  {studentName || "—"}
                 </div>
               </div>
 
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
-                {/* Parent Info */}
+              {/* Info Grid - Student No & LRN */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 20,
+                  justifyContent: "center",
+                  marginBottom: 12,
+                  width: "100%",
+                }}
+              >
                 <div
                   style={{
-                    padding: 8,
-                    background: "#eff6ff",
-                    borderRadius: 4,
-                    borderLeft: "3px solid #fbbf24",
+                    backgroundColor: "rgba(0,0,0,0.55)",
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    textAlign: "center",
+                    flex: 1,
                   }}
                 >
-                  <div style={{ fontSize: 9, fontWeight: 600, color: "#1d4ed8", marginBottom: 4 }}>
-                    PARENT/GUARDIAN
+                  <div style={{ fontSize: 9, fontWeight: 600, color: "#ffd700", marginBottom: 2 }}>
+                    STUDENT NO.
                   </div>
-                  <div style={{ fontSize: 11, fontWeight: "bold" }}>
-                    {settings.parentName || "—"}
-                  </div>
-                  <div style={{ fontSize: 9, marginTop: 2 }}>
-                    📞 {settings.parentPhone || "—"}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#ffffff" }}>
+                    {studentData.id || "—"}
                   </div>
                 </div>
 
-                {/* Birthday */}
                 <div
                   style={{
-                    padding: 8,
-                    background: "#eff6ff",
-                    borderRadius: 4,
-                    borderLeft: "3px solid #fbbf24",
+                    backgroundColor: "rgba(0,0,0,0.55)",
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    textAlign: "center",
+                    flex: 1,
                   }}
                 >
-                  <div style={{ fontSize: 9, fontWeight: 600, color: "#1d4ed8", marginBottom: 4 }}>
+                  <div style={{ fontSize: 9, fontWeight: 600, color: "#ffd700", marginBottom: 2 }}>
+                    LRN
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#ffffff" }}>
+                    {studentData.grade_level === "prek" ? "N/A" : (studentData.lrn || "—")}
+                  </div>
+                </div>
+              </div>
+
+              {/* Grade & Section Row */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 20,
+                  justifyContent: "center",
+                  marginBottom: 12,
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    backgroundColor: "rgba(0,0,0,0.55)",
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    textAlign: "center",
+                    flex: 1,
+                  }}
+                >
+                  <div style={{ fontSize: 9, fontWeight: 600, color: "#ffd700", marginBottom: 2 }}>
+                    GRADE
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#ffffff" }}>
+                    {getGradeLevelDisplay(studentData.grade_level)}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "rgba(0,0,0,0.55)",
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    textAlign: "center",
+                    flex: 1,
+                  }}
+                >
+                  <div style={{ fontSize: 9, fontWeight: 600, color: "#ffd700", marginBottom: 2 }}>
+                    SECTION
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#ffffff" }}>
+                    {settings.section || "N/A"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Age & Birthdate Row */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 20,
+                  justifyContent: "center",
+                  marginBottom: 16,
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    backgroundColor: "rgba(0,0,0,0.55)",
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    textAlign: "center",
+                    flex: 1,
+                  }}
+                >
+                  <div style={{ fontSize: 9, fontWeight: 600, color: "#ffd700", marginBottom: 2 }}>
+                    AGE
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#ffffff" }}>
+                    {age ? `${age} years` : "—"}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "rgba(0,0,0,0.55)",
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    textAlign: "center",
+                    flex: 1,
+                  }}
+                >
+                  <div style={{ fontSize: 9, fontWeight: 600, color: "#ffd700", marginBottom: 2 }}>
                     BIRTHDATE
                   </div>
-                  <div style={{ fontSize: 11, fontWeight: "bold" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#ffffff" }}>
                     {studentData.birth_date
                       ? new Date(studentData.birth_date).toLocaleDateString()
                       : "—"}
                   </div>
                 </div>
-
-                {/* LRN */}
-                <div
-                  style={{
-                    padding: 8,
-                    background: "#eff6ff",
-                    borderRadius: 4,
-                    borderLeft: "3px solid #fbbf24",
-                  }}
-                >
-                  <div style={{ fontSize: 9, fontWeight: 600, color: "#1d4ed8", marginBottom: 4 }}>
-                    LRN
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: "bold" }}>
-                    {studentData.lrn || "—"}
-                  </div>
-                </div>
-
-                {/* School Address */}
-                <div
-                  style={{
-                    padding: 8,
-                    background: "white",
-                    borderRadius: 4,
-                    borderTop: "2px solid #3b82f6",
-                    borderBottom: "2px solid #3b82f6",
-                  }}
-                >
-                  <div style={{ fontSize: 9, fontWeight: 600, color: "#1d4ed8", marginBottom: 4 }}>
-                    SCHOOL ADDRESS
-                  </div>
-                  <div style={{ fontSize: 8, lineHeight: 1.4 }}>
-                    {settings.address || "—"}
-                  </div>
-                </div>
               </div>
 
+              {/* School Year */}
               <div
                 style={{
-                  borderTop: "2px solid #3b82f6",
-                  paddingTop: 6,
-                  textAlign: "center",
-                  fontSize: 7,
-                  color: "#666",
-                  marginTop: 8,
+                  backgroundColor: "rgba(0,0,0,0.6)",
+                  padding: "5px 12px",
+                  borderRadius: 20,
+                  marginTop: "auto",
+                  marginBottom: 8,
                 }}
               >
-                Please keep all information updated
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#ffd700",
+                  }}
+                >
+                  School Year {settings.acYear}
+                </span>
               </div>
             </div>
           </>
+        ) : (
+          // BACK SIDE - Improved layout with better visibility
+          <div
+            style={{
+              background: "linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%)",
+              height: "100%",
+              padding: 20,
+              display: "flex",
+              flexDirection: "column",
+              position: "relative",
+            }}
+          >
+            {/* Yellow Accent Bar */}
+            <div
+              style={{
+                height: 5,
+                background: "#fbbf24",
+                marginBottom: 16,
+                borderRadius: 3,
+              }}
+            />
+
+            {/* Blue Header Bar */}
+            <div
+              style={{
+                background: "#1d4ed8",
+                padding: "8px 12px",
+                borderRadius: 8,
+                marginBottom: 16,
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: "bold", color: "#ffffff" }}>
+                STUDENT INFORMATION
+              </div>
+            </div>
+
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Parent Info Card */}
+              <div
+                style={{
+                  padding: 10,
+                  background: "#eef2ff",
+                  borderRadius: 10,
+                  borderLeft: "4px solid #fbbf24",
+                }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#1d4ed8", marginBottom: 6, textTransform: "uppercase" }}>
+                  👪 Parent / Guardian
+                </div>
+                <div style={{ fontSize: 13, fontWeight: "bold", color: "#1e293b" }}>
+                  {settings.parentName || "—"}
+                </div>
+                <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>
+                  📞 {settings.parentPhone || "—"}
+                </div>
+              </div>
+
+              {/* Contact Info */}
+              <div
+                style={{
+                  padding: 10,
+                  background: "#eef2ff",
+                  borderRadius: 10,
+                  borderLeft: "4px solid #fbbf24",
+                }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#1d4ed8", marginBottom: 6, textTransform: "uppercase" }}>
+                  📧 Contact Details
+                </div>
+                <div style={{ fontSize: 11, color: "#1e293b", marginBottom: 2 }}>
+                  📧 {settings.email || "info@cesi.edu.ph"}
+                </div>
+                <div style={{ fontSize: 11, color: "#1e293b" }}>
+                  📞 {settings.phone || "(02) 8285-3427"}
+                </div>
+              </div>
+
+              {/* School Address */}
+              <div
+                style={{
+                  padding: 10,
+                  background: "#eef2ff",
+                  borderRadius: 10,
+                  borderLeft: "4px solid #fbbf24",
+                }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#1d4ed8", marginBottom: 6, textTransform: "uppercase" }}>
+                  🏫 School Address
+                </div>
+                <div style={{ fontSize: 11, lineHeight: 1.4, color: "#1e293b" }}>
+                  {settings.address || "A47 P. Zamora St., Caloocan City, Metro Manila"}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                borderTop: "2px solid #e2e8f0",
+                paddingTop: 10,
+                textAlign: "center",
+                fontSize: 8,
+                color: "#64748b",
+                marginTop: 12,
+              }}
+            >
+              {settings.copyright || "© 2025 CESI. All rights reserved."}
+            </div>
+          </div>
         )}
       </div>
     );
