@@ -44,36 +44,97 @@ export const getGradeLevelDisplay = (code) => {
   return GRADE_LEVEL_MAP[code] || code || "N/A";
 };
 
+const cleanValue = (value) => {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+};
+
+const pickFirstNonEmpty = (...values) => {
+  for (const value of values) {
+    const cleaned = cleanValue(value);
+    if (cleaned) return cleaned;
+  }
+  return "";
+};
+
 // Get priority parent info from enrollment data
 // Priority: Mother > Father > Guardian
-export const getPriorityParent = (parentInfo) => {
-  if (!parentInfo) return { name: "N/A", phone: "N/A" };
+export const getPriorityParent = (parentInfo, enrollment = {}) => {
+  // support array payloads too
+  const info = Array.isArray(parentInfo) ? parentInfo[0] || {} : parentInfo || {};
 
-  let parentName = "N/A";
-  let parentPhone = "N/A";
+  const motherName = pickFirstNonEmpty(
+    info.mother_name,
+    info.mother_full_name,
+    info.mother
+  );
+  const motherPhone = pickFirstNonEmpty(
+    info.mother_contact,
+    info.mother_phone,
+    info.mother_contact_number
+  );
 
-  // Priority 1: Mother
-  if (parentInfo.mother_name) {
-    parentName = parentInfo.mother_name;
-    parentPhone = parentInfo.mother_contact || "N/A";
-  }
-  // Priority 2: Father
-  else if (parentInfo.father_name) {
-    parentName = parentInfo.father_name;
-    parentPhone = parentInfo.father_contact || "N/A";
-  }
-  // Priority 3: Guardian
-  else if (parentInfo.guardian_name) {
-    parentName = parentInfo.guardian_name;
-    parentPhone = parentInfo.guardian_contact || "N/A";
+  const fatherName = pickFirstNonEmpty(
+    info.father_name,
+    info.father_full_name,
+    info.father
+  );
+  const fatherPhone = pickFirstNonEmpty(
+    info.father_contact,
+    info.father_phone,
+    info.father_contact_number
+  );
+
+  const guardianName = pickFirstNonEmpty(
+    info.guardian_name,
+    info.guardian_full_name,
+    info.guardian
+  );
+  const guardianPhone = pickFirstNonEmpty(
+    info.guardian_contact,
+    info.guardian_phone,
+    info.guardian_contact_number
+  );
+
+  const fallbackName = pickFirstNonEmpty(
+    info.parent_name,
+    info.contact_person,
+    enrollment.parent_name,
+    enrollment.guardian_name,
+    enrollment.mother_name,
+    enrollment.father_name
+  );
+
+  const fallbackPhone = pickFirstNonEmpty(
+    info.parent_phone,
+    info.contact_number,
+    enrollment.parent_phone,
+    enrollment.guardian_contact,
+    enrollment.mother_contact,
+    enrollment.father_contact
+  );
+
+  if (motherName) {
+    return { name: motherName, phone: motherPhone || fallbackPhone || "N/A" };
   }
 
-  return { name: parentName, phone: parentPhone };
+  if (fatherName) {
+    return { name: fatherName, phone: fatherPhone || fallbackPhone || "N/A" };
+  }
+
+  if (guardianName) {
+    return { name: guardianName, phone: guardianPhone || fallbackPhone || "N/A" };
+  }
+
+  return {
+    name: fallbackName || "N/A",
+    phone: fallbackPhone || "N/A",
+  };
 };
 
 // Format enrollment data for ID display
-export const prepareIdData = (enrollment) => {
-  // Get priority parent info
+export const prepareIdData = (source = {}) => {
+  const enrollment = source?.raw || source;
   const parentData = getPriorityParent(enrollment.parent_info);
 
   return {
