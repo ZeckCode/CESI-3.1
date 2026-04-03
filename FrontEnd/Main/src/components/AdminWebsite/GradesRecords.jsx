@@ -975,7 +975,7 @@ const GradesRecords = () => {
             <Users size={24} className="gr-stat-icon" />
           </div>
           <div className="gr-stat-value">{summary.total_students ?? 0}</div>
-          <div className="gr-stat-change">{(summary.total_students ?? 0) === 0 ? 'No students monitored' : (summary.total_students ?? 0) < 30 ? 'Small cohort' : (summary.total_students ?? 0) < 100 ? 'Good enrollment' : 'Large cohort'}</div>
+          <div className="gr-stat-change">{(summary.total_students ?? 0) === 0 ? 'No students monitored' : (summary.total_students ?? 0) < 30 ? 'Small class' : (summary.total_students ?? 0) < 100 ? 'Good enrollment' : 'Large class'}</div>
         </div>
 
         <div className="gr-stat-card gr-stat-green">

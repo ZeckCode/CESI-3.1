@@ -47,7 +47,7 @@ const AssignTeachers = () => {
           <h3>Total Students</h3>
           <p className="admin-stat-number">{classes.reduce((sum, c) => sum + c.enrolled, 0)}</p>
           <p className="admin-stat-insight">
-            {classes.reduce((sum, c) => sum + c.enrolled, 0) === 0 ? 'No enrollments yet' : classes.reduce((sum, c) => sum + c.enrolled, 0) < 30 ? 'Small cohort' : classes.reduce((sum, c) => sum + c.enrolled, 0) < 100 ? 'Healthy enrollment' : 'Strong student body'}
+            {classes.reduce((sum, c) => sum + c.enrolled, 0) === 0 ? 'No enrollments yet' : classes.reduce((sum, c) => sum + c.enrolled, 0) < 30 ? 'Small class' : classes.reduce((sum, c) => sum + c.enrolled, 0) < 100 ? 'Healthy enrollment' : 'Strong student body'}
           </p>
         </div>
         <div className="admin-stat-card">

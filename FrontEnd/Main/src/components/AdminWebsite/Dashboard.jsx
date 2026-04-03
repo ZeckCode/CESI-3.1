@@ -709,7 +709,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         body: `${highPerformers} student${highPerformers === 1 ? "" : "s"} are in the high-performance band and ${atRiskStudents} student${
           atRiskStudents === 1 ? "" : "s"
         } are flagged below 70 in ${
-          selectedGradeLevel === "All" ? "the full cohort" : selectedGradeLevel
+          selectedGradeLevel === "All" ? "all students" : selectedGradeLevel
         }. Financial risk exposure is ${
           receivableRiskPct === null ? "not yet available" : `${receivableRiskPct}%`
         } of all payment records.`,
@@ -750,7 +750,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
             <span className="dash-stat-value">{stats.totalStudents}</span>
             <span className="dash-stat-label">Total of Enrolled Students</span>
             <span className="dash-stat-insight">
-              {stats.totalStudents === 0 ? 'No enrollments yet' : stats.totalStudents < 30 ? 'Growing enrollment' : stats.totalStudents < 100 ? 'Strong enrollment trend' : 'Excellent - Large cohort'}
+              {stats.totalStudents === 0 ? 'No enrollments yet' : stats.totalStudents < 30 ? 'Growing enrollment' : stats.totalStudents < 100 ? 'Strong enrollment trend' : 'Excellent - Large class'}
             </span>
           </div>
         </div>
