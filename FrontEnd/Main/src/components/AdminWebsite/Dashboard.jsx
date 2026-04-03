@@ -749,6 +749,9 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
           <div className="dash-stat-info">
             <span className="dash-stat-value">{stats.totalStudents}</span>
             <span className="dash-stat-label">Total of Enrolled Students</span>
+            <span className="dash-stat-insight">
+              {stats.totalStudents === 0 ? '─ No enrollments' : stats.totalStudents < 30 ? '→ Small cohort' : stats.totalStudents < 100 ? '✓ Healthy enrollment' : '📈 Strong student body'}
+            </span>
           </div>
         </div>
 
@@ -761,6 +764,9 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
               {formatCurrency(stats.totalRevenue)}
             </span>
             <span className="dash-stat-label">Total Collected</span>
+            <span className="dash-stat-insight">
+              {stats.totalRevenue === 0 ? '─ No revenue collected' : stats.totalRevenue < 50000 ? '→ Limited funds' : stats.totalRevenue < 500000 ? '✓ Steady collection' : '📈 Strong revenue stream'}
+            </span>
           </div>
         </div>
 
@@ -771,6 +777,9 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
           <div className="dash-stat-info">
             <span className="dash-stat-value">{stats.overduePayments}</span>
             <span className="dash-stat-label">Overdue Payments</span>
+            <span className="dash-stat-insight">
+              {stats.overduePayments === 0 ? '✓ All payments current' : stats.overduePayments < 5 ? '→ Minor issue' : stats.overduePayments < 15 ? '⚠ Requires review' : '❌ Needs immediate action'}
+            </span>
           </div>
         </div>
 
@@ -781,6 +790,9 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
           <div className="dash-stat-info">
             <span className="dash-stat-value">{stats.pendingEnrollments}</span>
             <span className="dash-stat-label">Pending Applications</span>
+            <span className="dash-stat-insight">
+              {stats.pendingEnrollments === 0 ? '✓ All processed' : stats.pendingEnrollments < 5 ? '→ Few pending' : stats.pendingEnrollments < 20 ? '⚠ Backlog building' : '❌ High volume pending'}
+            </span>
           </div>
         </div>
       </section>
