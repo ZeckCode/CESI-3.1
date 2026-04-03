@@ -890,7 +890,7 @@ const GradesRecords = () => {
               <History size={24} className="gr-stat-icon" />
             </div>
             <div className="gr-stat-value">{historyStats.totalRecords}</div>
-            <div className="gr-stat-change">Historical grade rows on file</div>
+            <div className="gr-stat-change">{historyStats.totalRecords === 0 ? 'No history yet' : historyStats.totalRecords < 100 ? 'Growing database' : historyStats.totalRecords < 500 ? 'Good documentation' : 'Comprehensive records'}</div>
           </div>
 
           <div className="gr-stat-card gr-stat-green">
@@ -899,7 +899,7 @@ const GradesRecords = () => {
               <Users size={24} className="gr-stat-icon" />
             </div>
             <div className="gr-stat-value">{historyStats.uniqueStudents}</div>
-            <div className="gr-stat-change positive">Returning students tracked</div>
+            <div className="gr-stat-change positive">{historyStats.uniqueStudents === 0 ? 'No tracked students' : 'Student tracking active'}</div>
           </div>
 
           <div className="gr-stat-card gr-stat-yellow">
@@ -908,7 +908,7 @@ const GradesRecords = () => {
               <Calendar size={24} className="gr-stat-icon" />
             </div>
             <div className="gr-stat-value">{historyStats.schoolYears}</div>
-            <div className="gr-stat-change">Distinct academic years</div>
+            <div className="gr-stat-change">{historyStats.schoolYears < 2 ? 'Limited history' : historyStats.schoolYears < 5 ? 'Growing records' : 'Long-term tracking'}</div>
           </div>
 
           <div className="gr-stat-card gr-stat-purple">
@@ -917,7 +917,7 @@ const GradesRecords = () => {
               <TrendingUp size={24} className="gr-stat-icon" />
             </div>
             <div className="gr-stat-value">{historyStats.averageFinal ?? '—'}</div>
-            <div className="gr-stat-change positive">Across filtered history</div>
+            <div className="gr-stat-change positive">{historyStats.averageFinal >= 80 ? 'Excellent performance' : historyStats.averageFinal >= 70 ? 'Good average' : historyStats.averageFinal >= 60 ? 'Fair average' : historyStats.averageFinal ? 'Below target' : 'No grades yet'}</div>
           </div>
         </div>
       );
@@ -932,7 +932,7 @@ const GradesRecords = () => {
               <Calendar size={24} className="gr-stat-icon" />
             </div>
             <div className="gr-stat-value">{attendanceStats.totalRecords}</div>
-            <div className="gr-stat-change">For {selectedDate}</div>
+            <div className="gr-stat-change">{attendanceStats.totalRecords === 0 ? 'No records for this date' : 'Records tracked'}</div>
           </div>
 
           <div className="gr-stat-card gr-stat-green">
@@ -941,7 +941,7 @@ const GradesRecords = () => {
               <CheckCircle size={24} className="gr-stat-icon" />
             </div>
             <div className="gr-stat-value">{attendanceStats.present}</div>
-            <div className="gr-stat-change positive">Subject-period entries</div>
+            <div className="gr-stat-change positive">{attendanceStats.totalRecords > 0 ? `${Math.round((attendanceStats.present / attendanceStats.totalRecords) * 100)}% attendance` : 'No data'}</div>
           </div>
 
           <div className="gr-stat-card gr-stat-red">
@@ -950,7 +950,7 @@ const GradesRecords = () => {
               <XCircle size={24} className="gr-stat-icon" />
             </div>
             <div className="gr-stat-value">{attendanceStats.absent}</div>
-            <div className="gr-stat-change">Needs follow-up</div>
+            <div className="gr-stat-change">{attendanceStats.absent === 0 ? 'All present!' : attendanceStats.absent < 5 ? 'Few absences' : 'Review needed!'}</div>
           </div>
 
           <div className="gr-stat-card gr-stat-yellow">
@@ -959,7 +959,7 @@ const GradesRecords = () => {
               <Clock size={24} className="gr-stat-icon" />
             </div>
             <div className="gr-stat-value">{attendanceStats.late + attendanceStats.excused}</div>
-            <div className="gr-stat-change">{attendanceStats.uniqueStudents} unique students</div>
+            <div className="gr-stat-change">{(attendanceStats.late + attendanceStats.excused) === 0 ? 'None recorded' : 'Justified absences'}</div>
           </div>
         </div>
       );
@@ -975,7 +975,7 @@ const GradesRecords = () => {
             <Users size={24} className="gr-stat-icon" />
           </div>
           <div className="gr-stat-value">{summary.total_students ?? 0}</div>
-          <div className="gr-stat-change">Active students monitored this quarter</div>
+          <div className="gr-stat-change">{(summary.total_students ?? 0) === 0 ? 'No students monitored' : (summary.total_students ?? 0) < 30 ? 'Small cohort' : (summary.total_students ?? 0) < 100 ? 'Good enrollment' : 'Large cohort'}</div>
         </div>
 
         <div className="gr-stat-card gr-stat-green">
@@ -984,7 +984,7 @@ const GradesRecords = () => {
             <CheckCircle size={24} className="gr-stat-icon" />
           </div>
           <div className="gr-stat-value">{summary.graded_students ?? 0}</div>
-          <div className="gr-stat-change positive">Any subject graded in Q{quarter}</div>
+          <div className="gr-stat-change positive">{(summary.total_students ?? 0) > 0 ? `${Math.round(((summary.graded_students ?? 0) / (summary.total_students ?? 1)) * 100)}% graded` : 'No grades yet'}</div>
         </div>
 
         <div className="gr-stat-card gr-stat-yellow">
@@ -993,7 +993,7 @@ const GradesRecords = () => {
             <AlertCircle size={24} className="gr-stat-icon" />
           </div>
           <div className="gr-stat-value">{summary.pending_grades ?? 0}</div>
-          <div className="gr-stat-change">Students missing quarter grades</div>
+          <div className="gr-stat-change">{(summary.pending_grades ?? 0) === 0 ? 'All grades submitted!' : (summary.pending_grades ?? 0) < 10 ? 'Few pending' : 'Review needed!'}</div>
         </div>
 
         <div className="gr-stat-card gr-stat-purple">
@@ -1002,7 +1002,7 @@ const GradesRecords = () => {
             <TrendingUp size={24} className="gr-stat-icon" />
           </div>
           <div className="gr-stat-value">{summary.average_grade ?? '—'}</div>
-          <div className="gr-stat-change positive">Quarter {quarter} overall average</div>
+          <div className="gr-stat-change positive">{summary.average_grade >= 80 ? 'Excellent performance' : summary.average_grade >= 70 ? 'Good average' : summary.average_grade >= 60 ? 'Fair average' : summary.average_grade ? 'Below target' : 'No grades yet'}</div>
         </div>
       </div>
     );
