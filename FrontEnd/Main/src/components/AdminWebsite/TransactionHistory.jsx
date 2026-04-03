@@ -1191,26 +1191,6 @@ const TransactionHistory = () => {
       </section>
 
       <section className="th-section">
-        <div className="th-insights-panel">
-          <div className="th-insights-header">
-            <h3 className="th-insights-title">Descriptive Financial Analysis</h3>
-            <p className="th-insights-subtitle">
-              Interpreted finance signals from ledger, collection, and request activity.
-            </p>
-          </div>
-
-          <div className="th-insights-grid">
-            {financialInsights.map((insight) => (
-              <article key={insight.title} className="th-insight-card">
-                <h4 className="th-insight-card-title">{insight.title}</h4>
-                <p className="th-insight-card-text">{insight.body}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="th-section">
         <div className="th-section-header">
           <div>
             <h2 className="th-section-title">Transaction History</h2>

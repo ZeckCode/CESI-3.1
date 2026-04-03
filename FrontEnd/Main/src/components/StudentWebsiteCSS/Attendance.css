@@ -128,6 +128,15 @@
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   padding: 0.85rem 0.95rem;
+  position: relative;
+}
+
+.sa-insight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
 }
 
 .sa-insight-label {
@@ -137,6 +146,52 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 700;
+}
+
+.sa-info-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.35rem;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.sa-info-btn:hover {
+  background-color: #f1f5f9;
+  color: #1976d2;
+}
+
+.sa-tooltip {
+  background-color: #f0f9ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  color: #1e40af;
+  line-height: 1.4;
+  animation: slideDown 0.2s ease-out;
+}
+
+.sa-tooltip p {
+  margin: 0;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .sa-insight-value {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { 
-  FileText, Download, BookOpen, Award, TrendingUp, CheckCircle, AlertCircle 
+  FileText, Download, BookOpen, Award, TrendingUp, CheckCircle, AlertCircle, Info
 } from 'lucide-react';
 import "../StudentWebsiteCSS/Grades.css";
 import { apiFetch } from "../api/apiFetch";
@@ -19,6 +19,7 @@ const Grades = () => {
   const [studentName, setStudentName] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState([]);
+  const [activeTooltip, setActiveTooltip] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -245,13 +246,41 @@ const Grades = () => {
 
           <div className="sg-insights-grid">
             <article className="sg-insight-card">
-              <p className="sg-insight-label">Academic Snapshot</p>
+              <div className="sg-insight-header">
+                <p className="sg-insight-label">Academic Snapshot</p>
+                <button 
+                  className="sg-info-btn"
+                  onClick={() => setActiveTooltip(activeTooltip === 'snapshot' ? null : 'snapshot')}
+                  title="Learn more about Academic Snapshot"
+                >
+                  <Info size={16} />
+                </button>
+              </div>
+              {activeTooltip === 'snapshot' && (
+                <div className="sg-tooltip">
+                  <p>This percentage shows the overall passing rate across all your graded subjects (grade 75 or higher is passing).</p>
+                </div>
+              )}
               <p className="sg-insight-value">{gradeInsights.passRate.toFixed(1)}%</p>
               <p className="sg-insight-note">{gradeInsights.summary}</p>
             </article>
 
             <article className="sg-insight-card">
-              <p className="sg-insight-label">Strongest Subject</p>
+              <div className="sg-insight-header">
+                <p className="sg-insight-label">Strongest Subject</p>
+                <button 
+                  className="sg-info-btn"
+                  onClick={() => setActiveTooltip(activeTooltip === 'strongest' ? null : 'strongest')}
+                  title="Learn more about Strongest Subject"
+                >
+                  <Info size={16} />
+                </button>
+              </div>
+              {activeTooltip === 'strongest' && (
+                <div className="sg-tooltip">
+                  <p>Your highest-scoring subject based on posted grades. This is where you're excelling and should maintain your momentum.</p>
+                </div>
+              )}
               <p className="sg-insight-value">
                 {gradeInsights.strongest ? gradeInsights.strongest.subject : '—'}
               </p>
@@ -263,7 +292,21 @@ const Grades = () => {
             </article>
 
             <article className="sg-insight-card">
-              <p className="sg-insight-label">Needs Focus</p>
+              <div className="sg-insight-header">
+                <p className="sg-insight-label">Needs Focus</p>
+                <button 
+                  className="sg-info-btn"
+                  onClick={() => setActiveTooltip(activeTooltip === 'focus' ? null : 'focus')}
+                  title="Learn more about Needs Focus"
+                >
+                  <Info size={16} />
+                </button>
+              </div>
+              {activeTooltip === 'focus' && (
+                <div className="sg-tooltip">
+                  <p>Your lowest-scoring subject that may need extra attention. Consider reaching out to your teacher for additional help or study sessions.</p>
+                </div>
+              )}
               <p className="sg-insight-value">
                 {gradeInsights.focus ? gradeInsights.focus.subject : '—'}
               </p>
