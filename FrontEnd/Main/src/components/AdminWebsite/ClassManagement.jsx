@@ -554,43 +554,82 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
   const [selectedSection, setSelectedSection] = useState(null);
   const [assigningEnrollmentId, setAssigningEnrollmentId] = useState(null);
 
-  const fullSections = useMemo(() => {
-    return sections
-      .map((sec) => {
-        const capacity = getSectionCapacityLimit(sec, rooms);
-        const activeAssigned = enrollments.filter((e) => {
-          return e.status === 'ACTIVE' && Number(getEnrollmentSectionId(e)) === Number(sec.id);
-        });
-        const unassignedSameGrade = enrollments.filter((e) => {
-          return (
-            e.status === 'ACTIVE' &&
-            normalizeGradeCode(e.grade_level) === normalizeGradeCode(sec.grade_level) &&
-            !getEnrollmentSectionId(e)
-          );
-        });
+  const sectionCapacityEntries = useMemo(() => {
+    return sections.map((sec) => {
+      const capacity = getSectionCapacityLimit(sec, rooms);
+      const activeAssigned = enrollments.filter((e) => {
+        return e.status === 'ACTIVE' && Number(getEnrollmentSectionId(e)) === Number(sec.id);
+      });
+      const unassignedSameGrade = enrollments.filter((e) => {
+        return (
+          e.status === 'ACTIVE' &&
+          normalizeGradeCode(e.grade_level) === normalizeGradeCode(sec.grade_level) &&
+          !getEnrollmentSectionId(e)
+        );
+      });
 
-        return {
-          section: sec,
-          assignedCount: activeAssigned.length,
-          capacity,
-          availableSameGrade: unassignedSameGrade.length,
-          isFull: activeAssigned.length >= capacity,
-        };
+      const assignedCount = activeAssigned.length;
+      const freeSlots = Math.max(capacity - assignedCount, 0);
+
+      return {
+        section: sec,
+        assignedCount,
+        capacity,
+        freeSlots,
+        availableSameGrade: unassignedSameGrade.length,
+        isFull: assignedCount >= capacity,
+      };
+    });
+  }, [sections, enrollments, rooms]);
+
+  const gradeAvailableSlots = useMemo(() => {
+    return sectionCapacityEntries.reduce((acc, entry) => {
+      const gradeCode = normalizeGradeCode(entry.section.grade_level);
+      acc[gradeCode] = (acc[gradeCode] || 0) + entry.freeSlots;
+      return acc;
+    }, {});
+  }, [sectionCapacityEntries]);
+
+  const fullSections = useMemo(() => {
+    return sectionCapacityEntries
+      .filter((entry) => {
+        const gradeCode = normalizeGradeCode(entry.section.grade_level);
+        return entry.isFull && (gradeAvailableSlots[gradeCode] || 0) === 0;
       })
-      .filter((entry) => entry.isFull)
       .sort((a, b) => {
         if (a.section.grade_level === b.section.grade_level) {
           return String(a.section.name).localeCompare(String(b.section.name));
         }
         return String(a.section.grade_level).localeCompare(String(b.section.grade_level));
       });
-  }, [sections, enrollments, rooms]);
+  }, [sectionCapacityEntries, gradeAvailableSlots]);
 
   const openNewRoomAndSection = async (fullEntry) => {
     if (!fullEntry?.section) return;
 
     const section = fullEntry.section;
     const sectionTitle = `${gradeLabel(section.grade_level)} - ${section.name}`;
+    const gradeCode = normalizeGradeCode(section.grade_level);
+
+    const sameGradeAvailableSections = sectionCapacityEntries.filter((entry) => {
+      return (
+        normalizeGradeCode(entry.section.grade_level) === gradeCode &&
+        Number(entry.section.id) !== Number(section.id) &&
+        entry.freeSlots > 0
+      );
+    });
+
+    if (sameGradeAvailableSections.length > 0) {
+      const sample = sameGradeAvailableSections
+        .slice(0, 2)
+        .map((entry) => `${entry.section.name} (${entry.freeSlots} slot${entry.freeSlots > 1 ? 's' : ''})`)
+        .join(', ');
+
+      setCapacityActionMessage(
+        `Cannot open a new class yet. ${gradeLabel(section.grade_level)} still has available slots in: ${sample}.`
+      );
+      return;
+    }
 
     const shouldOpen = window.confirm(
       `${sectionTitle} is already full (${fullEntry.assignedCount}/${fullEntry.capacity}).\n\nOpen a new room and section for ${gradeLabel(section.grade_level)} now?`
@@ -765,6 +804,17 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
   };
 
   const assignStudentToSection = async (enrollmentId, sectionId) => {
+    if (
+      selectedSectionLive &&
+      Number(sectionId) === Number(selectedSectionLive.id) &&
+      isSelectedSectionFull
+    ) {
+      alert(
+        `This section is already full (${inSection.length}/${selectedSectionCapacity}). Remove a student first or open a new room and section.`
+      );
+      return;
+    }
+
     setAssigningEnrollmentId(enrollmentId);
     try {
       const r = await apiFetch(`/api/enrollments/${enrollmentId}/`, {
@@ -801,21 +851,32 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
     }
   };
 
-  const activeGradeEnrollments = selectedSection
+  const selectedSectionLive = selectedSection
+    ? sections.find((s) => Number(s.id) === Number(selectedSection.id)) || selectedSection
+    : null;
+
+  const activeGradeEnrollments = selectedSectionLive
     ? enrollments.filter((e) => {
         const enrollmentGrade = normalizeGradeCode(e.grade_level);
-        const sectionGrade = normalizeGradeCode(selectedSection.grade_level);
+        const sectionGrade = normalizeGradeCode(selectedSectionLive.grade_level);
         return enrollmentGrade === sectionGrade && e.status === 'ACTIVE';
       })
     : [];
 
   const inSection = activeGradeEnrollments.filter(
-    (e) => Number(getEnrollmentSectionId(e)) === Number(selectedSection?.id)
+    (e) => Number(getEnrollmentSectionId(e)) === Number(selectedSectionLive?.id)
   );
 
   const availableForSection = activeGradeEnrollments.filter(
-    (e) => Number(getEnrollmentSectionId(e)) !== Number(selectedSection?.id)
+    (e) => Number(getEnrollmentSectionId(e)) !== Number(selectedSectionLive?.id)
   );
+
+  const selectedSectionCapacity = selectedSectionLive
+    ? getSectionCapacityLimit(selectedSectionLive, rooms)
+    : 0;
+  const isSelectedSectionFull = selectedSectionLive
+    ? inSection.length >= selectedSectionCapacity
+    : false;
 
   return (
     <>
@@ -1063,7 +1124,7 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
           >
             <div className="admin-modal-header">
               <h2>
-                Manage Students: {gradeLabel(selectedSection.grade_level)} - {selectedSection.name}
+                Manage Students: {gradeLabel(selectedSectionLive?.grade_level)} - {selectedSectionLive?.name}
               </h2>
               <button className="admin-modal-close-btn" onClick={closeStudentsModal} title="Close" type="button">
                 <X size={20} />
@@ -1075,7 +1136,9 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
               syncs with attendance lists.
             </p>
 
-            <h3 style={{ margin: '8px 0' }}>Students In This Section ({inSection.length})</h3>
+            <h3 style={{ margin: '8px 0' }}>
+              Students In This Section ({inSection.length}/{selectedSectionCapacity || 0})
+            </h3>
             {inSection.length === 0 ? (
               <div className="admin-no-results" style={{ padding: 16 }}>
                 <p>No students assigned yet.</p>
@@ -1116,6 +1179,14 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
             <h3 style={{ margin: '8px 0' }}>
               Available Approved Students ({availableForSection.length})
             </h3>
+            {isSelectedSectionFull && (
+              <div className="admin-warning-box" style={{ marginBottom: 12 }}>
+                <AlertTriangle size={18} />
+                <span>
+                  This section is full ({inSection.length}/{selectedSectionCapacity}). Remove a student or open a new room and section.
+                </span>
+              </div>
+            )}
             {availableForSection.length === 0 ? (
               <div className="admin-no-results" style={{ padding: 16 }}>
                 <p>No other approved students for this grade.</p>
@@ -1148,11 +1219,15 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
                           <td>
                             <button
                               className="admin-btn-primary"
-                              disabled={assigningEnrollmentId === e.id}
-                              onClick={() => assignStudentToSection(e.id, selectedSection.id)}
+                              disabled={assigningEnrollmentId !== null || isSelectedSectionFull}
+                              onClick={() => assignStudentToSection(e.id, selectedSectionLive.id)}
                               style={{ padding: '8px 12px' }}
                             >
-                              {assigningEnrollmentId === e.id ? 'Adding...' : 'Add'}
+                              {assigningEnrollmentId === e.id
+                                ? 'Adding...'
+                                : isSelectedSectionFull
+                                ? 'Full'
+                                : 'Add'}
                             </button>
                           </td>
                         </tr>
