@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "../TeacherWebsiteCSS/Dashboard.css";
 import { apiFetch } from "../api/apiFetch";
+import { generateTeacherMetricsInsight, getTeacherMetricColor } from "../../utils/roleInsights";
 import { API_BASE_URL } from "../../config/api";
 
 function toAbsUrl(path) {
@@ -246,6 +247,43 @@ const Dashboard = () => {
     [schedule]
   );
 
+  // Performance Metrics Calculation
+  const performanceMetrics = useMemo(() => {
+    // Collect all student grades across sections
+    const allGrades = sections.flatMap(section => {
+      const sectionGrades = section?.grades || section?.students || [];
+      return Array.isArray(sectionGrades) 
+        ? sectionGrades.map(item => {
+            const grade = item?.final_grade || item?.grade;
+            return parseFloat(grade) || 0;
+          })
+        : [];
+    });
+
+    if (allGrades.length === 0) {
+      return {
+        totalStudents: 0,
+        averageGrade: 0,
+        atRiskCount: 0,
+        successCount: 0,
+        successRate: 0
+      };
+    }
+
+    const averageGrade = (allGrades.reduce((a, b) => a + b, 0) / allGrades.length);
+    const atRiskCount = allGrades.filter(g => g < 70).length;
+    const successCount = allGrades.filter(g => g >= 70).length;
+    const successRate = (successCount / allGrades.length) * 100;
+
+    return {
+      totalStudents: allGrades.length,
+      averageGrade,
+      atRiskCount,
+      successCount,
+      successRate
+    };
+  }, [sections]);
+
   const todayScheduleSorted = useMemo(() => {
     const toMinutes = (rawTime) => {
       if (!rawTime) return Number.MAX_SAFE_INTEGER;
@@ -328,6 +366,9 @@ const Dashboard = () => {
           <div className="tdbStat__content">
             <div className="tdbStat__label">Sections</div>
             <div className="tdbStat__value">{loading ? "—" : sections.length}</div>
+            <div className="tdbStat__insight" style={{ color: getTeacherMetricColor(generateTeacherMetricsInsight('sectionsCovered', sections.length)) }}>
+              {loading ? "—" : generateTeacherMetricsInsight('sectionsCovered', sections.length)}
+            </div>
           </div>
         </div>
 
@@ -336,6 +377,9 @@ const Dashboard = () => {
           <div className="tdbStat__content">
             <div className="tdbStat__label">Subject</div>
             <div className="tdbStat__value--sm">{loading ? "—" : subjectName}</div>
+            <div className="tdbStat__insight">
+              {loading ? "—" : "Primary teaching focus"}
+            </div>
           </div>
         </div>
 
@@ -344,6 +388,45 @@ const Dashboard = () => {
           <div className="tdbStat__content">
             <div className="tdbStat__label">Today's Classes</div>
             <div className="tdbStat__value">{loading ? "—" : todaySchedule.length}</div>
+            <div className="tdbStat__insight" style={{ color: getTeacherMetricColor(generateTeacherMetricsInsight('classLoad', todaySchedule.length)) }}>
+              {loading ? "—" : generateTeacherMetricsInsight('classLoad', todaySchedule.length)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Performance Stats */}
+      <div className="tdb__stats" style={{ marginTop: "1.5rem" }}>
+        <div className="tdbStat tdbStat--primary">
+          <div className="tdbStat__icon">📊</div>
+          <div className="tdbStat__content">
+            <div className="tdbStat__label">Class Average</div>
+            <div className="tdbStat__value">{loading ? "—" : performanceMetrics.averageGrade.toFixed(1)}</div>
+            <div className="tdbStat__insight" style={{ color: getTeacherMetricColor(generateTeacherMetricsInsight('classPerformance', performanceMetrics.averageGrade)) }}>
+              {loading ? "—" : generateTeacherMetricsInsight('classPerformance', performanceMetrics.averageGrade)}
+            </div>
+          </div>
+        </div>
+
+        <div className="tdbStat tdbStat--success">
+          <div className="tdbStat__icon">✅</div>
+          <div className="tdbStat__content">
+            <div className="tdbStat__label">Success Rate</div>
+            <div className="tdbStat__value">{loading ? "—" : performanceMetrics.successRate.toFixed(0)}%</div>
+            <div className="tdbStat__insight" style={{ color: getTeacherMetricColor(generateTeacherMetricsInsight('successRate', performanceMetrics.successRate)) }}>
+              {loading ? "—" : generateTeacherMetricsInsight('successRate', performanceMetrics.successRate)}
+            </div>
+          </div>
+        </div>
+
+        <div className="tdbStat tdbStat--warning">
+          <div className="tdbStat__icon">⚠️</div>
+          <div className="tdbStat__content">
+            <div className="tdbStat__label">At-Risk Students</div>
+            <div className="tdbStat__value">{loading ? "—" : performanceMetrics.atRiskCount}</div>
+            <div className="tdbStat__insight" style={{ color: getTeacherMetricColor(generateTeacherMetricsInsight('atRiskStudents', performanceMetrics.atRiskCount)) }}>
+              {loading ? "—" : generateTeacherMetricsInsight('atRiskStudents', performanceMetrics.atRiskCount)}
+            </div>
           </div>
         </div>
       </div>

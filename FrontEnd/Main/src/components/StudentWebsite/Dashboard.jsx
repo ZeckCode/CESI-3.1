@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import "../StudentWebsiteCSS/Dashboard.css";
 import { apiFetch } from "../api/apiFetch";
 import { API_BASE_URL } from "../../config/api";
+import { generateStudentMetricsInsight, getStudentMetricColor } from "../../utils/roleInsights";
 
 function toAbsUrl(path) {
   if (!path) return null;
@@ -307,6 +308,11 @@ const Dashboard = () => {
                 ? `${Number(attPct).toFixed(0)}%`
                 : "—"}
             </div>
+            {!loading && attPct !== null && (
+              <div className="sdStat__insight" style={{ color: getStudentMetricColor(generateStudentMetricsInsight('attendance', Number(attPct))) }}>
+                {generateStudentMetricsInsight('attendance', Number(attPct))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -321,6 +327,11 @@ const Dashboard = () => {
                 ? `${avgGrade.toFixed(1)}`
                 : "—"}
             </div>
+            {!loading && avgGrade !== null && (
+              <div className="sdStat__insight" style={{ color: getStudentMetricColor(generateStudentMetricsInsight('averageGrade', avgGrade)) }}>
+                {generateStudentMetricsInsight('averageGrade', avgGrade)}
+              </div>
+            )}
           </div>
         </div>
 
@@ -331,6 +342,11 @@ const Dashboard = () => {
             <div className="sdStat__value">
               {loading ? "—" : todaySchedule.length}
             </div>
+            {!loading && (
+              <div className="sdStat__insight" style={{ color: getStudentMetricColor(generateStudentMetricsInsight('classesPerDay', todaySchedule.length)) }}>
+                {generateStudentMetricsInsight('classesPerDay', todaySchedule.length)}
+              </div>
+            )}
           </div>
         </div>
       </div>
