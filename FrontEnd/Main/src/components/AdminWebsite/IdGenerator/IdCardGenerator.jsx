@@ -944,7 +944,7 @@ const IdCardPreview = React.forwardRef(
                   textShadow: "0 2px 6px rgba(255,255,255,0.98)",
                 }}
               >
-                School Year {settings.acYear}
+                {settings.acYear}
               </span>
             </div>
           </>
