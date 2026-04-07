@@ -13,6 +13,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
+from reminders.views import create_reminder_once
+from reminders.models import Reminder
 from accounts.models import User, UserProfile
 from .models import AdvanceRequest, Transaction, TuitionConfig, ProofOfPayment
 from .serializers import (
@@ -105,6 +107,37 @@ def ledger_totals_and_advance_for_parent(parent):
 
     return total_debit, total_credit, payable_balance, advance_available
 
+
+def send_payment_received_reminder(*, sender, payment_tx):
+    recipient = payment_tx.parent
+    if not recipient:
+        return
+
+    remaining_balance = Decimal("0.00")
+    if payment_tx.enrollment:
+        _, _, remaining_balance = ledger_totals_for_enrollment(payment_tx.enrollment)
+        if remaining_balance < 0:
+            remaining_balance = Decimal("0.00")
+
+    title = "Payment Received"
+    message = (
+        f"Good news! We have received your payment for {payment_tx.student_name}.\n"
+        f"Reference No: {payment_tx.reference_number}\n"
+        f"Amount Paid: ₱{Decimal(str(payment_tx.credit or payment_tx.amount or 0))}\n"
+        f"Remaining Balance: ₱{remaining_balance}\n"
+        f"Thank you for your payment."
+    ).strip()
+
+    create_reminder_once(
+        recipient=recipient,
+        sender=sender,
+        title=title,
+        message=message,
+        reminder_type="PAYMENT",
+        event_type="PAYMENT_RECEIVED",
+        transaction=payment_tx,
+        reference_date=payment_tx.transaction_date or timezone.localdate(),
+    )
 
 
 def auto_apply_previous_advance_to_enrollment(target_enrollment):
@@ -866,7 +899,8 @@ def pay_student_balance(request):
 
 
         new_balance = recompute_running_balances_for_enrollment(enrollment)
-
+        send_payment_received_reminder(sender=request.user, payment_tx=payment_tx)
+        
     return Response({
         'success': True,
         'student_number': enrollment.student_number,
@@ -960,7 +994,7 @@ def refund_student_payment(request):
 
 
         new_balance = recompute_running_balances_for_enrollment(enrollment)
-
+        
     return Response({
         'success': True,
         'student_number': enrollment.student_number,
@@ -1234,46 +1268,161 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
         return {'request': self.request}
     
     def perform_create(self, serializer):
-        # For student portal submissions (installment payments)
+        enrollment = Enrollment.objects.filter(
+            parent_user=self.request.user,
+            status='ACTIVE'
+        ).order_by('-created_at').first()
+
         serializer.save(
             user=self.request.user,
             payment_type='installment',
             source='student_portal',
-            status='pending'
+            status='pending',
+            enrollment=enrollment,
         )
     
     @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAdminUser])
     def approve(self, request, pk=None):
         proof = self.get_object()
-        proof.status = 'approved'
-        proof.admin_remarks = request.data.get('remarks', '')
-        proof.save()
-        
-        # If this is an enrollment payment, also update enrollment status
-        if proof.payment_type == 'enrollment' and proof.enrollment:
-            if proof.enrollment.status == 'PENDING':
+
+        if proof.status == 'approved':
+            return Response(
+                {'detail': 'This proof of payment has already been approved.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if proof.approved_transaction_id:
+            return Response(
+                {'detail': 'This proof is already linked to a posted transaction.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not proof.enrollment:
+            return Response(
+                {'detail': 'No active enrollment is linked to this proof of payment.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not proof.enrollment.parent_user:
+            return Response(
+                {'detail': 'The linked enrollment has no parent account.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        amount = Decimal(str(proof.amount or 0))
+        if amount <= 0:
+            return Response(
+                {'detail': 'Proof amount must be greater than 0 before approval.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        proof.enrollment.refresh_from_db()
+        student_name = (
+            f"{proof.enrollment.first_name or ''} {proof.enrollment.last_name or ''}".strip()
+            or proof.enrollment.student.username
+        )
+
+        with db_transaction.atomic():
+            payment_tx = Transaction.objects.create(
+                parent=proof.enrollment.parent_user,
+                enrollment=proof.enrollment,
+                student_name=student_name,
+                transaction_type='TUITION',
+                entry_type='CREDIT',
+                item='PAYMENT',
+                school_year=proof.enrollment.academic_year,
+                semester='1st',
+                amount=amount,
+                description=proof.description or f'Payment posted from approved proof #{proof.id}.',
+                payment_method='OTHER',
+                transaction_date=timezone.localdate(),
+                status='PAID',
+                student_number_snapshot=proof.enrollment.student_number,
+                grade_level_snapshot=proof.enrollment.grade_level,
+                payment_mode_snapshot=proof.enrollment.payment_mode,
+                student_type_snapshot=proof.enrollment.student_type,
+                reference_number=generate_transaction_reference(),
+            )
+
+            new_balance = recompute_running_balances_for_enrollment(proof.enrollment)
+
+            proof.status = 'approved'
+            proof.admin_remarks = request.data.get('remarks', '')
+            proof.approved_transaction = payment_tx
+            proof.save(update_fields=['status', 'admin_remarks', 'approved_transaction', 'updated_at'])
+
+            send_payment_received_reminder(sender=request.user, payment_tx=payment_tx)
+
+            create_reminder_once(
+                recipient=proof.user,
+                sender=request.user,
+                title="Proof of Payment Approved",
+                message=(
+                    f"Your proof of payment has been approved.\n"
+                    f"Reference Number: {proof.reference_number}\n"
+                    f"Amount Paid: ₱{amount}\n"
+                    f"Remaining Balance: ₱{max(new_balance, Decimal('0.00'))}"
+                ),
+                reminder_type="PAYMENT",
+                event_type="PROOF_APPROVED",
+                transaction=payment_tx,
+                proof_of_payment=proof,
+                reference_date=timezone.localdate(),
+            )
+
+            if proof.payment_type == 'enrollment' and proof.enrollment and proof.enrollment.status == 'PENDING':
                 proof.enrollment.status = 'ACTIVE'
-                proof.enrollment.save()
+                proof.enrollment.save(update_fields=['status'])
+
+        return Response({
+            'status': 'approved',
+            'message': 'Payment proof approved and payment posted successfully.',
+            'transaction_id': payment_tx.id,
+            'new_balance': float(max(new_balance, Decimal('0.00'))),
+        })
         
-        return Response({'status': 'approved', 'message': 'Payment proof approved'})
-    
+        
     @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAdminUser])
     def reject(self, request, pk=None):
         proof = self.get_object()
+
+        if proof.status == 'approved':
+            return Response(
+                {'detail': 'Approved proofs cannot be rejected.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if proof.status == 'rejected':
+            return Response(
+                {'detail': 'This proof of payment has already been rejected.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        remarks = request.data.get('remarks', '').strip()
+
         proof.status = 'rejected'
-        proof.admin_remarks = request.data.get('remarks', '')
-        proof.save()
-        
-        # If this is an enrollment payment, also update enrollment status
-        if proof.payment_type == 'enrollment' and proof.enrollment:
-            if proof.enrollment.status == 'PENDING':
-                proof.enrollment.status = 'DROPPED'
-                proof.enrollment.remarks = f"Payment proof rejected: {request.data.get('remarks', 'No reason provided')}"
-                proof.enrollment.save()
-        
-        return Response({'status': 'rejected', 'message': 'Payment proof rejected'})
-    
-    
-    
-    
-    
+        proof.admin_remarks = remarks
+        proof.save(update_fields=['status', 'admin_remarks', 'updated_at'])
+
+        create_reminder_once(
+            recipient=proof.user,
+            sender=request.user,
+            title="Proof of Payment Rejected",
+            message=(
+                f"Your submitted proof of payment was rejected.\n"
+                f"Reference Number: {proof.reference_number}\n"
+                f"{f'Reason: {remarks}' if remarks else 'Please contact the school for clarification.'}"
+            ),
+            reminder_type="PAYMENT",
+            event_type="PROOF_REJECTED",
+            transaction=proof.approved_transaction,
+            proof_of_payment=proof,
+            reference_date=timezone.localdate(),
+        )
+
+        if proof.payment_type == 'enrollment' and proof.enrollment and proof.enrollment.status == 'PENDING':
+            proof.enrollment.status = 'DROPPED'
+            proof.enrollment.remarks = f"Payment proof rejected: {remarks or 'No reason provided'}"
+            proof.enrollment.save(update_fields=['status', 'remarks'])
+
+        return Response({'status': 'rejected', 'message': 'Payment proof rejected'}) 

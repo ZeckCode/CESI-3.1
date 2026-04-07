@@ -8,6 +8,13 @@
 .admin-proof-header {
   margin-bottom: 2rem;
 }
+.admin-proof-table-container {
+  overflow-x: auto;
+}
+
+.admin-proof-table {
+  min-width: 1200px;
+}
 
 .admin-proof-title {
   font-size: 1.5rem;

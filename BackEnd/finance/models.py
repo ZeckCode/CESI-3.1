@@ -197,32 +197,40 @@ class TuitionConfig(models.Model):
         return f"{self.grade_label} Tuition"
 
 
-# finance/models.py - Add these fields to your ProofOfPayment model
 
 class ProofOfPayment(models.Model):
     PAYMENT_TYPE_CHOICES = [
         ('enrollment', 'Enrollment Initial Payment'),
         ('installment', 'Installment Payment'),
     ]
-    
+
     SOURCE_CHOICES = [
         ('enrollment_form', 'Enrollment Form'),
         ('student_portal', 'Student Portal'),
     ]
-    
+
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
     ]
-    
+
+    BILLED_ITEM_CHOICES = [
+        ('PAYMENT', 'General Payment'),
+        ('INITIAL', 'Initial Payment'),
+        ('MONTHLY', 'Monthly Installment'),
+        ('MISC', 'Miscellaneous'),
+        ('REGISTRATION', 'Registration'),
+        ('ASSESSMENT', 'Assessment'),
+        ('OTHER', 'Other'),
+    ]
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='proof_of_payments'
     )
-    
-    # ADD THESE TWO NEW FIELDS
+
     payment_type = models.CharField(
         max_length=20,
         choices=PAYMENT_TYPE_CHOICES,
@@ -234,8 +242,7 @@ class ProofOfPayment(models.Model):
         blank=True,
         null=True
     )
-    
-    # Optional: Link to enrollment
+
     enrollment = models.ForeignKey(
         'enrollment.Enrollment',
         on_delete=models.SET_NULL,
@@ -243,9 +250,18 @@ class ProofOfPayment(models.Model):
         blank=True,
         related_name='payment_proof'
     )
-    
+
     reference_number = models.CharField(max_length=100)
     description = models.TextField()
+
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    billed_item = models.CharField(
+        max_length=20,
+        choices=BILLED_ITEM_CHOICES,
+        default='PAYMENT'
+    )
+    billed_due_date = models.DateField(null=True, blank=True)
+
     proof_image = models.ImageField(upload_to='proofs/%Y/%m/%d/')
     status = models.CharField(
         max_length=20,
@@ -253,16 +269,23 @@ class ProofOfPayment(models.Model):
         default='pending'
     )
     admin_remarks = models.TextField(blank=True, null=True)
+
+    approved_transaction = models.ForeignKey(
+        'finance.Transaction',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_payment_proofs'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         ordering = ['-created_at']
-    
+
     def __str__(self):
         return f"{self.user.username} - {self.reference_number}"
-    
-    
 class AdvanceRequest(models.Model):
     REQUEST_TYPE_CHOICES = [
         ('APPLY_ADVANCE', 'Apply Advance'),

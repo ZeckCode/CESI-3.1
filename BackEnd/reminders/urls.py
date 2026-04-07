@@ -14,7 +14,7 @@ from .views import (
 urlpatterns = [
     path("", ReminderListCreateView.as_view(), name="reminder-list-create"),
     path("<int:pk>/", ReminderDetailView.as_view(), name="reminder-detail"),
-    path("<int:pk>/read/", mark_reminder_as_read, name="mark-reminder-read"),
+    path('mark-read/<int:pk>/', mark_reminder_as_read),
 
     # payment reminder actions
     path("payments/<int:transaction_id>/send/", send_payment_reminder, name="send-payment-reminder"),

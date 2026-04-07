@@ -7,11 +7,21 @@ from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 
+from django.db import IntegrityError
+from django.utils import timezone
+from django.db.models import Sum
+
 
 from accounts.models import UserProfile
 from .models import Reminder
 from .serializers import ReminderSerializer
 from finance.models import Transaction
+
+
+from decimal import Decimal
+from finance.models import Transaction, ProofOfPayment
+from enrollment.models import Enrollment
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -23,7 +33,7 @@ def send_paid_notification(request, transaction_id):
         )
 
     try:
-        transaction = Transaction.objects.select_related("parent").get(pk=transaction_id)
+        transaction = Transaction.objects.select_related("parent", "enrollment").get(pk=transaction_id)
     except Transaction.DoesNotExist:
         return Response(
             {"detail": "Transaction not found."},
@@ -31,45 +41,42 @@ def send_paid_notification(request, transaction_id):
         )
 
     recipient = transaction.parent
-    amount = getattr(transaction, "amount", None)
-    transaction_type = getattr(transaction, "transaction_type", "Payment")
-    reference_number = getattr(transaction, "reference_number", "N/A")
     student_name = getattr(transaction, "student_name", "your child")
+    amount = Decimal(str(transaction.credit or transaction.amount or 0))
+    reference_number = getattr(transaction, "reference_number", "N/A")
 
-    title = f"Payment Received - {transaction_type}"
+    remaining_balance = Decimal("0.00")
+    if transaction.enrollment:
+        remaining_balance = get_enrollment_balance(transaction.enrollment)
+
+    title = "Payment Received"
     message = (
         f"Good news! We have received your payment for {student_name}.\n"
-        f"Reference No: {reference_number}.\n"
-        f"Amount paid: ₱{amount}.\n"
-        f"Thank you for settling your bill."
+        f"Reference No: {reference_number}\n"
+        f"Amount Paid: ₱{amount}\n"
+        f"Remaining Balance: ₱{remaining_balance}\n"
+        f"Thank you for your payment."
     ).strip()
 
-    reminder = Reminder.objects.create(
+    reminder, created = create_reminder_once(
         recipient=recipient,
         sender=request.user,
         title=title,
         message=message,
-        reminder_type="PAID",
+        reminder_type="PAYMENT",
+        event_type="PAYMENT_RECEIVED",
         transaction=transaction,
-        is_read=False,
+        reference_date=transaction.transaction_date or timezone.localdate(),
     )
-    print("[PAID NOTIFICATION SENT]")
-    print("Reminder created:")
-    print("Recipient:", recipient.username)
-    print("Transaction ID:", transaction.id)
-    print("Title:", title)
-    print("Message:", message)
 
     return Response(
         {
-            "detail": "Payment notification sent successfully.",
-            "reminder": ReminderSerializer(reminder).data,
+            "detail": "Payment notification sent successfully." if created else "Payment notification already exists.",
+            "reminder": ReminderSerializer(reminder).data if reminder else None,
+            "created": created,
         },
-        status=status.HTTP_201_CREATED,
+        status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED,
     )
-
-
-
 User = get_user_model()
 
 
@@ -78,6 +85,55 @@ def is_admin(user):
         getattr(user, "is_staff", False)
         or getattr(user, "role", "").upper() == "ADMIN"
     )
+
+def get_enrollment_balance(enrollment):
+    totals = Transaction.objects.filter(enrollment=enrollment).aggregate(
+        total_debit=Sum("debit"),
+        total_credit=Sum("credit"),
+    )
+    total_debit = Decimal(str(totals.get("total_debit") or 0))
+    total_credit = Decimal(str(totals.get("total_credit") or 0))
+    balance = total_debit - total_credit
+    return balance if balance > 0 else Decimal("0.00")
+
+
+def create_reminder_once(
+    *,
+    recipient,
+    sender,
+    title,
+    message,
+    reminder_type,
+    event_type,
+    transaction=None,
+    proof_of_payment=None,
+    reference_date=None,
+):
+    try:
+        reminder, created = Reminder.objects.get_or_create(
+            recipient=recipient,
+            transaction=transaction,
+            event_type=event_type,
+            reference_date=reference_date,
+            defaults={
+                "sender": sender,
+                "title": title,
+                "message": message,
+                "reminder_type": reminder_type,
+                "proof_of_payment": proof_of_payment,
+                "is_read": False,
+            },
+        )
+    except IntegrityError:
+        reminder = Reminder.objects.filter(
+            recipient=recipient,
+            transaction=transaction,
+            event_type=event_type,
+            reference_date=reference_date,
+        ).first()
+        created = False
+
+    return reminder, created
 
 
 def _resolve_student_recipient(student_id=None, student_number=None):
@@ -164,31 +220,6 @@ class ReminderDetailView(generics.RetrieveUpdateDestroyAPIView):
         return queryset.filter(recipient=self.request.user)
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def mark_reminder_as_read(request, pk):
-    try:
-        reminder = Reminder.objects.get(pk=pk)
-    except Reminder.DoesNotExist:
-        return Response(
-            {"detail": "Reminder not found."},
-            status=status.HTTP_404_NOT_FOUND
-        )
-
-    if not is_admin(request.user) and reminder.recipient != request.user:
-        return Response(
-            {"detail": "Not allowed."},
-            status=status.HTTP_403_FORBIDDEN
-        )
-
-    reminder.is_read = True
-    reminder.save(update_fields=["is_read"])
-
-    return Response(
-        {"detail": "Reminder marked as read."},
-        status=status.HTTP_200_OK
-    )
-
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -208,51 +239,55 @@ def send_payment_reminder(request, transaction_id):
         )
 
     recipient = transaction.parent
-
     amount = getattr(transaction, "amount", None)
     status_value = getattr(transaction, "status", "PENDING")
     due_date = getattr(transaction, "due_date", None)
     transaction_type = getattr(transaction, "transaction_type", "Payment")
 
+    event_key = "PAYMENT_OVERDUE" if str(status_value).upper() == "OVERDUE" else "PAYMENT_DUE"
     title = f"Payment Reminder - {transaction_type}"
-    due_text = f" Due date: {due_date}." if due_date else ""
-    amount_text = f"Amount due: ₱{amount}." if amount is not None else ""
 
     message = (
-    f"Good day. This is a payment reminder for {getattr(transaction, 'student_name', 'your child')} \n"
-    f"regarding {transaction_type}.  "
-    f"Reference No: {getattr(transaction, 'reference_number', 'N/A')}.\n "
-    f"Amount due: ₱{amount}. \n "
-    f"Status: {status_value}. \n "
-    f"{f'Due date: {due_date}. ' if due_date else ''} \n"
-    f"Please settle this payment as soon as possible."
+        f"Good day. This is a payment reminder for {getattr(transaction, 'student_name', 'your child')}.\n"
+        f"Reference No: {getattr(transaction, 'reference_number', 'N/A')}.\n"
+        f"Amount due: ₱{amount}.\n"
+        f"Status: {status_value}.\n"
+        f"{f'Due date: {due_date}.' if due_date else ''}\n"
+        f"Please settle this payment as soon as possible."
     ).strip()
 
-    reminder = Reminder.objects.create(
+    reminder, created = create_reminder_once(
         recipient=recipient,
         sender=request.user,
         title=title,
         message=message,
         reminder_type="PAYMENT",
+        event_type="PAYMENT_DUE",
         transaction=transaction,
-        is_read=False,
-    )
-    print("[REMINDER SENT]")
-    print("Reminder created:")
-    print("Recipient:", recipient.username)
-    print("Transaction ID:", transaction.id)
-    print("Title:", title)
-    print("Message:", message)
-    
-    #print(f"[REMINDER SENT] \n\n recipient={recipient.username} \n transaction={transaction.id} \n title={title} \n message={message}")
-    return Response(
-        {
-            "detail": "Payment reminder sent successfully.",
-            "reminder": ReminderSerializer(reminder).data,
-        },
-        status=status.HTTP_201_CREATED,
+        reference_date=due_date or timezone.localdate(),
     )
 
+    return Response(
+        {
+            "detail": "Payment reminder sent successfully." if created else "Payment reminder already sent for this billing date.",
+            "reminder": ReminderSerializer(reminder).data,
+            "created": created,
+        },
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def mark_reminder_as_read(request, pk):
+    try:
+        reminder = Reminder.objects.get(pk=pk, recipient=request.user)
+    except Reminder.DoesNotExist:
+        return Response({"detail": "Reminder not found."}, status=404)
+
+    reminder.is_read = True
+    reminder.save(update_fields=["is_read"])
+
+    return Response({"success": True, "message": "Marked as read"})
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -264,41 +299,48 @@ def send_bulk_payment_reminders(request):
         )
 
     transactions = Transaction.objects.select_related("parent").filter(
-        status__in=["PENDING", "OVERDUE"]
+        entry_type="DEBIT",
+        status__in=["PENDING", "OVERDUE", "PARTIAL", "POSTED"]
     )
 
-    created = []
+    created_count = 0
+    skipped_count = 0
 
     for transaction in transactions:
         recipient = transaction.parent
         amount = getattr(transaction, "amount", None)
         due_date = getattr(transaction, "due_date", None)
         transaction_type = getattr(transaction, "transaction_type", "Payment")
+        event_type = "PAYMENT_OVERDUE" if str(transaction.status).upper() == "OVERDUE" else "PAYMENT_DUE"
 
-        due_text = f" Due date: {due_date}." if due_date else ""
-        amount_text = f"Amount due: ₱{amount}." if amount is not None else ""
-
-        reminder = Reminder.objects.create(
+        reminder, created = create_reminder_once(
             recipient=recipient,
             sender=request.user,
             title=f"Payment Reminder - {transaction_type}",
             message=(
                 f"Good day. This is a reminder regarding your child's {transaction_type}. "
-                f"{amount_text}{due_text} Please settle this payment as soon as possible."
+                f"Reference No: {getattr(transaction, 'reference_number', 'N/A')}. "
+                f"Amount Due: ₱{amount}. "
+                f"{f'Due Date: {due_date}. ' if due_date else ''}"
+                f"Please settle this payment as soon as possible."
             ).strip(),
             reminder_type="PAYMENT",
+            event_type=event_type,
             transaction=transaction,
-            is_read=False,
+            reference_date=due_date or timezone.localdate(),
         )
-        created.append(reminder.id)
+
+        if created:
+            created_count += 1
+        else:
+            skipped_count += 1
 
     return Response(
-        {"detail": f"{len(created)} payment reminders sent successfully."},
-        status=status.HTTP_201_CREATED,
-    )
-    
-    
-    
+        {
+            "detail": f"{created_count} reminder(s) sent, {skipped_count} skipped as duplicates."
+        },
+        status=status.HTTP_200_OK,
+    )   
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def send_performance_reminder(request):
@@ -346,6 +388,7 @@ def send_performance_reminder(request):
         message=message,
         reminder_type="PERFORMANCE",
         is_read=False,
+        event_type="PERFORMANCE_ALERT",
     )
     print("[PERFORMANCE REMINDER SENT]")
     print("Reminder created:")
@@ -403,6 +446,7 @@ def send_star_notification(request):
         message=message,
         reminder_type="PERFORMANCE",
         is_read=False,
+        event_type="STAR_AWARD",
     )
 
     return Response(

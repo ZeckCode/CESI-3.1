@@ -19,9 +19,11 @@ class ReminderSerializer(serializers.ModelSerializer):
             "title",
             "message",
             "reminder_type",
+            "event_key",
             "transaction",
             "reference_number",
             "amount_to_pay",
+            "reference_date",
             "is_read",
             "created_at",
         ]

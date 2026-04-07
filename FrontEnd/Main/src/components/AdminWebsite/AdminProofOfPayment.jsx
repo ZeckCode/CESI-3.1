@@ -10,6 +10,12 @@ const formatFullName = (...parts) =>
     .filter(Boolean)
     .join(" ");
 
+const formatCurrency = (value) =>
+  `₱${Number(value || 0).toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
 const statusPillStyle = (status) => {
   const normalized = String(status || "").toLowerCase();
 
@@ -23,6 +29,19 @@ const statusPillStyle = (status) => {
     return { background: "#fef3c7", color: "#b45309" };
   }
   return { background: "#e2e8f0", color: "#334155" };
+};
+
+const billTypeLabel = (value) => {
+  const map = {
+    PAYMENT: "General Payment",
+    INITIAL: "Initial Payment",
+    MONTHLY: "Monthly Installment",
+    MISC: "Miscellaneous",
+    REGISTRATION: "Registration",
+    ASSESSMENT: "Assessment",
+    OTHER: "Other",
+  };
+  return map[value] || value || "—";
 };
 
 export default function AdminProofOfPayment() {
@@ -44,36 +63,34 @@ export default function AdminProofOfPayment() {
     try {
       setLoading(true);
       const response = await apiFetch("/api/finance/proof-of-payments/");
-      
+
       if (!response.ok) {
         throw new Error("Failed to fetch payment proofs");
       }
-      
+
       const data = await response.json();
-      
-      // Transform data to format description based on type
-      const transformedData = (Array.isArray(data) ? data : []).map(payment => {
-        // Check if this is an enrollment initial payment
-        const isEnrollmentPayment = payment.payment_type === "enrollment" || 
-                                     payment.description?.toLowerCase().includes("enrollment initial payment") ||
-                                     payment.source === "enrollment_form";
-        
+
+      const transformedData = (Array.isArray(data) ? data : []).map((payment) => {
+        const isEnrollmentPayment =
+          payment.payment_type === "enrollment" ||
+          payment.description?.toLowerCase().includes("enrollment initial payment") ||
+          payment.source === "enrollment_form";
+
         let formatted_description = payment.description;
-        
+
         if (isEnrollmentPayment) {
-          // Format as "Enrollment Initial Payment - [Student Name]"
           const studentName = getStudentDisplayName(payment);
           formatted_description = `Enrollment Initial Payment - ${studentName}`;
         }
-        
+
         return {
           ...payment,
           formatted_description,
           is_enrollment_payment: isEnrollmentPayment,
-          original_description: payment.description
+          original_description: payment.description,
         };
       });
-      
+
       setPayments(transformedData);
     } catch (err) {
       console.error("Error fetching payments:", err);
@@ -87,7 +104,7 @@ export default function AdminProofOfPayment() {
     if (payment.student_name) {
       return payment.student_name;
     }
-    
+
     if (payment.user_details) {
       const profile = payment.user_details?.profile || {};
       const enrollment = payment.user_details?.enrollment || {};
@@ -99,10 +116,10 @@ export default function AdminProofOfPayment() {
       if (name) return name;
       return payment.user_details?.username || payment.user || "Unknown";
     }
-    
+
     if (payment.user_username) return payment.user_username;
     if (payment.user_name) return payment.user_name;
-    
+
     return `Student ${payment.user || payment.id}`;
   };
 
@@ -118,23 +135,28 @@ export default function AdminProofOfPayment() {
 
     try {
       const endpoint = `/api/finance/proof-of-payments/${selectedPayment.id}/${actionType}/`;
-      
+
       const response = await apiFetch(endpoint, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ remarks: remarks }),
+        body: JSON.stringify({ remarks }),
       });
 
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        throw new Error(`Failed to ${actionType} payment proof`);
+        throw new Error(
+          data.detail || data.message || `Failed to ${actionType} payment proof`
+        );
       }
 
-      setSuccess(`Payment proof ${actionType}d successfully!`);
+      setSuccess(data.message || `Payment proof ${actionType}d successfully!`);
       setShowModal(false);
-      fetchPayments(); 
-      
+      setSelectedPayment(null);
+      fetchPayments();
+
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       console.error("Error updating payment:", err);
@@ -172,22 +194,11 @@ export default function AdminProofOfPayment() {
   return (
     <div className="admin-proof-wrapper">
       <div className="admin-proof-content">
-        {error && (
-          <div className="admin-proof-error">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="admin-proof-success">
-            {success}
-          </div>
-        )}
+        {error && <div className="admin-proof-error">{error}</div>}
+        {success && <div className="admin-proof-success">{success}</div>}
 
         {loading ? (
-          <div className="admin-proof-loading">
-            Loading submissions...
-          </div>
+          <div className="admin-proof-loading">Loading submissions...</div>
         ) : payments.length === 0 ? (
           <div className="admin-proof-empty">
             <p>No proof of payment submissions found.</p>
@@ -201,6 +212,9 @@ export default function AdminProofOfPayment() {
                   <th>Student</th>
                   <th>Reference Number</th>
                   <th>Description</th>
+                  <th>Amount</th>
+                  <th>Bill Type</th>
+                  <th>Payment Date</th>
                   <th>Type</th>
                   <th>Submitted Date</th>
                   <th>Status</th>
@@ -227,41 +241,50 @@ export default function AdminProofOfPayment() {
                       <div className="admin-proof-description">
                         {payment.formatted_description}
                         {payment.is_enrollment_payment && (
-                          <span style={{
-                            display: "inline-block",
-                            marginLeft: "8px",
-                            fontSize: "10px",
-                            background: "#dbeafe",
-                            color: "#1e40af",
-                            padding: "2px 6px",
-                            borderRadius: "12px",
-                          }}>
+                          <span
+                            style={{
+                              display: "inline-block",
+                              marginLeft: "8px",
+                              fontSize: "10px",
+                              background: "#dbeafe",
+                              color: "#1e40af",
+                              padding: "2px 6px",
+                              borderRadius: "12px",
+                            }}
+                          >
                             Initial Payment
                           </span>
                         )}
                       </div>
                     </td>
+                    <td>{formatCurrency(payment.amount)}</td>
+                    <td>{billTypeLabel(payment.billed_item)}</td>
+                    <td>{payment.payment_date || payment.billed_due_date || "—"}</td>
                     <td>
                       {payment.is_enrollment_payment ? (
-                        <span style={{
-                          background: "#e0e7ff",
-                          color: "#4338ca",
-                          padding: "4px 8px",
-                          borderRadius: "12px",
-                          fontSize: "11px",
-                          fontWeight: "500",
-                        }}>
+                        <span
+                          style={{
+                            background: "#e0e7ff",
+                            color: "#4338ca",
+                            padding: "4px 8px",
+                            borderRadius: "12px",
+                            fontSize: "11px",
+                            fontWeight: "500",
+                          }}
+                        >
                           Enrollment Fee
                         </span>
                       ) : (
-                        <span style={{
-                          background: "#f3e8ff",
-                          color: "#6b21a5",
-                          padding: "4px 8px",
-                          borderRadius: "12px",
-                          fontSize: "11px",
-                          fontWeight: "500",
-                        }}>
+                        <span
+                          style={{
+                            background: "#f3e8ff",
+                            color: "#6b21a5",
+                            padding: "4px 8px",
+                            borderRadius: "12px",
+                            fontSize: "11px",
+                            fontWeight: "500",
+                          }}
+                        >
                           Installment
                         </span>
                       )}
@@ -299,7 +322,7 @@ export default function AdminProofOfPayment() {
                       )}
                     </td>
                     <td data-label="Actions">
-                      {payment.status === "pending" && (
+                      {payment.status === "pending" ? (
                         <div className="admin-proof-actions-icons">
                           <button
                             className="action-icon approve-icon"
@@ -316,11 +339,12 @@ export default function AdminProofOfPayment() {
                             <X size={18} />
                           </button>
                         </div>
-                      )}
-                      {payment.status !== "pending" && (
+                      ) : (
                         <span className={`admin-proof-reviewed ${payment.status}`}>
                           {payment.status === "approved" ? <Check size={14} /> : <X size={14} />}
-                          <span>{payment.status === "approved" ? " Approved" : " Rejected"}</span>
+                          <span>
+                            {payment.status === "approved" ? " Approved" : " Rejected"}
+                          </span>
                         </span>
                       )}
                     </td>
@@ -331,12 +355,26 @@ export default function AdminProofOfPayment() {
           </div>
         )}
 
-        {/* Modal for remarks */}
         {showModal && (
-          <div className="admin-proof-modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="admin-proof-modal" onClick={(e) => e.stopPropagation()}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                <h3 style={{ margin: 0 }}>{actionType === "approve" ? "Approve" : "Reject"} Payment Proof</h3>
+          <div
+            className="admin-proof-modal-overlay"
+            onClick={() => setShowModal(false)}
+          >
+            <div
+              className="admin-proof-modal"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "16px",
+                }}
+              >
+                <h3 style={{ margin: 0 }}>
+                  {actionType === "approve" ? "Approve" : "Reject"} Payment Proof
+                </h3>
                 <button
                   onClick={() => setShowModal(false)}
                   style={{
@@ -350,7 +388,7 @@ export default function AdminProofOfPayment() {
                   ×
                 </button>
               </div>
-              
+
               <p>
                 <strong>Student:</strong> {getStudentDisplayName(selectedPayment)}
               </p>
@@ -360,11 +398,28 @@ export default function AdminProofOfPayment() {
               <p>
                 <strong>Description:</strong> {selectedPayment?.formatted_description}
               </p>
-              
-              {/* Show proof image in modal for review */}
+              <p>
+                <strong>Amount:</strong> {formatCurrency(selectedPayment?.amount)}
+              </p>
+              <p>
+                <strong>Bill Type:</strong> {billTypeLabel(selectedPayment?.billed_item)}
+              </p>
+              <p>
+                <strong>Payment Date:</strong>{" "}
+                {selectedPayment?.payment_date ||
+                  selectedPayment?.billed_due_date ||
+                  "—"}
+              </p>
+
               {selectedPayment?.proof_image && (
                 <div style={{ marginBottom: "16px" }}>
-                  <label style={{ display: "block", marginBottom: "8px", fontWeight: 600 }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontWeight: 600,
+                    }}
+                  >
                     Payment Proof:
                   </label>
                   <img
@@ -378,20 +433,24 @@ export default function AdminProofOfPayment() {
                       border: "1px solid #e2e8f0",
                       cursor: "pointer",
                     }}
-                    onClick={() => openImageOverlay(getImageUrl(selectedPayment.proof_image))}
+                    onClick={() =>
+                      openImageOverlay(getImageUrl(selectedPayment.proof_image))
+                    }
                   />
                 </div>
               )}
-              
+
               <div className="form-group">
                 <label>Remarks (Optional):</label>
                 <textarea
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                   rows="3"
-                  placeholder={actionType === "approve" 
-                    ? "Add approval remarks (optional)" 
-                    : "Provide reason for rejection (optional)"}
+                  placeholder={
+                    actionType === "approve"
+                      ? "Add approval remarks (optional)"
+                      : "Provide reason for rejection (optional)"
+                  }
                   style={{
                     width: "100%",
                     padding: "8px",
@@ -401,10 +460,13 @@ export default function AdminProofOfPayment() {
                   }}
                 />
               </div>
-              
-              <div className="admin-proof-modal-actions" style={{ display: "flex", gap: "12px", marginTop: "20px" }}>
-                <button 
-                  className="btn-cancel" 
+
+              <div
+                className="admin-proof-modal-actions"
+                style={{ display: "flex", gap: "12px", marginTop: "20px" }}
+              >
+                <button
+                  className="btn-cancel"
                   onClick={() => setShowModal(false)}
                   style={{
                     flex: 1,
@@ -417,7 +479,7 @@ export default function AdminProofOfPayment() {
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   className={actionType === "approve" ? "btn-approve" : "btn-reject"}
                   onClick={handleAction}
                   style={{
@@ -437,7 +499,6 @@ export default function AdminProofOfPayment() {
           </div>
         )}
 
-        {/* Image Overlay */}
         {imageOverlay && (
           <div
             onClick={closeImageOverlay}

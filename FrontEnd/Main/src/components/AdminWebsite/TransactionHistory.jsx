@@ -1,13 +1,13 @@
 // Notify student that their bill is paid
-const sendPaidNotification = async (transactionId) => {
-  try {
-    const res = await apiFetch(`/api/reminders/payments/${transactionId}/paid/`, { method: 'POST' });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || 'Failed to send paid notification.');
-  } catch (err) {
-    console.error('Error sending paid notification:', err);
-  }
-};
+// const sendPaidNotification = async (transactionId) => {
+//   try {
+//     const res = await apiFetch(`/api/reminders/payments/${transactionId}/paid/`, { method: 'POST' });
+//     const data = await res.json().catch(() => ({}));
+//     if (!res.ok) throw new Error(data.detail || 'Failed to send paid notification.');
+//   } catch (err) {
+//     console.error('Error sending paid notification:', err);
+//   }
+// };
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
@@ -428,17 +428,7 @@ const TransactionHistory = () => {
         throw new Error(detail);
       }
 
-      let txnId = null;
-      if (isEdit && editingTxn?.id) {
-        txnId = editingTxn.id;
-      } else {
-        const data = await res.json().catch(() => ({}));
-        txnId = data.id;
-      }
-
-      if ((formData.status || '').toUpperCase() === 'PAID' && txnId) {
-        sendPaidNotification(txnId);
-      }
+      
 
       setShowModal(false);
       setEditingTxn(null);
@@ -925,9 +915,7 @@ const TransactionHistory = () => {
         throw new Error(data.detail || 'Failed to post payment.');
       }
 
-      if (data?.payment_transaction_id) {
-        sendPaidNotification(data.payment_transaction_id);
-      }
+      
 
       let message = `Payment posted successfully. Applied: ${formatCurrency(data.applied_amount)}.`;
       if (Number(data.excess_amount || 0) > 0) {

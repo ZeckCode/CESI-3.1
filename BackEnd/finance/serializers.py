@@ -438,87 +438,40 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProofOfPayment
         fields = [
-            'id', 'reference_number', 'description', 'proof_image',
-            'proof_image_url', 'status', 'admin_remarks',
-            'created_at', 'updated_at', 'student_name', 'student_username',
-            'student_grade', 'enrollment_id', 'payment_type', 'source'
+            'id',
+            'reference_number',
+            'description',
+            'amount',
+            'billed_item',
+            'billed_due_date',
+            'proof_image',
+            'proof_image_url',
+            'status',
+            'admin_remarks',
+            'created_at',
+            'updated_at',
+            'student_name',
+            'student_username',
+            'student_grade',
+            'enrollment_id',
+            'payment_type',
+            'source',
+            'approved_transaction',
         ]
         read_only_fields = [
-            'id', 'status', 'admin_remarks', 'created_at', 'updated_at',
-            'student_name', 'student_username', 'student_grade',
-            'enrollment_id', 'payment_type', 'source'
+            'id',
+            'status',
+            'admin_remarks',
+            'created_at',
+            'updated_at',
+            'student_name',
+            'student_username',
+            'student_grade',
+            'enrollment_id',
+            'payment_type',
+            'source',
+            'approved_transaction',
         ]
-
-    def _get_enrollment(self, obj):
-        if hasattr(obj, 'enrollment') and obj.enrollment:
-            return obj.enrollment
-
-        try:
-            from enrollment.models import Enrollment
-            if obj.reference_number and obj.reference_number.startswith('ENROLL-'):
-                enroll_id = int(obj.reference_number.split('-')[1])
-                return Enrollment.objects.get(id=enroll_id)
-        except Exception:
-            pass
-        return None
-
-    def get_enrollment_id(self, obj):
-        if hasattr(obj, 'enrollment') and obj.enrollment:
-            return obj.enrollment.id
-
-        try:
-            if obj.reference_number and obj.reference_number.startswith('ENROLL-'):
-                return int(obj.reference_number.split('-')[1])
-        except Exception:
-            pass
-        return None
-
-    def get_student_name(self, obj):
-        enrollment = self._get_enrollment(obj)
-        if enrollment:
-            first_name = enrollment.first_name or ''
-            last_name = enrollment.last_name or ''
-            full_name = f"{first_name} {last_name}".strip()
-            if full_name:
-                return full_name
-
-        try:
-            profile = obj.user.profile
-            first_name = profile.student_first_name or ''
-            last_name = profile.student_last_name or ''
-            full_name = f"{first_name} {last_name}".strip()
-            if full_name:
-                return full_name
-            return obj.user.username
-        except Exception:
-            return obj.user.username
-
-    def get_student_username(self, obj):
-        return obj.user.username
-
-    def get_student_grade(self, obj):
-        enrollment = self._get_enrollment(obj)
-        if enrollment:
-            grade_labels = {
-                'prek': 'Pre-K', 'kinder': 'Kinder',
-                'grade1': 'Grade 1', 'grade2': 'Grade 2', 'grade3': 'Grade 3',
-                'grade4': 'Grade 4', 'grade5': 'Grade 5', 'grade6': 'Grade 6'
-            }
-            grade_code = (enrollment.grade_level or '').lower()
-            return grade_labels.get(grade_code, enrollment.grade_level or '')
-
-        try:
-            profile = obj.user.profile
-            return profile.grade_level or ''
-        except Exception:
-            return ""
-
-    def get_proof_image_url(self, obj):
-        request = self.context.get('request')
-        if obj.proof_image:
-            return request.build_absolute_uri(obj.proof_image.url) if request else obj.proof_image.url
-        return None
-
 
 class AdvanceRequestSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
