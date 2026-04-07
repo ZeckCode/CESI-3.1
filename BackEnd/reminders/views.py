@@ -159,7 +159,7 @@ class ReminderListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = Reminder.objects.select_related(
-            "recipient", "sender", "transaction"
+            "recipient", "sender", "transaction", "proof_of_payment"
         ).all()
 
         reminder_type = self.request.query_params.get("type")
@@ -211,7 +211,7 @@ class ReminderDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         queryset = Reminder.objects.select_related(
-            "recipient", "sender", "transaction"
+            "recipient", "sender", "transaction", "proof_of_payment"
         ).all()
 
         if is_admin(self.request.user):
@@ -244,7 +244,7 @@ def send_payment_reminder(request, transaction_id):
     due_date = getattr(transaction, "due_date", None)
     transaction_type = getattr(transaction, "transaction_type", "Payment")
 
-    event_key = "PAYMENT_OVERDUE" if str(status_value).upper() == "OVERDUE" else "PAYMENT_DUE"
+    event_type = "PAYMENT_OVERDUE" if str(status_value).upper() == "OVERDUE" else "PAYMENT_DUE"
     title = f"Payment Reminder - {transaction_type}"
 
     message = (
@@ -262,7 +262,7 @@ def send_payment_reminder(request, transaction_id):
         title=title,
         message=message,
         reminder_type="PAYMENT",
-        event_type="PAYMENT_DUE",
+        event_type=event_type,
         transaction=transaction,
         reference_date=due_date or timezone.localdate(),
     )
@@ -275,8 +275,8 @@ def send_payment_reminder(request, transaction_id):
         },
         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
     )
-
-@api_view(["PATCH"])
+    
+@api_view(["POST", "PATCH"])
 @permission_classes([IsAuthenticated])
 def mark_reminder_as_read(request, pk):
     try:

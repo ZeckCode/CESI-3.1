@@ -655,6 +655,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         transaction_date=None,
         due_date=None,
         status_value="POSTED",
+        reference_number=None,
     ):
         effective_student_number = self._get_effective_student_number(enrollment)
 
@@ -674,7 +675,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             amount=Decimal(str(amount or 0)),
             description=description,
             payment_method=payment_method,
-            reference_number=self.generate_reference_number(),
+            reference_number=reference_number or self.generate_reference_number(),
             transaction_date=transaction_date or timezone.localdate(),
             due_date=due_date,
             status=status_value,
@@ -787,6 +788,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     transaction_date=aug_due,
                     due_date=aug_due,
                     status_value="POSTED",
+                    reference_number=reference_number or self.generate_reference_number(),
                 )
 
             if misc_nov > 0:
@@ -806,7 +808,9 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     transaction_date=nov_due,
                     due_date=nov_due,
                     status_value="POSTED",
+                    reference_number=reference_number or self.generate_reference_number(),
                 )
+
 
         elif payment_mode == "installment":
             schedule = self._build_installment_schedule(tuition)
@@ -1555,6 +1559,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     transaction_date=today,
                     due_date=None,
                     status_value="PAID",
+                    reference_number=proof_reference,
                 )
 
                 self._recompute_parent_ledger_balances(enrollment.parent_user)

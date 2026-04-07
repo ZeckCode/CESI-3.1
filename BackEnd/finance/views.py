@@ -2,6 +2,7 @@
 from decimal import Decimal
 from datetime import date
 
+
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -755,33 +756,94 @@ def my_tuition_installments(request):
         if not tuition:
             continue
 
-        total_paid = tuition_paid_for_parent(profile.user)
+        enrollment = Enrollment.objects.filter(
+            parent_user=request.user,
+            student_number=profile.student_number,
+            status='ACTIVE'
+        ).order_by('-created_at').first()
+
+       
+
+        total_paid = Decimal('0.00')
         installments = []
+
+        payment_rows = []
+        if enrollment:
+            payment_rows = list(
+                Transaction.objects.filter(
+                    parent=request.user,
+                    enrollment=enrollment,
+                    transaction_type='TUITION',
+                    entry_type='CREDIT',
+                )
+                .exclude(item='ADVANCE')
+                .exclude(item='ADVANCE_APPLIED')
+                .order_by('transaction_date', 'date_posted', 'id')
+            )
+
+            total_paid = sum(
+                (Decimal(str(tx.credit or 0)) for tx in payment_rows),
+                Decimal('0.00')
+            )
+        else:
+            total_paid = tuition_paid_for_parent(profile.user)
 
         if payment_mode == 'installment':
             schedule = build_installment_schedule(tuition)
-            covered = Decimal('0.00')
+
+            # Clone payments so we can consume them sequentially like real allocation
+            remaining_payments = [
+                {
+                    'id': tx.id,
+                    'amount_left': Decimal(str(tx.credit or 0)),
+                    'reference_number': tx.reference_number,
+                    'transaction_date': tx.transaction_date.isoformat() if tx.transaction_date else None,
+                    'item': tx.item,
+                }
+                for tx in payment_rows
+                if Decimal(str(tx.credit or 0)) > 0
+            ]
 
             for item in schedule:
-                amount = item['amount']
-                next_covered = covered + amount
+                amount_due = Decimal(str(item['amount'] or 0))
+                remaining_due = amount_due
+                refs_used = []
 
-                is_paid = total_paid >= next_covered
+                for payment in remaining_payments:
+                    if remaining_due <= 0:
+                        break
+                    if payment['amount_left'] <= 0:
+                        continue
+
+                    applied = min(payment['amount_left'], remaining_due)
+                    if applied > 0:
+                        payment['amount_left'] -= applied
+                        remaining_due -= applied
+
+                        if payment['reference_number']:
+                            refs_used.append(payment['reference_number'])
+
+                paid_amount = amount_due - remaining_due
+                is_paid = remaining_due <= 0
                 is_overdue = (not is_paid) and (item['due_date'] < today)
 
                 installments.append({
                     'type': item['type'],
                     'item': item['item'],
-                    'amount': float(amount),
+                    'amount': float(amount_due),
+                    'amount_paid': float(paid_amount),
+                    'balance': float(remaining_due if remaining_due > 0 else Decimal('0.00')),
                     'month': item['month'],
                     'due_date': item['due_date'].isoformat(),
                     'is_paid': is_paid,
-                    'status': 'PAID' if is_paid else ('OVERDUE' if is_overdue else 'PENDING'),
+                    'status': 'PAID' if is_paid else ('OVERDUE' if is_overdue else ('PARTIAL' if paid_amount > 0 else 'PENDING')),
+                    'reference_number': refs_used[0] if len(refs_used) == 1 else None,
+                    'reference_numbers': refs_used,
                 })
-                covered = next_covered
 
             total_due = sum((item['amount'] for item in schedule), Decimal('0.00'))
             overall_status = compute_installment_status(total_due, total_paid, tuition)
+
         else:
             total_due = Decimal(str(tuition.total_cash or 0))
             overall_status = compute_cash_status(total_due, total_paid)
@@ -803,8 +865,6 @@ def my_tuition_installments(request):
         })
 
     return Response(data)
-
-
 
 
 
@@ -898,6 +958,7 @@ def pay_student_balance(request):
             )
 
 
+            
         new_balance = recompute_running_balances_for_enrollment(enrollment)
         send_payment_received_reminder(sender=request.user, payment_tx=payment_tx)
         
@@ -1341,7 +1402,7 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
                 grade_level_snapshot=proof.enrollment.grade_level,
                 payment_mode_snapshot=proof.enrollment.payment_mode,
                 student_type_snapshot=proof.enrollment.student_type,
-                reference_number=generate_transaction_reference(),
+                reference_number=proof.reference_number or generate_transaction_reference(),
             )
 
             new_balance = recompute_running_balances_for_enrollment(proof.enrollment)
