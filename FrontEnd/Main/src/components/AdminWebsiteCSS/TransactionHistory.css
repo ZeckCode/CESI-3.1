@@ -38,15 +38,18 @@
   .th-btn-danger {
     padding: 0.5rem 0.75rem !important;
     font-size: 11px;
+    width: 100%;
   }
 
   .th-section-header {
     margin-bottom: 0.75rem;
     gap: 0.5rem;
+    flex-direction: column;
   }
 
   .th-filters-container {
     gap: 0.5rem;
+    flex-direction: column;
   }
 
   .th-search-box {
@@ -65,6 +68,58 @@
 
   .th-actions-cell {
     gap: 0.2rem;
+  }
+
+  /* All tables on mobile - responsive with horizontal scroll */
+  .th-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .th-table {
+    min-width: 650px;
+    border-collapse: collapse;
+  }
+  
+  .th-table th {
+    padding: 0.5rem 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+  }
+  
+  .th-table td {
+    padding: 0.4rem 0.3rem;
+    font-size: 0.75rem;
+    color: #1e293b;
+    white-space: nowrap;
+  }
+  
+  .th-student-name-cell { font-size: 0.75rem; }
+  .th-amount-cell { font-size: 0.75rem; font-weight: 600; }
+  .th-reference-cell { font-size: 0.7rem; }
+  .th-status-badge { padding: 0.15rem 0.5rem; font-size: 0.6rem; }
+  .th-action-btn { padding: 0.25rem 0.3rem; }
+  .th-action-btn svg { width: 11px; height: 11px; }
+  
+  /* Minimize section headers */
+  .th-section-title { font-size: 1rem; }
+  .th-section-subtitle { font-size: 0.7rem; }
+  
+  /* Minimize stat cards */
+  .th-stat-card { padding: 0.75rem; border-radius: 0.5rem; }
+  .th-stat-label { font-size: 0.75rem; }
+  .th-stat-value { font-size: 1.25rem; }
+  
+  /* Compact detail panel */
+  .th-student-detail-panel {
+    padding: 0.6rem 0.8rem;
+  }
+  
+  .th-detail-title {
+    font-size: 0.7rem;
+    margin: 0 0 0.4rem;
   }
 }
 
@@ -578,45 +633,69 @@
 }
 
 @media (max-width: 600px) {
-  .th-table { border: 0; min-width: 0; }
-  .th-table thead { display: none; }
-  .th-table tbody tr { display: block; margin-bottom: 0.6rem; border: 1px solid rgba(15,23,42,0.06); border-radius: 6px; padding: 0.4rem; background: white; }
-  .th-table tbody tr td { display: flex; justify-content: space-between; padding: 0.4rem 0.35rem; border-bottom: 1px dashed rgba(15,23,42,0.05); font-size: 0.8rem; }
-  .th-table tbody tr td:last-child { border-bottom: 0; }
-  .th-amount-cell { text-align: right; font-size: 0.8rem; }
-  .th-search-box { min-width: 0; }
+  .th-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   
-  /* Reduce button sizes significantly */
-  .th-action-btn { padding: 0.3rem 0.4rem; min-width: auto; }
-  .th-action-btn svg { width: 12px; height: 12px; }
+  .th-table {
+    min-width: 700px;
+    border-collapse: collapse;
+  }
   
-  /* Compact table cells */
+  .th-table th {
+    padding: 0.6rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+  }
+  
+  .th-table td {
+    padding: 0.5rem 0.4rem;
+    font-size: 0.8rem;
+    color: #1e293b;
+  }
+  
   .th-student-name-cell { font-size: 0.8rem; }
-  .th-status-badge { padding: 0.15rem 0.5rem; font-size: 0.65rem; }
-  
-  /* Hide less important columns on very small screens */
-  .th-table tbody tr td:nth-child(2),
-  .th-table tbody tr td:nth-child(3) { font-size: 0.75rem; }
+  .th-amount-cell { font-size: 0.8rem; }
+  .th-reference-cell { font-size: 0.75rem; }
+  .th-status-badge { padding: 0.2rem 0.6rem; font-size: 0.65rem; }
+  .th-action-btn { padding: 0.3rem 0.4rem; }
+  .th-action-btn svg { width: 12px; height: 12px; }
 }
 
 @media (max-width: 480px) {
-  .th-table { border: 0; min-width: 0; }
-  .th-table thead { display: none; }
-  .th-table tbody tr { display: block; margin-bottom: 0.5rem; border: 1px solid rgba(15,23,42,0.08); border-radius: 4px; padding: 0.3rem 0.25rem; background: white; }
-  .th-table tbody tr td { display: flex; justify-content: space-between; padding: 0.3rem 0.25rem; border-bottom: 1px dashed rgba(15,23,42,0.05); font-size: 0.75rem; }
-  .th-table tbody tr td:last-child { border-bottom: 0; }
-  .th-amount-cell { text-align: right; font-size: 0.75rem; font-weight: 600; }
-  .th-search-box { min-width: 0; }
+  .th-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   
-  /* Ultra-compact buttons */
-  .th-action-btn { padding: 0.25rem 0.3rem; min-width: auto; }
-  .th-action-btn svg { width: 11px; height: 11px; }
+  .th-table {
+    min-width: 650px;
+    border-collapse: collapse;
+  }
   
-  /* Minimize text */
-  .th-student-name-cell { font-size: 0.75rem; font-weight: 500; }
+  .th-table th {
+    padding: 0.5rem 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+  }
+  
+  .th-table td {
+    padding: 0.4rem 0.3rem;
+    font-size: 0.75rem;
+    color: #1e293b;
+    white-space: nowrap;
+  }
+  
+  .th-student-name-cell { font-size: 0.75rem; }
+  .th-amount-cell { font-size: 0.75rem; font-weight: 600; }
   .th-reference-cell { font-size: 0.7rem; }
-  .th-status-badge { padding: 0.1rem 0.4rem; font-size: 0.6rem; }
-  .th-payment-method { font-size: 0.7rem; }
+  .th-status-badge { padding: 0.15rem 0.5rem; font-size: 0.6rem; }
+  .th-action-btn { padding: 0.25rem 0.3rem; }
+  .th-action-btn svg { width: 11px; height: 11px; }
   
   /* Minimize section headers */
   .th-section-title { font-size: 1rem; }
