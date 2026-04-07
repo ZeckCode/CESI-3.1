@@ -16,6 +16,7 @@ import {
 import "../AdminWebsiteCSS/Sidebar.css";
 import { useAuth } from "../Auth/useAuth";
 import { apiFetch } from "../api/apiFetch";
+import { getDisplayName } from "../../utils/userDisplayName";
 
 function getAvatarLetter(username = "User") {
   const value = String(username || "").trim();
@@ -138,8 +139,8 @@ export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, o
 
   const visible = !isMobile || drawerOpen;
   const showLabels = !isCollapsed || isMobile;
-  const displayUsername = currentUser?.username || currentUser?.email || "User";
-  const avatarLetter = getAvatarLetter(displayUsername);
+  const displayName = getDisplayName(currentUser);
+  const avatarLetter = getAvatarLetter(displayName);
 
   return (
     <>
@@ -175,10 +176,10 @@ export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, o
               <div className="as-avatar">{avatarLetter}</div>
               <div className="as-usermeta">
                 <div className="as-userrow">
-                  <div className="as-username">Teacher Portal</div>
+                  <div className="as-username">{displayName}</div>
                 </div>
                 <div className="as-usersub">
-                  <div className="as-userhandle">@{displayUsername}</div>
+                  <div className="as-userhandle">Teacher Portal</div>
                 </div>
               </div>
             </div>

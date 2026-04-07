@@ -20,6 +20,7 @@ import "../AdminWebsiteCSS/Sidebar.css";
 import { apiFetch } from "../api/apiFetch";
 import { useAuth } from "../Auth/useAuth";
 import { getToken } from "../Auth/auth";
+import { getDisplayName } from "../../utils/userDisplayName";
 
 
 
@@ -203,8 +204,8 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
 
   const visible = !isMobile || drawerOpen;
   const showLabels = !isCollapsed || isMobile;
-  const displayUsername = currentUser?.username || currentUser?.email || "User";
-  const avatarLetter = getAvatarLetter(displayUsername);
+  const displayName = getDisplayName(currentUser);
+  const avatarLetter = getAvatarLetter(displayName);
 
   return (
     <>
@@ -244,10 +245,10 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
               <div className="as-avatar">{avatarLetter}</div>
               <div className="as-usermeta">
                 <div className="as-userrow">
-                  <div className="as-username">Admin Panel</div>
+                  <div className="as-username">{displayName}</div>
                 </div>
                 <div className="as-usersub">
-                  <div className="as-userhandle">@{displayUsername}</div>
+                  <div className="as-userhandle">Admin Portal</div>
                 </div>
               </div>
             </div>
