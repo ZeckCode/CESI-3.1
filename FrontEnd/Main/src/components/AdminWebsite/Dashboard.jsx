@@ -643,7 +643,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
     [performanceMetrics, selectedGradeLevel]
   );
 
-  const dashboardInsights = useMemo(() => {
+  const analysisSections = useMemo(() => {
     const latestRevenue = revenueMonthly[revenueMonthly.length - 1];
     const previousRevenue = revenueMonthly[revenueMonthly.length - 2];
 
@@ -666,68 +666,128 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         ? Math.round(((pendingCount + overdueCount) / receivablesTotal) * 100)
         : null;
 
-    const attendanceDelta = stats.todayAttendanceRate - stats.attendanceRate;
-    const attendanceDirection =
-      attendanceDelta > 0 ? "above" : attendanceDelta < 0 ? "below" : "aligned with";
-
-    const atRiskStudents = filteredPerformanceMetrics.filter(
+    const atRiskStudents = performanceMetrics.filter(
       (student) => Number(student.performanceScore) < 70
     ).length;
 
-    const highPerformers = filteredPerformanceMetrics.filter(
+    const highPerformers = performanceMetrics.filter(
       (student) => Number(student.performanceScore) >= 80
     ).length;
 
+    const enrollmentDescriptive =
+      `A total of ${stats.totalStudents} students are currently enrolled. ` +
+      `${stats.pendingEnrollments} pending application${stats.pendingEnrollments === 1 ? "" : "s"} ` +
+      `are currently recorded in the system.`;
+
+    const financeDescriptive =
+      `The total amount collected is ${formatCurrency(stats.totalRevenue)}. ` +
+      `The most recent monthly revenue recorded is ${formatCurrency(latestRevenue?.revenue || 0)}. ` +
+      `There ${stats.overduePayments === 1 ? "is" : "are"} ${stats.overduePayments} overdue payment${stats.overduePayments === 1 ? "" : "s"}.`;
+
+    const attendanceDescriptive =
+      `The attendance rate for the current day is ${stats.todayAttendanceRate}%, ` +
+      `with ${stats.todayPresent} out of ${stats.todayTotal} students present. ` +
+      `The overall attendance rate is ${stats.attendanceRate}%.`;
+
+    const performanceDescriptive =
+      `A total of ${highPerformers} students are currently classified under the high-performance band. ` +
+      `${atRiskStudents} students have recorded scores below 70.`;
+
+    const riskDescriptive =
+      receivableRiskPct === null
+        ? "Financial risk exposure cannot be computed because there are no payment records yet."
+        : `Financial risk exposure accounts for ${receivableRiskPct}% of all payment records.`;
+
+    const financeInterpretation =
+      revenueDeltaPct === null
+        ? `The available finance data confirms total collections of ${formatCurrency(stats.totalRevenue)} and no month-over-month comparison yet due to limited trend points.`
+        : `Total collections have reached ${formatCurrency(stats.totalRevenue)}. The most recent monthly revenue of ${formatCurrency(latestRevenue?.revenue || 0)} is ${Math.abs(revenueDeltaPct).toFixed(1)}% ${revenueDeltaPct >= 0 ? "higher" : "lower"} than the previous month, while overdue payments remain at ${stats.overduePayments}.`;
+
+    const attendanceInterpretation =
+      `The current attendance rate of ${stats.todayAttendanceRate}% compared with the overall rate of ${stats.attendanceRate}% ` +
+      `${stats.todayAttendanceRate < stats.attendanceRate
+        ? "indicates lower student presence for the day relative to the broader pattern."
+        : stats.todayAttendanceRate > stats.attendanceRate
+        ? "indicates higher student presence for the day relative to the broader pattern."
+        : "indicates the day is aligned with the broader attendance pattern."}`;
+
+    const performanceInterpretation =
+      `With ${highPerformers} students in the high-performance band and ${atRiskStudents} students below 70, ` +
+      `the data reflects a strong-performing group alongside a smaller segment that may require targeted support.`;
+
+    const riskInterpretation =
+      receivableRiskPct === null
+        ? "Financial risk interpretation is currently unavailable due to missing payment records."
+        : `A financial risk exposure of ${receivableRiskPct}% indicates that a substantial share of payment records is currently in pending or overdue status, which can affect revenue predictability.`;
+
     return [
       {
-        title: "Enrollment Interpretation",
-        body: `Admissions queue has ${stats.pendingEnrollments} pending application${
-          stats.pendingEnrollments === 1 ? "" : "s"
-        }. ${
-          stats.pendingEnrollments >= 10
-            ? "This is a high-load cycle that may require faster review throughput."
-            : "Current queue is manageable with routine review cadence."
-        }`,
+        key: "descriptive",
+        title: "Descriptive Analysis",
+        subtitle: "What is happening in the current dataset.",
+        items: [
+          { title: "Enrollment Data", body: enrollmentDescriptive },
+          { title: "Financial Data", body: financeDescriptive },
+          { title: "Attendance Data", body: attendanceDescriptive },
+          { title: "Performance Data", body: performanceDescriptive },
+          { title: "Financial Risk Data", body: riskDescriptive },
+        ],
       },
       {
-        title: "Finance Interpretation",
-        body:
-          revenueDeltaPct === null
-            ? `Latest collected total is ${formatCurrency(
-                stats.totalRevenue
-              )}. Revenue trend will become clearer after another monthly point.`
-            : `Latest monthly revenue is ${formatCurrency(
-                latestRevenue?.revenue || 0
-              )}, ${Math.abs(revenueDeltaPct).toFixed(1)}% ${
-                revenueDeltaPct >= 0 ? "higher" : "lower"
-              } than the previous month.`,
+        key: "interpretation",
+        title: "Interpretation of Results",
+        subtitle: "What the current patterns indicate.",
+        items: [
+          {
+            title: "Enrollment Interpretation",
+            body: `The presence of ${stats.pendingEnrollments} pending application${stats.pendingEnrollments === 1 ? "" : "s"} alongside ${stats.totalStudents} enrolled students suggests continuous admission activity that requires timely processing.`,
+          },
+          { title: "Financial Interpretation", body: financeInterpretation },
+          { title: "Attendance Interpretation", body: attendanceInterpretation },
+          { title: "Performance Interpretation", body: performanceInterpretation },
+          { title: "Financial Risk Interpretation", body: riskInterpretation },
+        ],
       },
       {
-        title: "Attendance Interpretation",
-        body: `Today's attendance is ${stats.todayAttendanceRate}% (${stats.todayPresent}/${stats.todayTotal}) which is ${attendanceDirection} the overall rate of ${stats.attendanceRate}%.`,
-      },
-      {
-        title: "Performance Interpretation",
-        body: `${highPerformers} student${highPerformers === 1 ? "" : "s"} are in the high-performance band and ${atRiskStudents} student${
-          atRiskStudents === 1 ? "" : "s"
-        } are flagged below 70 in ${
-          selectedGradeLevel === "All" ? "all students" : selectedGradeLevel
-        }. Financial risk exposure is ${
-          receivableRiskPct === null ? "not yet available" : `${receivableRiskPct}%`
-        } of all payment records.`,
+        key: "recommendations",
+        title: "Recommendations",
+        subtitle: "What actions can be prioritized next.",
+        items: [
+          {
+            title: "Admissions Workflow",
+            body: "Set daily processing targets for pending applications and monitor turnaround time to keep enrollment flow consistent.",
+          },
+          {
+            title: "Revenue Monitoring",
+            body: "Track month-over-month revenue movement in a weekly finance review to quickly identify trend shifts and follow-up actions.",
+          },
+          {
+            title: "Attendance Follow-up",
+            body: "Trigger adviser follow-ups when daily attendance falls below the overall baseline and track recurring absence patterns by section.",
+          },
+          {
+            title: "Academic Support",
+            body: "Create an intervention list for students below 70 and pair it with periodic progress checks while sustaining enrichment for high performers.",
+          },
+          {
+            title: "Financial Risk Reduction",
+            body: "Prioritize outreach for pending and overdue accounts before due dates to reduce risk exposure and improve payment predictability.",
+          },
+        ],
       },
     ];
   }, [
     revenueMonthly,
     paymentBreakdown,
+    performanceMetrics,
     stats.pendingEnrollments,
+    stats.totalStudents,
     stats.totalRevenue,
+    stats.overduePayments,
     stats.todayAttendanceRate,
     stats.todayPresent,
     stats.todayTotal,
     stats.attendanceRate,
-    filteredPerformanceMetrics,
-    selectedGradeLevel,
   ]);
 
   if (loading) {
@@ -801,18 +861,30 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
 
       <section className="dash-insights">
         <div className="dash-insights-head">
-          <h3 className="dash-insights-title">Dashboard Interpretations</h3>
+          <h3 className="dash-insights-title">Dashboard Analysis</h3>
           <p className="dash-insights-sub">
-            Cross-module interpretation of enrollment, finance, attendance, and
-            performance signals.
+            Structured view of what is happening, what it means, and what can be
+            prioritized next across enrollment, finance, attendance, and performance.
           </p>
         </div>
 
-        <div className="dash-insights-grid">
-          {dashboardInsights.map((insight) => (
-            <article key={insight.title} className="dash-insight-card">
-              <h4 className="dash-insight-title">{insight.title}</h4>
-              <p className="dash-insight-text">{insight.body}</p>
+        <div className="dash-analysis-columns">
+          {analysisSections.map((section) => (
+            <article
+              key={section.key}
+              className={`dash-insight-card dash-analysis-card dash-analysis-card--${section.key}`}
+            >
+              <h4 className="dash-insight-title">{section.title}</h4>
+              <p className="dash-insights-sub">{section.subtitle}</p>
+
+              <div className="dash-analysis-list">
+                {section.items.map((item) => (
+                  <div key={item.title} className="dash-analysis-item">
+                    <h5 className="dash-analysis-item-title">{item.title}</h5>
+                    <p className="dash-insight-text">{item.body}</p>
+                  </div>
+                ))}
+              </div>
             </article>
           ))}
         </div>
