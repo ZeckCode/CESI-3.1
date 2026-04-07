@@ -228,11 +228,15 @@ class TeacherAssignmentSerializer(serializers.Serializer):
         return value
 
     def validate_subjects(self, values):
-        unique_values = [
-            int(value)
-            for value in (values or [])
-            if isinstance(value, int) and value > 0
-        ]
+        unique_values = []
+        for value in (values or []):
+            try:
+                subject_id = int(value)
+            except (TypeError, ValueError):
+                continue
+            if subject_id > 0:
+                unique_values.append(subject_id)
+
         unique_values = list(dict.fromkeys(unique_values))
         if not unique_values:
             return []
@@ -339,11 +343,15 @@ class CreateUserSerializer(serializers.Serializer):
                 except Subject.DoesNotExist:
                     raise serializers.ValidationError({"subject": "Subject not found"})
 
-            subject_ids = [
-                int(value)
-                for value in (attrs.get("subjects") or [])
-                if isinstance(value, int) and value > 0
-            ]
+            subject_ids = []
+            for value in (attrs.get("subjects") or []):
+                try:
+                    subject_id = int(value)
+                except (TypeError, ValueError):
+                    continue
+                if subject_id > 0:
+                    subject_ids.append(subject_id)
+
             subject_ids = list(dict.fromkeys(subject_ids))
             attrs["subjects"] = subject_ids
             if subject_ids:
