@@ -1527,35 +1527,34 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
     ? `${selectedSectionData.room_code}${selectedSectionData.room_name ? ` (${selectedSectionData.room_name})` : ''}`
     : 'Not assigned';
 
-  const selectedTeacher = useMemo(
-    () => teachers.find((teacher) => String(teacher.id) === String(form.teacher)) || null,
-    [teachers, form.teacher]
-  );
+  const teacherCanHandleSubject = (teacher, subjectId) => {
+    if (!teacher?.teacher_profile || !Number.isFinite(subjectId)) return false;
 
-  const subjectsForSelectedTeacher = useMemo(() => {
-    if (!selectedTeacher?.teacher_profile) return [];
-
-    const byId = new Map();
-    const profile = selectedTeacher.teacher_profile;
-    const addSubject = (rawSubject) => {
-      if (rawSubject === null || rawSubject === undefined || rawSubject === '') return;
+    const profile = teacher.teacher_profile;
+    const toSubjectId = (rawSubject) => {
+      if (rawSubject === null || rawSubject === undefined || rawSubject === '') return null;
       const id = typeof rawSubject === 'number' ? rawSubject : Number(rawSubject?.id ?? rawSubject);
-      if (!Number.isFinite(id)) return;
-      if (byId.has(id)) return;
-
-      const lookup = subjects.find((s) => Number(s.id) === Number(id));
-      const name = rawSubject?.name || lookup?.name;
-      if (!name) return;
-
-      byId.set(id, { id, name });
+      return Number.isFinite(id) ? id : null;
     };
 
-    const linkedSubjects = Array.isArray(profile.subjects) ? profile.subjects : [];
-    linkedSubjects.forEach(addSubject);
-    addSubject(profile.subject);
+    const multiSubjects = Array.isArray(profile.subjects) ? profile.subjects : [];
+    const linkedSubjectIds = multiSubjects
+      .map(toSubjectId)
+      .filter((id) => id !== null);
 
-    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [selectedTeacher, subjects]);
+    const legacySubjectId = toSubjectId(profile.subject);
+    if (legacySubjectId !== null) linkedSubjectIds.push(legacySubjectId);
+
+    return linkedSubjectIds.some((id) => Number(id) === Number(subjectId));
+  };
+
+  const teacherOptions = useMemo(() => {
+    if (!form.subject) return [];
+    const selectedSubjectId = Number(form.subject);
+    if (!Number.isFinite(selectedSubjectId)) return [];
+
+    return teachers.filter((teacher) => teacherCanHandleSubject(teacher, selectedSubjectId));
+  }, [teachers, form.subject]);
 
   const toggleSelect = (id) =>
     setSelected((prev) => {
@@ -1664,11 +1663,10 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
   };
 
   const openEdit = (sch) => {
-    const teacherId = sch.teacher ? String(sch.teacher) : '';
     setEditId(sch.id);
     setForm({
-      teacher: teacherId,
-      subject: teacherId ? String(sch.subject || '') : '',
+      teacher: sch.teacher ? String(sch.teacher) : '',
+      subject: sch.subject ? String(sch.subject) : '',
       section: String(sch.section),
       day_of_week: sch.day_of_week,
       start_time: sch.start_time?.slice(0, 5) || '',
@@ -1687,8 +1685,8 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
       return;
     }
 
-    if (form.teacher && !form.subject) {
-      setError('Subject is required when a teacher is selected.');
+    if (form.subject && !form.teacher) {
+      setError('Teacher is required when a Subject is selected.');
       return;
     }
 
@@ -1699,11 +1697,11 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
     try {
       const selectedSection = scopedSections.find((s) => String(s.id) === String(form.section));
       const roomId = selectedSection?.room || null;
-      const teacherId = form.teacher ? Number(form.teacher) : null;
+      const teacherId = form.subject && form.teacher ? Number(form.teacher) : null;
 
       const payload = {
         teacher: teacherId,
-        subject: teacherId && form.subject ? Number(form.subject) : null,
+        subject: form.subject ? Number(form.subject) : null,
         section: Number(form.section),
         day_of_week: form.day_of_week,
         start_time: form.start_time + ':00',
@@ -2043,37 +2041,34 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
               </div>
 
               <div className="admin-form-group">
-                <label>Teacher <span style={{ color: '#94a3b8', fontSize: '12px' }}>(Optional)</span></label>
+                <label>Subject</label>
                 <select
-                  value={form.teacher}
+                  value={form.subject}
                   onChange={(e) => {
-                    const nextTeacherId = e.target.value;
-                    const nextTeacher = teachers.find((t) => String(t.id) === String(nextTeacherId));
-
-                    let nextSubject = '';
-                    if (nextTeacher?.teacher_profile) {
-                      const rawSubjects = Array.isArray(nextTeacher.teacher_profile.subjects)
-                        ? nextTeacher.teacher_profile.subjects
-                        : [];
-
-                      const allTeacherSubjectIds = [...rawSubjects, nextTeacher.teacher_profile.subject]
-                        .map((subject) => (typeof subject === 'number' ? subject : Number(subject?.id ?? subject)))
-                        .filter((id) => Number.isFinite(id));
-
-                      if (form.subject && allTeacherSubjectIds.some((id) => String(id) === String(form.subject))) {
-                        nextSubject = form.subject;
-                      } else if (allTeacherSubjectIds.length > 0) {
-                        nextSubject = String(allTeacherSubjectIds[0]);
-                      }
+                    const nextSubject = e.target.value;
+                    if (!nextSubject) {
+                      setForm({ ...form, subject: '', teacher: '' });
+                      return;
                     }
 
-                    setForm({ ...form, teacher: nextTeacherId, subject: nextSubject });
+                    const nextSubjectId = Number(nextSubject);
+                    const currentTeacherStillValid = teachers.some(
+                      (teacher) =>
+                        String(teacher.id) === String(form.teacher)
+                        && teacherCanHandleSubject(teacher, nextSubjectId)
+                    );
+
+                    setForm({
+                      ...form,
+                      subject: nextSubject,
+                      teacher: currentTeacherStillValid ? form.teacher : '',
+                    });
                   }}
                 >
-                  <option value="">— No Teacher (Free Period) —</option>
-                  {teachers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.username}
+                  <option value="">Free Period (No subject, no teacher)</option>
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
                     </option>
                   ))}
                 </select>
@@ -2082,23 +2077,27 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
 
             <div className="admin-form-row">
               <div className="admin-form-group">
-                <label>Subject</label>
+                <label>
+                  Teacher
+                  <span style={{ color: '#94a3b8', fontSize: '12px' }}>
+                    {form.subject ? ' (Required for subject)' : ' (Disabled for Free Period)'}
+                  </span>
+                </label>
                 <select
-                  value={form.subject}
-                  onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                  value={form.teacher}
+                  onChange={(e) => setForm({ ...form, teacher: e.target.value })}
+                  disabled={!form.subject}
                 >
-                  {!form.teacher && <option value="">Free Period (No assigned teacher)</option>}
-                  {form.teacher && subjectsForSelectedTeacher.length === 0 && (
+                  {!form.subject && <option value="">Free Period - No Teacher</option>}
+                  {form.subject && <option value="">Select teacher…</option>}
+                  {form.subject && teacherOptions.length === 0 && (
                     <option value="" disabled>
-                      No subjects assigned to selected teacher
+                      No teachers assigned to selected subject
                     </option>
                   )}
-                  {form.teacher && subjectsForSelectedTeacher.length > 0 && (
-                    <option value="">Select subject…</option>
-                  )}
-                  {form.teacher && subjectsForSelectedTeacher.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
+                  {form.subject && teacherOptions.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.username}
                     </option>
                   ))}
                 </select>
