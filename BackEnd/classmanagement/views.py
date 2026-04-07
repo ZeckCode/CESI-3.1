@@ -942,6 +942,12 @@ def apply_schedule_template(request, template_id):
     else:
         clear_existing = bool(raw_clear)
 
+    raw_reassign_advisers = request.data.get("reassign_advisers", True)
+    if isinstance(raw_reassign_advisers, str):
+        reassign_advisers = raw_reassign_advisers.strip().lower() not in ("false", "0", "no")
+    else:
+        reassign_advisers = bool(raw_reassign_advisers)
+
     created_count = 0
     cleared_count = 0
     created_rooms = 0
@@ -951,6 +957,9 @@ def apply_schedule_template(request, template_id):
     created_subjects = 0
     teacher_subject_links_added = 0
     adviser_assignments = 0
+    adviser_reassignments = 0
+    adviser_conflicts = 0
+    missing_teacher_references = 0
     section_blueprints_applied = 0
     skipped = []
     warnings = []
@@ -958,6 +967,8 @@ def apply_schedule_template(request, template_id):
     room_cache = {}
     subject_cache = {}
     teacher_cache = {}
+    adviser_processed_sections = set()
+    missing_teacher_warning_keys = set()
 
     with transaction.atomic():
         if clear_existing:
@@ -1043,37 +1054,62 @@ def apply_schedule_template(request, template_id):
 
                 section_cache[section_key] = section_obj
 
-            adviser_user = None
-            raw_adviser_user_id = entry.get("section_adviser_user_id")
-            adviser_username = str(entry.get("section_adviser_username") or "").strip()
+            # Adviser assignment is section-level, so process it only once per section.
+            if section_key not in adviser_processed_sections:
+                adviser_processed_sections.add(section_key)
 
-            if raw_adviser_user_id not in (None, ""):
-                try:
-                    adviser_user = User.objects.filter(id=int(raw_adviser_user_id), role="TEACHER").first()
-                except (TypeError, ValueError):
-                    adviser_user = None
+                adviser_user = None
+                raw_adviser_user_id = entry.get("section_adviser_user_id")
+                adviser_username = str(entry.get("section_adviser_username") or "").strip()
 
-            if adviser_user is None and adviser_username:
-                adviser_user = User.objects.filter(username=adviser_username, role="TEACHER").first()
+                if raw_adviser_user_id not in (None, ""):
+                    try:
+                        adviser_user = User.objects.filter(id=int(raw_adviser_user_id), role="TEACHER").first()
+                    except (TypeError, ValueError):
+                        adviser_user = None
 
-            if adviser_user:
-                adviser_profile, _ = TeacherProfile.objects.get_or_create(user=adviser_user)
-                existing_adviser_section = Section.objects.filter(adviser=adviser_profile).exclude(pk=section_obj.pk).first()
+                if adviser_user is None and adviser_username:
+                    adviser_user = User.objects.filter(username=adviser_username, role="TEACHER").first()
 
-                if existing_adviser_section and existing_adviser_section.school_year_id != target_school_year.id:
-                    warnings.append(
-                        {
-                            "row": idx,
-                            "reason": (
-                                f"Adviser {adviser_user.username} is already linked to "
-                                f"{existing_adviser_section.name}; skipped adviser assignment for {section_name}."
-                            ),
-                        }
+                if adviser_user:
+                    adviser_profile, _ = TeacherProfile.objects.get_or_create(user=adviser_user)
+                    existing_adviser_section = (
+                        Section.objects
+                        .select_related("school_year")
+                        .filter(adviser=adviser_profile)
+                        .exclude(pk=section_obj.pk)
+                        .first()
                     )
-                elif section_obj.adviser_id != adviser_profile.id:
-                    section_obj.adviser = adviser_profile
-                    section_obj.save(update_fields=["adviser"])
-                    adviser_assignments += 1
+
+                    if existing_adviser_section:
+                        existing_year_name = (
+                            existing_adviser_section.school_year.name
+                            if existing_adviser_section.school_year_id
+                            else "unspecified school year"
+                        )
+
+                        if existing_adviser_section.school_year_id != target_school_year.id and reassign_advisers:
+                            existing_adviser_section.adviser = None
+                            existing_adviser_section.save(update_fields=["adviser"])
+                            adviser_reassignments += 1
+                        else:
+                            adviser_conflicts += 1
+                            warnings.append(
+                                {
+                                    "row": idx,
+                                    "reason": (
+                                        f"Adviser {adviser_user.username} is already linked to "
+                                        f"{existing_adviser_section.name} ({existing_year_name}); "
+                                        f"skipped adviser assignment for {section_name}."
+                                    ),
+                                }
+                            )
+                            adviser_user = None
+
+                    if adviser_user and section_obj.adviser_id != adviser_profile.id:
+                        section_obj.adviser = adviser_profile
+                        section_obj.save(update_fields=["adviser"])
+                        adviser_assignments += 1
 
             if is_section_blueprint:
                 section_blueprints_applied += 1
@@ -1150,7 +1186,11 @@ def apply_schedule_template(request, template_id):
                     teacher_profile.save(update_fields=["subject"])
 
             if (raw_teacher_id not in (None, "") or teacher_username) and not teacher_obj:
-                warnings.append({"row": idx, "reason": "Referenced teacher was not found; schedule created as unassigned."})
+                missing_teacher_key = (raw_teacher_id, teacher_username)
+                if missing_teacher_key not in missing_teacher_warning_keys:
+                    missing_teacher_warning_keys.add(missing_teacher_key)
+                    missing_teacher_references += 1
+                    warnings.append({"row": idx, "reason": "Referenced teacher was not found; schedule created as unassigned."})
 
             try:
                 start_time = time_class.fromisoformat(str(entry.get("start_time") or ""))
@@ -1196,6 +1236,10 @@ def apply_schedule_template(request, template_id):
             "created_subjects": created_subjects,
             "teacher_subject_links_added": teacher_subject_links_added,
             "adviser_assignments": adviser_assignments,
+            "adviser_reassignments": adviser_reassignments,
+            "adviser_conflicts": adviser_conflicts,
+            "missing_teacher_references": missing_teacher_references,
+            "reassign_advisers": reassign_advisers,
             "section_blueprints_applied": section_blueprints_applied,
             "skipped_count": len(skipped),
             "skipped": skipped,
