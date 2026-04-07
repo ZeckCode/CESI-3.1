@@ -1709,7 +1709,22 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
         if (e.conflicts) setConflictWarning(e.conflicts);
-        throw new Error(e.detail || JSON.stringify(e));
+
+        const toMessage = (value) => {
+          if (!value) return '';
+          if (Array.isArray(value)) return value.join(' ');
+          return String(value);
+        };
+
+        const validationMessage =
+          toMessage(e.non_field_errors)
+          || toMessage(e.end_time)
+          || toMessage(e.start_time)
+          || toMessage(e.subject)
+          || toMessage(e.teacher)
+          || toMessage(e.section);
+
+        throw new Error(e.detail || validationMessage || JSON.stringify(e));
       }
 
       setShowForm(false);

@@ -72,7 +72,6 @@ class ScheduleReadSerializer(serializers.ModelSerializer):
             return obj.section.room.name
         return None
 
-
 class ScheduleWriteSerializer(serializers.ModelSerializer):
     teacher = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role="TEACHER"),
@@ -97,7 +96,9 @@ class ScheduleWriteSerializer(serializers.ModelSerializer):
         end = data.get("end_time") or (self.instance and self.instance.end_time)
 
         if start and end and start >= end:
-            raise serializers.ValidationError("end_time must be after start_time")
+            raise serializers.ValidationError({
+                "end_time": "End time must be later than the start time.",
+            })
 
         return data
 
