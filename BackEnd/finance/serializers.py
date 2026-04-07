@@ -427,6 +427,7 @@ class TuitionConfigCreateSerializer(serializers.ModelSerializer):
 User = get_user_model()
 
 
+
 class ProofOfPaymentSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     student_username = serializers.SerializerMethodField()
@@ -474,6 +475,46 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
             "approved_transaction",
         ]
 
+    def get_student_name(self, obj):
+        if obj.enrollment:
+            full_name = f"{obj.enrollment.first_name or ''} {obj.enrollment.last_name or ''}".strip()
+            if full_name:
+                return full_name
+
+        if obj.user:
+            profile = getattr(obj.user, "profile", None)
+            if profile:
+                full_name = " ".join(
+                    part for part in [
+                        getattr(profile, "student_first_name", ""),
+                        getattr(profile, "student_middle_name", ""),
+                        getattr(profile, "student_last_name", ""),
+                    ]
+                    if part
+                ).strip()
+                if full_name:
+                    return full_name
+
+            return obj.user.username
+
+        return "—"
+
+    def get_student_username(self, obj):
+        if obj.user:
+            return obj.user.username
+        return None
+
+    def get_student_grade(self, obj):
+        if obj.enrollment and getattr(obj.enrollment, "grade_level", None):
+            return obj.enrollment.grade_level
+
+        if obj.user:
+            profile = getattr(obj.user, "profile", None)
+            if profile and getattr(profile, "grade_level", None):
+                return profile.grade_level
+
+        return None
+
     def get_proof_image_url(self, obj):
         request = self.context.get("request")
         if not obj.proof_image:
@@ -481,6 +522,11 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
 
         url = obj.proof_image.url
         return request.build_absolute_uri(url) if request else url
+
+    def get_enrollment_id(self, obj):
+        if obj.enrollment:
+            return obj.enrollment.id
+        return None
     
 class AdvanceRequestSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()

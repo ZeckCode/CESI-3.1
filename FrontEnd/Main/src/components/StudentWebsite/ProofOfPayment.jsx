@@ -53,7 +53,7 @@ export default function ProofOfPayment() {
 
   const fetchStudentProfile = async () => {
     try {
-      const endpoints = ["/api/accounts/me-detail/", "/api/accounts/me/detail/"];
+      const endpoints = ["/api/accounts/me/detail/"];
 
       for (const endpoint of endpoints) {
         const response = await apiFetch(endpoint);
