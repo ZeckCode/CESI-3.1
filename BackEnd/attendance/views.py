@@ -16,13 +16,15 @@ from .serializers import (
 )
 from accounts.models import Section, User, UserProfile
 from enrollment.models import Enrollment
+from classmanagement.models import Schedule, SchoolYear
 
 
 class TeacherSectionsView(APIView):
     """
     Get sections that the current teacher teaches.
-    Based on class schedules assigned to them, adviser status, and profile assignment.
-    Falls back to all sections if no specific assignment exists.
+    Based on class schedules assigned to them, adviser status, profile section,
+    and legacy unassigned rows that match teacher subject assignments.
+    Always scoped to the currently active school year.
     """
     permission_classes = [IsAuthenticated]
 
@@ -34,33 +36,47 @@ class TeacherSectionsView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        active_sy = SchoolYear.objects.filter(is_active=True).first()
+        if not active_sy:
+            return Response([])
+
         section_ids = set()
 
-        # 1. Get sections from teacher's schedules
-        from classmanagement.models import Schedule
+        # 1. Sections from schedules in active school year.
+        schedule_filters = Q(teacher=user) | Q(teacher__isnull=True, section__adviser__user=user)
+
+        teacher_profile = getattr(user, "teacher_profile", None)
+        if teacher_profile:
+            subject_ids = set(teacher_profile.subjects.values_list("id", flat=True))
+            if teacher_profile.subject_id:
+                subject_ids.add(teacher_profile.subject_id)
+
+            if teacher_profile.section_id:
+                schedule_filters |= Q(teacher__isnull=True, section_id=teacher_profile.section_id)
+            if subject_ids:
+                schedule_filters |= Q(teacher__isnull=True, subject_id__in=list(subject_ids))
+
         schedule_section_ids = Schedule.objects.filter(
-            teacher=user
+            schedule_filters,
+            school_year=active_sy,
         ).values_list("section_id", flat=True).distinct()
         section_ids.update(schedule_section_ids)
 
-        # 2. Get sections where teacher is adviser or assigned
-        try:
-            teacher_profile = user.teacher_profile
-            # Section where this teacher is adviser
-            adviser_section = Section.objects.filter(adviser=teacher_profile).values_list("id", flat=True)
+        # 2. Additional explicit teacher section assignments, still active SY only.
+        if teacher_profile:
+            adviser_section = Section.objects.filter(
+                adviser=teacher_profile,
+                school_year=active_sy,
+            ).values_list("id", flat=True)
             section_ids.update(adviser_section)
-            
-            # Section directly assigned to teacher profile
-            if teacher_profile.section_id:
-                section_ids.add(teacher_profile.section_id)
-        except Exception:
-            pass  # Teacher profile might not exist
 
-        # 3. If no sections found through assignments, show all sections (fallback)
-        if section_ids:
-            sections = Section.objects.filter(id__in=section_ids)
-        else:
-            sections = Section.objects.all()
+            if teacher_profile.section_id and Section.objects.filter(
+                id=teacher_profile.section_id,
+                school_year=active_sy,
+            ).exists():
+                section_ids.add(teacher_profile.section_id)
+
+        sections = Section.objects.filter(id__in=section_ids, school_year=active_sy).order_by("grade_level", "name")
 
         serializer = SectionSimpleSerializer(sections, many=True)
         return Response(serializer.data)
@@ -610,11 +626,13 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Get quarter date range - school year starts in June
+        active_sy = SchoolYear.objects.filter(is_active=True).first()
+        if not active_sy:
+            return Response({"error": "No active school year"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Get quarter date range using active school year start.
         from datetime import date as date_class
-        today = date_class.today()
-        # Determine school year: if month >=6, SY starts this year; else SY started last year
-        sy_start_year = today.year if today.month >= 6 else today.year - 1
+        sy_start_year = active_sy.start_date.year
         quarter = int(quarter)
         quarter_ranges = {
             1: (date_class(sy_start_year, 6, 1), date_class(sy_start_year, 8, 31)),
@@ -631,6 +649,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         from enrollment.models import Enrollment
         enrollments = Enrollment.objects.filter(
             section__grade_level=int(grade_level),
+            section__school_year=active_sy,
             status="ACTIVE",
         ).select_related("student")
 
@@ -674,6 +693,13 @@ class StudentAttendanceView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        active_sy = SchoolYear.objects.filter(is_active=True).first()
+        if not active_sy:
+            return Response(
+                {"error": "No active school year"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         attendance_user = request.user
         if not AttendanceRecord.objects.filter(student=attendance_user).exists():
             linked = (
@@ -688,7 +714,50 @@ class StudentAttendanceView(APIView):
         # Check if requesting daily detail
         date_param = request.query_params.get("date")
         if date_param:
-            records = AttendanceRecord.get_daily_summary(attendance_user.id, date_param)
+            daily_records_qs = AttendanceRecord.objects.filter(
+                student_id=attendance_user.id,
+                date=date_param,
+            ).filter(
+                Q(subject__isnull=False) | Q(schedule__isnull=False)
+            ).filter(
+                Q(section__school_year=active_sy) | Q(schedule__school_year=active_sy)
+            ).select_related("subject", "schedule", "schedule__subject", "schedule__teacher")
+
+            records = []
+            for record in daily_records_qs:
+                subject_name = None
+                subject_code = None
+
+                if record.subject:
+                    subject_name = record.subject.name
+                    subject_code = record.subject.code
+                elif record.schedule and record.schedule.subject:
+                    subject_name = record.schedule.subject.name
+                    subject_code = record.schedule.subject.code
+
+                if record.schedule:
+                    records.append({
+                        "schedule_id": record.schedule.id,
+                        "subject_name": subject_name or "Homeroom",
+                        "subject_code": subject_code or "HR",
+                        "start_time": record.schedule.start_time.strftime("%H:%M"),
+                        "end_time": record.schedule.end_time.strftime("%H:%M"),
+                        "teacher": record.schedule.teacher.username if record.schedule.teacher else None,
+                        "status": record.status,
+                        "notes": record.notes,
+                    })
+                else:
+                    records.append({
+                        "schedule_id": None,
+                        "subject_name": subject_name or "Homeroom",
+                        "subject_code": subject_code or "HR",
+                        "start_time": None,
+                        "end_time": None,
+                        "teacher": None,
+                        "status": record.status,
+                        "notes": record.notes,
+                    })
+
             return Response({
                 "records": records,
                 "summary": {
@@ -705,6 +774,8 @@ class StudentAttendanceView(APIView):
             student=attendance_user,
         ).filter(
             Q(subject__isnull=False) | Q(schedule__isnull=False)
+        ).filter(
+            Q(section__school_year=active_sy) | Q(schedule__school_year=active_sy)
         ).select_related("subject", "schedule", "schedule__subject").order_by("-date")
 
         # Filter by month/year if provided
@@ -801,6 +872,13 @@ class StudentAttendanceStatsView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        active_sy = SchoolYear.objects.filter(is_active=True).first()
+        if not active_sy:
+            return Response(
+                {"error": "No active school year"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         attendance_user = user
         if not AttendanceRecord.objects.filter(student=attendance_user).exists():
             linked = (
@@ -812,18 +890,31 @@ class StudentAttendanceStatsView(APIView):
             if linked and linked.student:
                 attendance_user = linked.student
 
-        # Get current school year date range
-        from datetime import date as date_class
-        today = date_class.today()
-        sy_start_year = today.year if today.month >= 6 else today.year - 1
-        sy_start = date_class(sy_start_year, 6, 1)
-        sy_end = date_class(sy_start_year + 1, 5, 31)
-
-        stats = AttendanceRecord.get_student_attendance_stats(
-            attendance_user.id, sy_start, sy_end
+        records_qs = AttendanceRecord.objects.filter(
+            student_id=attendance_user.id,
+            date__gte=active_sy.start_date,
+            date__lte=active_sy.end_date,
+        ).filter(
+            Q(subject__isnull=False) | Q(schedule__isnull=False)
+        ).filter(
+            Q(section__school_year=active_sy) | Q(schedule__school_year=active_sy)
         )
 
+        total = records_qs.count()
+        present = records_qs.filter(status="PRESENT").count()
+        absent = records_qs.filter(status="ABSENT").count()
+        late = records_qs.filter(status="LATE").count()
+        excused = records_qs.filter(status="EXCUSED").count()
+        attended = present + late + excused
+        percentage = round((attended / total) * 100, 2) if total else None
+
         return Response({
-            "school_year": f"{sy_start_year}-{sy_start_year + 1}",
-            **stats,
+            "school_year": active_sy.name,
+            "total": total,
+            "present": present,
+            "absent": absent,
+            "late": late,
+            "excused": excused,
+            "attended": attended,
+            "percentage": percentage,
         })

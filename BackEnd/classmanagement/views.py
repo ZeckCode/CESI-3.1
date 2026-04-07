@@ -2,6 +2,7 @@ import datetime
 from datetime import time as time_class
 
 from django.db import transaction
+from django.db.models import Q
 
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
@@ -9,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.models import User, Subject, Section, TeacherProfile, UserProfile
+from enrollment.models import Enrollment
 from .models import Schedule, Room, SchoolYear, ScheduleTemplate
 from .serializers import (
     ScheduleReadSerializer, ScheduleWriteSerializer,
@@ -1295,22 +1297,53 @@ def my_schedule(request):
     """
     user = request.user
 
+    active_sy = SchoolYear.objects.filter(is_active=True).first()
+
     if user.role == "TEACHER":
-        qs = Schedule.objects.select_related("teacher", "subject", "section").filter(teacher=user)
+        teacher_q = Q(teacher=user) | Q(teacher__isnull=True, section__adviser__user=user)
+
+        teacher_profile = getattr(user, "teacher_profile", None)
+        if teacher_profile:
+            subject_ids = set(teacher_profile.subjects.values_list("id", flat=True))
+            if teacher_profile.subject_id:
+                subject_ids.add(teacher_profile.subject_id)
+
+            if teacher_profile.section_id:
+                teacher_q |= Q(teacher__isnull=True, section_id=teacher_profile.section_id)
+            if subject_ids:
+                teacher_q |= Q(teacher__isnull=True, subject_id__in=list(subject_ids))
+
+        qs = Schedule.objects.select_related("teacher", "subject", "section").filter(teacher_q)
     elif user.role == "PARENT_STUDENT":
-        try:
-            profile = user.profile
-            if profile.section:
-                qs = Schedule.objects.select_related("teacher", "subject", "section").filter(section=profile.section)
-            else:
-                return Response([])
-        except UserProfile.DoesNotExist:
+        section_ids = list(
+            Enrollment.objects.filter(
+                status="ACTIVE",
+            )
+            .filter(Q(parent_user=user) | Q(student=user))
+            .exclude(section__isnull=True)
+            .filter(section__school_year=active_sy) if active_sy else Enrollment.objects.none()
+        )
+
+        resolved_section_ids = [enr.section_id for enr in section_ids]
+        if not resolved_section_ids:
+            try:
+                profile = user.profile
+                profile_section = getattr(profile, "section", None)
+                if profile_section and (not active_sy or profile_section.school_year_id == active_sy.id):
+                    resolved_section_ids = [profile_section.id]
+            except UserProfile.DoesNotExist:
+                pass
+
+        if not resolved_section_ids:
             return Response([])
+
+        qs = Schedule.objects.select_related("teacher", "subject", "section").filter(
+            section_id__in=resolved_section_ids
+        )
     else:
         return Response({"detail": "Forbidden"}, status=403)
 
-    active_sy = SchoolYear.objects.filter(is_active=True).first()
     if active_sy:
         qs = qs.filter(school_year=active_sy)
 
-    return Response(ScheduleReadSerializer(qs, many=True).data)
+    return Response(ScheduleReadSerializer(qs.distinct(), many=True).data)
