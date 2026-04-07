@@ -17,10 +17,21 @@ from .serializers import (
     AcademicRecordSerializer,
 )
 from accounts.models import User, UserProfile, Subject
-from classmanagement.models import Schedule
+from classmanagement.models import Schedule, SchoolYear
 from enrollment.models import Enrollment
 
 from finance.models import Transaction
+
+
+def get_teacher_subjects(tp):
+    subjects = list(tp.subjects.all())
+    if tp.subject and all(subj.id != tp.subject_id for subj in subjects):
+        subjects.insert(0, tp.subject)
+    return subjects
+
+
+def get_teacher_subject_ids(tp):
+    return [subj.id for subj in get_teacher_subjects(tp)]
 
 
 def normalize_grade_level(value):
@@ -425,9 +436,14 @@ def publish_academic_history(request):
         return Response({"detail": "Section not found"}, status=404)
 
     if user.role == "TEACHER":
-        if not hasattr(user, "teacher_profile") or not user.teacher_profile.subject_id:
+        if not hasattr(user, "teacher_profile"):
             return Response({"detail": "No subject assigned"}, status=403)
-        if int(subject_id) != user.teacher_profile.subject_id:
+
+        teacher_subject_ids = set(get_teacher_subject_ids(user.teacher_profile))
+        if not teacher_subject_ids:
+            return Response({"detail": "No subject assigned"}, status=403)
+
+        if int(subject_id) not in teacher_subject_ids:
             return Response({"detail": "Teacher subject mismatch"}, status=403)
 
     try:
@@ -823,17 +839,29 @@ def admin_grade_records_monitoring(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def teacher_info(request):
-    """Return the teacher's assigned subject."""
+    """Return the teacher's assigned subject(s)."""
     user = request.user
     if user.role != "TEACHER":
         return Response({"detail": "Forbidden"}, status=403)
     try:
         tp = user.teacher_profile
-        if tp.subject:
+
+        subjects = get_teacher_subjects(tp)
+        if subjects:
+            primary_subject = tp.subject or subjects[0]
             return Response({
-                "subject_id": tp.subject.id,
-                "subject_name": tp.subject.name,
-                "subject_code": tp.subject.code,
+                "subject_id": primary_subject.id,
+                "subject_name": primary_subject.name,
+                "subject_code": primary_subject.code,
+                "subjects": [
+                    {
+                        "id": subj.id,
+                        "name": subj.name,
+                        "code": subj.code,
+                        "is_primary": subj.id == getattr(primary_subject, "id", None),
+                    }
+                    for subj in subjects
+                ],
             })
         return Response({"detail": "No subject assigned"}, status=404)
     except Exception:
@@ -866,18 +894,44 @@ def section_performance(request):
     except (ValueError, TypeError):
         return Response({"detail": "Invalid section or quarter"}, status=400)
 
+    raw_school_year = request.query_params.get("school_year")
+    school_year_obj = None
+    if raw_school_year not in (None, ""):
+        try:
+            school_year_obj = SchoolYear.objects.get(pk=int(raw_school_year))
+        except (TypeError, ValueError, SchoolYear.DoesNotExist):
+            return Response({"detail": "Invalid school_year"}, status=400)
+    else:
+        school_year_obj = SchoolYear.objects.filter(is_active=True).first()
+
     if user.role == "TEACHER":
         try:
-            subject_id = user.teacher_profile.subject_id
+            teacher_profile = user.teacher_profile
         except Exception:
             return Response({"detail": "Teacher profile not found"}, status=404)
-        if not subject_id:
+
+        teacher_subject_ids = get_teacher_subject_ids(teacher_profile)
+        if not teacher_subject_ids:
             return Response({"detail": "No subject assigned to this teacher"}, status=404)
+
+        raw_subj = request.query_params.get("subject")
+        if raw_subj:
+            try:
+                subject_id = int(raw_subj)
+            except (ValueError, TypeError):
+                return Response({"detail": "Invalid subject id"}, status=400)
+            if subject_id not in teacher_subject_ids:
+                return Response({"detail": "Forbidden"}, status=403)
+        else:
+            subject_id = teacher_profile.subject_id or teacher_subject_ids[0]
+
         teacher_schedules = Schedule.objects.filter(
             teacher=user,
             section_id=section_id,
             subject_id=subject_id,
         )
+        if school_year_obj:
+            teacher_schedules = teacher_schedules.filter(school_year=school_year_obj)
         if not teacher_schedules.exists():
             return Response({"detail": "Forbidden"}, status=403)
         schedule_ids = list(teacher_schedules.values_list("id", flat=True))
@@ -889,10 +943,10 @@ def section_performance(request):
             subject_id = int(raw_subj)
         except (ValueError, TypeError):
             return Response({"detail": "Invalid subject id"}, status=400)
-        schedule_ids = list(
-            Schedule.objects.filter(section_id=section_id, subject_id=subject_id)
-            .values_list("id", flat=True)
-        )
+        admin_schedule_qs = Schedule.objects.filter(section_id=section_id, subject_id=subject_id)
+        if school_year_obj:
+            admin_schedule_qs = admin_schedule_qs.filter(school_year=school_year_obj)
+        schedule_ids = list(admin_schedule_qs.values_list("id", flat=True))
 
     from datetime import date as date_class
     from attendance.models import AttendanceRecord
@@ -1011,7 +1065,20 @@ def teacher_sections(request):
         return Response({"detail": "Forbidden"}, status=403)
 
     subject_id = request.query_params.get("subject")
-    qs = Schedule.objects.select_related("section", "subject").filter(teacher=user)
+    raw_school_year = request.query_params.get("school_year")
+
+    qs = Schedule.objects.select_related("section", "subject", "school_year").filter(teacher=user)
+
+    if raw_school_year not in (None, ""):
+        try:
+            qs = qs.filter(school_year_id=int(raw_school_year))
+        except (TypeError, ValueError):
+            return Response({"detail": "Invalid school_year"}, status=400)
+    else:
+        active_school_year = SchoolYear.objects.filter(is_active=True).first()
+        if active_school_year:
+            qs = qs.filter(school_year=active_school_year)
+
     if subject_id:
         qs = qs.filter(subject_id=subject_id)
 
@@ -1027,6 +1094,8 @@ def teacher_sections(request):
                 "grade_level": sec.grade_level,
                 "subject_id": sched.subject_id,
                 "subject_name": sched.subject.name if sched.subject else None,
+                "school_year_id": sched.school_year_id,
+                "school_year_name": sched.school_year.name if sched.school_year else None,
             }
 
     result = sorted(
@@ -1047,8 +1116,21 @@ def students_by_section(request, section_id):
     if user.role not in ("TEACHER", "ADMIN"):
         return Response({"detail": "Forbidden"}, status=403)
 
+    raw_school_year = request.query_params.get("school_year")
+    school_year_obj = None
+    if raw_school_year not in (None, ""):
+        try:
+            school_year_obj = SchoolYear.objects.get(pk=int(raw_school_year))
+        except (TypeError, ValueError, SchoolYear.DoesNotExist):
+            return Response({"detail": "Invalid school_year"}, status=400)
+    else:
+        school_year_obj = SchoolYear.objects.filter(is_active=True).first()
+
     if user.role == "TEACHER":
-        allowed = Schedule.objects.filter(teacher=user, section_id=section_id).exists()
+        allowed_qs = Schedule.objects.filter(teacher=user, section_id=section_id)
+        if school_year_obj:
+            allowed_qs = allowed_qs.filter(school_year=school_year_obj)
+        allowed = allowed_qs.exists()
         if not allowed:
             return Response({"detail": "Forbidden"}, status=403)
 

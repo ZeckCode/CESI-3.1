@@ -110,6 +110,13 @@ class Section(models.Model):
     name = models.CharField(max_length=50)
     grade_level = models.CharField(max_length=20, choices=GRADE_LEVEL_CHOICES)
     capacity = models.PositiveIntegerField(default=40)
+    school_year = models.ForeignKey(
+        "classmanagement.SchoolYear",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sections",
+    )
     room = models.ForeignKey(
         "classmanagement.Room",
         on_delete=models.SET_NULL,
@@ -195,7 +202,10 @@ class AdminProfile(models.Model):
 class TeacherProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="teacher_profile")
 
+    # Legacy primary subject kept for backward compatibility with older endpoints/UI.
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name="teachers")
+    # New multi-subject assignment used by scheduling and grade encoding.
+    subjects = models.ManyToManyField(Subject, blank=True, related_name="teacher_profiles")
 
     # teacher assigned to a section (NOT adviser); avoid clash with Section.adviser reverse name
     section = models.ForeignKey(

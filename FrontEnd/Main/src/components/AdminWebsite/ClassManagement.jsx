@@ -265,6 +265,11 @@ const ClassManagement = () => {
   const [rooms, setRooms] = useState([]);
   const [schoolYears, setSchoolYears] = useState([]);
 
+  const activeSchoolYear = useMemo(
+    () => schoolYears.find((sy) => sy.is_active) || null,
+    [schoolYears]
+  );
+
   /* fetchers */
   const fetchSections = useCallback(async () => {
     try {
@@ -508,6 +513,8 @@ const ClassManagement = () => {
           teachers={teachers}
           schedules={schedules}
           rooms={rooms}
+          schoolYears={schoolYears}
+          activeSchoolYear={activeSchoolYear}
           onRefresh={refreshAll}
         />
       )}
@@ -1251,7 +1258,7 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
 /* ═════════════════════════════════════════════════════════
    SCHEDULES TAB — table + visual timeline + section filter
    ═════════════════════════════════════════════════════════ */
-function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefresh }) {
+function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYears, activeSchoolYear, onRefresh }) {
   const kinderSection =
     sections.find((s) => normalizeGradeCode(s.grade_level) === 'kinder') || null;
   const defaultSection = kinderSection || sections[0] || null;
@@ -1272,7 +1279,6 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [conflictWarning, setConflictWarning] = useState(null);
-  const [generating, setGenerating] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [showBulkEdit, setShowBulkEdit] = useState(false);
@@ -1286,52 +1292,270 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
     room: '',
   });
   const [bulkSaving, setBulkSaving] = useState(false);
-  const [showAutofillModal, setShowAutofillModal] = useState(false);
-  const [autofillDays, setAutofillDays] = useState(new Set(['MON', 'TUE', 'WED', 'THU', 'FRI']));
-  const [autofillGenerating, setAutofillGenerating] = useState(false);
 
   const [showCopyDayModal, setShowCopyDayModal] = useState(false);
   const [copySourceDay, setCopySourceDay] = useState('MON');
   const [copyTargetDays, setCopyTargetDays] = useState(new Set(['TUE', 'WED', 'THU', 'FRI']));
   const [copyGenerating, setCopyGenerating] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [viewSchoolYear, setViewSchoolYear] = useState(activeSchoolYear?.id ? String(activeSchoolYear.id) : '');
+  const [viewSections, setViewSections] = useState([]);
+  const [viewSchedules, setViewSchedules] = useState([]);
+  const [viewYearLoading, setViewYearLoading] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [clearExistingBeforeApply, setClearExistingBeforeApply] = useState(true);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [templateStatus, setTemplateStatus] = useState({ type: '', message: '' });
 
-  const toggleAutofillDay = (day) => {
-    const newDays = new Set(autofillDays);
-    if (newDays.has(day)) {
-      newDays.delete(day);
-    } else {
-      newDays.add(day);
+  const isLocalHost =
+    typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+  const missingTemplateEndpointMessage = isLocalHost
+    ? 'Schedule template endpoint is not available on the local backend yet. Restart your backend and ensure latest classmanagement URLs are loaded.'
+    : 'Schedule template endpoint is not available on the server yet. Please deploy the latest backend updates.';
+
+  const fetchTemplates = useCallback(async () => {
+    setTemplateLoading(true);
+    try {
+      const r = await apiFetch('/api/classmanagement/schedules/templates/');
+      if (!r.ok) {
+        if (r.status === 404) {
+          throw new Error(missingTemplateEndpointMessage);
+        }
+        throw new Error('Failed to load templates.');
+      }
+      const data = await r.json();
+      const list = Array.isArray(data) ? data : [];
+      setTemplates(list);
+      setTemplateStatus((prev) => (prev.type === 'error' ? prev : { type: '', message: '' }));
+      setSelectedTemplateId((prev) => {
+        if (!list.length) return '';
+        const hasPrev = list.some((t) => String(t.id) === String(prev));
+        return hasPrev ? String(prev) : String(list[0].id);
+      });
+    } catch (e) {
+      console.error(e);
+      setTemplates([]);
+      setSelectedTemplateId('');
+      setTemplateStatus({ type: 'error', message: e.message || 'Failed to load templates.' });
+    } finally {
+      setTemplateLoading(false);
     }
-    setAutofillDays(newDays);
+  }, [missingTemplateEndpointMessage]);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
+
+  useEffect(() => {
+    if (activeSchoolYear?.id) {
+      const activeId = String(activeSchoolYear.id);
+      setViewSchoolYear((prev) => prev || activeId);
+    }
+  }, [activeSchoolYear]);
+
+  const refreshViewYearData = useCallback(async () => {
+    if (!viewSchoolYear) {
+      setViewSections([]);
+      setViewSchedules([]);
+      return;
+    }
+
+    setViewYearLoading(true);
+    try {
+      const [sectionsRes, schedulesRes] = await Promise.all([
+        apiFetch(`/api/accounts/sections/?school_year=${encodeURIComponent(viewSchoolYear)}`),
+        apiFetch(`/api/classmanagement/schedules/?school_year=${encodeURIComponent(viewSchoolYear)}`),
+      ]);
+
+      if (!sectionsRes.ok) {
+        const e = await sectionsRes.json().catch(() => ({}));
+        throw new Error(e.detail || 'Failed to load sections for selected school year.');
+      }
+
+      if (!schedulesRes.ok) {
+        const e = await schedulesRes.json().catch(() => ({}));
+        throw new Error(e.detail || 'Failed to load schedules for selected school year.');
+      }
+
+      const [sectionsData, schedulesData] = await Promise.all([sectionsRes.json(), schedulesRes.json()]);
+      setViewSections(Array.isArray(sectionsData) ? sectionsData : []);
+      setViewSchedules(Array.isArray(schedulesData) ? schedulesData : []);
+    } catch (e) {
+      setTemplateStatus({ type: 'error', message: e.message || 'Failed to load selected school year data.' });
+      setViewSections([]);
+      setViewSchedules([]);
+    } finally {
+      setViewYearLoading(false);
+    }
+  }, [viewSchoolYear]);
+
+  useEffect(() => {
+    refreshViewYearData();
+  }, [refreshViewYearData]);
+
+  const scopedSections = viewSchoolYear ? viewSections : sections;
+  const scopedSchedules = viewSchoolYear ? viewSchedules : schedules;
+
+  const handleSaveTemplate = async () => {
+    const sourceYearId = viewSchoolYear || (activeSchoolYear?.id ? String(activeSchoolYear.id) : '');
+    if (!sourceYearId) {
+      setTemplateStatus({ type: 'error', message: 'Please choose a school year from the top dropdown first.' });
+      return;
+    }
+
+    const sourceYear = schoolYears.find((sy) => String(sy.id) === String(sourceYearId)) || activeSchoolYear;
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+      now.getDate()
+    ).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const templateName = `${sourceYear?.name || 'Selected School Year'} Template ${timestamp}`;
+
+    try {
+      setTemplateStatus({ type: '', message: '' });
+      const payload = {
+        name: templateName.trim(),
+        source_school_year: Number(sourceYearId),
+      };
+
+      const r = await apiFetch('/api/classmanagement/schedules/templates/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (r.status === 404) {
+          throw new Error(missingTemplateEndpointMessage);
+        }
+        throw new Error(data.detail || JSON.stringify(data) || 'Failed to save template.');
+      }
+
+      setTemplateStatus({
+        type: 'success',
+        message:
+          `Saved template "${data.name}" from ${sourceYear?.name || 'selected school year'} ` +
+          `with ${data.entry_count || 0} schedule entries.`,
+      });
+      await Promise.all([fetchTemplates(), refreshViewYearData()]);
+    } catch (e) {
+      setTemplateStatus({ type: 'error', message: e.message || 'Failed to save template.' });
+    }
+  };
+
+  const handleApplyTemplate = async () => {
+    const targetYearId = activeSchoolYear?.id ? String(activeSchoolYear.id) : '';
+    if (!selectedTemplateId) {
+      setTemplateStatus({ type: 'error', message: 'Please select a template first.' });
+      return;
+    }
+    if (!targetYearId) {
+      setTemplateStatus({ type: 'error', message: 'No active school year available as template target.' });
+      return;
+    }
+
+    const selectedTemplate = templates.find((tpl) => String(tpl.id) === String(selectedTemplateId));
+    const targetYear = schoolYears.find((sy) => String(sy.id) === String(targetYearId)) || activeSchoolYear;
+
+    const confirmed = window.confirm(
+      `Apply template "${selectedTemplate?.name || selectedTemplateId}" to ${targetYear?.name || 'selected school year'}?\n\n` +
+        `Clear existing schedules first: ${clearExistingBeforeApply ? 'Yes' : 'No'}`
+    );
+    if (!confirmed) return;
+
+    setApplyingTemplate(true);
+    try {
+      setTemplateStatus({ type: '', message: '' });
+      const r = await apiFetch(`/api/classmanagement/schedules/templates/${selectedTemplateId}/apply/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          school_year_id: Number(targetYearId),
+          clear_existing: clearExistingBeforeApply,
+        }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (r.status === 404) {
+          throw new Error(missingTemplateEndpointMessage);
+        }
+        throw new Error(data.detail || JSON.stringify(data) || 'Failed to apply template.');
+      }
+
+      setTemplateStatus({
+        type: 'success',
+        message:
+          `Applied template successfully. Created ${data.created_count || 0} schedules.` +
+          (data.cleared_count ? ` Cleared ${data.cleared_count} existing schedules first.` : ''),
+      });
+
+      await Promise.all([onRefresh(), refreshViewYearData()]);
+    } catch (e) {
+      setTemplateStatus({ type: 'error', message: e.message || 'Failed to apply template.' });
+    } finally {
+      setApplyingTemplate(false);
+    }
   };
 
   const filtered = filterSection
-    ? schedules.filter((s) => String(s.section) === filterSection)
-    : schedules;
+    ? scopedSchedules.filter((s) => String(s.section) === filterSection)
+    : scopedSchedules;
+
+  useEffect(() => {
+    if (!scopedSections.length) {
+      setFilterSection('');
+      return;
+    }
+
+    const hasSelected = scopedSections.some((section) => String(section.id) === String(filterSection));
+    if (!hasSelected) {
+      setFilterSection(String(scopedSections[0].id));
+    }
+  }, [scopedSections, filterSection]);
 
   const availableSourceDays = useMemo(() => {
     const presentDays = new Set(filtered.map((s) => s.day_of_week));
     return DAYS.filter((day) => presentDays.has(day.value));
   }, [filtered]);
 
-  const selectedSectionData = sections.find((s) => String(s.id) === String(form.section));
+  const selectedSectionData = scopedSections.find((s) => String(s.id) === String(form.section));
 
   const sectionRoomName = selectedSectionData?.room_code
     ? `${selectedSectionData.room_code}${selectedSectionData.room_name ? ` (${selectedSectionData.room_name})` : ''}`
     : 'Not assigned';
 
-  const teacherOptions = useMemo(() => {
-    if (!form.subject) {
-      return teachers;
-    }
-    const subjectId = Number(form.subject);
-    return teachers.filter((t) => {
-      const teacherSub = t.teacher_profile?.subject;
-      if (!teacherSub) return false;
-      const tSubjectId = typeof teacherSub === 'number' ? teacherSub : Number(teacherSub.id || teacherSub);
-      return tSubjectId === subjectId;
-    });
-  }, [teachers, form.subject]);
+  const selectedTeacher = useMemo(
+    () => teachers.find((teacher) => String(teacher.id) === String(form.teacher)) || null,
+    [teachers, form.teacher]
+  );
+
+  const subjectsForSelectedTeacher = useMemo(() => {
+    if (!selectedTeacher?.teacher_profile) return [];
+
+    const byId = new Map();
+    const profile = selectedTeacher.teacher_profile;
+    const addSubject = (rawSubject) => {
+      if (rawSubject === null || rawSubject === undefined || rawSubject === '') return;
+      const id = typeof rawSubject === 'number' ? rawSubject : Number(rawSubject?.id ?? rawSubject);
+      if (!Number.isFinite(id)) return;
+      if (byId.has(id)) return;
+
+      const lookup = subjects.find((s) => Number(s.id) === Number(id));
+      const name = rawSubject?.name || lookup?.name;
+      if (!name) return;
+
+      byId.set(id, { id, name });
+    };
+
+    const linkedSubjects = Array.isArray(profile.subjects) ? profile.subjects : [];
+    linkedSubjects.forEach(addSubject);
+    addSubject(profile.subject);
+
+    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [selectedTeacher, subjects]);
 
   const toggleSelect = (id) =>
     setSelected((prev) => {
@@ -1365,7 +1589,7 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
       if (!r.ok) throw new Error(data.detail || JSON.stringify(data) || 'Failed');
       alert(`Successfully deleted ${data.deleted_count} entries.`);
       setSelected(new Set());
-      await onRefresh();
+      await Promise.all([onRefresh(), refreshViewYearData()]);
     } catch (e) {
       const msg = e.message?.includes('Failed to fetch')
         ? 'Cannot connect to server. Is the backend running?'
@@ -1415,7 +1639,7 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
       alert(`Updated ${data.updated_count} schedule entries.`);
       setShowBulkEdit(false);
       setSelected(new Set());
-      await onRefresh();
+      await Promise.all([onRefresh(), refreshViewYearData()]);
     } catch (e) {
       alert(e.message);
     } finally {
@@ -1440,10 +1664,11 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
   };
 
   const openEdit = (sch) => {
+    const teacherId = sch.teacher ? String(sch.teacher) : '';
     setEditId(sch.id);
     setForm({
-      teacher: String(sch.teacher),
-      subject: String(sch.subject),
+      teacher: teacherId,
+      subject: teacherId ? String(sch.subject || '') : '',
       section: String(sch.section),
       day_of_week: sch.day_of_week,
       start_time: sch.start_time?.slice(0, 5) || '',
@@ -1462,8 +1687,8 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
       return;
     }
 
-    if (form.subject && !form.teacher) {
-      setError('Teacher is required when a Subject is selected.');
+    if (form.teacher && !form.subject) {
+      setError('Subject is required when a teacher is selected.');
       return;
     }
 
@@ -1472,13 +1697,13 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
     setConflictWarning(null);
 
     try {
-      const selectedSection = sections.find((s) => String(s.id) === String(form.section));
+      const selectedSection = scopedSections.find((s) => String(s.id) === String(form.section));
       const roomId = selectedSection?.room || null;
       const teacherId = form.teacher ? Number(form.teacher) : null;
 
       const payload = {
         teacher: teacherId,
-        subject: form.subject ? Number(form.subject) : null,
+        subject: teacherId && form.subject ? Number(form.subject) : null,
         section: Number(form.section),
         day_of_week: form.day_of_week,
         start_time: form.start_time + ':00',
@@ -1503,7 +1728,7 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
       }
 
       setShowForm(false);
-      await onRefresh();
+      await Promise.all([onRefresh(), refreshViewYearData()]);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1520,18 +1745,13 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
         throw new Error(err.detail || `Delete failed (${r.status})`);
       }
       await onRefresh();
+      await refreshViewYearData();
     } catch (e) {
       const msg = e.message?.includes('Failed to fetch')
         ? 'Cannot connect to server. Is the backend running?'
         : e.message;
       alert('Delete failed: ' + msg);
     }
-  };
-
-  const handleAutoGenerate = async () => {
-    // Open the autofill modal instead of immediately generating
-    setAutofillDays(new Set(['MON', 'TUE', 'WED', 'THU', 'FRI']));
-    setShowAutofillModal(true);
   };
 
   const toggleCopyTargetDay = (day) => {
@@ -1602,7 +1822,7 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
 
       alert(`Copied ${data.created_count} entries, skipped ${data.skipped_count}.`);
       setShowCopyDayModal(false);
-      await onRefresh();
+      await Promise.all([onRefresh(), refreshViewYearData()]);
     } catch (e) {
       alert('Copy failed: ' + e.message);
     } finally {
@@ -1610,59 +1830,39 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
     }
   };
 
-  const handleAutofillSubmit = async () => {
-    if (autofillDays.size === 0) {
-      alert('Please select at least one day.');
-      return;
-    }
-
-    const sec = sections.find((s) => String(s.id) === filterSection);
-    const secName = sec ? `${gradeLabel(sec.grade_level)} — ${sec.name}` : 'selected section';
-    const selectedDaysList = ['MON', 'TUE', 'WED', 'THU', 'FRI']
-      .filter((d) => autofillDays.has(d))
-      .map((d) => DAYS.find((x) => x.value === d)?.short)
-      .join(', ');
-
-    if (
-      !window.confirm(
-        `Auto-generate schedules for ${secName}?\n\nDays: ${selectedDaysList}\n\nThis will create time slots with breaks (7:30-9:30 AM recess, 12:00-12:40 PM lunch).`
-      )
-    ) {
-      return;
-    }
-
-    setAutofillGenerating(true);
-    try {
-      const payload = {
-        section: Number(filterSection),
-        days: Array.from(autofillDays),
-      };
-      const r = await apiFetch('/api/classmanagement/schedules/auto-generate/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.detail || 'Failed');
-      alert(`Created ${data.created_count} schedule entries.`);
-      setShowAutofillModal(false);
-      await onRefresh();
-    } catch (e) {
-      alert(e.message);
-    } finally {
-      setAutofillGenerating(false);
-    }
-  };
-
   return (
     <>
+      {activeSchoolYear && (
+        <div className="admin-active-year-banner" style={{ marginBottom: 12 }}>
+          <div className="active-year-content">
+            <Calendar size={18} />
+            <div>
+              <strong>Active School Year:</strong> {activeSchoolYear.name}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="admin-class-controls schedule-controls">
         <div className="admin-filter-box">
           <Filter size={18} />
           <select value={filterSection} onChange={(e) => setFilterSection(e.target.value)}>
-            {sections.map((sec) => (
+            {scopedSections.length === 0 && <option value="">No sections for selected year</option>}
+            {scopedSections.map((sec) => (
               <option key={sec.id} value={sec.id}>
                 {gradeLabel(sec.grade_level)} — {sec.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="admin-filter-box">
+          <Calendar size={18} />
+          <select value={viewSchoolYear} onChange={(e) => setViewSchoolYear(e.target.value)}>
+            <option value="">View school year</option>
+            {schoolYears.map((sy) => (
+              <option key={sy.id} value={sy.id}>
+                {sy.name}{sy.is_active ? ' (Active)' : ''}
               </option>
             ))}
           </select>
@@ -1689,21 +1889,61 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
 
         <button
           className="admin-btn-primary"
-          onClick={handleAutoGenerate}
-          disabled={generating}
-          style={{ background: '#8b5cf6' }}
-        >
-          <Zap size={18} /> {generating ? 'Generating…' : 'Auto-fill'}
-        </button>
-
-        <button
-          className="admin-btn-primary"
           onClick={handleCopyDay}
           disabled={!filterSection}
           style={{ background: '#0ea5e9' }}
         >
           <Copy size={18} /> Copy Day
         </button>
+
+        <button
+          className="admin-btn-primary"
+          onClick={handleSaveTemplate}
+          style={{ background: '#0f766e' }}
+        >
+          <Save size={18} /> Save Template
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <select
+            value={selectedTemplateId}
+            onChange={(e) => setSelectedTemplateId(e.target.value)}
+            disabled={templateLoading || templates.length === 0}
+            style={{ minWidth: 180 }}
+          >
+            {templates.length === 0 ? (
+              <option value="">No templates</option>
+            ) : (
+              templates.map((tpl) => (
+                <option key={tpl.id} value={tpl.id}>
+                  {tpl.name}
+                </option>
+              ))
+            )}
+          </select>
+
+          <span style={{ fontSize: 12, color: '#475569' }}>
+            Target: {activeSchoolYear?.name || 'No active year'}
+          </span>
+
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+            <input
+              type="checkbox"
+              checked={clearExistingBeforeApply}
+              onChange={(e) => setClearExistingBeforeApply(e.target.checked)}
+            />
+            Clear existing
+          </label>
+
+          <button
+            className="admin-btn-primary"
+            onClick={handleApplyTemplate}
+            disabled={applyingTemplate || !selectedTemplateId || !activeSchoolYear}
+            style={{ background: '#1d4ed8' }}
+          >
+            <Download size={18} /> {applyingTemplate ? 'Applying…' : 'Apply Template'}
+          </button>
+        </div>
 
         {selected.size > 0 && (
           <>
@@ -1725,6 +1965,33 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
           </>
         )}
       </div>
+
+      {viewYearLoading && (
+        <div style={{ marginBottom: 10, fontSize: 13, color: '#475569' }}>
+          Loading selected school year schedules and sections...
+        </div>
+      )}
+
+      <div style={{ marginBottom: 10, fontSize: 12, color: '#64748b' }}>
+        Templates include schedules with section, room, and subject references from the selected source year.
+      </div>
+
+      {templateStatus.message && (
+        <div
+          style={{
+            marginTop: 10,
+            marginBottom: 10,
+            padding: '10px 12px',
+            borderRadius: 8,
+            border: `1px solid ${templateStatus.type === 'error' ? '#fca5a5' : '#86efac'}`,
+            background: templateStatus.type === 'error' ? '#fef2f2' : '#f0fdf4',
+            color: templateStatus.type === 'error' ? '#991b1b' : '#166534',
+            fontSize: 13,
+          }}
+        >
+          {templateStatus.message}
+        </div>
+      )}
 
       {showForm && (
         <div className="admin-modal-overlay">
@@ -1767,7 +2034,7 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
                   onChange={(e) => setForm({ ...form, section: e.target.value })}
                 >
                   <option value="">Select…</option>
-                  {sections.map((s) => (
+                  {scopedSections.map((s) => (
                     <option key={s.id} value={s.id}>
                       {gradeLabel(s.grade_level)} — {s.name}
                     </option>
@@ -1776,15 +2043,37 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
               </div>
 
               <div className="admin-form-group">
-                <label>Subject <span style={{ color: '#94a3b8', fontSize: '12px' }}>(Optional)</span></label>
+                <label>Teacher <span style={{ color: '#94a3b8', fontSize: '12px' }}>(Optional)</span></label>
                 <select
-                  value={form.subject}
-                  onChange={(e) => setForm({ ...form, subject: e.target.value, teacher: '' })}
+                  value={form.teacher}
+                  onChange={(e) => {
+                    const nextTeacherId = e.target.value;
+                    const nextTeacher = teachers.find((t) => String(t.id) === String(nextTeacherId));
+
+                    let nextSubject = '';
+                    if (nextTeacher?.teacher_profile) {
+                      const rawSubjects = Array.isArray(nextTeacher.teacher_profile.subjects)
+                        ? nextTeacher.teacher_profile.subjects
+                        : [];
+
+                      const allTeacherSubjectIds = [...rawSubjects, nextTeacher.teacher_profile.subject]
+                        .map((subject) => (typeof subject === 'number' ? subject : Number(subject?.id ?? subject)))
+                        .filter((id) => Number.isFinite(id));
+
+                      if (form.subject && allTeacherSubjectIds.some((id) => String(id) === String(form.subject))) {
+                        nextSubject = form.subject;
+                      } else if (allTeacherSubjectIds.length > 0) {
+                        nextSubject = String(allTeacherSubjectIds[0]);
+                      }
+                    }
+
+                    setForm({ ...form, teacher: nextTeacherId, subject: nextSubject });
+                  }}
                 >
-                  <option value="">— None (e.g., Extension, Free Period) —</option>
-                  {subjects.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
+                  <option value="">— No Teacher (Free Period) —</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.username}
                     </option>
                   ))}
                 </select>
@@ -1793,21 +2082,25 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
 
             <div className="admin-form-row">
               <div className="admin-form-group">
-                <label>Teacher {form.subject ? '*' : '(Optional)'}</label>
+                <label>Subject</label>
                 <select
-                  value={form.teacher}
-                  onChange={(e) => setForm({ ...form, teacher: e.target.value })}
+                  value={form.subject}
+                  onChange={(e) => setForm({ ...form, subject: e.target.value })}
                 >
-                  <option value="">Select…</option>
-                  {teacherOptions.length > 0 ? teacherOptions.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.username}
-                    </option>
-                  )) : (
+                  {!form.teacher && <option value="">Free Period (No assigned teacher)</option>}
+                  {form.teacher && subjectsForSelectedTeacher.length === 0 && (
                     <option value="" disabled>
-                      No teacher available for selected subject
+                      No subjects assigned to selected teacher
                     </option>
                   )}
+                  {form.teacher && subjectsForSelectedTeacher.length > 0 && (
+                    <option value="">Select subject…</option>
+                  )}
+                  {form.teacher && subjectsForSelectedTeacher.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -1986,81 +2279,6 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
                 style={{ background: '#f59e0b' }}
               >
                 {bulkSaving ? 'Updating…' : `Update ${selected.size} Entries`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showAutofillModal && (
-        <div className="admin-modal-overlay">
-          <div className="admin-modal-content" style={{ maxWidth: 500 }}>
-            <div className="admin-modal-header">
-              <h2>Auto-fill Schedule</h2>
-              <button className="admin-modal-close-btn" onClick={() => setShowAutofillModal(false)} title="Close" type="button">
-                <X size={20} />
-              </button>
-            </div>
-
-            <p style={{ color: '#64748b', marginBottom: 16, fontSize: 14 }}>
-              Select which days to generate schedules for. Breaks will be automatically included:
-              <br />• <strong>7:30–9:30 AM</strong> class start + recess
-              <br />• <strong>12:00–12:40 PM</strong> lunch break
-            </p>
-
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ display: 'block', marginBottom: 10, fontWeight: 600, fontSize: 14 }}>
-                School Days
-              </label>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(5, 1fr)',
-                  gap: 8,
-                }}
-              >
-                {DAYS.map((day) => (
-                  <label
-                    key={day.value}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '8px 12px',
-                      border: `2px solid ${autofillDays.has(day.value) ? '#3b82f6' : '#e5e7eb'}`,
-                      borderRadius: '8px',
-                      backgroundColor: autofillDays.has(day.value) ? '#eff6ff' : 'white',
-                      cursor: 'pointer',
-                      fontWeight: 500,
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={autofillDays.has(day.value)}
-                      onChange={() => toggleAutofillDay(day.value)}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    <span>{day.short}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="admin-form-actions">
-              <button
-                className="admin-btn-secondary"
-                onClick={() => setShowAutofillModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="admin-btn-primary"
-                onClick={handleAutofillSubmit}
-                disabled={autofillGenerating || autofillDays.size === 0}
-                style={{ background: '#8b5cf6' }}
-              >
-                {autofillGenerating ? 'Generating…' : 'Generate Schedule'}
               </button>
             </div>
           </div>
@@ -2318,11 +2536,47 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, onRefres
    ═════════════════════════════════════════════════════════ */
 function SubjectsTab({ subjects, teachers, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', code: '', assigned_teacher: '' });
+  const [form, setForm] = useState({ name: '', code: '', assigned_teachers: [''] });
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', code: '', assigned_teacher: '' });
+  const [editForm, setEditForm] = useState({ name: '', code: '', assigned_teachers: [''] });
+
+  const normalizeTeacherIds = (ids) => {
+    const values = (ids || [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id));
+    return [...new Set(values)];
+  };
+
+  const addTeacherPicker = (setter) => {
+    setter((prev) => ({
+      ...prev,
+      assigned_teachers: [...(prev.assigned_teachers || []), ''],
+    }));
+  };
+
+  const updateTeacherPicker = (setter, index, value) => {
+    setter((prev) => {
+      const next = [...(prev.assigned_teachers || [''])];
+      next[index] = value;
+      return { ...prev, assigned_teachers: next };
+    });
+  };
+
+  const removeTeacherPicker = (setter, index) => {
+    setter((prev) => {
+      const next = [...(prev.assigned_teachers || [''])];
+      next.splice(index, 1);
+      return { ...prev, assigned_teachers: next.length ? next : [''] };
+    });
+  };
+
+  const isTeacherOptionDisabled = (selectedIds, candidateId, currentIndex) => {
+    return (selectedIds || []).some(
+      (id, idx) => idx !== currentIndex && String(id) === String(candidateId)
+    );
+  };
 
   const handleCreate = async () => {
     setFormError('');
@@ -2333,7 +2587,10 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
     setSaving(true);
     try {
       const payload = { name: form.name, code: form.code };
-      if (form.assigned_teacher) payload.assigned_teacher = Number(form.assigned_teacher);
+      const teacherIds = normalizeTeacherIds(form.assigned_teachers);
+      if (teacherIds.length > 0) {
+        payload.assigned_teachers = teacherIds;
+      }
 
       const r = await apiFetch('/api/accounts/subjects/', {
         method: 'POST',
@@ -2347,7 +2604,7 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
       }
 
       setShowForm(false);
-      setForm({ name: '', code: '', assigned_teacher: '' });
+      setForm({ name: '', code: '', assigned_teachers: [''] });
       await onRefresh();
     } catch (e) {
       setFormError(e.message);
@@ -2357,9 +2614,19 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
   };
 
   const startEdit = (subj) => {
-    const cur = subj.teachers?.length > 0 ? String(subj.teachers[0].id) : '';
+    const currentTeachers = Array.isArray(subj.teachers)
+      ? subj.teachers
+          .map((teacher) => teacher?.id)
+          .filter((id) => id !== null && id !== undefined)
+          .map((id) => String(id))
+      : [''];
+
     setEditingId(subj.id);
-    setEditForm({ name: subj.name, code: subj.code, assigned_teacher: cur });
+    setEditForm({
+      name: subj.name,
+      code: subj.code,
+      assigned_teachers: currentTeachers.length ? currentTeachers : [''],
+    });
   };
 
   const saveEdit = async (id) => {
@@ -2367,7 +2634,7 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
       const payload = {
         name: editForm.name,
         code: editForm.code,
-        assigned_teacher: editForm.assigned_teacher ? Number(editForm.assigned_teacher) : null,
+        assigned_teachers: normalizeTeacherIds(editForm.assigned_teachers),
       };
 
       const r = await apiFetch(`/api/accounts/subjects/${id}/`, {
@@ -2376,7 +2643,10 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
         body: JSON.stringify(payload),
       });
 
-      if (!r.ok) throw new Error('Failed to update');
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.detail || JSON.stringify(e) || 'Failed to update');
+      }
 
       setEditingId(null);
       await onRefresh();
@@ -2400,15 +2670,6 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
         : e.message;
       alert('Delete failed: ' + msg);
     }
-  };
-
-  const getAvailableTeachers = (curSubjId = null) => {
-    const assigned = new Set();
-    subjects.forEach((s) => {
-      if (s.id === curSubjId) return;
-      (s.teachers || []).forEach((t) => assigned.add(t.id));
-    });
-    return teachers.filter((t) => !assigned.has(t.id));
   };
 
   return (
@@ -2452,18 +2713,44 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
             </div>
 
             <div className="admin-form-group">
-              <label>Assign Teacher</label>
-              <select
-                value={form.assigned_teacher}
-                onChange={(e) => setForm({ ...form, assigned_teacher: e.target.value })}
-              >
-                <option value="">— No teacher —</option>
-                {getAvailableTeachers().map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.username}
-                  </option>
-                ))}
-              </select>
+              <label>Assign Teachers</label>
+              {(form.assigned_teachers || []).map((teacherId, idx) => (
+                <div key={`new-teacher-${idx}`} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <select
+                    value={teacherId}
+                    onChange={(e) => updateTeacherPicker(setForm, idx, e.target.value)}
+                    style={{ flex: 1 }}
+                  >
+                    <option value="">— Select teacher —</option>
+                    {teachers.map((t) => (
+                      <option
+                        key={t.id}
+                        value={t.id}
+                        disabled={isTeacherOptionDisabled(form.assigned_teachers, t.id, idx)}
+                      >
+                        {t.username}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="admin-btn-edit"
+                    onClick={() => addTeacherPicker(setForm)}
+                    title="Add teacher"
+                  >
+                    <Plus size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-btn-delete"
+                    onClick={() => removeTeacherPicker(setForm, idx)}
+                    title="Remove teacher"
+                    disabled={(form.assigned_teachers || []).length === 1}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
             </div>
 
             <div className="admin-form-actions">
@@ -2485,14 +2772,14 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
               <tr>
                 <th>Subject Name</th>
                 <th>Code</th>
-                <th>Assigned Teacher</th>
+                <th>Assigned Teachers</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {subjects.map((s) => {
                 const isEditing = editingId === s.id;
-                const assigned = s.teachers?.length > 0 ? s.teachers[0] : null;
+                const assigned = Array.isArray(s.teachers) ? s.teachers : [];
 
                 return (
                   <tr key={s.id}>
@@ -2522,29 +2809,50 @@ function SubjectsTab({ subjects, teachers, onRefresh }) {
                     </td>
                     <td>
                       {isEditing ? (
-                        <select
-                          className="inline-select"
-                          value={editForm.assigned_teacher}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, assigned_teacher: e.target.value })
-                          }
-                          style={{ width: '100%' }}
-                        >
-                          <option value="">— None —</option>
-                          {getAvailableTeachers(s.id).map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.username}
-                            </option>
+                        <div>
+                          {(editForm.assigned_teachers || []).map((teacherId, idx) => (
+                            <div key={`edit-teacher-${s.id}-${idx}`} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                              <select
+                                className="inline-select"
+                                value={teacherId}
+                                onChange={(e) => updateTeacherPicker(setEditForm, idx, e.target.value)}
+                                style={{ width: '100%' }}
+                              >
+                                <option value="">— Select teacher —</option>
+                                {teachers.map((t) => (
+                                  <option
+                                    key={t.id}
+                                    value={t.id}
+                                    disabled={isTeacherOptionDisabled(editForm.assigned_teachers, t.id, idx)}
+                                  >
+                                    {t.username}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                className="admin-btn-edit"
+                                onClick={() => addTeacherPicker(setEditForm)}
+                                title="Add teacher"
+                              >
+                                <Plus size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="admin-btn-delete"
+                                onClick={() => removeTeacherPicker(setEditForm, idx)}
+                                title="Remove teacher"
+                                disabled={(editForm.assigned_teachers || []).length === 1}
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
                           ))}
-                          {assigned &&
-                            !getAvailableTeachers(s.id).find((t) => t.id === assigned.id) && (
-                              <option value={assigned.id}>{assigned.username}</option>
-                            )}
-                        </select>
-                      ) : assigned ? (
+                        </div>
+                      ) : assigned.length > 0 ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <UserCheck size={14} />
-                          {assigned.username}
+                          {assigned.map((teacher) => teacher.username).join(', ')}
                         </span>
                       ) : (
                         <span style={{ color: '#94a3b8' }}>Unassigned</span>
@@ -2870,17 +3178,27 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
   };
 
   const handleActivate = async (id) => {
-    if (!window.confirm('Activate this school year? This will deactivate all other school years.')) {
+    if (!window.confirm('Activate this school year? This will deactivate all other school years and preserve existing schedules/sections.')) {
       return;
     }
+
     try {
       const r = await apiFetch(`/api/classmanagement/school-years/${id}/activate/`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reset_class_data: false }),
       });
+
+      const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        throw new Error(err.detail || 'Activation failed');
+        throw new Error(data.detail || 'Activation failed');
       }
+
+      alert(
+        `Activated ${data.name || 'school year'} with data preserved.\n\n` +
+          'For a blank slate, create a new school year and apply templates as needed.'
+      );
+
       await onRefresh();
     } catch (e) {
       alert('Activation failed: ' + e.message);

@@ -99,6 +99,7 @@ const getStudentKey = (student) => {
 const Grade = () => {
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState("");
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [quarter, setQuarter] = useState(1);
   const [teacherSubject, setTeacherSubject] = useState(null);
   const [schoolYear, setSchoolYear] = useState(null);
@@ -145,8 +146,35 @@ const Grade = () => {
   const currentSection =
     sections.find((s) => String(s.id) === String(selectedSection)) || null;
 
+  const availableSubjects = useMemo(() => {
+    if (!teacherSubject) return [];
+
+    if (Array.isArray(teacherSubject.subjects) && teacherSubject.subjects.length > 0) {
+      return teacherSubject.subjects;
+    }
+
+    if (teacherSubject.subject_id) {
+      return [
+        {
+          id: teacherSubject.subject_id,
+          name: teacherSubject.subject_name,
+          code: teacherSubject.subject_code,
+        },
+      ];
+    }
+
+    return [];
+  }, [teacherSubject]);
+
+  const selectedSubject = useMemo(
+    () =>
+      availableSubjects.find((subject) => String(subject.id) === String(selectedSubjectId)) ||
+      null,
+    [availableSubjects, selectedSubjectId]
+  );
+
   const canPublish =
-    !!currentSection && students.length > 0 && items.length > 0 && !isPublishing;
+    !!currentSection && !!selectedSubjectId && students.length > 0 && items.length > 0 && !isPublishing;
 
   const displayStudents = useMemo(() => {
     const seen = new Map();
@@ -251,12 +279,32 @@ const Grade = () => {
   }, []);
 
   useEffect(() => {
-    if (!teacherSubject?.subject_id) return;
+    if (!availableSubjects.length) {
+      setSelectedSubjectId("");
+      return;
+    }
+
+    setSelectedSubjectId((prev) => {
+      const hasPrev = availableSubjects.some((subject) => String(subject.id) === String(prev));
+      return hasPrev ? String(prev) : String(availableSubjects[0].id);
+    });
+  }, [availableSubjects]);
+
+  useEffect(() => {
+    if (!selectedSubjectId) {
+      setSections([]);
+      setSelectedSection("");
+      return;
+    }
 
     (async () => {
       try {
+        const schoolYearParam = schoolYear?.id
+          ? `&school_year=${encodeURIComponent(schoolYear.id)}`
+          : "";
+
         const res = await apiFetch(
-          `${API}/api/grades/my-sections/?subject=${teacherSubject.subject_id}`
+          `${API}/api/grades/my-sections/?subject=${selectedSubjectId}${schoolYearParam}`
         );
 
         if (!res.ok) {
@@ -287,10 +335,10 @@ const Grade = () => {
         setSelectedSection("");
       }
     })();
-  }, [teacherSubject]);
+  }, [selectedSubjectId, schoolYear?.id]);
 
   const fetchAll = useCallback(async () => {
-    if (!teacherSubject || !selectedSection) {
+    if (!selectedSubjectId || !selectedSection) {
       setStudents([]);
       setItems([]);
       setScores([]);
@@ -298,18 +346,22 @@ const Grade = () => {
       return;
     }
 
-    const subj = Number(teacherSubject.subject_id);
+    const subj = Number(selectedSubjectId);
 
     try {
+      const schoolYearParam = schoolYear?.id
+        ? `school_year=${encodeURIComponent(schoolYear.id)}&`
+        : "";
+
       const [itemsRes, studentsRes, scoresRes, csRes, wRes] = await Promise.all([
         apiFetch(
-          `${API}/api/grades/items/?subject=${subj}&grade_level=${gradeLevel}&quarter=${quarter}`
+          `${API}/api/grades/items/?${schoolYearParam}subject=${subj}&grade_level=${gradeLevel}&quarter=${quarter}`
         ),
-        apiFetch(`${API}/api/grades/students/section/${selectedSection}/`),
+        apiFetch(`${API}/api/grades/students/section/${selectedSection}/?${schoolYearParam}`),
         apiFetch(
-          `${API}/api/grades/scores/?subject=${subj}&grade_level=${gradeLevel}&quarter=${quarter}`
+          `${API}/api/grades/scores/?${schoolYearParam}subject=${subj}&grade_level=${gradeLevel}&quarter=${quarter}`
         ),
-        apiFetch(`${API}/api/grades/class-standing/?subject=${subj}&quarter=${quarter}`),
+        apiFetch(`${API}/api/grades/class-standing/?${schoolYearParam}subject=${subj}&quarter=${quarter}`),
         apiFetch(`${API}/api/grades/weights/${subj}/`),
       ]);
 
@@ -377,7 +429,7 @@ const Grade = () => {
     } catch (e) {
       console.error("fetchAll error:", e);
     }
-  }, [teacherSubject, selectedSection, gradeLevel, quarter]);
+  }, [selectedSubjectId, selectedSection, gradeLevel, quarter, schoolYear?.id]);
 
   useEffect(() => {
     fetchAll();
@@ -451,7 +503,7 @@ const Grade = () => {
   };
 
   const handleAddItem = async (category) => {
-    if (!teacherSubject || !selectedSection) return;
+    if (!selectedSubjectId || !selectedSection) return;
 
     const totalScore = Number(newItem.total_score);
     if (Number.isNaN(totalScore) || totalScore <= 0) {
@@ -462,7 +514,7 @@ const Grade = () => {
     const catItems = itemsByCategory(category);
 
     const body = {
-      subject: Number(teacherSubject.subject_id),
+      subject: Number(selectedSubjectId),
       grade_level: Number(gradeLevel),
       quarter: Number(quarter),
       category: String(category).toUpperCase(),
@@ -656,7 +708,7 @@ const Grade = () => {
   };
 
   const handleSaveCS = async () => {
-    if (!csModal || !teacherSubject) return;
+    if (!csModal || !selectedSubjectId) return;
 
     const numericScore = parseFloat(csValue);
     if (Number.isNaN(numericScore)) {
@@ -690,7 +742,7 @@ const Grade = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           student: Number(studentId),
-          subject: Number(teacherSubject.subject_id),
+          subject: Number(selectedSubjectId),
           quarter: Number(quarter),
           score: numericScore,
         }),
@@ -718,7 +770,7 @@ const Grade = () => {
   };
 
   const handleSaveWeights = async () => {
-    if (!teacherSubject) return;
+    if (!selectedSubjectId) return;
 
     const weights_array = [
       { key: 'activity_weight', value: Number(tempWeights.activity_weight || 0) },
@@ -736,7 +788,7 @@ const Grade = () => {
 
     try {
       const res = await apiFetch(
-        `${API}/api/grades/weights/${teacherSubject.subject_id}/update/`,
+        `${API}/api/grades/weights/${selectedSubjectId}/update/`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -787,7 +839,7 @@ const Grade = () => {
     try {
       const params = new URLSearchParams({
         section_id: String(selectedSection),
-        subject_id: String(teacherSubject.subject_id),
+        subject_id: String(selectedSubjectId),
         school_year: schoolYearLabel,
       });
 
@@ -831,7 +883,7 @@ const Grade = () => {
     try {
       const payload = {
         section_id: Number(selectedSection),
-        subject_id: Number(teacherSubject.subject_id),
+        subject_id: Number(selectedSubjectId),
         school_year: schoolYearLabel,
       };
 
@@ -862,7 +914,7 @@ const Grade = () => {
       return;
     }
 
-    if (!teacherSubject) {
+    if (!selectedSubject) {
       alert("Unable to determine subject information.");
       return;
     }
@@ -957,7 +1009,7 @@ const Grade = () => {
     Number(tempWeights.exam_weight || 0) +
     Number(tempWeights.class_standing_weight || 0);
 
-  if (!teacherSubject) {
+  if (!teacherSubject || availableSubjects.length === 0) {
     return (
       <div className="ge">
         <div className="ge__empty">
@@ -971,7 +1023,7 @@ const Grade = () => {
     <div className="ge">
       <header className="ge__header">
         <h1 className="ge__title">
-          <span className="ge__subjectTag">{teacherSubject.subject_name}</span>
+          <span className="ge__subjectTag">{selectedSubject?.name || "No subject selected"}</span>
           <span className="ge__classTag">
             {currentSection
               ? `${gradeLabel(currentSection.grade_level)} - ${currentSection.name}`
@@ -988,6 +1040,18 @@ const Grade = () => {
       </header>
 
       <div className="ge__toolbar">
+        <select
+          className="ge__select"
+          value={selectedSubjectId}
+          onChange={(e) => setSelectedSubjectId(e.target.value)}
+        >
+          {availableSubjects.map((subject) => (
+            <option key={subject.id} value={subject.id}>
+              {subject.code ? `${subject.name} (${subject.code})` : subject.name}
+            </option>
+          ))}
+        </select>
+
         <select
           className="ge__select"
           value={selectedSection}
@@ -1593,7 +1657,7 @@ const Grade = () => {
         <div className="ge__overlay" onClick={() => setShowWeights(false)}>
           <div className="ge__modal" onClick={(e) => e.stopPropagation()}>
             <div className="ge__modalHeader">
-              <h3>Grade Weights – {teacherSubject.subject_name}</h3>
+              <h3>Grade Weights – {selectedSubject?.name || "N/A"}</h3>
               <button className="ge__modalClose" onClick={() => { setShowWeights(false); setError(""); }}>
                 <X size={18} />
               </button>
@@ -1661,7 +1725,7 @@ const Grade = () => {
       <PreviewModal
         isOpen={printPreviewOpen}
         onClose={() => setPrintPreviewOpen(false)}
-        title={`Grade Sheet - ${teacherSubject?.subject_name || "N/A"} (${currentSection?.name || "N/A"})`}
+        title={`Grade Sheet - ${selectedSubject?.name || "N/A"} (${currentSection?.name || "N/A"})`}
         data={printPreviewData}
         columns={gradePreviewColumns.length > 0 ? gradePreviewColumns : [
           { key: "Student Name", label: "Student Name" },
@@ -1672,7 +1736,7 @@ const Grade = () => {
           { key: "Quarter Grade", label: "Quarter Grade" },
           { key: "Status", label: "Status" },
         ]}
-        filename={`Grade-Sheet-${teacherSubject?.subject_name}-${currentSection?.name}`}
+        filename={`Grade-Sheet-${selectedSubject?.name || "N/A"}-${currentSection?.name || "N/A"}`}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 from accounts.models import User, Subject
 from rest_framework import serializers
-from .models import Schedule, Room, SchoolYear
+from .models import Schedule, Room, SchoolYear, ScheduleTemplate
 
 
 class RoomSerializer(serializers.ModelSerializer):
@@ -100,3 +100,26 @@ class ScheduleWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("end_time must be after start_time")
 
         return data
+
+
+class ScheduleTemplateSerializer(serializers.ModelSerializer):
+    source_school_year_name = serializers.CharField(source="source_school_year.name", read_only=True)
+    created_by_username = serializers.CharField(source="created_by.username", read_only=True)
+    entry_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ScheduleTemplate
+        fields = [
+            "id",
+            "name",
+            "source_school_year",
+            "source_school_year_name",
+            "entry_count",
+            "created_by",
+            "created_by_username",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_entry_count(self, obj):
+        return len(obj.payload or [])

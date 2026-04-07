@@ -56,10 +56,11 @@ export function authHeaders(extra = {}) {
  * returns the raw fetch Response object.
  */
 export async function apiFetch(url, options = {}) {
-  const { headers: extraHeaders, ...rest } = options;
+  const { headers: extraHeaders, credentials, ...rest } = options;
   const requestUrl = resolveUrl(url);
   const response = await fetch(requestUrl, {
-    credentials: 'include',
+    // Token auth is primary; omitting cookies avoids local stale-session warnings.
+    credentials: credentials || 'omit',
     ...rest,
     headers: authHeaders(extraHeaders),
   });

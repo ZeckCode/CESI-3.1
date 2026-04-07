@@ -1,4 +1,5 @@
 # accounts/serializers.py
+from django.db import models
 from rest_framework import serializers
 from .models import User, UserProfile, TeacherProfile, AdminProfile, Section, Subject, PasswordResetRequest
 
@@ -15,15 +16,48 @@ class SubjectTeacherSerializer(serializers.Serializer):
     employee_id = serializers.CharField()
 
 
+class SubjectLiteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subject
+        fields = ["id", "name", "code"]
+
+
 class SubjectSerializer(serializers.ModelSerializer):
-    teachers = SubjectTeacherSerializer(many=True, read_only=True)
+    teachers = serializers.SerializerMethodField()
     assigned_teacher = serializers.IntegerField(
         write_only=True, required=False, allow_null=True,
+    )
+    assigned_teachers = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        allow_empty=True,
     )
 
     class Meta:
         model = Subject
-        fields = ["id", "name", "code", "teachers", "assigned_teacher"]
+        fields = ["id", "name", "code", "teachers", "assigned_teacher", "assigned_teachers"]
+
+    @staticmethod
+    def _strip_assignment_fields(validated_data):
+        # Assignment is applied in views after subject save.
+        validated_data.pop("assigned_teacher", None)
+        validated_data.pop("assigned_teachers", None)
+        return validated_data
+
+    def create(self, validated_data):
+        clean_data = self._strip_assignment_fields(dict(validated_data))
+        return super().create(clean_data)
+
+    def update(self, instance, validated_data):
+        clean_data = self._strip_assignment_fields(dict(validated_data))
+        return super().update(instance, clean_data)
+
+    def get_teachers(self, obj):
+        teacher_profiles = TeacherProfile.objects.select_related("user").filter(
+            models.Q(subject=obj) | models.Q(subjects=obj)
+        ).distinct()
+        return SubjectTeacherSerializer(teacher_profiles, many=True).data
 
 
 class SectionSerializer(serializers.ModelSerializer):
@@ -37,12 +71,14 @@ class SectionSerializer(serializers.ModelSerializer):
     grade_level_display = serializers.CharField(source="get_grade_level_display", read_only=True)
     room_code = serializers.CharField(source="room.code", read_only=True, allow_null=True)
     room_name = serializers.CharField(source="room.name", read_only=True, allow_null=True)
+    school_year_name = serializers.CharField(source="school_year.name", read_only=True, allow_null=True)
 
     class Meta:
         model = Section
         fields = [
             "id", "name", "grade_level", "grade_level_display",
             "capacity",
+            "school_year", "school_year_name",
             "room", "room_code", "room_name",
             "adviser", "adviser_name",
             "student_count", "is_full",
@@ -82,12 +118,19 @@ class UserSerializer(serializers.ModelSerializer):
 class TeacherProfileReadSerializer(serializers.ModelSerializer):
     """Nested read-only representation returned inside UserDetailSerializer."""
     subject = SubjectSerializer(read_only=True)
+    subjects = serializers.SerializerMethodField()
     section = SectionSerializer(read_only=True)
     avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = TeacherProfile
-        fields = ["id", "employee_id", "subject", "section", "avatar", "avatar_url"]
+        fields = ["id", "employee_id", "subject", "subjects", "section", "avatar", "avatar_url"]
+
+    def get_subjects(self, obj):
+        subjects = list(obj.subjects.all())
+        if obj.subject and all(s.id != obj.subject_id for s in subjects):
+            subjects.insert(0, obj.subject)
+        return SubjectLiteSerializer(subjects, many=True).data
 
     def get_avatar_url(self, obj):
         if obj.avatar:
@@ -171,6 +214,11 @@ class UserDetailSerializer(serializers.ModelSerializer):
 class TeacherAssignmentSerializer(serializers.Serializer):
     """Update a teacher's subject / section assignment."""
     subject = serializers.IntegerField(required=False, allow_null=True)
+    subjects = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_empty=True,
+    )
     section = serializers.IntegerField(required=False, allow_null=True)
     employee_id = serializers.CharField(required=False, allow_blank=True)
 
@@ -178,6 +226,17 @@ class TeacherAssignmentSerializer(serializers.Serializer):
         if value is not None and not Subject.objects.filter(id=value).exists():
             raise serializers.ValidationError("Subject not found")
         return value
+
+    def validate_subjects(self, values):
+        unique_values = list(dict.fromkeys(values or []))
+        if not unique_values:
+            return []
+
+        found_ids = set(Subject.objects.filter(id__in=unique_values).values_list("id", flat=True))
+        missing = [v for v in unique_values if v not in found_ids]
+        if missing:
+            raise serializers.ValidationError(f"Subject(s) not found: {missing}")
+        return unique_values
 
     def validate_section(self, value):
         if value is not None and not Section.objects.filter(id=value).exists():
@@ -235,6 +294,7 @@ class CreateUserSerializer(serializers.Serializer):
 
     # Teacher profile fields
     subject = serializers.IntegerField(required=False)
+    subjects = serializers.ListField(child=serializers.IntegerField(), required=False, allow_empty=True)
     section_teacher = serializers.IntegerField(required=False)
     employee_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
 
@@ -272,6 +332,13 @@ class CreateUserSerializer(serializers.Serializer):
                 except Subject.DoesNotExist:
                     raise serializers.ValidationError({"subject": "Subject not found"})
 
+            subject_ids = list(dict.fromkeys(attrs.get("subjects") or []))
+            if subject_ids:
+                found_ids = set(Subject.objects.filter(id__in=subject_ids).values_list("id", flat=True))
+                missing_ids = [sid for sid in subject_ids if sid not in found_ids]
+                if missing_ids:
+                    raise serializers.ValidationError({"subjects": f"Subject(s) not found: {missing_ids}"})
+
             section_id = attrs.get("section_teacher")
             if section_id:
                 try:
@@ -306,7 +373,7 @@ class CreateUserSerializer(serializers.Serializer):
                     parent_profile_data[f] = validated_data.pop(f)
 
         elif validated_data.get("role") == "TEACHER":
-            teacher_fields = ["subject", "section_teacher", "employee_id"]
+            teacher_fields = ["subject", "subjects", "section_teacher", "employee_id"]
             for f in teacher_fields:
                 if f in validated_data:
                     teacher_profile_data[f] = validated_data.pop(f)
@@ -338,20 +405,28 @@ class CreateUserSerializer(serializers.Serializer):
             )
 
         elif user.role == "TEACHER":
+            subject_ids = list(dict.fromkeys(teacher_profile_data.get("subjects") or []))
             subject_obj = None
             if teacher_profile_data.get("subject"):
                 subject_obj = Subject.objects.get(id=teacher_profile_data.get("subject"))
+            elif subject_ids:
+                subject_obj = Subject.objects.filter(id__in=subject_ids).order_by("id").first()
 
             section_obj = None
             if teacher_profile_data.get("section_teacher"):
                 section_obj = Section.objects.get(id=teacher_profile_data.get("section_teacher"))
 
-            TeacherProfile.objects.create(
+            teacher_profile = TeacherProfile.objects.create(
                 user=user,
                 subject=subject_obj,
                 section=section_obj,
                 employee_id=teacher_profile_data.get("employee_id", ""),
             )
+
+            if subject_ids:
+                teacher_profile.subjects.set(Subject.objects.filter(id__in=subject_ids))
+            elif subject_obj:
+                teacher_profile.subjects.set([subject_obj])
 
         return user
 

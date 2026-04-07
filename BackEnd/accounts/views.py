@@ -38,6 +38,7 @@ from .serializers import (
 )
 
 from enrollment.models import Enrollment
+from classmanagement.models import SchoolYear
 
 
 #
@@ -166,6 +167,7 @@ def me_detail(request):
             "teacher_profile__section__adviser__user",
             "teacher_profile__subject",
         )
+        .prefetch_related("teacher_profile__subjects")
         .get(pk=request.user.pk)
     )
     return Response(UserDetailSerializer(user, context={"request": request}).data)
@@ -247,6 +249,7 @@ class UpdateProfileView(APIView):
                 "teacher_profile__section__adviser__user",
                 "teacher_profile__subject",
             )
+            .prefetch_related("teacher_profile__subjects")
             .get(pk=user.pk)
         )
         return Response(UserDetailSerializer(user, context={"request": request}).data)
@@ -320,20 +323,46 @@ def admin_create_user(request):
 # SUBJECT CRUD
 # ══════════════════════════════════════════════════════
 class SubjectListCreate(generics.ListCreateAPIView):
-    queryset = Subject.objects.prefetch_related("teachers__user").all().order_by("name")
+    queryset = Subject.objects.prefetch_related("teachers__user", "teacher_profiles__user").all().order_by("name")
     serializer_class = SubjectSerializer
     permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def _extract_assigned_teacher_ids(payload):
+        if "assigned_teachers" in payload:
+            raw = payload.get("assigned_teachers") or []
+            if not isinstance(raw, list):
+                return []
+            cleaned = []
+            for value in raw:
+                try:
+                    cleaned.append(int(value))
+                except (TypeError, ValueError):
+                    continue
+            return list(dict.fromkeys(cleaned))
+
+        if "assigned_teacher" in payload:
+            value = payload.get("assigned_teacher")
+            if value in (None, ""):
+                return []
+            try:
+                return [int(value)]
+            except (TypeError, ValueError):
+                return []
+
+        return None
 
     def create(self, request, *args, **kwargs):
         if request.user.role != "ADMIN":
             return Response({"detail": "Forbidden"}, status=403)
 
-        assigned_teacher = request.data.get("assigned_teacher")
+        assigned_teacher_ids = self._extract_assigned_teacher_ids(request.data)
         response = super().create(request, *args, **kwargs)
 
-        if response.status_code == 201 and assigned_teacher:
-            self._assign_teacher(response.data["id"], assigned_teacher)
-            subj = Subject.objects.prefetch_related("teachers__user").get(id=response.data["id"])
+        if response.status_code == 201 and assigned_teacher_ids is not None:
+            for teacher_id in assigned_teacher_ids:
+                self._assign_teacher(response.data["id"], teacher_id)
+            subj = Subject.objects.prefetch_related("teachers__user", "teacher_profiles__user").get(id=response.data["id"])
             response.data = SubjectSerializer(subj).data
 
         return response
@@ -342,15 +371,20 @@ class SubjectListCreate(generics.ListCreateAPIView):
     def _assign_teacher(subject_id, teacher_user_id):
         try:
             teacher_user = User.objects.get(id=teacher_user_id, role="TEACHER")
+            subject = Subject.objects.get(id=subject_id)
             tp, _ = TeacherProfile.objects.get_or_create(user=teacher_user)
-            tp.subject_id = subject_id
-            tp.save()
-        except User.DoesNotExist:
+            tp.subjects.add(subject)
+
+            # Keep legacy primary subject for old consumers.
+            if tp.subject_id is None:
+                tp.subject = subject
+                tp.save(update_fields=["subject"])
+        except (User.DoesNotExist, Subject.DoesNotExist):
             pass
 
 
 class SubjectDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Subject.objects.prefetch_related("teachers__user").all()
+    queryset = Subject.objects.prefetch_related("teachers__user", "teacher_profiles__user").all()
     serializer_class = SubjectSerializer
     permission_classes = [IsAuthenticated]
 
@@ -358,16 +392,26 @@ class SubjectDetail(generics.RetrieveUpdateDestroyAPIView):
         if request.user.role != "ADMIN":
             return Response({"detail": "Forbidden"}, status=403)
 
-        assigned_teacher = request.data.get("assigned_teacher")
+        assigned_teacher_ids = SubjectListCreate._extract_assigned_teacher_ids(request.data)
         response = super().update(request, *args, **kwargs)
 
-        if response.status_code == 200 and assigned_teacher is not None:
+        if response.status_code == 200 and assigned_teacher_ids is not None:
             subj = self.get_object()
-            TeacherProfile.objects.filter(subject=subj).update(subject=None)
-            if assigned_teacher:
-                SubjectListCreate._assign_teacher(subj.id, assigned_teacher)
+            affected_profiles = TeacherProfile.objects.filter(
+                Q(subject=subj) | Q(subjects=subj)
+            ).distinct()
+
+            for profile in affected_profiles:
+                profile.subjects.remove(subj)
+                if profile.subject_id == subj.id:
+                    profile.subject = profile.subjects.order_by("id").first()
+                    profile.save(update_fields=["subject"])
+
+            for teacher_id in assigned_teacher_ids:
+                SubjectListCreate._assign_teacher(subj.id, teacher_id)
+
             subj.refresh_from_db()
-            subj = Subject.objects.prefetch_related("teachers__user").get(id=subj.id)
+            subj = Subject.objects.prefetch_related("teachers__user", "teacher_profiles__user").get(id=subj.id)
             response.data = SubjectSerializer(subj).data
 
         return response
@@ -382,26 +426,50 @@ class SubjectDetail(generics.RetrieveUpdateDestroyAPIView):
 # SECTION CRUD
 # ══════════════════════════════════════════════════════
 class SectionListCreate(generics.ListCreateAPIView):
-    queryset = (
-        Section.objects
-        .select_related("adviser", "adviser__user")
-        .prefetch_related("students")
-        .all()
-        .order_by("grade_level", "name")
-    )
+    queryset = Section.objects.none()
     serializer_class = SectionSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = (
+            Section.objects
+            .select_related("adviser", "adviser__user", "school_year")
+            .prefetch_related("students")
+            .all()
+            .order_by("grade_level", "name")
+        )
+
+        school_year_id = self.request.query_params.get("school_year")
+        if school_year_id:
+            return qs.filter(school_year_id=school_year_id)
+
+        active_sy = SchoolYear.objects.filter(is_active=True).first()
+        if active_sy:
+            return qs.filter(school_year=active_sy)
+
+        return qs.filter(school_year__isnull=True)
 
     def create(self, request, *args, **kwargs):
         if request.user.role != "ADMIN":
             return Response({"detail": "Forbidden"}, status=403)
-        return super().create(request, *args, **kwargs)
+
+        payload = request.data.copy()
+        if not payload.get("school_year"):
+            active_sy = SchoolYear.objects.filter(is_active=True).first()
+            if active_sy:
+                payload["school_year"] = active_sy.id
+
+        serializer = self.get_serializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=http_status.HTTP_201_CREATED, headers=headers)
 
 
 class SectionDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = (
         Section.objects
-        .select_related("adviser", "adviser__user")
+        .select_related("adviser", "adviser__user", "school_year")
         .prefetch_related("students")
         .all()
     )
@@ -441,6 +509,7 @@ def user_list(request):
             "profile__section__adviser",
             "profile__section__adviser__user",
         )
+        .prefetch_related("teacher_profile__subjects")
         .all()
         .order_by("-created_at")
     )
@@ -477,9 +546,19 @@ def update_teacher_assignment(request, user_id):
     ser = TeacherAssignmentSerializer(data=request.data)
     ser.is_valid(raise_exception=True)
 
-    if "subject" in ser.validated_data:
+    if "subjects" in ser.validated_data:
+        subj_ids = ser.validated_data["subjects"]
+        assigned_subjects = list(Subject.objects.filter(id__in=subj_ids).order_by("id"))
+        tp.subjects.set(assigned_subjects)
+        tp.subject = assigned_subjects[0] if assigned_subjects else None
+
+    elif "subject" in ser.validated_data:
         subj_id = ser.validated_data["subject"]
         tp.subject = Subject.objects.get(id=subj_id) if subj_id else None
+        if tp.subject:
+            tp.subjects.add(tp.subject)
+        else:
+            tp.subjects.clear()
 
     if "section" in ser.validated_data:
         sect_id = ser.validated_data["section"]
@@ -500,6 +579,7 @@ def update_teacher_assignment(request, user_id):
             "teacher_profile__section__adviser",
             "teacher_profile__section__adviser__user",
         )
+        .prefetch_related("teacher_profile__subjects")
         .get(pk=teacher_user.pk)
     )
     return Response(UserDetailSerializer(teacher_user, context={"request": request}).data)

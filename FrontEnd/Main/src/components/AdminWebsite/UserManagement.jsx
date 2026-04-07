@@ -63,7 +63,7 @@ const UserManagement = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState({
     username: '', email: '', password: '',
-    subject: '', section_teacher: '', employee_id: '',
+    subjects: [''], section_teacher: '', employee_id: '',
   });
   const [createError, setCreateError] = useState('');
   const [emailHint, setEmailHint] = useState('');
@@ -71,7 +71,7 @@ const UserManagement = () => {
 
   // inline assignment editing (teachers)
   const [editingId, setEditingId] = useState(null);
-  const [assignForm, setAssignForm] = useState({ subject: '', section: '', employee_id: '' });
+  const [assignForm, setAssignForm] = useState({ subjects: [''], section: '', employee_id: '' });
   const [assignError, setAssignError] = useState('');
 
   // student edit modal
@@ -319,6 +319,52 @@ const UserManagement = () => {
     return `${prefix} – ${section.name}`;
   };
 
+  const teacherSubjects = (teacher) => {
+    const multi = Array.isArray(teacher?.teacher_profile?.subjects)
+      ? teacher.teacher_profile.subjects
+      : [];
+    if (multi.length > 0) return multi;
+
+    const legacy = teacher?.teacher_profile?.subject;
+    return legacy ? [legacy] : [];
+  };
+
+  const normalizeSubjectIds = (subjectIds) => {
+    const values = (subjectIds || [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id));
+    return [...new Set(values)];
+  };
+
+  const addSubjectPicker = (setter) => {
+    setter((prev) => ({
+      ...prev,
+      subjects: [...(prev.subjects || []), ''],
+    }));
+  };
+
+  const updateSubjectPicker = (setter, index, value) => {
+    setter((prev) => {
+      const next = [...(prev.subjects || [''])];
+      next[index] = value;
+      return { ...prev, subjects: next };
+    });
+  };
+
+  const removeSubjectPicker = (setter, index) => {
+    setter((prev) => {
+      const next = [...(prev.subjects || [''])];
+      next.splice(index, 1);
+      return { ...prev, subjects: next.length ? next : [''] };
+    });
+  };
+
+  const isSubjectOptionDisabled = (selectedIds, candidateId, currentIndex) => {
+    return (selectedIds || []).some(
+      (id, idx) => idx !== currentIndex && String(id) === String(candidateId)
+    );
+  };
+
   // ── filter ──
   const filteredStudents = students.filter((u) => {
     const name = studentName(u).toLowerCase();
@@ -333,7 +379,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
   });
 
   const filteredTeachers = teachers.filter((u) => {
-    const subjectName = u.teacher_profile?.subject?.name || '';
+    const subjectName = teacherSubjects(u).map((s) => s?.name || '').join(' ');
     const matchSearch =
       u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -373,7 +419,10 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         role: 'TEACHER',
         employee_id: createForm.employee_id || '',
       };
-      if (createForm.subject) body.subject = parseInt(createForm.subject);
+      const subjectIds = normalizeSubjectIds(createForm.subjects);
+      if (subjectIds.length > 0) {
+        body.subjects = subjectIds;
+      }
       if (createForm.section_teacher) body.section_teacher = parseInt(createForm.section_teacher);
 
       const res = await apiFetch('/api/accounts/admin/create-user/', {
@@ -386,8 +435,8 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         throw new Error(data.detail || data.errors?.detail || JSON.stringify(data.errors || data));
       }
       setShowCreateForm(false);
-      setCreateForm({ username: '', email: '', password: '', subject: '', section_teacher: '', employee_id: '' });
-      fetchTeachers();
+      setCreateForm({ username: '', email: '', password: '', subjects: [''], section_teacher: '', employee_id: '' });
+      await fetchTeachers();
     } catch (e) {
       setCreateError(e.message);
     } finally {
@@ -450,9 +499,14 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
 
   // ── inline assignment ──
   const startEdit = (teacher) => {
+    const existingSubjectIds = teacherSubjects(teacher)
+      .map((s) => s?.id)
+      .filter((id) => id !== null && id !== undefined)
+      .map((id) => String(id));
+
     setEditingId(teacher.id);
     setAssignForm({
-      subject: teacher.teacher_profile?.subject?.id || '',
+      subjects: existingSubjectIds.length ? existingSubjectIds : [''],
       section: teacher.teacher_profile?.section?.id || '',
       employee_id: teacher.teacher_profile?.employee_id || '',
     });
@@ -465,7 +519,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
     setAssignError('');
     try {
       const body = {
-        subject: assignForm.subject ? parseInt(assignForm.subject) : null,
+        subjects: normalizeSubjectIds(assignForm.subjects),
         section: assignForm.section ? parseInt(assignForm.section) : null,
         employee_id: assignForm.employee_id || '',
       };
@@ -479,7 +533,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         throw new Error(err.detail || JSON.stringify(err));
       }
       setEditingId(null);
-      fetchTeachers();
+      await fetchTeachers();
     } catch (e) {
       setAssignError(e.message);
     }
@@ -494,7 +548,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
   const teacherStats = {
     total: teachers.length,
     active: teachers.filter((t) => t.status === 'ACTIVE').length,
-    assigned: teachers.filter((t) => t.teacher_profile?.subject).length,
+    assigned: teachers.filter((t) => teacherSubjects(t).length > 0).length,
   };
 
   if (loading) {
@@ -608,12 +662,44 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Subject</label>
-                <select value={createForm.subject}
-                  onChange={(e) => setCreateForm({ ...createForm, subject: e.target.value })}>
-                  <option value="">— None —</option>
-                  {subjects.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
-                </select>
+                <label>Subjects</label>
+                {(createForm.subjects || []).map((subjectId, idx) => (
+                  <div key={`create-subject-${idx}`} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    <select
+                      value={subjectId}
+                      onChange={(e) => updateSubjectPicker(setCreateForm, idx, e.target.value)}
+                      style={{ flex: 1 }}
+                    >
+                      <option value="">— Select subject —</option>
+                      {subjects.map((s) => (
+                        <option
+                          key={s.id}
+                          value={String(s.id)}
+                          disabled={isSubjectOptionDisabled(createForm.subjects, s.id, idx)}
+                        >
+                          {s.name} ({s.code})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-edit"
+                      onClick={() => addSubjectPicker(setCreateForm)}
+                      title="Add subject"
+                    >
+                      <Plus size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-cancel-sm"
+                      onClick={() => removeSubjectPicker(setCreateForm, idx)}
+                      title="Remove subject"
+                      disabled={(createForm.subjects || []).length === 1}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
               </div>
               <div className="form-group">
                 <label>Assigned Section</label>
@@ -823,7 +909,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                   <th>Username</th>
                   <th>Email</th>
                   <th>Employee ID</th>
-                  <th>Subject</th>
+                  <th>Subjects</th>
                   <th>Assigned Section</th>
                   <th>Status</th>
                   <th>Actions</th>
@@ -833,6 +919,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                 {paginatedTeachers.map((u) => {
                   const isEditing = editingId === u.id;
                   const tp = u.teacher_profile;
+                  const subjectList = teacherSubjects(u);
                   return (
                     <tr key={u.id}>
                       <td><strong>{u.username}</strong></td>
@@ -845,13 +932,48 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                       </td>
                       <td>
                         {isEditing ? (
-                          <select className="inline-select" value={assignForm.subject}
-                            onChange={(e) => setAssignForm({ ...assignForm, subject: e.target.value })}>
-                            <option value="">— None —</option>
-                            {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                          </select>
-                        ) : tp?.subject ? (
-                          <span className="badge-subject">{tp.subject.name}</span>
+                          <div>
+                            {(assignForm.subjects || []).map((subjectId, idx) => (
+                              <div key={`assign-subject-${u.id}-${idx}`} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                                <select
+                                  className="inline-select"
+                                  value={subjectId}
+                                  onChange={(e) => updateSubjectPicker(setAssignForm, idx, e.target.value)}
+                                  style={{ width: '100%' }}
+                                >
+                                  <option value="">— Select subject —</option>
+                                  {subjects.map((s) => (
+                                    <option
+                                      key={s.id}
+                                      value={String(s.id)}
+                                      disabled={isSubjectOptionDisabled(assignForm.subjects, s.id, idx)}
+                                    >
+                                      {s.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  className="btn-edit"
+                                  onClick={() => addSubjectPicker(setAssignForm)}
+                                  title="Add subject"
+                                >
+                                  <Plus size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-cancel-sm"
+                                  onClick={() => removeSubjectPicker(setAssignForm, idx)}
+                                  title="Remove subject"
+                                  disabled={(assignForm.subjects || []).length === 1}
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : subjectList.length > 0 ? (
+                          <span className="badge-subject">{subjectList.map((s) => s.name).join(', ')}</span>
                         ) : (
                           <span className="badge-none">Unassigned</span>
                         )}
