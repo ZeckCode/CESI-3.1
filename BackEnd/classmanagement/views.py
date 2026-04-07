@@ -811,8 +811,19 @@ def schedule_templates(request):
         except (TypeError, ValueError):
             return Response({"detail": "Invalid section id"}, status=400)
 
-    if not source_qs.exists():
-        return Response({"detail": "No schedules found to save as template."}, status=400)
+    section_snapshot_qs = Section.objects.select_related(
+        "room",
+        "adviser",
+        "adviser__user",
+    )
+    if source_school_year:
+        section_snapshot_qs = section_snapshot_qs.filter(school_year=source_school_year)
+    else:
+        section_ids = list(source_qs.values_list("section_id", flat=True).distinct())
+        section_snapshot_qs = section_snapshot_qs.filter(id__in=section_ids)
+
+    if not source_qs.exists() and not section_snapshot_qs.exists():
+        return Response({"detail": "No schedules or sections found to save as template."}, status=400)
 
     template_payload = []
     for sched in source_qs:
@@ -843,8 +854,40 @@ def schedule_templates(request):
             }
         )
 
+    # Add section blueprint rows so templates preserve section-room dependencies,
+    # including sections that currently have no schedule entries.
+    blueprint_keys = set()
+    for section_obj in section_snapshot_qs:
+        section_name = (section_obj.name or "").strip()
+        grade_level = (section_obj.grade_level or "").strip()
+        if not section_name or not grade_level:
+            continue
+
+        section_key = (grade_level, section_name)
+        if section_key in blueprint_keys:
+            continue
+        blueprint_keys.add(section_key)
+
+        section_room = section_obj.room
+        adviser_profile = getattr(section_obj, "adviser", None)
+        adviser_user = getattr(adviser_profile, "user", None)
+
+        template_payload.append(
+            {
+                "entry_type": "SECTION_BLUEPRINT",
+                "section_name": section_name,
+                "grade_level": grade_level,
+                "section_capacity": section_obj.capacity,
+                "section_adviser_user_id": adviser_user.id if adviser_user else None,
+                "section_adviser_username": adviser_user.username if adviser_user else "",
+                "room_code": section_room.code if section_room else None,
+                "room_name": section_room.name if section_room else "",
+                "room_capacity": section_room.capacity if section_room else 40,
+            }
+        )
+
     if not template_payload:
-        return Response({"detail": "No valid schedule rows found to save."}, status=400)
+        return Response({"detail": "No valid schedule or section rows found to save."}, status=400)
 
     name = (request.data.get("name") or "").strip()
     if not name:
@@ -903,9 +946,12 @@ def apply_schedule_template(request, template_id):
     cleared_count = 0
     created_rooms = 0
     created_sections = 0
+    existing_rooms_used = 0
+    existing_sections_used = 0
     created_subjects = 0
     teacher_subject_links_added = 0
     adviser_assignments = 0
+    section_blueprints_applied = 0
     skipped = []
     warnings = []
     section_cache = {}
@@ -920,12 +966,19 @@ def apply_schedule_template(request, template_id):
             target_qs.delete()
 
         for idx, entry in enumerate(entries, start=1):
+            entry_type = str(entry.get("entry_type") or "SCHEDULE").strip().upper()
+            is_section_blueprint = entry_type == "SECTION_BLUEPRINT"
+
             section_name = str(entry.get("section_name") or "").strip()
             grade_level = str(entry.get("grade_level") or "").strip()
             day_of_week = str(entry.get("day_of_week") or "").strip().upper()
 
-            if not section_name or not grade_level or day_of_week not in {"MON", "TUE", "WED", "THU", "FRI"}:
-                skipped.append({"row": idx, "reason": "Invalid section/grade/day data"})
+            if not section_name or not grade_level:
+                skipped.append({"row": idx, "reason": "Invalid section/grade data"})
+                continue
+
+            if (not is_section_blueprint) and day_of_week not in {"MON", "TUE", "WED", "THU", "FRI"}:
+                skipped.append({"row": idx, "reason": "Invalid day data"})
                 continue
 
             room_code = str(entry.get("room_code") or "").strip()
@@ -944,13 +997,22 @@ def apply_schedule_template(request, template_id):
                     )
                     if room_created:
                         created_rooms += 1
+                    else:
+                        existing_rooms_used += 1
                     room_cache[room_code] = room_obj
 
             section_key = (grade_level, section_name)
             section_obj = section_cache.get(section_key)
             if section_obj is None:
+                try:
+                    desired_section_capacity = int(entry.get("section_capacity") or 40)
+                except (TypeError, ValueError):
+                    desired_section_capacity = 40
+                if desired_section_capacity <= 0:
+                    desired_section_capacity = 40
+
                 section_defaults = {
-                    "capacity": int(entry.get("section_capacity") or 40),
+                    "capacity": desired_section_capacity,
                     "school_year": target_school_year,
                 }
                 if room_obj:
@@ -964,10 +1026,20 @@ def apply_schedule_template(request, template_id):
                 )
                 if section_created:
                     created_sections += 1
+                else:
+                    existing_sections_used += 1
+
+                section_update_fields = []
+                if section_obj.capacity != desired_section_capacity:
+                    section_obj.capacity = desired_section_capacity
+                    section_update_fields.append("capacity")
 
                 if room_obj and section_obj.room_id != room_obj.id:
                     section_obj.room = room_obj
-                    section_obj.save(update_fields=["room"])
+                    section_update_fields.append("room")
+
+                if section_update_fields:
+                    section_obj.save(update_fields=section_update_fields)
 
                 section_cache[section_key] = section_obj
 
@@ -1002,6 +1074,10 @@ def apply_schedule_template(request, template_id):
                     section_obj.adviser = adviser_profile
                     section_obj.save(update_fields=["adviser"])
                     adviser_assignments += 1
+
+            if is_section_blueprint:
+                section_blueprints_applied += 1
+                continue
 
             subject_obj = None
             raw_subject_id = entry.get("subject_id")
@@ -1115,9 +1191,12 @@ def apply_schedule_template(request, template_id):
             "created_count": created_count,
             "created_rooms": created_rooms,
             "created_sections": created_sections,
+            "existing_rooms_used": existing_rooms_used,
+            "existing_sections_used": existing_sections_used,
             "created_subjects": created_subjects,
             "teacher_subject_links_added": teacher_subject_links_added,
             "adviser_assignments": adviser_assignments,
+            "section_blueprints_applied": section_blueprints_applied,
             "skipped_count": len(skipped),
             "skipped": skipped,
             "warnings_count": len(warnings),

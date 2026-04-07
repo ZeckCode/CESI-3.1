@@ -123,4 +123,7 @@ class ScheduleTemplateSerializer(serializers.ModelSerializer):
         ]
 
     def get_entry_count(self, obj):
-        return len(obj.payload or [])
+        payload = obj.payload or []
+        if not isinstance(payload, list):
+            return 0
+        return sum(1 for row in payload if str((row or {}).get("entry_type") or "SCHEDULE").upper() != "SECTION_BLUEPRINT")

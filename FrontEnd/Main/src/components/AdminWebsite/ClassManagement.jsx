@@ -3129,13 +3129,20 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
       await onRefresh();
 
       if (!silentStatus) {
+        const existingSectionsUsed = data.existing_sections_used || 0;
+        const existingRoomsUsed = data.existing_rooms_used || 0;
+        const blueprintText = data.section_blueprints_applied
+          ? ` Section blueprints synced: ${data.section_blueprints_applied}.`
+          : '';
         const warningText = data.warnings_count ? ` ${data.warnings_count} warning(s).` : '';
         setTemplateStatus({
           type: 'success',
           message:
             `Applied template successfully to ${targetYear?.name || 'selected year'}. ` +
-            `Created ${data.created_count || 0} schedules, ${data.created_sections || 0} sections, ${data.created_rooms || 0} rooms.` +
+            `Created ${data.created_count || 0} schedules, ${data.created_sections || 0} new sections (${existingSectionsUsed} existing reused), ` +
+            `${data.created_rooms || 0} new rooms (${existingRoomsUsed} existing reused).` +
             (data.cleared_count ? ` Cleared ${data.cleared_count} existing schedules first.` : '') +
+            blueprintText +
             warningText,
         });
       }
@@ -3261,12 +3268,14 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
         }
 
         const applied = applyResult.data || {};
+        const existingSectionsUsed = applied.existing_sections_used || 0;
+        const existingRoomsUsed = applied.existing_rooms_used || 0;
         setTemplateStatus({
           type: 'success',
           message:
             `Created "${data.name || form.name}" and applied template. ` +
-            `Created ${applied.created_count || 0} schedules, ${applied.created_sections || 0} sections, ` +
-            `${applied.created_rooms || 0} rooms.`,
+            `Created ${applied.created_count || 0} schedules, ${applied.created_sections || 0} new sections (${existingSectionsUsed} existing reused), ` +
+            `${applied.created_rooms || 0} new rooms (${existingRoomsUsed} existing reused).`,
         });
       } else if (!editId && !createTemplateId) {
         setTemplateStatus({
