@@ -956,6 +956,7 @@ def apply_schedule_template(request, template_id):
     existing_sections_used = 0
     created_subjects = 0
     teacher_subject_links_added = 0
+    fallback_teacher_assignments = 0
     adviser_assignments = 0
     adviser_reassignments = 0
     adviser_conflicts = 0
@@ -1155,6 +1156,7 @@ def apply_schedule_template(request, template_id):
             teacher_obj = None
             raw_teacher_id = entry.get("teacher_user_id")
             teacher_username = str(entry.get("teacher_username") or "").strip()
+            has_teacher_reference = raw_teacher_id not in (None, "") or bool(teacher_username)
 
             teacher_key = (raw_teacher_id, teacher_username)
             if teacher_key in teacher_cache:
@@ -1175,6 +1177,19 @@ def apply_schedule_template(request, template_id):
 
                 teacher_cache[teacher_key] = teacher_obj
 
+            # If template rows have no explicit teacher assignment, fall back to the section adviser
+            # for subject rows so grade-encoding section discovery keeps working.
+            section_adviser_user = getattr(getattr(section_obj, "adviser", None), "user", None)
+            if (
+                teacher_obj is None
+                and not has_teacher_reference
+                and subject_obj is not None
+                and section_adviser_user is not None
+                and section_adviser_user.role == "TEACHER"
+            ):
+                teacher_obj = section_adviser_user
+                fallback_teacher_assignments += 1
+
             if teacher_obj and subject_obj:
                 teacher_profile, _ = TeacherProfile.objects.get_or_create(user=teacher_obj)
                 if not teacher_profile.subjects.filter(id=subject_obj.id).exists():
@@ -1185,7 +1200,7 @@ def apply_schedule_template(request, template_id):
                     teacher_profile.subject = subject_obj
                     teacher_profile.save(update_fields=["subject"])
 
-            if (raw_teacher_id not in (None, "") or teacher_username) and not teacher_obj:
+            if has_teacher_reference and not teacher_obj:
                 missing_teacher_key = (raw_teacher_id, teacher_username)
                 if missing_teacher_key not in missing_teacher_warning_keys:
                     missing_teacher_warning_keys.add(missing_teacher_key)
@@ -1235,6 +1250,7 @@ def apply_schedule_template(request, template_id):
             "existing_sections_used": existing_sections_used,
             "created_subjects": created_subjects,
             "teacher_subject_links_added": teacher_subject_links_added,
+            "fallback_teacher_assignments": fallback_teacher_assignments,
             "adviser_assignments": adviser_assignments,
             "adviser_reassignments": adviser_reassignments,
             "adviser_conflicts": adviser_conflicts,

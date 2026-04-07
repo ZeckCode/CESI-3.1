@@ -3131,6 +3131,7 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
       if (!silentStatus) {
         const existingSectionsUsed = data.existing_sections_used || 0;
         const existingRoomsUsed = data.existing_rooms_used || 0;
+        const fallbackTeacherAssignments = data.fallback_teacher_assignments || 0;
         const adviserReassignments = data.adviser_reassignments || 0;
         const adviserConflicts = data.adviser_conflicts || 0;
         const missingTeacherRefs = data.missing_teacher_references || 0;
@@ -3138,8 +3139,8 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
           ? ` Section blueprints synced: ${data.section_blueprints_applied}.`
           : '';
         const diagnosticsText =
-          adviserReassignments || adviserConflicts || missingTeacherRefs
-            ? ` Adviser reassignments: ${adviserReassignments}. Adviser conflicts: ${adviserConflicts}. Missing teacher refs: ${missingTeacherRefs}.`
+          fallbackTeacherAssignments || adviserReassignments || adviserConflicts || missingTeacherRefs
+            ? ` Fallback teacher assignments: ${fallbackTeacherAssignments}. Adviser reassignments: ${adviserReassignments}. Adviser conflicts: ${adviserConflicts}. Missing teacher refs: ${missingTeacherRefs}.`
             : '';
         const warningText = data.warnings_count ? ` ${data.warnings_count} warning(s).` : '';
         setTemplateStatus({
