@@ -32,28 +32,6 @@ const DAYS = [
   { value: 'FRI', label: 'Friday', short: 'Fri' },
 ];
 
-const TIME_SLOTS = [
-  { hour: 7.5, label: '7:30 AM' },
-  { hour: 8, label: '8:00 AM' },
-  { hour: 8.5, label: '8:30 AM' },
-  { hour: 9, label: '9:00 AM' },
-  { hour: 9.5, label: '9:30 AM' },
-  { hour: 10, label: '10:00 AM' },
-  { hour: 10.5, label: '10:30 AM' },
-  { hour: 11, label: '11:00 AM' },
-  { hour: 11.5, label: '11:30 AM' },
-  { hour: 12, label: '12:00 PM' },
-  { hour: 12.5, label: '12:30 PM' },
-  { hour: 13, label: '1:00 PM' },
-  { hour: 13.5, label: '1:30 PM' },
-  { hour: 14, label: '2:00 PM' },
-  { hour: 14.5, label: '2:30 PM' },
-  { hour: 15, label: '3:00 PM' },
-  { hour: 15.5, label: '3:30 PM' },
-  { hour: 16, label: '4:00 PM' },
-  { hour: 16.5, label: '4:30 PM' },
-];
-
 const normalizeGradeCode = (value) => {
   if (value === null || value === undefined) return '';
 
@@ -241,12 +219,11 @@ const formatTime = (t) => {
   return `${hour}:${m.toString().padStart(2, '0')} ${period}`;
 };
 
-/* helper: does this schedule overlap the given time slot? */
-const overlapsHour = (s, dayCode, slotHour) => {
-  if (s.day_of_week !== dayCode) return false;
-  const sh = timeToDecimal(s.start_time);
-  const eh = timeToDecimal(s.end_time);
-  return sh <= slotHour && eh > slotHour;
+/* helper: normalize time string into sortable HH:MM:SS key */
+const normalizeTimeKey = (t) => {
+  if (!t) return '';
+  const [h = '00', m = '00', s = '00'] = String(t).split(':');
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
 
 /* ═══════════════════════ MAIN COMPONENT ═══════════════════════ */
@@ -1504,6 +1481,16 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
     ? scopedSchedules.filter((s) => String(s.section) === filterSection)
     : scopedSchedules;
 
+  const timelineStartSlots = useMemo(() => {
+    const uniqueSlots = new Set(
+      filtered
+        .map((scheduleEntry) => normalizeTimeKey(scheduleEntry.start_time))
+        .filter(Boolean)
+    );
+
+    return Array.from(uniqueSlots).sort((a, b) => timeToDecimal(a) - timeToDecimal(b));
+  }, [filtered]);
+
   useEffect(() => {
     if (!scopedSections.length) {
       setFilterSection('');
@@ -2459,70 +2446,88 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
           )}
 
           <div className="admin-schedule-container timeline-container">
-            <table className="schedule-timeline-table">
-              <thead>
-                <tr>
-                  <th className="timeline-time-col">Time</th>
-                  {DAYS.map((d) => (
-                    <th key={d.value} className="timeline-day-header">
-                      {d.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {TIME_SLOTS.map((slot) => (
-                  <tr key={slot.hour} className="timeline-row">
-                    <td className="timeline-time-cell">{slot.label}</td>
-                    {DAYS.map((d) => {
-                      const entries = filtered.filter((s) => overlapsHour(s, d.value, slot.hour));
-                      return (
-                        <td key={d.value} className="timeline-cell">
-                          {entries.map((entry) => {
-                            const colors = colorFor(entry.subject);
-                            return (
-                              <div
-                                key={entry.id}
-                                className={`timeline-block ${
-                                  selected.has(entry.id) ? 'timeline-block--selected' : ''
-                                }`}
-                                style={{
-                                  backgroundColor: colors.bg,
-                                  borderLeftColor: colors.border,
-                                  color: colors.text,
-                                }}
-                                title={`${entry.subject_name} — ${entry.teacher_name}\n${formatTime(
-                                  entry.start_time
-                                )}–${formatTime(entry.end_time)}${
-                                  entry.room_code ? ' • Room ' + entry.room_code : ''
-                                }\nClick to select · Double-click to edit`}
-                                onClick={() => toggleSelect(entry.id)}
-                                onDoubleClick={() => openEdit(entry)}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={selected.has(entry.id)}
-                                  onChange={() => toggleSelect(entry.id)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="timeline-checkbox"
-                                />
-                                <div className="timeline-block-title">{entry.subject_name}</div>
-                                <div className="timeline-block-meta">{entry.teacher_name}</div>
-                                {entry.room_code && (
-                                  <div className="timeline-block-room">
-                                    <Home size={10} /> {entry.room_code}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </td>
-                      );
-                    })}
-                  </tr>
+            <div className="timeline-scroll">
+              <div
+                className="timeline-grid"
+                style={{ gridTemplateColumns: `90px repeat(${DAYS.length}, 1fr)` }}
+              >
+                <div className="timeline-time-header">
+                  <Clock size={16} />
+                </div>
+                {DAYS.map((d) => (
+                  <div key={d.value} className="timeline-day-header">
+                    {d.label}
+                  </div>
                 ))}
-              </tbody>
-            </table>
+
+                {timelineStartSlots.length === 0 ? (
+                  <div className="timeline-empty-calendar" style={{ gridColumn: '1 / -1' }}>
+                    No schedule entries.
+                  </div>
+                ) : (
+                  timelineStartSlots.map((slot) => (
+                    <React.Fragment key={slot}>
+                      <div className="timeline-time-cell">{formatTime(slot)}</div>
+
+                      {DAYS.map((d) => {
+                        const entries = filtered
+                          .filter(
+                            (s) => s.day_of_week === d.value && normalizeTimeKey(s.start_time) === slot
+                          )
+                          .sort((a, b) => timeToDecimal(a.end_time) - timeToDecimal(b.end_time));
+
+                        return (
+                          <div key={`${d.value}-${slot}`} className="timeline-cell">
+                            {entries.map((entry) => {
+                              const colors = colorFor(entry.subject);
+                              const roomCode = entry.room_code || entry.section_room_code || '';
+                              return (
+                                <div
+                                  key={entry.id}
+                                  className={`timeline-block ${
+                                    selected.has(entry.id) ? 'timeline-block--selected' : ''
+                                  }`}
+                                  style={{
+                                    backgroundColor: colors.bg,
+                                    borderLeftColor: colors.border,
+                                    color: colors.text,
+                                  }}
+                                  title={`${entry.subject_name} — ${entry.teacher_name}\n${formatTime(
+                                    entry.start_time
+                                  )}–${formatTime(entry.end_time)}${
+                                    roomCode ? ' • Room ' + roomCode : ''
+                                  }\nClick to select · Double-click to edit`}
+                                  onClick={() => toggleSelect(entry.id)}
+                                  onDoubleClick={() => openEdit(entry)}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selected.has(entry.id)}
+                                    onChange={() => toggleSelect(entry.id)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="timeline-checkbox"
+                                  />
+                                  <div className="timeline-block-title">{entry.subject_name}</div>
+                                  <div className="timeline-block-meta">{entry.teacher_name}</div>
+                                  <div className="timeline-block-meta">
+                                    {formatTime(entry.start_time)} – {formatTime(entry.end_time)}
+                                  </div>
+                                  {roomCode && (
+                                    <div className="timeline-block-room">
+                                      <Home size={10} /> {roomCode}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </>
       )}
