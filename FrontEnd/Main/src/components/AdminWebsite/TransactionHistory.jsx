@@ -200,6 +200,7 @@ const TransactionHistory = () => {
   const [requestLoading, setRequestLoading] = useState(false);
   const [processingRequestId, setProcessingRequestId] = useState(null);
   const [requestRemarks, setRequestRemarks] = useState({});
+  const [activeTab, setActiveTab] = useState('transactions');
 
 
 
@@ -1211,6 +1212,45 @@ const TransactionHistory = () => {
       </section>
 
       <section className="th-section">
+        <div style={{ borderBottom: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={() => setActiveTab('transactions')}
+              style={{
+                padding: '0.75rem 1.5rem',
+                border: 'none',
+                background: 'none',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: activeTab === 'transactions' ? '600' : '500',
+                color: activeTab === 'transactions' ? '#0f172a' : '#64748b',
+                borderBottom: activeTab === 'transactions' ? '2px solid #3b82f6' : 'none',
+                marginBottom: '-1px',
+              }}
+            >
+              Transactions
+            </button>
+            <button
+              onClick={() => setActiveTab('advance-refund')}
+              style={{
+                padding: '0.75rem 1.5rem',
+                border: 'none',
+                background: 'none',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: activeTab === 'advance-refund' ? '600' : '500',
+                color: activeTab === 'advance-refund' ? '#0f172a' : '#64748b',
+                borderBottom: activeTab === 'advance-refund' ? '2px solid #3b82f6' : 'none',
+                marginBottom: '-1px',
+              }}
+            >
+              Advance / Refund
+            </button>
+          </div>
+        </div>
+
+        {activeTab === 'transactions' && (
+        <div>
         <div className="th-section-header">
           <div>
             <h2 className="th-section-title">Transaction History</h2>
@@ -1489,8 +1529,11 @@ const TransactionHistory = () => {
             itemsPerPage={ITEMS_PER_PAGE}
           />
         </div>
-      </section>
-      <section className="th-section">
+        </div>
+        )}
+
+        {activeTab === 'advance-refund' && (
+        <div>
         <div className="th-section-header">
           <div>
             <h2 className="th-section-title">Advance / Refund Requests</h2>
@@ -1593,6 +1636,8 @@ const TransactionHistory = () => {
             </tbody>
           </table>
         </div>
+        </div>
+        )}
       </section>
 
 
