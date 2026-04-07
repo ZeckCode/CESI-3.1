@@ -298,29 +298,50 @@ const Grade = () => {
     }
 
     (async () => {
-      try {
+      const fetchSectionsForSubject = async (subjectId) => {
         const schoolYearParam = schoolYear?.id
           ? `&school_year=${encodeURIComponent(schoolYear.id)}`
           : "";
 
         const res = await apiFetch(
-          `${API}/api/grades/my-sections/?subject=${selectedSubjectId}${schoolYearParam}`
+          `${API}/api/grades/my-sections/?subject=${subjectId}${schoolYearParam}`
         );
 
         if (!res.ok) {
-          setSections([]);
-          setSelectedSection("");
-          return;
+          return [];
         }
 
         const data = await res.json();
-        const nextSections = Array.isArray(data) ? data : [];
+        return Array.isArray(data) ? data : [];
+      };
+
+      try {
+        let subjectToUse = String(selectedSubjectId);
+        let nextSections = await fetchSectionsForSubject(subjectToUse);
+
+        if (!nextSections.length) {
+          const fallbackSubject = availableSubjects.find(
+            (subject) => String(subject.id) !== String(selectedSubjectId)
+          );
+
+          if (fallbackSubject) {
+            const fallbackSections = await fetchSectionsForSubject(fallbackSubject.id);
+            if (fallbackSections.length) {
+              subjectToUse = String(fallbackSubject.id);
+              nextSections = fallbackSections;
+            }
+          }
+        }
 
         setSections(nextSections);
 
         if (!nextSections.length) {
           setSelectedSection("");
           return;
+        }
+
+        if (subjectToUse !== String(selectedSubjectId)) {
+          setSelectedSubjectId(subjectToUse);
         }
 
         setSelectedSection((prev) => {
@@ -335,7 +356,7 @@ const Grade = () => {
         setSelectedSection("");
       }
     })();
-  }, [selectedSubjectId, schoolYear?.id]);
+  }, [selectedSubjectId, schoolYear?.id, availableSubjects]);
 
   const fetchAll = useCallback(async () => {
     if (!selectedSubjectId || !selectedSection) {

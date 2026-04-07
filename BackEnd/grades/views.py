@@ -42,6 +42,38 @@ def teacher_schedule_access_q(user):
     return Q(teacher=user) | Q(teacher__isnull=True, section__adviser__user=user)
 
 
+def get_teacher_schedule_subject_ids(user, school_year_obj=None):
+    qs = Schedule.objects.filter(
+        teacher_schedule_access_q(user),
+        subject__isnull=False,
+    )
+    if school_year_obj:
+        qs = qs.filter(school_year=school_year_obj)
+    return list(qs.values_list("subject_id", flat=True).distinct())
+
+
+def get_teacher_subjects_for_grades(user, teacher_profile, school_year_obj=None):
+    """
+    Resolve teacher subjects robustly for teacher-side grade flows:
+    1) profile multi-subject + legacy primary subject
+    2) fallback subject IDs discovered from accessible schedules
+    """
+    subjects = get_teacher_subjects(teacher_profile)
+    subject_map = {subj.id: subj for subj in subjects}
+
+    schedule_subject_ids = get_teacher_schedule_subject_ids(user, school_year_obj=school_year_obj)
+    missing_ids = [sid for sid in schedule_subject_ids if sid not in subject_map]
+    if missing_ids:
+        for subj in Subject.objects.filter(id__in=missing_ids).order_by("name"):
+            subject_map[subj.id] = subj
+
+    ordered_subjects = sorted(
+        subject_map.values(),
+        key=lambda subj: (0 if subj.id in schedule_subject_ids else 1, (subj.name or "").lower()),
+    )
+    return ordered_subjects, set(schedule_subject_ids)
+
+
 def normalize_grade_level(value):
     if value is None:
         return None
@@ -448,6 +480,8 @@ def publish_academic_history(request):
             return Response({"detail": "No subject assigned"}, status=403)
 
         teacher_subject_ids = set(get_teacher_subject_ids(user.teacher_profile))
+        if not teacher_subject_ids:
+            teacher_subject_ids = set(get_teacher_schedule_subject_ids(user))
         if not teacher_subject_ids:
             return Response({"detail": "No subject assigned"}, status=403)
 
@@ -858,9 +892,19 @@ def teacher_info(request):
     try:
         tp = user.teacher_profile
 
-        subjects = get_teacher_subjects(tp)
+        active_school_year = SchoolYear.objects.filter(is_active=True).first()
+        subjects, scheduled_subject_ids = get_teacher_subjects_for_grades(
+            user,
+            tp,
+            school_year_obj=active_school_year,
+        )
         if subjects:
-            primary_subject = tp.subject or subjects[0]
+            primary_subject = tp.subject if tp.subject in subjects else None
+            if primary_subject is None:
+                primary_subject = next(
+                    (subj for subj in subjects if subj.id in scheduled_subject_ids),
+                    subjects[0],
+                )
             return Response({
                 "subject_id": primary_subject.id,
                 "subject_name": primary_subject.name,
@@ -923,6 +967,8 @@ def section_performance(request):
             return Response({"detail": "Teacher profile not found"}, status=404)
 
         teacher_subject_ids = get_teacher_subject_ids(teacher_profile)
+        if not teacher_subject_ids:
+            teacher_subject_ids = get_teacher_schedule_subject_ids(user, school_year_obj=school_year_obj)
         if not teacher_subject_ids:
             return Response({"detail": "No subject assigned to this teacher"}, status=404)
 
