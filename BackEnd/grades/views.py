@@ -34,6 +34,14 @@ def get_teacher_subject_ids(tp):
     return [subj.id for subj in get_teacher_subjects(tp)]
 
 
+def teacher_schedule_access_q(user):
+    """
+    Teachers can access schedules explicitly assigned to them, and legacy/unassigned
+    schedule rows where they are the section adviser.
+    """
+    return Q(teacher=user) | Q(teacher__isnull=True, section__adviser__user=user)
+
+
 def normalize_grade_level(value):
     if value is None:
         return None
@@ -452,7 +460,11 @@ def publish_academic_history(request):
         return Response({"detail": "Subject not found"}, status=404)
 
     if user.role == "TEACHER":
-        if not Schedule.objects.filter(teacher=user, section_id=section_obj.id, subject_id=subject.id).exists():
+        if not Schedule.objects.filter(
+            teacher_schedule_access_q(user),
+            section_id=section_obj.id,
+            subject_id=subject.id,
+        ).exists():
             return Response({"detail": "Forbidden"}, status=403)
 
     enrollments = Enrollment.objects.filter(section=section_obj, status="ACTIVE").select_related("student")
@@ -926,7 +938,7 @@ def section_performance(request):
             subject_id = teacher_profile.subject_id or teacher_subject_ids[0]
 
         teacher_schedules = Schedule.objects.filter(
-            teacher=user,
+            teacher_schedule_access_q(user),
             section_id=section_id,
             subject_id=subject_id,
         )
@@ -1067,7 +1079,11 @@ def teacher_sections(request):
     subject_id = request.query_params.get("subject")
     raw_school_year = request.query_params.get("school_year")
 
-    qs = Schedule.objects.select_related("section", "subject", "school_year").filter(teacher=user)
+    qs = (
+        Schedule.objects
+        .select_related("section", "subject", "school_year")
+        .filter(teacher_schedule_access_q(user))
+    )
 
     if raw_school_year not in (None, ""):
         try:
@@ -1127,7 +1143,7 @@ def students_by_section(request, section_id):
         school_year_obj = SchoolYear.objects.filter(is_active=True).first()
 
     if user.role == "TEACHER":
-        allowed_qs = Schedule.objects.filter(teacher=user, section_id=section_id)
+        allowed_qs = Schedule.objects.filter(teacher_schedule_access_q(user), section_id=section_id)
         if school_year_obj:
             allowed_qs = allowed_qs.filter(school_year=school_year_obj)
         allowed = allowed_qs.exists()
