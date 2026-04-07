@@ -348,7 +348,7 @@
 }
 
 .calTd{
-  height: 90px;
+  min-height: 90px;
   vertical-align: top;
   border-right: 1px solid var(--border);
   border-left: 1px solid var(--border);
@@ -358,8 +358,13 @@
 .calBlock{
   padding: 6px;
   border-radius: 10px;
-  background: rgba(255,255,255,.7);
+  background: rgba(255,255,255,.88);
   border: 1px solid rgba(0,0,0,.06);
+  margin-bottom: 6px;
+}
+
+.calTd .calBlock:last-child {
+  margin-bottom: 0;
 }
 
 .calBlock__title{

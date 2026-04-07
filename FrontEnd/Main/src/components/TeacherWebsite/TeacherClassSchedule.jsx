@@ -16,10 +16,19 @@ const DAY_MAP = {
 };
 
 const DAYS_ORDER = ["MON", "TUE", "WED", "THU", "FRI"];
-const TIME_SLOTS = [
-  "07:00", "08:00", "09:00", "10:00", "11:00", "12:00",
-  "13:00", "14:00", "15:00", "16:00", "17:00",
-];
+
+const normalizeTimeKey = (time) => {
+  if (!time) return "";
+  const [h = "00", m = "00", s = "00"] = String(time).split(":");
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+};
+
+const timeToMinutes = (time) => {
+  const [h = 0, m = 0] = String(time)
+    .split(":")
+    .map((part) => Number(part));
+  return h * 60 + m;
+};
 
 // Color palette for subjects
 const SUBJECT_COLORS = [
@@ -219,19 +228,15 @@ const TeacherClassSchedule = () => {
     return `${gradeLabel} - ${sectionName}`;
   };
 
-  const getClassForSlot = (day, timeSlot) => {
-    const slotHour = parseInt(timeSlot.split(":")[0], 10);
+  const calendarStartSlots = useMemo(() => {
+    const uniqueSlots = new Set(
+      schedules
+        .map((sched) => normalizeTimeKey(sched.start_time))
+        .filter(Boolean)
+    );
 
-    return schedules.find((s) => {
-      if (s.day_of_week !== day) return false;
-      if (!s.start_time) return false;
-
-      const startHour = parseInt(s.start_time.split(":")[0], 10);
-      const endHour = s.end_time ? parseInt(s.end_time.split(":")[0], 10) : startHour + 1;
-
-      return slotHour >= startHour && slotHour < endHour;
-    });
-  };
+    return Array.from(uniqueSlots).sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
+  }, [schedules]);
 
   const handlePrint = () => {
     const sortedSchedules = schedules.sort((a, b) => {
@@ -405,39 +410,51 @@ const TeacherClassSchedule = () => {
                 </tr>
               </thead>
               <tbody>
-                {TIME_SLOTS.map((timeSlot) => (
-                  <tr key={timeSlot} className="calTr">
-                    <td className="calTime">{formatTime(timeSlot + ":00")}</td>
-                    {DAYS_ORDER.map((day) => {
-                      const sched = getClassForSlot(day, timeSlot);
-                      const bgColor = sched ? subjectColorMap[sched.subject] : "transparent";
-                      return (
-                        <td
-                          key={day}
-                          className="calTd"
-                          style={{ backgroundColor: bgColor }}
-                        >
-                          {sched && (
-                            <div className="calBlock">
-                              <div className="calBlock__title">
-                                {sched.subject_name}
-                              </div>
-                              <div className="calBlock__meta">
-                                {sectionLabel(sched)}
-                              </div>
-                              <div className="calBlock__meta">
-                                {sched.room_code || "TBA"}
-                              </div>
-                              <div className="calBlock__time">
-                                {formatTime(sched.start_time)} - {formatTime(sched.end_time)}
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
+                {calendarStartSlots.length === 0 ? (
+                  <tr>
+                    <td className="tcsTd tcs__empty" colSpan={DAYS_ORDER.length + 1}>
+                      No schedules assigned yet.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  calendarStartSlots.map((timeSlot) => (
+                    <tr key={timeSlot} className="calTr">
+                      <td className="calTime">{formatTime(timeSlot)}</td>
+                      {DAYS_ORDER.map((day) => {
+                        const slotSchedules = schedules
+                          .filter(
+                            (s) => s.day_of_week === day && normalizeTimeKey(s.start_time) === timeSlot
+                          )
+                          .sort((a, b) => timeToMinutes(a.end_time) - timeToMinutes(b.end_time));
+
+                        return (
+                          <td key={day} className="calTd">
+                            {slotSchedules.map((sched) => (
+                              <div
+                                key={sched.id}
+                                className="calBlock"
+                                style={{ backgroundColor: subjectColorMap[sched.subject] || "#ffffff" }}
+                              >
+                                <div className="calBlock__title">
+                                  {sched.subject_name}
+                                </div>
+                                <div className="calBlock__meta">
+                                  {sectionLabel(sched)}
+                                </div>
+                                <div className="calBlock__meta">
+                                  {sched.room_code || "TBA"}
+                                </div>
+                                <div className="calBlock__time">
+                                  {formatTime(sched.start_time)} - {formatTime(sched.end_time)}
+                                </div>
+                              </div>
+                            ))}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
