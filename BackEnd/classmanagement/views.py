@@ -791,7 +791,16 @@ def schedule_templates(request):
     else:
         source_school_year = SchoolYear.objects.filter(is_active=True).first()
 
-    source_qs = Schedule.objects.select_related("section", "subject", "room", "school_year", "section__room")
+    source_qs = Schedule.objects.select_related(
+        "section",
+        "subject",
+        "teacher",
+        "room",
+        "school_year",
+        "section__room",
+        "section__adviser",
+        "section__adviser__user",
+    )
     if source_school_year:
         source_qs = source_qs.filter(school_year=source_school_year)
 
@@ -811,12 +820,20 @@ def schedule_templates(request):
             continue
 
         room_obj = sched.room or sched.section.room
+        adviser_profile = getattr(sched.section, "adviser", None)
+        adviser_user = getattr(adviser_profile, "user", None)
         template_payload.append(
             {
                 "section_name": sched.section.name,
                 "grade_level": sched.section.grade_level,
                 "section_capacity": sched.section.capacity,
                 "subject_id": sched.subject_id,
+                "subject_name": sched.subject.name if sched.subject else "",
+                "subject_code": sched.subject.code if sched.subject else "",
+                "teacher_user_id": sched.teacher_id,
+                "teacher_username": sched.teacher.username if sched.teacher else "",
+                "section_adviser_user_id": adviser_user.id if adviser_user else None,
+                "section_adviser_username": adviser_user.username if adviser_user else "",
                 "day_of_week": sched.day_of_week,
                 "start_time": sched.start_time.isoformat(),
                 "end_time": sched.end_time.isoformat(),
@@ -849,7 +866,7 @@ def schedule_templates(request):
 def apply_schedule_template(request, template_id):
     """
     Apply a saved schedule template into a target school year.
-    Teachers are intentionally left unassigned for new-school-year staffing.
+    Recreates missing sections/rooms and restores teacher + subject links when possible.
     """
     if request.user.role != "ADMIN":
         return Response({"detail": "Forbidden"}, status=403)
@@ -884,9 +901,17 @@ def apply_schedule_template(request, template_id):
 
     created_count = 0
     cleared_count = 0
+    created_rooms = 0
+    created_sections = 0
+    created_subjects = 0
+    teacher_subject_links_added = 0
+    adviser_assignments = 0
     skipped = []
+    warnings = []
     section_cache = {}
     room_cache = {}
+    subject_cache = {}
+    teacher_cache = {}
 
     with transaction.atomic():
         if clear_existing:
@@ -909,7 +934,7 @@ def apply_schedule_template(request, template_id):
                 if room_code in room_cache:
                     room_obj = room_cache[room_code]
                 else:
-                    room_obj, _ = Room.objects.get_or_create(
+                    room_obj, room_created = Room.objects.get_or_create(
                         code=room_code,
                         defaults={
                             "name": str(entry.get("room_name") or "").strip(),
@@ -917,6 +942,8 @@ def apply_schedule_template(request, template_id):
                             "is_active": True,
                         },
                     )
+                    if room_created:
+                        created_rooms += 1
                     room_cache[room_code] = room_obj
 
             section_key = (grade_level, section_name)
@@ -929,12 +956,14 @@ def apply_schedule_template(request, template_id):
                 if room_obj:
                     section_defaults["room"] = room_obj
 
-                section_obj, _ = Section.objects.get_or_create(
+                section_obj, section_created = Section.objects.get_or_create(
                     school_year=target_school_year,
                     grade_level=grade_level,
                     name=section_name,
                     defaults=section_defaults,
                 )
+                if section_created:
+                    created_sections += 1
 
                 if room_obj and section_obj.room_id != room_obj.id:
                     section_obj.room = room_obj
@@ -942,13 +971,110 @@ def apply_schedule_template(request, template_id):
 
                 section_cache[section_key] = section_obj
 
+            adviser_user = None
+            raw_adviser_user_id = entry.get("section_adviser_user_id")
+            adviser_username = str(entry.get("section_adviser_username") or "").strip()
+
+            if raw_adviser_user_id not in (None, ""):
+                try:
+                    adviser_user = User.objects.filter(id=int(raw_adviser_user_id), role="TEACHER").first()
+                except (TypeError, ValueError):
+                    adviser_user = None
+
+            if adviser_user is None and adviser_username:
+                adviser_user = User.objects.filter(username=adviser_username, role="TEACHER").first()
+
+            if adviser_user:
+                adviser_profile, _ = TeacherProfile.objects.get_or_create(user=adviser_user)
+                existing_adviser_section = Section.objects.filter(adviser=adviser_profile).exclude(pk=section_obj.pk).first()
+
+                if existing_adviser_section and existing_adviser_section.school_year_id != target_school_year.id:
+                    warnings.append(
+                        {
+                            "row": idx,
+                            "reason": (
+                                f"Adviser {adviser_user.username} is already linked to "
+                                f"{existing_adviser_section.name}; skipped adviser assignment for {section_name}."
+                            ),
+                        }
+                    )
+                elif section_obj.adviser_id != adviser_profile.id:
+                    section_obj.adviser = adviser_profile
+                    section_obj.save(update_fields=["adviser"])
+                    adviser_assignments += 1
+
             subject_obj = None
-            subject_id = entry.get("subject_id")
-            if subject_id not in (None, ""):
-                subject_obj = Subject.objects.filter(pk=subject_id).first()
-                if subject_obj is None:
-                    skipped.append({"row": idx, "reason": f"Subject {subject_id} does not exist"})
-                    continue
+            raw_subject_id = entry.get("subject_id")
+            subject_code = str(entry.get("subject_code") or "").strip()
+            subject_name = str(entry.get("subject_name") or "").strip()
+
+            cache_key = (raw_subject_id, subject_code, subject_name)
+            if cache_key in subject_cache:
+                subject_obj = subject_cache[cache_key]
+            else:
+                subject_id = None
+                if raw_subject_id not in (None, ""):
+                    try:
+                        subject_id = int(raw_subject_id)
+                    except (TypeError, ValueError):
+                        subject_id = None
+
+                if subject_id:
+                    subject_obj = Subject.objects.filter(pk=subject_id).first()
+
+                if subject_obj is None and (subject_code or subject_name):
+                    if subject_code:
+                        subject_obj, subject_created = Subject.objects.get_or_create(
+                            code=subject_code,
+                            defaults={"name": subject_name or subject_code},
+                        )
+                    else:
+                        generated_code = "".join(ch for ch in subject_name.upper() if ch.isalnum())[:20] or f"SUBJ{idx}"
+                        subject_obj, subject_created = Subject.objects.get_or_create(
+                            code=generated_code,
+                            defaults={"name": subject_name or generated_code},
+                        )
+
+                    if subject_created:
+                        created_subjects += 1
+
+                subject_cache[cache_key] = subject_obj
+
+            teacher_obj = None
+            raw_teacher_id = entry.get("teacher_user_id")
+            teacher_username = str(entry.get("teacher_username") or "").strip()
+
+            teacher_key = (raw_teacher_id, teacher_username)
+            if teacher_key in teacher_cache:
+                teacher_obj = teacher_cache[teacher_key]
+            else:
+                teacher_id = None
+                if raw_teacher_id not in (None, ""):
+                    try:
+                        teacher_id = int(raw_teacher_id)
+                    except (TypeError, ValueError):
+                        teacher_id = None
+
+                if teacher_id:
+                    teacher_obj = User.objects.filter(id=teacher_id, role="TEACHER").first()
+
+                if teacher_obj is None and teacher_username:
+                    teacher_obj = User.objects.filter(username=teacher_username, role="TEACHER").first()
+
+                teacher_cache[teacher_key] = teacher_obj
+
+            if teacher_obj and subject_obj:
+                teacher_profile, _ = TeacherProfile.objects.get_or_create(user=teacher_obj)
+                if not teacher_profile.subjects.filter(id=subject_obj.id).exists():
+                    teacher_profile.subjects.add(subject_obj)
+                    teacher_subject_links_added += 1
+
+                if teacher_profile.subject_id is None:
+                    teacher_profile.subject = subject_obj
+                    teacher_profile.save(update_fields=["subject"])
+
+            if (raw_teacher_id not in (None, "") or teacher_username) and not teacher_obj:
+                warnings.append({"row": idx, "reason": "Referenced teacher was not found; schedule created as unassigned."})
 
             try:
                 start_time = time_class.fromisoformat(str(entry.get("start_time") or ""))
@@ -957,8 +1083,12 @@ def apply_schedule_template(request, template_id):
                 skipped.append({"row": idx, "reason": "Invalid time format"})
                 continue
 
+            if start_time >= end_time:
+                skipped.append({"row": idx, "reason": "End time must be later than start time"})
+                continue
+
             payload = {
-                "teacher": None,
+                "teacher": teacher_obj,
                 "subject": subject_obj,
                 "section": section_obj,
                 "day_of_week": day_of_week,
@@ -970,9 +1100,7 @@ def apply_schedule_template(request, template_id):
 
             conflicts = ScheduleListCreate._check_conflicts(payload)
             if conflicts:
-                conflict_reason = "; ".join(
-                    [c.get("message", "Conflict") for c in conflicts if isinstance(c, dict)]
-                ) or "Schedule conflict"
+                conflict_reason = conflicts.get("message") if isinstance(conflicts, dict) else "Schedule conflict"
                 skipped.append({"row": idx, "reason": conflict_reason})
                 continue
 
@@ -985,11 +1113,34 @@ def apply_schedule_template(request, template_id):
             "target_school_year": target_school_year.name,
             "cleared_count": cleared_count,
             "created_count": created_count,
+            "created_rooms": created_rooms,
+            "created_sections": created_sections,
+            "created_subjects": created_subjects,
+            "teacher_subject_links_added": teacher_subject_links_added,
+            "adviser_assignments": adviser_assignments,
             "skipped_count": len(skipped),
             "skipped": skipped,
+            "warnings_count": len(warnings),
+            "warnings": warnings,
         },
         status=201,
     )
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_schedule_template(request, template_id):
+    """Delete a saved schedule template."""
+    if request.user.role != "ADMIN":
+        return Response({"detail": "Forbidden"}, status=403)
+
+    try:
+        template = ScheduleTemplate.objects.get(pk=template_id)
+    except ScheduleTemplate.DoesNotExist:
+        return Response({"detail": "Template not found"}, status=404)
+
+    template.delete()
+    return Response({"detail": "Template deleted successfully."})
 
 
 # ══════════════════════════════════════════════════════

@@ -332,8 +332,31 @@ const UserManagement = () => {
   const normalizeSubjectIds = (subjectIds) => {
     const values = (subjectIds || [])
       .map((id) => Number(id))
-      .filter((id) => Number.isFinite(id));
+      .filter((id) => Number.isInteger(id) && id > 0);
     return [...new Set(values)];
+  };
+
+  const extractErrorMessage = (payload, fallback = 'Request failed.') => {
+    if (!payload) return fallback;
+
+    const stringifyValue = (value) => {
+      if (!value) return '';
+      if (Array.isArray(value)) return value.join(' ');
+      if (typeof value === 'string') return value;
+      return '';
+    };
+
+    return (
+      stringifyValue(payload.detail)
+      || stringifyValue(payload.non_field_errors)
+      || stringifyValue(payload.subjects)
+      || stringifyValue(payload.subject)
+      || stringifyValue(payload.section)
+      || stringifyValue(payload.section_teacher)
+      || stringifyValue(payload.email)
+      || stringifyValue(payload.errors?.detail)
+      || fallback
+    );
   };
 
   const addSubjectPicker = (setter) => {
@@ -432,7 +455,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.detail || data.errors?.detail || JSON.stringify(data.errors || data));
+        throw new Error(extractErrorMessage(data, 'Failed to create teacher.'));
       }
       setShowCreateForm(false);
       setCreateForm({ username: '', email: '', password: '', subjects: [''], section_teacher: '', employee_id: '' });
@@ -530,7 +553,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || JSON.stringify(err));
+        throw new Error(extractErrorMessage(err, 'Failed to update teacher assignment.'));
       }
       setEditingId(null);
       await fetchTeachers();

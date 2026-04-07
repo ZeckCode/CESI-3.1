@@ -15,6 +15,7 @@ from .views import (
     get_active_school_year,
     schedule_templates,
     apply_schedule_template,
+    delete_schedule_template,
 )
 
 urlpatterns = [
@@ -26,6 +27,7 @@ urlpatterns = [
     path("schedules/bulk-delete/", bulk_delete_schedules, name="schedule-bulk-delete"),
     path("schedules/bulk-update/", bulk_update_schedules, name="schedule-bulk-update"),
     path("schedules/templates/", schedule_templates, name="schedule-templates"),
+    path("schedules/templates/<int:template_id>/", delete_schedule_template, name="schedule-template-delete"),
     path("schedules/templates/<int:template_id>/apply/", apply_schedule_template, name="schedule-template-apply"),
     path("schedules/my/", my_schedule, name="my-schedule"),
     

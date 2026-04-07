@@ -1274,56 +1274,11 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
   const [copySourceDay, setCopySourceDay] = useState('MON');
   const [copyTargetDays, setCopyTargetDays] = useState(new Set(['TUE', 'WED', 'THU', 'FRI']));
   const [copyGenerating, setCopyGenerating] = useState(false);
-  const [templates, setTemplates] = useState([]);
-  const [templateLoading, setTemplateLoading] = useState(false);
   const [viewSchoolYear, setViewSchoolYear] = useState(activeSchoolYear?.id ? String(activeSchoolYear.id) : '');
   const [viewSections, setViewSections] = useState([]);
   const [viewSchedules, setViewSchedules] = useState([]);
   const [viewYearLoading, setViewYearLoading] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState('');
-  const [clearExistingBeforeApply, setClearExistingBeforeApply] = useState(true);
-  const [applyingTemplate, setApplyingTemplate] = useState(false);
-  const [templateStatus, setTemplateStatus] = useState({ type: '', message: '' });
-
-  const isLocalHost =
-    typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
-
-  const missingTemplateEndpointMessage = isLocalHost
-    ? 'Schedule template endpoint is not available on the local backend yet. Restart your backend and ensure latest classmanagement URLs are loaded.'
-    : 'Schedule template endpoint is not available on the server yet. Please deploy the latest backend updates.';
-
-  const fetchTemplates = useCallback(async () => {
-    setTemplateLoading(true);
-    try {
-      const r = await apiFetch('/api/classmanagement/schedules/templates/');
-      if (!r.ok) {
-        if (r.status === 404) {
-          throw new Error(missingTemplateEndpointMessage);
-        }
-        throw new Error('Failed to load templates.');
-      }
-      const data = await r.json();
-      const list = Array.isArray(data) ? data : [];
-      setTemplates(list);
-      setTemplateStatus((prev) => (prev.type === 'error' ? prev : { type: '', message: '' }));
-      setSelectedTemplateId((prev) => {
-        if (!list.length) return '';
-        const hasPrev = list.some((t) => String(t.id) === String(prev));
-        return hasPrev ? String(prev) : String(list[0].id);
-      });
-    } catch (e) {
-      console.error(e);
-      setTemplates([]);
-      setSelectedTemplateId('');
-      setTemplateStatus({ type: 'error', message: e.message || 'Failed to load templates.' });
-    } finally {
-      setTemplateLoading(false);
-    }
-  }, [missingTemplateEndpointMessage]);
-
-  useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
+  const [viewLoadError, setViewLoadError] = useState('');
 
   useEffect(() => {
     if (activeSchoolYear?.id) {
@@ -1336,10 +1291,12 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
     if (!viewSchoolYear) {
       setViewSections([]);
       setViewSchedules([]);
+      setViewLoadError('');
       return;
     }
 
     setViewYearLoading(true);
+    setViewLoadError('');
     try {
       const [sectionsRes, schedulesRes] = await Promise.all([
         apiFetch(`/api/accounts/sections/?school_year=${encodeURIComponent(viewSchoolYear)}`),
@@ -1360,7 +1317,7 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
       setViewSections(Array.isArray(sectionsData) ? sectionsData : []);
       setViewSchedules(Array.isArray(schedulesData) ? schedulesData : []);
     } catch (e) {
-      setTemplateStatus({ type: 'error', message: e.message || 'Failed to load selected school year data.' });
+      setViewLoadError(e.message || 'Failed to load selected school year data.');
       setViewSections([]);
       setViewSchedules([]);
     } finally {
@@ -1374,108 +1331,6 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
 
   const scopedSections = viewSchoolYear ? viewSections : sections;
   const scopedSchedules = viewSchoolYear ? viewSchedules : schedules;
-
-  const handleSaveTemplate = async () => {
-    const sourceYearId = viewSchoolYear || (activeSchoolYear?.id ? String(activeSchoolYear.id) : '');
-    if (!sourceYearId) {
-      setTemplateStatus({ type: 'error', message: 'Please choose a school year from the top dropdown first.' });
-      return;
-    }
-
-    const sourceYear = schoolYears.find((sy) => String(sy.id) === String(sourceYearId)) || activeSchoolYear;
-    const now = new Date();
-    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-      now.getDate()
-    ).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const templateName = `${sourceYear?.name || 'Selected School Year'} Template ${timestamp}`;
-
-    try {
-      setTemplateStatus({ type: '', message: '' });
-      const payload = {
-        name: templateName.trim(),
-        source_school_year: Number(sourceYearId),
-      };
-
-      const r = await apiFetch('/api/classmanagement/schedules/templates/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        if (r.status === 404) {
-          throw new Error(missingTemplateEndpointMessage);
-        }
-        throw new Error(data.detail || JSON.stringify(data) || 'Failed to save template.');
-      }
-
-      setTemplateStatus({
-        type: 'success',
-        message:
-          `Saved template "${data.name}" from ${sourceYear?.name || 'selected school year'} ` +
-          `with ${data.entry_count || 0} schedule entries.`,
-      });
-      await Promise.all([fetchTemplates(), refreshViewYearData()]);
-    } catch (e) {
-      setTemplateStatus({ type: 'error', message: e.message || 'Failed to save template.' });
-    }
-  };
-
-  const handleApplyTemplate = async () => {
-    const targetYearId = activeSchoolYear?.id ? String(activeSchoolYear.id) : '';
-    if (!selectedTemplateId) {
-      setTemplateStatus({ type: 'error', message: 'Please select a template first.' });
-      return;
-    }
-    if (!targetYearId) {
-      setTemplateStatus({ type: 'error', message: 'No active school year available as template target.' });
-      return;
-    }
-
-    const selectedTemplate = templates.find((tpl) => String(tpl.id) === String(selectedTemplateId));
-    const targetYear = schoolYears.find((sy) => String(sy.id) === String(targetYearId)) || activeSchoolYear;
-
-    const confirmed = window.confirm(
-      `Apply template "${selectedTemplate?.name || selectedTemplateId}" to ${targetYear?.name || 'selected school year'}?\n\n` +
-        `Clear existing schedules first: ${clearExistingBeforeApply ? 'Yes' : 'No'}`
-    );
-    if (!confirmed) return;
-
-    setApplyingTemplate(true);
-    try {
-      setTemplateStatus({ type: '', message: '' });
-      const r = await apiFetch(`/api/classmanagement/schedules/templates/${selectedTemplateId}/apply/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          school_year_id: Number(targetYearId),
-          clear_existing: clearExistingBeforeApply,
-        }),
-      });
-
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        if (r.status === 404) {
-          throw new Error(missingTemplateEndpointMessage);
-        }
-        throw new Error(data.detail || JSON.stringify(data) || 'Failed to apply template.');
-      }
-
-      setTemplateStatus({
-        type: 'success',
-        message:
-          `Applied template successfully. Created ${data.created_count || 0} schedules.` +
-          (data.cleared_count ? ` Cleared ${data.cleared_count} existing schedules first.` : ''),
-      });
-
-      await Promise.all([onRefresh(), refreshViewYearData()]);
-    } catch (e) {
-      setTemplateStatus({ type: 'error', message: e.message || 'Failed to apply template.' });
-    } finally {
-      setApplyingTemplate(false);
-    }
-  };
 
   const filtered = filterSection
     ? scopedSchedules.filter((s) => String(s.section) === filterSection)
@@ -1896,55 +1751,6 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
           <Copy size={18} /> Copy Day
         </button>
 
-        <button
-          className="admin-btn-primary"
-          onClick={handleSaveTemplate}
-          style={{ background: '#0f766e' }}
-        >
-          <Save size={18} /> Save Template
-        </button>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <select
-            value={selectedTemplateId}
-            onChange={(e) => setSelectedTemplateId(e.target.value)}
-            disabled={templateLoading || templates.length === 0}
-            style={{ minWidth: 180 }}
-          >
-            {templates.length === 0 ? (
-              <option value="">No templates</option>
-            ) : (
-              templates.map((tpl) => (
-                <option key={tpl.id} value={tpl.id}>
-                  {tpl.name}
-                </option>
-              ))
-            )}
-          </select>
-
-          <span style={{ fontSize: 12, color: '#475569' }}>
-            Target: {activeSchoolYear?.name || 'No active year'}
-          </span>
-
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-            <input
-              type="checkbox"
-              checked={clearExistingBeforeApply}
-              onChange={(e) => setClearExistingBeforeApply(e.target.checked)}
-            />
-            Clear existing
-          </label>
-
-          <button
-            className="admin-btn-primary"
-            onClick={handleApplyTemplate}
-            disabled={applyingTemplate || !selectedTemplateId || !activeSchoolYear}
-            style={{ background: '#1d4ed8' }}
-          >
-            <Download size={18} /> {applyingTemplate ? 'Applying…' : 'Apply Template'}
-          </button>
-        </div>
-
         {selected.size > 0 && (
           <>
             <button
@@ -1972,24 +1778,9 @@ function SchedulesTab({ sections, subjects, teachers, schedules, rooms, schoolYe
         </div>
       )}
 
-      <div style={{ marginBottom: 10, fontSize: 12, color: '#64748b' }}>
-        Templates include schedules with section, room, and subject references from the selected source year.
-      </div>
-
-      {templateStatus.message && (
-        <div
-          style={{
-            marginTop: 10,
-            marginBottom: 10,
-            padding: '10px 12px',
-            borderRadius: 8,
-            border: `1px solid ${templateStatus.type === 'error' ? '#fca5a5' : '#86efac'}`,
-            background: templateStatus.type === 'error' ? '#fef2f2' : '#f0fdf4',
-            color: templateStatus.type === 'error' ? '#991b1b' : '#166534',
-            fontSize: 13,
-          }}
-        >
-          {templateStatus.message}
+      {viewLoadError && (
+        <div style={{ marginBottom: 10, fontSize: 13, color: '#b91c1c' }}>
+          {viewLoadError}
         </div>
       )}
 
@@ -3135,6 +2926,259 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const [templates, setTemplates] = useState([]);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateStatus, setTemplateStatus] = useState({ type: '', message: '' });
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+  const [templateSourceYearId, setTemplateSourceYearId] = useState('');
+  const [templateTargetYearId, setTemplateTargetYearId] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [clearExistingBeforeApply, setClearExistingBeforeApply] = useState(true);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [deletingTemplateId, setDeletingTemplateId] = useState(null);
+  const [createTemplateId, setCreateTemplateId] = useState('');
+
+  const activeYear = useMemo(
+    () => schoolYears.find((sy) => sy.is_active) || null,
+    [schoolYears]
+  );
+
+  const isLocalHost =
+    typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+  const missingTemplateEndpointMessage = isLocalHost
+    ? 'Schedule template endpoint is not available on the local backend yet. Restart your backend and ensure latest classmanagement URLs are loaded.'
+    : 'Schedule template endpoint is not available on the server yet. Please deploy the latest backend updates.';
+
+  const toMessage = (value) => {
+    if (!value) return '';
+    if (Array.isArray(value)) return value.join(' ');
+    if (typeof value === 'string') return value;
+    return '';
+  };
+
+  const parseApiErrorMessage = (payload, fallback = 'Request failed.') => {
+    if (!payload) return fallback;
+    return (
+      toMessage(payload.detail)
+      || toMessage(payload.non_field_errors)
+      || toMessage(payload.source_school_year)
+      || toMessage(payload.school_year_id)
+      || toMessage(payload.target_school_year)
+      || toMessage(payload.name)
+      || fallback
+    );
+  };
+
+  const fetchTemplates = useCallback(async () => {
+    setTemplateLoading(true);
+    try {
+      const r = await apiFetch('/api/classmanagement/schedules/templates/');
+      if (!r.ok) {
+        if (r.status === 404) {
+          throw new Error(missingTemplateEndpointMessage);
+        }
+        throw new Error('Failed to load templates.');
+      }
+
+      const data = await r.json().catch(() => []);
+      const list = Array.isArray(data) ? data : [];
+      setTemplates(list);
+      setSelectedTemplateId((prev) => {
+        if (!list.length) return '';
+        const exists = list.some((tpl) => String(tpl.id) === String(prev));
+        return exists ? String(prev) : String(list[0].id);
+      });
+    } catch (e) {
+      setTemplates([]);
+      setSelectedTemplateId('');
+      setTemplateStatus({ type: 'error', message: e.message || 'Failed to load templates.' });
+    } finally {
+      setTemplateLoading(false);
+    }
+  }, [missingTemplateEndpointMessage]);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
+
+  useEffect(() => {
+    if (schoolYears.length === 0) {
+      setTemplateSourceYearId('');
+      setTemplateTargetYearId('');
+      return;
+    }
+
+    const fallbackYearId = activeYear ? String(activeYear.id) : String(schoolYears[0].id);
+
+    setTemplateSourceYearId((prev) => {
+      const valid = schoolYears.some((sy) => String(sy.id) === String(prev));
+      return valid ? prev : fallbackYearId;
+    });
+
+    setTemplateTargetYearId((prev) => {
+      const valid = schoolYears.some((sy) => String(sy.id) === String(prev));
+      return valid ? prev : fallbackYearId;
+    });
+  }, [schoolYears, activeYear]);
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const saveTemplateFromSourceYear = async (sourceYearId) => {
+    if (!sourceYearId) {
+      setTemplateStatus({ type: 'error', message: 'Select a source school year first.' });
+      return false;
+    }
+
+    const sourceYear = schoolYears.find((sy) => String(sy.id) === String(sourceYearId));
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+      now.getDate()
+    ).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const templateName = `${sourceYear?.name || 'School Year'} Template ${timestamp}`;
+
+    setSavingTemplate(true);
+    setTemplateStatus({ type: '', message: '' });
+    try {
+      const r = await apiFetch('/api/classmanagement/schedules/templates/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: templateName,
+          source_school_year: Number(sourceYearId),
+        }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (r.status === 404) {
+          throw new Error(missingTemplateEndpointMessage);
+        }
+        throw new Error(parseApiErrorMessage(data, 'Failed to save template.'));
+      }
+
+      setTemplateStatus({
+        type: 'success',
+        message: `Saved template "${data.name}" from ${sourceYear?.name || 'selected school year'} with ${data.entry_count || 0} schedule entries.`,
+      });
+      await fetchTemplates();
+      return true;
+    } catch (e) {
+      setTemplateStatus({ type: 'error', message: e.message || 'Failed to save template.' });
+      return false;
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const applyTemplateToYear = async (templateId, targetYearId, options = {}) => {
+    const { confirm = true, clearExisting = clearExistingBeforeApply, silentStatus = false } = options;
+
+    if (!templateId) {
+      const message = 'Please select a template first.';
+      if (!silentStatus) setTemplateStatus({ type: 'error', message });
+      return { ok: false, message };
+    }
+    if (!targetYearId) {
+      const message = 'Please select a target school year first.';
+      if (!silentStatus) setTemplateStatus({ type: 'error', message });
+      return { ok: false, message };
+    }
+
+    const selectedTemplate = templates.find((tpl) => String(tpl.id) === String(templateId));
+    const targetYear = schoolYears.find((sy) => String(sy.id) === String(targetYearId));
+
+    if (confirm) {
+      const confirmed = window.confirm(
+        `Apply template "${selectedTemplate?.name || templateId}" to ${targetYear?.name || 'selected school year'}?\n\n` +
+          `Clear existing schedules first: ${clearExisting ? 'Yes' : 'No'}`
+      );
+      if (!confirmed) {
+        return { ok: false, message: 'Cancelled' };
+      }
+    }
+
+    setApplyingTemplate(true);
+    if (!silentStatus) {
+      setTemplateStatus({ type: '', message: '' });
+    }
+
+    try {
+      const r = await apiFetch(`/api/classmanagement/schedules/templates/${templateId}/apply/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          school_year_id: Number(targetYearId),
+          clear_existing: clearExisting,
+        }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (r.status === 404) {
+          throw new Error(missingTemplateEndpointMessage);
+        }
+        throw new Error(parseApiErrorMessage(data, 'Failed to apply template.'));
+      }
+
+      await onRefresh();
+
+      if (!silentStatus) {
+        const warningText = data.warnings_count ? ` ${data.warnings_count} warning(s).` : '';
+        setTemplateStatus({
+          type: 'success',
+          message:
+            `Applied template successfully to ${targetYear?.name || 'selected year'}. ` +
+            `Created ${data.created_count || 0} schedules, ${data.created_sections || 0} sections, ${data.created_rooms || 0} rooms.` +
+            (data.cleared_count ? ` Cleared ${data.cleared_count} existing schedules first.` : '') +
+            warningText,
+        });
+      }
+
+      return { ok: true, data };
+    } catch (e) {
+      if (!silentStatus) {
+        setTemplateStatus({ type: 'error', message: e.message || 'Failed to apply template.' });
+      }
+      return { ok: false, message: e.message || 'Failed to apply template.' };
+    } finally {
+      setApplyingTemplate(false);
+    }
+  };
+
+  const deleteTemplate = async (templateId) => {
+    const template = templates.find((tpl) => String(tpl.id) === String(templateId));
+    const confirmed = window.confirm(`Delete template "${template?.name || templateId}"?`);
+    if (!confirmed) return;
+
+    setDeletingTemplateId(templateId);
+    try {
+      const r = await apiFetch(`/api/classmanagement/schedules/templates/${templateId}/`, {
+        method: 'DELETE',
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (r.status === 404) {
+          throw new Error(missingTemplateEndpointMessage);
+        }
+        throw new Error(parseApiErrorMessage(data, 'Failed to delete template.'));
+      }
+
+      setTemplateStatus({ type: 'success', message: `Deleted template "${template?.name || templateId}".` });
+      await fetchTemplates();
+    } catch (e) {
+      setTemplateStatus({ type: 'error', message: e.message || 'Failed to delete template.' });
+    } finally {
+      setDeletingTemplateId(null);
+    }
+  };
+
   const openNew = () => {
     setEditId(null);
     const currentYear = new Date().getFullYear();
@@ -3147,6 +3191,7 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
       end_date: `${yearStart + 1}-03-31`,
       is_active: false,
     });
+    setCreateTemplateId('');
     setError('');
     setShowForm(true);
   };
@@ -3159,6 +3204,7 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
       end_date: sy.end_date,
       is_active: sy.is_active,
     });
+    setCreateTemplateId('');
     setError('');
     setShowForm(true);
   };
@@ -3167,6 +3213,13 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
     if (!form.name || !form.start_date || !form.end_date) {
       setError('All fields are required.');
       return;
+    }
+
+    if (!editId && !createTemplateId) {
+      const confirmedBlank = window.confirm(
+        'Create this school year without applying a template?\n\nYou can apply one later from the Template Center.'
+      );
+      if (!confirmedBlank) return;
     }
 
     setSaving(true);
@@ -3182,13 +3235,49 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
         body: JSON.stringify(form),
       });
 
+      const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        const e = await r.json().catch(() => ({}));
-        throw new Error(e.detail || JSON.stringify(e));
+        throw new Error(parseApiErrorMessage(data, 'Failed to save school year.'));
+      }
+
+      if (!editId && createTemplateId && data?.id) {
+        const applyResult = await applyTemplateToYear(createTemplateId, data.id, {
+          confirm: false,
+          clearExisting: true,
+          silentStatus: true,
+        });
+
+        if (!applyResult.ok) {
+          await onRefresh();
+          await fetchTemplates();
+          setShowForm(false);
+          setTemplateStatus({
+            type: 'error',
+            message:
+              `School year "${data.name || form.name}" was created, but template apply failed: ` +
+              `${applyResult.message || 'Unknown error'}`,
+          });
+          return;
+        }
+
+        const applied = applyResult.data || {};
+        setTemplateStatus({
+          type: 'success',
+          message:
+            `Created "${data.name || form.name}" and applied template. ` +
+            `Created ${applied.created_count || 0} schedules, ${applied.created_sections || 0} sections, ` +
+            `${applied.created_rooms || 0} rooms.`,
+        });
+      } else if (!editId && !createTemplateId) {
+        setTemplateStatus({
+          type: 'success',
+          message: `Created "${data.name || form.name}" as a blank school year. You can apply a template anytime from Template Center.`,
+        });
       }
 
       setShowForm(false);
-      await onRefresh();
+      setCreateTemplateId('');
+      await Promise.all([onRefresh(), fetchTemplates()]);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -3210,7 +3299,7 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
 
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        throw new Error(data.detail || 'Activation failed');
+        throw new Error(parseApiErrorMessage(data, 'Activation failed'));
       }
 
       alert(
@@ -3230,7 +3319,7 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
       const r = await apiFetch(`/api/classmanagement/school-years/${id}/`, { method: 'DELETE' });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
-        throw new Error(err.detail || `Delete failed (${r.status})`);
+        throw new Error(parseApiErrorMessage(err, `Delete failed (${r.status})`));
       }
       await onRefresh();
     } catch (e) {
@@ -3240,14 +3329,6 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
       alert('Delete failed: ' + msg);
     }
   };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
-  const activeYear = schoolYears.find((sy) => sy.is_active);
 
   return (
     <>
@@ -3268,6 +3349,163 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
                 ({formatDate(activeYear.start_date)} – {formatDate(activeYear.end_date)})
               </span>
             </div>
+          </div>
+        </div>
+      )}
+
+      <div className="sy-template-center">
+        <div className="sy-template-center-head">
+          <h3>Schedule Template Center</h3>
+          <button
+            className="admin-btn-secondary"
+            onClick={() => setShowTemplatesModal(true)}
+            disabled={templateLoading}
+          >
+            <BookOpen size={16} /> View All Templates
+          </button>
+        </div>
+
+        <div className="sy-template-grid">
+          <div className="sy-template-box">
+            <div className="sy-template-title">Save Template</div>
+            <label>Source School Year</label>
+            <select value={templateSourceYearId} onChange={(e) => setTemplateSourceYearId(e.target.value)}>
+              <option value="">Select source year</option>
+              {schoolYears.map((sy) => (
+                <option key={sy.id} value={sy.id}>
+                  {sy.name}{sy.is_active ? ' (Active)' : ''}
+                </option>
+              ))}
+            </select>
+            <button
+              className="admin-btn-primary"
+              onClick={() => saveTemplateFromSourceYear(templateSourceYearId)}
+              disabled={savingTemplate || !templateSourceYearId}
+              style={{ marginTop: 10, background: '#0f766e' }}
+            >
+              <Save size={16} /> {savingTemplate ? 'Saving…' : 'Save Template'}
+            </button>
+          </div>
+
+          <div className="sy-template-box">
+            <div className="sy-template-title">Apply Template</div>
+            <label>Template</label>
+            <select
+              value={selectedTemplateId}
+              onChange={(e) => setSelectedTemplateId(e.target.value)}
+              disabled={templateLoading || templates.length === 0}
+            >
+              {templates.length === 0 ? (
+                <option value="">No templates available</option>
+              ) : (
+                templates.map((tpl) => (
+                  <option key={tpl.id} value={tpl.id}>
+                    {tpl.name}
+                  </option>
+                ))
+              )}
+            </select>
+
+            <label style={{ marginTop: 8 }}>Target School Year</label>
+            <select value={templateTargetYearId} onChange={(e) => setTemplateTargetYearId(e.target.value)}>
+              <option value="">Select target year</option>
+              {schoolYears.map((sy) => (
+                <option key={sy.id} value={sy.id}>
+                  {sy.name}{sy.is_active ? ' (Active)' : ''}
+                </option>
+              ))}
+            </select>
+
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12 }}>
+              <input
+                type="checkbox"
+                checked={clearExistingBeforeApply}
+                onChange={(e) => setClearExistingBeforeApply(e.target.checked)}
+              />
+              Clear existing schedules first
+            </label>
+
+            <button
+              className="admin-btn-primary"
+              onClick={() => applyTemplateToYear(selectedTemplateId, templateTargetYearId, { confirm: true })}
+              disabled={applyingTemplate || !selectedTemplateId || !templateTargetYearId}
+              style={{ marginTop: 10, background: '#1d4ed8' }}
+            >
+              <Download size={16} /> {applyingTemplate ? 'Applying…' : 'Apply Template'}
+            </button>
+          </div>
+        </div>
+
+        {templateStatus.message && (
+          <div
+            style={{
+              marginTop: 12,
+              padding: '10px 12px',
+              borderRadius: 8,
+              border: `1px solid ${templateStatus.type === 'error' ? '#fca5a5' : '#86efac'}`,
+              background: templateStatus.type === 'error' ? '#fef2f2' : '#f0fdf4',
+              color: templateStatus.type === 'error' ? '#991b1b' : '#166534',
+              fontSize: 13,
+            }}
+          >
+            {templateStatus.message}
+          </div>
+        )}
+      </div>
+
+      {showTemplatesModal && (
+        <div className="admin-modal-overlay" onClick={() => setShowTemplatesModal(false)}>
+          <div className="admin-modal-content" style={{ maxWidth: 860 }} onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h2>Schedule Templates</h2>
+              <button className="admin-modal-close-btn" onClick={() => setShowTemplatesModal(false)} title="Close" type="button">
+                <X size={20} />
+              </button>
+            </div>
+
+            {templateLoading ? (
+              <div style={{ padding: 20, color: '#64748b' }}>Loading templates…</div>
+            ) : templates.length === 0 ? (
+              <div className="admin-no-results" style={{ padding: 20 }}>
+                <BookOpen size={28} />
+                <p>No templates yet.</p>
+              </div>
+            ) : (
+              <div className="admin-schedule-container" style={{ marginBottom: 0 }}>
+                <table className="admin-schedule-table enhanced-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Source Year</th>
+                      <th>Entries</th>
+                      <th>Created By</th>
+                      <th>Updated</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {templates.map((tpl) => (
+                      <tr key={tpl.id}>
+                        <td>{tpl.name}</td>
+                        <td>{tpl.source_school_year_name || '—'}</td>
+                        <td>{tpl.entry_count ?? 0}</td>
+                        <td>{tpl.created_by_username || '—'}</td>
+                        <td>{tpl.updated_at ? new Date(tpl.updated_at).toLocaleString() : '—'}</td>
+                        <td>
+                          <button
+                            className="admin-btn-delete"
+                            onClick={() => deleteTemplate(tpl.id)}
+                            disabled={deletingTemplateId === tpl.id}
+                          >
+                            <Trash2 size={16} /> {deletingTemplateId === tpl.id ? 'Deleting…' : 'Delete'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -3318,6 +3556,23 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
               </div>
             </div>
 
+            {!editId && (
+              <div className="admin-form-group">
+                <label>Optional: Apply Template After Create</label>
+                <select value={createTemplateId} onChange={(e) => setCreateTemplateId(e.target.value)}>
+                  <option value="">No template (create blank school year)</option>
+                  {templates.map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>
+                      {tpl.name}
+                    </option>
+                  ))}
+                </select>
+                <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
+                  If no template is selected, you will be asked to confirm blank setup.
+                </div>
+              </div>
+            )}
+
             <div className="admin-form-actions">
               <button className="admin-btn-secondary" onClick={() => setShowForm(false)}>
                 Cancel
@@ -3340,7 +3595,6 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
           schoolYears.map((sy) => {
             const isExpired = sy.status === 'EXPIRED';
             const isOngoing = sy.status === 'ONGOING';
-            const canEdit = !isExpired && !sy.is_active;
             const canDelete = isExpired;
 
             return (
@@ -3370,6 +3624,23 @@ function SchoolYearTab({ schoolYears, onRefresh }) {
                       This school year has expired. Only deletion is allowed.
                     </div>
                   )}
+
+                  <div className="sy-template-inline-actions">
+                    <button
+                      className="admin-btn-primary-outline"
+                      onClick={() => saveTemplateFromSourceYear(String(sy.id))}
+                      disabled={savingTemplate}
+                    >
+                      <Save size={14} /> Save Template
+                    </button>
+                    <button
+                      className="admin-btn-primary-outline"
+                      onClick={() => applyTemplateToYear(selectedTemplateId, String(sy.id), { confirm: true })}
+                      disabled={!selectedTemplateId || applyingTemplate}
+                    >
+                      <Download size={14} /> Apply Selected Template
+                    </button>
+                  </div>
                 </div>
 
                 <div className="sy-card-actions">

@@ -228,14 +228,21 @@ class TeacherAssignmentSerializer(serializers.Serializer):
         return value
 
     def validate_subjects(self, values):
-        unique_values = list(dict.fromkeys(values or []))
+        unique_values = [
+            int(value)
+            for value in (values or [])
+            if isinstance(value, int) and value > 0
+        ]
+        unique_values = list(dict.fromkeys(unique_values))
         if not unique_values:
             return []
 
         found_ids = set(Subject.objects.filter(id__in=unique_values).values_list("id", flat=True))
         missing = [v for v in unique_values if v not in found_ids]
         if missing:
-            raise serializers.ValidationError(f"Subject(s) not found: {missing}")
+            raise serializers.ValidationError(
+                "One or more selected subjects no longer exist. Please reselect subjects and try again."
+            )
         return unique_values
 
     def validate_section(self, value):
@@ -332,12 +339,23 @@ class CreateUserSerializer(serializers.Serializer):
                 except Subject.DoesNotExist:
                     raise serializers.ValidationError({"subject": "Subject not found"})
 
-            subject_ids = list(dict.fromkeys(attrs.get("subjects") or []))
+            subject_ids = [
+                int(value)
+                for value in (attrs.get("subjects") or [])
+                if isinstance(value, int) and value > 0
+            ]
+            subject_ids = list(dict.fromkeys(subject_ids))
+            attrs["subjects"] = subject_ids
             if subject_ids:
                 found_ids = set(Subject.objects.filter(id__in=subject_ids).values_list("id", flat=True))
                 missing_ids = [sid for sid in subject_ids if sid not in found_ids]
                 if missing_ids:
-                    raise serializers.ValidationError({"subjects": f"Subject(s) not found: {missing_ids}"})
+                    raise serializers.ValidationError(
+                        {
+                            "subjects": "One or more selected subjects no longer exist. "
+                            "Please reselect subjects and try again."
+                        }
+                    )
 
             section_id = attrs.get("section_teacher")
             if section_id:

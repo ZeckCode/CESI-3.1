@@ -1703,6 +1703,61 @@
 }
 
 /* ========== SCHOOL YEAR STYLES ========== */
+.sy-template-center {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.sy-template-center-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.sy-template-center-head h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.sy-template-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.sy-template-box {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sy-template-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sy-template-inline-actions {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
 .admin-active-year-banner {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
@@ -1809,6 +1864,17 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .sy-template-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sy-template-center-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 /* ========== BULK SELECT BAR ========== */
