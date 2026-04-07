@@ -1,4 +1,5 @@
 from decimal import Decimal
+from urllib import request
 from django.db.models import Sum
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
@@ -438,41 +439,49 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProofOfPayment
         fields = [
-            'id',
-            'reference_number',
-            'description',
-            'amount',
-            'billed_item',
-            'billed_due_date',
-            'proof_image',
-            'proof_image_url',
-            'status',
-            'admin_remarks',
-            'created_at',
-            'updated_at',
-            'student_name',
-            'student_username',
-            'student_grade',
-            'enrollment_id',
-            'payment_type',
-            'source',
-            'approved_transaction',
+            "id",
+            "reference_number",
+            "description",
+            "amount",
+            "billed_item",
+            "billed_due_date",
+            "proof_image",
+            "proof_image_url",
+            "status",
+            "admin_remarks",
+            "created_at",
+            "updated_at",
+            "student_name",
+            "student_username",
+            "student_grade",
+            "enrollment_id",
+            "payment_type",
+            "source",
+            "approved_transaction",
         ]
         read_only_fields = [
-            'id',
-            'status',
-            'admin_remarks',
-            'created_at',
-            'updated_at',
-            'student_name',
-            'student_username',
-            'student_grade',
-            'enrollment_id',
-            'payment_type',
-            'source',
-            'approved_transaction',
+            "id",
+            "status",
+            "admin_remarks",
+            "created_at",
+            "updated_at",
+            "student_name",
+            "student_username",
+            "student_grade",
+            "enrollment_id",
+            "payment_type",
+            "source",
+            "approved_transaction",
         ]
 
+    def get_proof_image_url(self, obj):
+        request = self.context.get("request")
+        if not obj.proof_image:
+            return None
+
+        url = obj.proof_image.url
+        return request.build_absolute_uri(url) if request else url
+    
 class AdvanceRequestSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     student_number = serializers.SerializerMethodField()
