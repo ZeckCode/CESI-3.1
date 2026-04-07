@@ -80,6 +80,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
   const [pendingApplications, setPendingApplications] = useState([]);
   const [performanceMetrics, setPerformanceMetrics] = useState([]);
   const [selectedGradeLevel, setSelectedGradeLevel] = useState("All");
+  const [openAnalysisKey, setOpenAnalysisKey] = useState("");
 
   useEffect(() => {
     loadDashboardData();
@@ -869,24 +870,40 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         </div>
 
         <div className="dash-analysis-columns">
-          {analysisSections.map((section) => (
+          {analysisSections.map((section) => {
+            const isOpen = openAnalysisKey === section.key;
+
+            return (
             <article
               key={section.key}
-              className={`dash-insight-card dash-analysis-card dash-analysis-card--${section.key}`}
+              className={`dash-insight-card dash-analysis-card dash-analysis-card--${section.key} ${isOpen ? "is-open" : "is-collapsed"}`}
             >
-              <h4 className="dash-insight-title">{section.title}</h4>
-              <p className="dash-insights-sub">{section.subtitle}</p>
+              <button
+                type="button"
+                className="dash-analysis-toggle"
+                onClick={() => setOpenAnalysisKey((prev) => (prev === section.key ? "" : section.key))}
+                aria-expanded={isOpen}
+              >
+                <span className="dash-analysis-toggle-copy">
+                  <h4 className="dash-insight-title">{section.title}</h4>
+                  <p className="dash-insights-sub">{section.subtitle}</p>
+                </span>
+                <ChevronDown size={18} className={`dash-analysis-chevron ${isOpen ? "is-open" : ""}`} />
+              </button>
 
-              <div className="dash-analysis-list">
-                {section.items.map((item) => (
-                  <div key={item.title} className="dash-analysis-item">
-                    <h5 className="dash-analysis-item-title">{item.title}</h5>
-                    <p className="dash-insight-text">{item.body}</p>
-                  </div>
-                ))}
-              </div>
+              {isOpen && (
+                <div className="dash-analysis-list">
+                  {section.items.map((item) => (
+                    <div key={item.title} className="dash-analysis-item">
+                      <h5 className="dash-analysis-item-title">{item.title}</h5>
+                      <p className="dash-insight-text">{item.body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </article>
-          ))}
+            );
+          })}
         </div>
       </section>
 
