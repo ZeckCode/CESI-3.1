@@ -174,7 +174,7 @@ function AdminDashboard() {
           onToggleCollapse={handleToggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
           showRemindersBell={true}
-          onOpenReminders={() => setShowNotificationList(true)}
+          onOpenReminders={() => setShowNotificationList(prev => !prev)}
           unreadReminders={unreadReminders}
         />
 

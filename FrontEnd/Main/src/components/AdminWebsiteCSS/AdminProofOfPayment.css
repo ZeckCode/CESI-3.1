@@ -598,6 +598,9 @@
   .admin-proof-search-input,
   .admin-proof-filter-select {
     width: 100%;
+    padding: 0.75rem;
+    font-size: 16px;
+    min-height: 44px;
   }
 
   .admin-proof-table-container {
@@ -606,7 +609,7 @@
   }
 
   .admin-proof-table {
-    min-width: 800px;
+    min-width: 100%;
   }
 
   .admin-proof-modal {
@@ -614,11 +617,21 @@
     max-width: 90vw;
     max-height: 85vh;
     box-sizing: border-box;
+    padding: 1.25rem;
+    border-radius: 12px;
   }
 
-  .admin-proof-search-input,
-  .admin-proof-filter-select {
-    font-size: 16px;
+  .btn-approve,
+  .btn-reject,
+  .btn-cancel {
+    min-height: 44px;
+  }
+
+  .action-icon {
+    width: 40px;
+    height: 40px;
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 
@@ -659,7 +672,7 @@
 
   .admin-proof-filters-container {
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
   }
 
   .admin-proof-search-box {
@@ -670,8 +683,9 @@
   .admin-proof-search-input,
   .admin-proof-filter-select {
     width: 100%;
-    padding: 0.6rem 0.8rem;
+    padding: 0.65rem 0.8rem;
     font-size: 14px;
+    min-height: 44px;
   }
 
   .admin-proof-table {
@@ -685,31 +699,44 @@
 
   .admin-proof-table tbody tr {
     display: block;
-    margin-bottom: 0.75rem;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-radius: 8px;
-    padding: 0.75rem;
+    margin-bottom: 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1rem;
     background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   }
 
   .admin-proof-table tbody tr td {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.6rem 0.5rem;
-    border-bottom: 1px dashed rgba(15, 23, 42, 0.05);
-    gap: 1rem;
+    display: block;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
   }
 
   .admin-proof-table tbody tr td:last-child {
     border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .admin-proof-table tbody tr td:first-child {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
   }
 
   .admin-proof-table td::before {
     content: attr(data-label);
     font-weight: 600;
     color: #475569;
-    min-width: 100px;
+    display: block;
     font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
+    color: #64748b;
   }
 
   .admin-proof-description {
@@ -719,53 +746,87 @@
   .admin-proof-modal {
     width: 100%;
     max-width: 100%;
-    padding: 1rem;
+    padding: 1.25rem;
     max-height: 90vh;
     box-sizing: border-box;
+    border-radius: 12px;
   }
 
-  .admin-proof-modal-header {
-    padding: 0;
+  .admin-proof-modal h3 {
+    font-size: 1.05rem;
     margin-bottom: 1rem;
   }
 
-  .admin-proof-modal-close {
-    width: 28px;
-    height: 28px;
-    font-size: 14px;
-  }
-
-  .admin-proof-modal-body {
-    padding: 0;
+  .admin-proof-modal p {
+    font-size: 0.8rem;
+    margin-bottom: 0.75rem;
   }
 
   .admin-proof-modal-actions {
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     padding: 0;
+    margin-top: 1rem;
   }
 
   .btn-approve,
   .btn-reject,
   .btn-cancel {
     width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    min-height: 44px;
   }
 
   .action-icon {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .approve-icon,
+  .reject-icon {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .admin-proof-actions-icons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+
+  .admin-proof-view-image {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    width: 100%;
+  }
+
+  .admin-proof-student-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .admin-proof-student-grade {
+    font-size: 0.7rem;
+    margin-top: 0.3rem;
   }
 
   .admin-proof-status-badge {
-    padding: 0.3rem 0.7rem;
-    font-size: 0.65rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.7rem;
+    display: inline-block;
   }
 }
 
 /* ── Ultra Mobile (<480px) ── */
 @media (max-width: 480px) {
   .admin-proof-wrapper {
-    padding: 10px;
+    padding: 12px;
   }
 
   .admin-proof-title {
@@ -778,102 +839,179 @@
 
   .admin-proof-stats-grid {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 10px;
   }
 
   .admin-proof-stat-card {
-    padding: 10px;
+    padding: 12px;
   }
 
   .admin-proof-stat-value {
-    font-size: 1.125rem;
+    font-size: 1.3rem;
   }
 
   .admin-proof-stat-label {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
   }
 
   .admin-proof-section-title {
     font-size: 0.95rem;
   }
 
+  .admin-proof-section-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
   .admin-proof-filters-container {
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
   }
 
   .admin-proof-search-input,
   .admin-proof-filter-select {
-    padding: 0.55rem 0.7rem;
+    width: 100%;
+    padding: 0.65rem 0.8rem;
     font-size: 14px;
+    min-height: 44px;
   }
 
   .admin-proof-table {
-    min-width: 600px;
-    font-size: 12px;
+    min-width: 100%;
+    font-size: 13px;
   }
 
-  .admin-proof-table th {
-    padding: 0.6rem;
+  .admin-proof-table thead {
+    display: none;
+  }
+
+  .admin-proof-table tbody tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1rem;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .admin-proof-table tbody tr td {
+    display: block;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .admin-proof-table tbody tr td:last-child {
+    border-bottom: 0;
+  }
+
+  .admin-proof-table tbody tr td:first-child {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .admin-proof-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #64748b;
+    display: block;
     font-size: 0.7rem;
-  }
-
-  .admin-proof-table td {
-    padding: 0.6rem;
-    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
   }
 
   .admin-proof-modal {
-    width: 100%;
-    padding: 1rem;
-    max-height: 95vh;
+    width: 95%;
+    padding: 1.25rem;
+    max-height: 90vh;
     box-sizing: border-box;
-    border-radius: 8px;
-  }
-
-  .admin-proof-modal-overlay {
-    padding: 8px;
+    border-radius: 12px;
   }
 
   .admin-proof-modal h3 {
     font-size: 1.1rem;
   }
 
+  .admin-proof-modal p {
+    font-size: 0.8rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .admin-proof-modal .form-group textarea {
+    min-height: 100px;
+    font-size: 14px;
+  }
+
+  .admin-proof-modal-overlay {
+    padding: 10px;
+  }
+
   .admin-proof-modal-actions {
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+    margin-top: 1rem;
   }
 
   .btn-approve,
   .btn-reject,
   .btn-cancel {
     width: 100%;
-    padding: 0.45rem 0.8rem;
-    font-size: 0.7rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    min-height: 44px;
   }
 
   .action-icon {
-    width: 30px;
-    height: 30px;
-    font-size: 0.9rem;
+    width: 40px;
+    height: 40px;
+    min-height: 44px;
+    min-width: 44px;
   }
 
   .approve-icon,
   .reject-icon {
-    box-shadow: 0 0 0 rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .admin-proof-actions-icons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+
+  .admin-proof-view-image {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    width: 100%;
   }
 
   .admin-proof-student-name {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
+    font-weight: 600;
   }
 
   .admin-proof-student-grade {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
+    margin-top: 0.3rem;
   }
 
   .admin-proof-description {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     max-width: 100%;
+  }
+
+  .admin-proof-status-badge {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.7rem;
+    display: inline-block;
   }
 }
 
