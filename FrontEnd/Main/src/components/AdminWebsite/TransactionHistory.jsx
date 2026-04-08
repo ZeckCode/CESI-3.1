@@ -166,6 +166,7 @@ const TransactionHistory = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterEntryType, setFilterEntryType] = useState('all');
   const [sortOrder, setSortOrder] = useState('latest'); // 'latest' or 'oldest'
+  const [showFilters, setShowFilters] = useState(false); // Toggle filters on mobile
 
   const [txnPage, setTxnPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
@@ -1278,45 +1279,58 @@ const TransactionHistory = () => {
             />
           </div>
 
-          <div className="th-filter-group">
-            <Filter size={20} />
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="th-filter-select"
-            >
-              <option value="all">All Status</option>
-              <option value="paid">Paid</option>
-              <option value="partial">Partial</option>
-              <option value="pending">Pending</option>
-              <option value="overdue">Overdue</option>
-              <option value="posted">Posted</option>
-            </select>
-          </div>
+          {/* Mobile: Toggle filters button */}
+          <button
+            className="th-filters-toggle-btn"
+            onClick={() => setShowFilters(!showFilters)}
+            title={showFilters ? 'Hide filters' : 'Show filters'}
+          >
+            <Filter size={18} />
+            <span>Filters</span>
+          </button>
 
-          <div className="th-filter-group">
-            <Filter size={20} />
-            <select
-              value={filterEntryType}
-              onChange={(e) => setFilterEntryType(e.target.value)}
-              className="th-filter-select"
-            >
-              <option value="all">All Entry Types</option>
-              <option value="debit">Debit</option>
-              <option value="credit">Credit</option>
-            </select>
-          </div>
+          {/* Filters - visible on desktop, hidden on mobile by default */}
+          <div className={`th-filters-group ${showFilters ? 'th-filters-visible' : ''}`}>
+            <div className="th-filter-group">
+              <Filter size={20} />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="th-filter-select"
+              >
+                <option value="all">All Status</option>
+                <option value="paid">Paid</option>
+                <option value="partial">Partial</option>
+                <option value="pending">Pending</option>
+                <option value="overdue">Overdue</option>
+                <option value="posted">Posted</option>
+              </select>
+            </div>
 
-          <div className="th-filter-group">
-            <Filter size={20} />
-            <select
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
-              className="th-filter-select"
-            >
-              <option value="latest">Latest to Oldest</option>
-              <option value="oldest">Oldest to Latest</option>
-            </select>
+            <div className="th-filter-group">
+              <Filter size={20} />
+              <select
+                value={filterEntryType}
+                onChange={(e) => setFilterEntryType(e.target.value)}
+                className="th-filter-select"
+              >
+                <option value="all">All Entry Types</option>
+                <option value="debit">Debit</option>
+                <option value="credit">Credit</option>
+              </select>
+            </div>
+
+            <div className="th-filter-group">
+              <Filter size={20} />
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="th-filter-select"
+              >
+                <option value="latest">Latest to Oldest</option>
+                <option value="oldest">Oldest to Latest</option>
+              </select>
+            </div>
           </div>
         </div>
 

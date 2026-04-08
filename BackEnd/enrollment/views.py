@@ -546,7 +546,11 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         misc_aug = Decimal(str(tuition.misc_aug or 0))
         misc_nov = Decimal(str(tuition.misc_nov or 0))
 
-        initial_due = date(2026, 5, 31)
+        # Calculate year from current date for dynamic scheduling
+        current_year = timezone.now().year
+        
+        # Initial payment due in May of current year
+        initial_due = date(current_year, 5, 31)
         if initial > 0:
             items.append({
                 "item": "INITIAL",
@@ -557,17 +561,18 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 "semester": self._semester_from_date(initial_due),
             })
 
+        # Monthly installments from June to March
         months = [
-            ("June", date(2026, 6, 30)),
-            ("July", date(2026, 7, 31)),
-            ("August", date(2026, 8, 31)),
-            ("September", date(2026, 9, 30)),
-            ("October", date(2026, 10, 31)),
-            ("November", date(2026, 11, 30)),
-            ("December", date(2026, 12, 31)),
-            ("January", date(2027, 1, 31)),
-            ("February", date(2027, 2, 28)),
-            ("March", date(2027, 3, 31)),
+            ("June", date(current_year, 6, 30)),
+            ("July", date(current_year, 7, 31)),
+            ("August", date(current_year, 8, 31)),
+            ("September", date(current_year, 9, 30)),
+            ("October", date(current_year, 10, 31)),
+            ("November", date(current_year, 11, 30)),
+            ("December", date(current_year, 12, 31)),
+            ("January", date(current_year + 1, 1, 31)),
+            ("February", date(current_year + 1, 2, 28)),
+            ("March", date(current_year + 1, 3, 31)),
         ]
 
         if monthly > 0:
@@ -581,8 +586,9 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     "semester": self._semester_from_date(due),
                 })
 
+        # Miscellaneous fees with dynamic year
         if misc_aug > 0:
-            due = date(2026, 8, 31)
+            due = date(current_year, 8, 31)
             items.append({
                 "item": "MISC",
                 "description": "Miscellaneous (August)",
@@ -593,7 +599,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             })
 
         if misc_nov > 0:
-            due = date(2026, 11, 30)
+            due = date(current_year, 11, 30)
             items.append({
                 "item": "MISC",
                 "description": "Miscellaneous (November)",
@@ -772,7 +778,8 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 )
 
             if misc_aug > 0:
-                aug_due = date(2026, 8, 31)
+                current_year = timezone.now().year
+                aug_due = date(current_year, 8, 31)
                 self._create_transaction(
                     enrollment=enrollment,
                     parent_user=enrollment.parent_user,
@@ -792,7 +799,8 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 )
 
             if misc_nov > 0:
-                nov_due = date(2026, 11, 30)
+                current_year = timezone.now().year
+                nov_due = date(current_year, 11, 30)
                 self._create_transaction(
                     enrollment=enrollment,
                     parent_user=enrollment.parent_user,

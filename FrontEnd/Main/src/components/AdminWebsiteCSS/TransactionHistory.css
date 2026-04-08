@@ -1349,6 +1349,241 @@ textarea.th-form-input {
   background: #bfdbfe;
 }
 
+/* ═══════════════════════════════════
+   Filter Toggle Button (Mobile)
+   ═══════════════════════════════════ */
+.th-filters-toggle-btn {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  background: #2196F3;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
+}
+
+.th-filters-toggle-btn:hover {
+  background: #1976D2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+}
+
+.th-filters-toggle-btn:active {
+  transform: translateY(0);
+}
+
+.th-filters-toggle-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.th-filters-toggle-btn span {
+  font-size: 0.95rem;
+}
+
+/* Show toggle on mobile (below 768px) */
+@media (max-width: 768px) {
+  .th-filters-toggle-btn {
+    display: flex;
+    margin-bottom: 0.75rem;
+  }
+}
+
+/* ═══════════════════════════════════
+   Filter Group Container (Collapsible)
+   ═══════════════════════════════════ */
+.th-filters-group {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  max-height: 1000px;
+  opacity: 1;
+  transition: all 0.4s ease;
+  overflow: visible;
+}
+
+/* Hide filters on mobile by default (state: showFilters = false) */
+@media (max-width: 768px) {
+  .th-filters-group {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    gap: 0;
+    flex-direction: column;
+    transition: max-height 0.4s ease, opacity 0.4s ease, gap 0.4s ease;
+  }
+
+  /* Show filters when toggled (state: showFilters = true) */
+  .th-filters-group.th-filters-visible {
+    max-height: 500px;
+    opacity: 1;
+    gap: 0.75rem;
+  }
+}
+
+/* ═══════════════════════════════════
+   Card-Based Table Layout (Mobile)
+   ═══════════════════════════════════ */
+@media (max-width: 600px) {
+  /* Hide table header on mobile */
+  .th-table thead {
+    display: none;
+  }
+
+  /* Convert table rows to card layout */
+  .th-table,
+  .th-table tbody,
+  .th-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .th-table tr {
+    margin-bottom: 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.625rem;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    background: white;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Display table cells as rows in card */
+  .th-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0.875rem;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.85rem;
+    position: relative;
+  }
+
+  .th-table td:last-child {
+    border-bottom: none;
+  }
+
+  /* Add labels via data-attribute for mobile */
+  .th-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #64748b;
+    min-width: 100px;
+    margin-right: 0.5rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  /* Caret cell - special handling */
+  .th-caret-cell {
+    width: 100%;
+    padding: 0.5rem 0.875rem;
+    flex-direction: row;
+    justify-content: space-between;
+    border-bottom: none;
+  }
+
+  .th-caret-cell::before {
+    content: none;
+  }
+
+  /* Actions cell - special handling */
+  .th-actions-cell {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.75rem 0.875rem;
+  }
+
+  .th-actions-cell::before {
+    content: none;
+  }
+
+  /* Increased spacing for important cells */
+  .th-student-name-cell {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #1e293b;
+    padding: 0.875rem;
+  }
+
+  .th-student-name-cell::before {
+    content: 'Student';
+  }
+
+  .th-amount-cell {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #10b981;
+    text-align: right;
+    padding: 0.875rem;
+  }
+
+  .th-amount-cell::before {
+    content: 'Amount';
+  }
+
+  /* Expandable row styling */
+  .th-expanded-row td {
+    display: block;
+    padding: 0 !important;
+    border-top: none !important;
+    background: #f8fafc;
+  }
+
+  .th-student-detail-panel {
+    padding: 1rem 0.875rem;
+  }
+}
+
+/* ═══════════════════════════════════
+   Very Small Mobile (< 480px - Cards)
+   ═══════════════════════════════════ */
+@media (max-width: 480px) {
+  .th-filters-toggle-btn {
+    padding: 0.65rem 1rem;
+    font-size: 0.9rem;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .th-table tr {
+    margin-bottom: 0.875rem;
+    border-radius: 0.5rem;
+  }
+
+  .th-table td {
+    padding: 0.65rem 0.75rem;
+    font-size: 0.8rem;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .th-table td::before {
+    margin-bottom: 0.25rem;
+    margin-right: 0;
+    font-size: 0.75rem;
+  }
+
+  .th-student-name-cell,
+  .th-amount-cell {
+    padding: 0.875rem 0.75rem;
+  }
+
+  .th-actions-cell {
+    gap: 0.35rem;
+    padding: 0.65rem 0.75rem;
+  }
+}
+
 .th-status-advance {
   background: #dbeafe;
   color: #1d4ed8;

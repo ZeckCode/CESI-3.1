@@ -378,12 +378,17 @@
   overflow-y: visible;
   margin-bottom: 20px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+  /* Smooth scrolling for touch devices */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
 
 @media (max-width: 768px) {
   .enrollments-container {
     border-radius: 10px;
     margin-bottom: 16px;
+    /* Add visual hint for scrollable content */
+    box-shadow: inset -20px 0 10px -10px rgba(0,0,0,0.05);
   }
 }
 
@@ -391,6 +396,8 @@
   .enrollments-container {
     border-radius: 8px;
     margin-bottom: 12px;
+    /* Enhanced visual hint on very small screens */
+    box-shadow: inset -15px 0 8px -8px rgba(0,0,0,0.08);
   }
 }
 
@@ -409,8 +416,19 @@
 
 @media (max-width: 480px) {
   .enrollments-table {
-    min-width: 600px;
-    font-size: 11px;
+    min-width: 550px;
+    font-size: 9px;
+  }
+  
+  .enrollments-table th {
+    padding: 6px 8px;
+    font-size: 7px;
+    letter-spacing: 0.2px;
+  }
+  
+  .enrollments-table td {
+    padding: 6px 8px;
+    font-size: 8.5px;
   }
 }
 
@@ -550,6 +568,19 @@
   gap: 4px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .action-buttons {
+    gap: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .action-buttons {
+    gap: 0;
+    justify-content: flex-end;
+  }
 }
 
 .table-inline-status {
@@ -1179,8 +1210,8 @@
 /* Tablet - Intermediate */
 @media (max-width: 1024px) {
   .enrollments-table { min-width: 900px; }
-  .enrollments-table td { padding: 10px 12px; font-size: 11px; }
-  .enrollments-table th { padding: 11px 12px; font-size: 9px; }
+  .enrollments-table td { padding: 9px 10px; font-size: 10.5px; }
+  .enrollments-table th { padding: 10px 10px; font-size: 8.5px; }
   .action-buttons { gap: 3px; }
   .enrollment-modal-grid { padding: 32px 36px; gap: 28px; width: 100%; max-width: 100%; box-sizing: border-box; }
   .enrollment-details-section { gap: 18px; padding-bottom: 20px; width: 100%; max-width: 100%; }
@@ -1214,9 +1245,19 @@
     -webkit-overflow-scrolling: touch;
     border-radius: 10px;
   }
-  .enrollments-table { min-width: 750px; }
-  .enrollments-table th { padding: 10px 11px; font-size: 8px; }
-  .enrollments-table td { padding: 10px 11px; font-size: 12px; }
+  .enrollments-table { 
+    min-width: 650px;
+    font-size: 12px;
+  }
+  .enrollments-table th { 
+    padding: 8px 9px; 
+    font-size: 7.5px;
+    letter-spacing: 0.3px;
+  }
+  .enrollments-table td { 
+    padding: 8px 9px; 
+    font-size: 10px;
+  }
   .header-actions { flex-wrap: wrap; justify-content: flex-start; gap: 10px; }
   .settings-panel__fields { grid-template-columns: 1fr; }
   .action-buttons { gap: 4px; }
@@ -1258,10 +1299,20 @@
   }
 }
 
-@media (max-width: 600px) {
-  /* Hide original table completely */
-  .enrollments-table { display: none; }
+@media (max-width: 768px) {
+  /* Optimize table for horizontal scrolling on tablets */
+  .enrollments-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
   
+  .enrollments-table {
+    min-width: 700px;
+  }
+}
+
+@media (max-width: 600px) {
   /* Create mobile card list view */
   .enrollments-container {
     background: transparent;
@@ -1269,12 +1320,7 @@
     box-shadow: none;
     padding: 0;
     margin-bottom: 12px;
-  }
-  
-  /* Mobile Card Wrapper */
-  .enrollments-container::before {
-    content: '';
-    display: block;
+    overflow-x: visible;
   }
   
   /* Convert to flexbox for card layout */
