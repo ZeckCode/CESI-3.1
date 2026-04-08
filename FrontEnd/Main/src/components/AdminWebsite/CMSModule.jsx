@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import "../AdminWebsiteCSS/CMSModule.css";
 import Pagination from './Pagination';
 import { useAuth } from "../Auth/useAuth";
 import { getToken } from "../Auth/auth";
 import { apiFetch } from "../api/apiFetch";
 import { API_BASE_URL } from "../../config/api";
-import PageEditor from "./PageEditor";
-
+import PageEditor from "./PageEditor";import Toast from '../Global/Toast';
 function toLocalDatetimeInputValue(date = new Date()) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
@@ -259,6 +258,21 @@ export default function CMSModule() {
   
   // New: Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  
+  // Toast state
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const filteredPosts = useMemo(() => {
     const norm = (v) => String(v || "").toLowerCase();
@@ -441,8 +455,10 @@ export default function CMSModule() {
 
       imagePreviews.forEach((u) => URL.revokeObjectURL(u));
       setImagePreviews([]);
+      addToast('Success', editingPostId ? 'Announcement updated successfully!' : 'Announcement published successfully!', 'success');
     } catch (e) {
       setError(e.message || "Failed to publish announcement");
+      addToast('Error', e.message || 'Failed to publish announcement', 'error');
     }
   };
 
@@ -507,8 +523,10 @@ export default function CMSModule() {
 
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setDeleteConfirm(null);
+      addToast('Success', 'Announcement deleted successfully!', 'success');
     } catch (e) {
       setError(e.message || "Failed to delete announcement");
+      addToast('Error', e.message || 'Failed to delete announcement', 'error');
     }
   };
 
@@ -955,7 +973,6 @@ export default function CMSModule() {
           ]} 
         />
       )}
-
-    </div>
+      <Toast toasts={toasts} dismissToast={dismissToast} />    </div>
   );
 }

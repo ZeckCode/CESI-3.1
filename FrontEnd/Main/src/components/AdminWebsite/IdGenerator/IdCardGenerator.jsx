@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Download, X, Settings } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { getGradeLevelDisplay } from "./idGeneratorUtils";
 import CESI_background from "./CESI-id-background.jpg";
+import Toast from "../../Global/Toast";
 
 export default function IdCardGenerator({
   isOpen,
@@ -33,6 +34,19 @@ export default function IdCardGenerator({
   });
 
   const [isDownloading, setIsDownloading] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   useEffect(() => {
     setCardSettings((prev) => ({
@@ -136,10 +150,12 @@ export default function IdCardGenerator({
 
   const downloadPDF = async () => {
     if (!canDownload) {
-      alert(
-        `Missing fields:\n${missingFields
-          .map((f) => `• ${f.replace(/([A-Z])/g, " $1").trim()}`)
-          .join("\n")}`
+      addToast(
+        "Missing Fields",
+        `Missing fields: ${missingFields
+          .map((f) => f.replace(/([A-Z])/g, " $1").trim())
+          .join(", ")}`,
+        "error"
       );
       return;
     }
@@ -178,9 +194,10 @@ export default function IdCardGenerator({
       pdf.save(
         `${studentData.first_name}_${studentData.last_name}_ID_front_back_landscape.pdf`
       );
+      addToast("Success", "ID card PDF downloaded successfully!", "success");
     } catch (error) {
       console.error("PDF download failed:", error);
-      alert("Failed to download ID card PDF");
+      addToast("Error", "Failed to download ID card PDF", "error");
     } finally {
       setIsDownloading(false);
     }
@@ -188,10 +205,12 @@ export default function IdCardGenerator({
 
   const downloadImage = async () => {
     if (!canDownload) {
-      alert(
-        `Missing fields:\n${missingFields
-          .map((f) => `• ${f.replace(/([A-Z])/g, " $1").trim()}`)
-          .join("\n")}`
+      addToast(
+        "Missing Fields",
+        `Missing fields: ${missingFields
+          .map((f) => f.replace(/([A-Z])/g, " $1").trim())
+          .join(", ")}`,
+        "error"
       );
       return;
     }
@@ -205,9 +224,10 @@ export default function IdCardGenerator({
       link.href = combinedCanvas.toDataURL("image/png");
       link.download = `${studentData.first_name}_${studentData.last_name}_ID_front_back.png`;
       link.click();
+      addToast("Success", "ID card image downloaded successfully!", "success");
     } catch (error) {
       console.error("Image download failed:", error);
-      alert("Failed to download ID card image");
+      addToast("Error", "Failed to download ID card image", "error");
     } finally {
       setIsDownloading(false);
     }
@@ -609,6 +629,7 @@ export default function IdCardGenerator({
           </div>
         </div>
       </div>
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </div>
   );
 }

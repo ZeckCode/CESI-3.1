@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../api/apiFetch";
+import Toast from "../../Global/Toast";
 import { STEP_KEYS } from "./constants";
 import {
   fmtDate,
@@ -39,6 +40,19 @@ const EnrollmentForm = ({ onClose }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [submittedName, setSubmittedName] = useState("");
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const [form, setForm] = useState({
     studentType: "",
@@ -283,12 +297,16 @@ const EnrollmentForm = ({ onClose }) => {
     const liveWindow = computeEnrollmentWindow(liveSettings);
 
     if (!liveWindow.isOpen) {
-      setSubmitError("Enrollment has already closed.");
+      const msg = "Enrollment has already closed.";
+      setSubmitError(msg);
+      addToast("Enrollment Closed", msg, "error");
       return;
     }
 
     if (form.website && form.website.trim()) {
-      setSubmitError("Invalid submission.");
+      const msg = "Invalid submission.";
+      setSubmitError(msg);
+      addToast("Error", msg, "error");
       return;
     }
 
@@ -387,7 +405,9 @@ const EnrollmentForm = ({ onClose }) => {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setSubmitError("Please review the form and try again.");
+        const errorMsg = "Please review the form and try again.";
+        setSubmitError(errorMsg);
+        addToast("Submission Failed", errorMsg, "error");
 
         if (data && typeof data === "object") {
           setErrors(data);
@@ -397,11 +417,14 @@ const EnrollmentForm = ({ onClose }) => {
         return;
       }
 
+      addToast("Success", "Enrollment submitted successfully! Check your email for confirmation.", "success");
       setSubmittedEmail(form.email);
       setSubmittedName(`${form.firstName} ${form.lastName}`);
       setCurrentStep(STEP_KEYS.CONFIRMATION);
     } catch (err) {
-      setSubmitError("Network error. Check if backend is running.");
+      const errorMsg = "Network error. Check if backend is running.";
+      setSubmitError(errorMsg);
+      addToast("Network Error", errorMsg, "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -560,6 +583,7 @@ const EnrollmentForm = ({ onClose }) => {
           />
         )}
       </form>
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </div>
   );
 };

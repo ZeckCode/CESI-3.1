@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Mail, Send, ShieldAlert } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
+import Toast from "../Global/Toast";
 import "../AuthCSS/Auth.css";
 
 export default function ForgotPassword() {
@@ -9,7 +10,19 @@ export default function ForgotPassword() {
     message: "",
   });
   const [loading, setLoading] = useState(false);
-  const [feedback, setFeedback] = useState({ type: "", text: "" });
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -18,7 +31,6 @@ export default function ForgotPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setFeedback({ type: "", text: "" });
 
     try {
       const res = await apiFetch("/api/accounts/password-reset-request/", {
@@ -38,20 +50,14 @@ export default function ForgotPassword() {
         throw new Error(data.detail || "No account found with that email.");
       }
 
-      setFeedback({
-        type: "success",
-        text: data.detail || "Request submitted successfully.",
-      });
+      addToast("Success", data.detail || "Request submitted successfully.", "success");
 
       setForm({
         email: "",
         message: "",
       });
     } catch (err) {
-      setFeedback({
-        type: "error",
-        text: err.message || "Something went wrong.",
-      });
+      addToast("Error", err.message || "Something went wrong.", "error");
     } finally {
       setLoading(false);
     }
@@ -67,12 +73,6 @@ export default function ForgotPassword() {
           <h2>Forgot Password</h2>
           <p>Send a password reset request to the admin.</p>
         </div>
-
-        {feedback.text && (
-          <div className={`auth-alert ${feedback.type}`}>
-            {feedback.text}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <label>Email Address</label>
@@ -103,6 +103,7 @@ export default function ForgotPassword() {
           </button>
         </form>
       </div>
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </div>
   );
 }

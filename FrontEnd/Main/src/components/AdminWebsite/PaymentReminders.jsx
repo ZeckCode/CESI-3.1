@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Bell,
   Search,
@@ -10,6 +10,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
+import Toast from "../Global/Toast";
 import "../AdminWebsiteCSS/PaymentReminders.css";
 
 const PaymentReminders = () => {
@@ -20,6 +21,19 @@ const PaymentReminders = () => {
   const [loading, setLoading] = useState(true);
   const [sendingId, setSendingId] = useState(null);
   const [sendingBulk, setSendingBulk] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const loadReminders = async () => {
     setLoading(true);
@@ -68,7 +82,7 @@ const PaymentReminders = () => {
 
   const sendReminder = async (transactionId) => {
     if (!transactionId) {
-      alert("This reminder has no linked transaction.");
+      addToast("Error", "This reminder has no linked transaction.", "error");
       return;
     }
 
@@ -84,11 +98,11 @@ const PaymentReminders = () => {
         throw new Error(data.detail || "Failed to send reminder.");
       }
 
-      alert(data.detail || "Payment reminder sent successfully.");
+      addToast("Success", data.detail || "Payment reminder sent successfully!", "success");
       loadReminders();
     } catch (err) {
       console.error("Error sending reminder:", err);
-      alert(err.message || "Failed to send reminder.");
+      addToast("Error", err.message || "Failed to send reminder.", "error");
     } finally {
       setSendingId(null);
     }
@@ -107,11 +121,11 @@ const PaymentReminders = () => {
         throw new Error(data.detail || "Failed to send bulk reminders.");
       }
 
-      alert(data.detail || "Bulk reminders sent successfully.");
+      addToast("Success", data.detail || "Bulk reminders sent successfully!", "success");
       loadReminders();
     } catch (err) {
       console.error("Error sending bulk reminders:", err);
-      alert(err.message || "Failed to send bulk reminders.");
+      addToast("Error", err.message || "Failed to send bulk reminders.", "error");
     } finally {
       setSendingBulk(false);
     }
@@ -283,6 +297,7 @@ const PaymentReminders = () => {
           </table>
         </div>
       </section>
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </main>
   );
 };

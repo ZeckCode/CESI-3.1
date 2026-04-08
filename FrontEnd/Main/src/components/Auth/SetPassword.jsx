@@ -77,6 +77,8 @@ export default function SetPassword() {
 
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword2, setShowPassword2] = useState(false);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [touched, setTouched] = useState({
@@ -161,14 +163,31 @@ export default function SetPassword() {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>New Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
-              placeholder="Enter a strong password"
-              required
-            />
+            <div style={{ position: "relative", width: "100%" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
+                placeholder="Enter a strong password"
+                style={{ width: "100%", paddingRight: "40px", boxSizing: "border-box" }}
+                required
+              />
+              <span
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: "10px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  cursor: "pointer",
+                  fontSize: "18px",
+                  userSelect: "none",
+                }}
+              >
+                {showPassword ? "👁️" : "👁️‍🗨️"}
+              </span>
+            </div>
 
             {password && (
               <div className={`password-strength ${strength.className}`}>
@@ -206,14 +225,31 @@ export default function SetPassword() {
 
           <div className="form-group">
             <label>Confirm Password</label>
-            <input
-              type="password"
-              value={password2}
-              onChange={(e) => setPassword2(e.target.value)}
-              onBlur={() => setTouched((prev) => ({ ...prev, password2: true }))}
-              placeholder="Re-type password"
-              required
-            />
+            <div style={{ position: "relative", width: "100%" }}>
+              <input
+                type={showPassword2 ? "text" : "password"}
+                value={password2}
+                onChange={(e) => setPassword2(e.target.value)}
+                onBlur={() => setTouched((prev) => ({ ...prev, password2: true }))}
+                placeholder="Re-type password"
+                style={{ width: "100%", paddingRight: "40px", boxSizing: "border-box" }}
+                required
+              />
+              <span
+                onClick={() => setShowPassword2(!showPassword2)}
+                style={{
+                  position: "absolute",
+                  right: "10px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  cursor: "pointer",
+                  fontSize: "18px",
+                  userSelect: "none",
+                }}
+              >
+                {showPassword2 ? "👁️" : "👁️‍🗨️"}
+              </span>
+            </div>
 
             {touched.password2 && password2 && (
               <div

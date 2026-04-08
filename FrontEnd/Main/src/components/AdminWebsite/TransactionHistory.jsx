@@ -23,6 +23,7 @@ import { apiFetch } from '../api/apiFetch';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import PreviewModal from '../PreviewModal';
+import Toast from '../Global/Toast';
 
 const TRANSACTION_TYPES = [
   { value: 'TUITION', label: 'Tuition Fee' },
@@ -203,6 +204,19 @@ const TransactionHistory = () => {
   const [processingRequestId, setProcessingRequestId] = useState(null);
   const [requestRemarks, setRequestRemarks] = useState({});
   const [activeTab, setActiveTab] = useState('transactions');
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = 'warning') => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
 
 
@@ -436,8 +450,10 @@ const TransactionHistory = () => {
       setEditingTxn(null);
       fetchTransactions();
       fetchStats();
+      addToast('Success', editingTxn ? 'Transaction updated successfully!' : 'Transaction created successfully!', 'success');
     } catch (err) {
       setFormError(err.message);
+      addToast('Error', err.message || 'Failed to save transaction', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -457,8 +473,9 @@ const TransactionHistory = () => {
       setDeleteTarget(null);
       fetchTransactions();
       fetchStats();
+      addToast('Success', 'Transaction deleted successfully!', 'success');
     } catch (err) {
-      alert(err.message);
+      addToast('Error', err.message || 'Failed to delete transaction', 'error');
     } finally {
       setDeleting(false);
     }
@@ -470,10 +487,10 @@ const TransactionHistory = () => {
       const res = await apiFetch(`/api/reminders/payments/${transactionId}/send/`, { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Failed to send reminder.');
-      alert(data.detail || 'Payment reminder sent successfully.');
+      addToast('Success', data.detail || 'Payment reminder sent successfully!', 'success');
     } catch (err) {
       console.error('Error sending reminder:', err);
-      alert(err.message || 'Failed to send reminder.');
+      addToast('Error', err.message || 'Failed to send reminder.', 'error');
     } finally {
       setSendingReminderId(null);
     }
@@ -485,10 +502,10 @@ const TransactionHistory = () => {
       const res = await apiFetch('/api/reminders/payments/send-bulk/', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Failed to send bulk reminders.');
-      alert(data.detail || 'Bulk reminders sent successfully.');
+      addToast('Success', data.detail || 'Bulk reminders sent successfully!', 'success');
     } catch (err) {
       console.error('Error sending bulk reminders:', err);
-      alert(err.message || 'Failed to send bulk reminders.');
+      addToast('Error', err.message || 'Failed to send bulk reminders.', 'error');
     } finally {
       setSendingBulk(false);
     }
@@ -611,7 +628,7 @@ const TransactionHistory = () => {
       setShowPreview(true);
     } catch (err) {
       console.error('Error opening preview:', err);
-      alert('Failed to open preview. Please try again.');
+      addToast('Error', 'Failed to open preview. Please try again.', 'error');
     }
   };
 
@@ -690,10 +707,10 @@ const TransactionHistory = () => {
       const filename = `Transaction_History_${timestamp}.xlsx`;
 
       XLSX.writeFile(wb, filename);
-      alert(`✓ Export successful! File: ${filename}`);
+      addToast('Success', `Export successful! File: ${filename}`, 'success');
     } catch (err) {
       console.error('Error exporting data:', err);
-      alert('Failed to export data. Please try again.');
+      addToast('Error', 'Failed to export data. Please try again.', 'error');
     }
   };
 
@@ -924,15 +941,14 @@ const TransactionHistory = () => {
       if (Number(data.excess_amount || 0) > 0) {
         message += ` Excess recorded: ${formatCurrency(data.excess_amount)}.`;
       }
-
-      alert(message);
-
+      addToast('Success', message, 'success');
       setShowPayModal(false);
       setSelectedLedger(null);
       fetchTransactions();
       fetchStats();
     } catch (err) {
       setPayError(err.message || 'Failed to post payment.');
+      addToast('Error', err.message || 'Failed to post payment.', 'error');
     } finally {
       setPaying(false);
     }
@@ -971,14 +987,14 @@ const TransactionHistory = () => {
         throw new Error(data.detail || 'Failed to process refund.');
       }
 
-      alert(`Refund posted successfully. Refunded: ${formatCurrency(data.refunded_amount)}`);
-
+      addToast('Success', `Refund posted successfully. Refunded: ${formatCurrency(data.refunded_amount)}`, 'success');
       setShowRefundModal(false);
       setSelectedLedger(null);
       fetchTransactions();
       fetchStats();
     } catch (err) {
       setRefundError(err.message || 'Failed to process refund.');
+      addToast('Error', err.message || 'Failed to process refund.', 'error');
     } finally {
       setRefunding(false);
     }
@@ -986,7 +1002,7 @@ const TransactionHistory = () => {
   
   const handleApplyAdvance = async (group) => {
     if (!group?.student_number) {
-      alert('Student number is missing.');
+      addToast('Error', 'Student number is missing.', 'error');
       return;
     }
 
@@ -1006,14 +1022,12 @@ const TransactionHistory = () => {
         throw new Error(data.detail || 'Failed to apply advance.');
       }
 
-      alert(
-        `Advance applied successfully. Applied: ${formatCurrency(data.applied_amount)}. New balance: ${formatCurrency(data.new_balance)}.`
-      );
+      addToast('Success', `Advance applied successfully. Applied: ${formatCurrency(data.applied_amount)}. New balance: ${formatCurrency(data.new_balance)}.`, 'success');
 
       fetchTransactions();
       fetchStats();
     } catch (err) {
-      alert(err.message || 'Failed to apply advance.');
+      addToast('Error', err.message || 'Failed to apply advance.', 'error');
     } finally {
       setApplyingAdvanceKey(null);
     }
@@ -1044,17 +1058,16 @@ const TransactionHistory = () => {
         throw new Error(data.detail || `Failed to ${actionType.toLowerCase()} request.`);
       }
 
-      alert(
-        actionType === 'PROCESS'
-          ? 'Request processed successfully.'
-          : `Request ${actionType.toLowerCase()}d successfully.`
-      );
+      const successMsg = actionType === 'PROCESS'
+        ? 'Request processed successfully.'
+        : `Request ${actionType.toLowerCase()}d successfully.`;
+      addToast('Success', successMsg, 'success');
 
       fetchAdvanceRequests();
       fetchTransactions();
       fetchStats();
     } catch (err) {
-      alert(err.message || `Failed to ${actionType.toLowerCase()} request.`);
+      addToast('Error', err.message || `Failed to ${actionType.toLowerCase()} request.`, 'error');
     } finally {
       setProcessingRequestId(null);
     }
@@ -2173,6 +2186,8 @@ const TransactionHistory = () => {
         data={previewData}
         filename="Transaction_History"
       />
+      
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </main>
   );
 };
