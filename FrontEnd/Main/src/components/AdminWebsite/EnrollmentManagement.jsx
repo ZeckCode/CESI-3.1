@@ -66,6 +66,15 @@ import IdCardGenerator from "./IdGenerator/IdCardGenerator";
 import PreviewModal from "../PreviewModal";
 import { DEFAULT_SCHOOL_INFO, prepareIdData } from "./IdGenerator/idGeneratorUtils";
 
+// Helper function for responsive icon sizes
+const getResponsiveIconSize = () => {
+  if (typeof window === 'undefined') return 12;
+  const width = window.innerWidth;
+  if (width <= 480) return 9;
+  if (width <= 768) return 10;
+  return 12;
+};
+
 export default function EnrollmentManagement() {
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1942,18 +1951,6 @@ const openIdGenerator = (row) => {
           <table className="enrollments-table">
             <thead>
               <tr>
-                <th style={{ width: 40, textAlign: "center" }}>
-                  <input
-                    type="checkbox"
-                    checked={
-                      selectedIds.size === paginatedEnrollments.length &&
-                      paginatedEnrollments.length > 0
-                    }
-                    onChange={handleSelectAll}
-                    title="Select all on this page"
-                    style={{ cursor: "pointer", width: 18, height: 18 }}
-                  />
-                </th>
                 <th>Student</th>
                 <th>Enrollment Date</th>
                 <th>Status</th>
@@ -1969,15 +1966,6 @@ const openIdGenerator = (row) => {
             <tbody>
               {paginatedEnrollments.map((row) => (
                 <tr key={row.id}>
-                  <td style={{ textAlign: "center", width: 40 }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(row.id)}
-                      onChange={() => handleSelectOne(row.id)}
-                      style={{ cursor: "pointer", width: 18, height: 18 }}
-                    />
-                  </td>
-
                   <td>
                     <StudentCell row={row} />
                   </td>
@@ -1996,27 +1984,9 @@ const openIdGenerator = (row) => {
                     {row.statusCode === "ACTIVE" && (
                       (() => {
                         const promotion = getPromotionReadiness(row);
-                        const colors = {
-                          ready: { bg: "#ecfdf5", color: "#065f46", border: "#a7f3d0" },
-                          completed: { bg: "#ffedd5", color: "#7c2d12", border: "#fdba74" },
-                          pending: { bg: "#fef3c7", color: "#92400e", border: "#fcd34d" },
-                          ineligible: { bg: "#fef2f2", color: "#991b1b", border: "#fecaca" },
-                        };
-                        const style = colors[promotion.status];
                         return (
                           <div
-                            style={{
-                              display: "inline-block",
-                              padding: "4px 10px",
-                              borderRadius: "4px",
-                              fontSize: "11px",
-                              fontWeight: "600",
-                              background: style.bg,
-                              color: style.color,
-                              border: `1px solid ${style.border}`,
-                              whiteSpace: "nowrap",
-                              title: promotion.reason,
-                            }}
+                            className={`promotion-ready-badge ${promotion.status}`}
                             title={promotion.reason}
                           >
                             {promotion.status === "ready" && "✓ Ready"}
@@ -2030,22 +2000,22 @@ const openIdGenerator = (row) => {
                   </td>
 
                   <td>
-                    <div style={{ fontSize: 12, color: "#475569", fontWeight: 500, display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+                    <div className="payment-info-container">
                       {row.paymentMethod === "online" ? (
-                        <span style={{ background: "#dbeafe", color: "#1e40af", padding: "3px 8px", borderRadius: 3, display: "inline-block" }}>
+                        <span className="payment-badge">
                           Online
                         </span>
                       ) : row.paymentMethod === "onsite" ? (
-                        <span style={{ background: "#e0e7ff", color: "#4338ca", padding: "3px 8px", borderRadius: 3, display: "inline-block" }}>
+                        <span className="payment-badge onsite">
                           Onsite
                         </span>
                       ) : null}
                       {row.paymentMode === "cash" ? (
-                        <span style={{ background: "#fef3c7", color: "#92400e", padding: "3px 8px", borderRadius: 3, display: "inline-block" }}>
+                        <span className="payment-badge cash">
                           Cash
                         </span>
                       ) : row.paymentMode === "installment" ? (
-                        <span style={{ background: "#fce7f3", color: "#831843", padding: "3px 8px", borderRadius: 3, display: "inline-block" }}>
+                        <span className="payment-badge installment">
                           Installment
                         </span>
                       ) : null}
@@ -2055,28 +2025,16 @@ const openIdGenerator = (row) => {
                   <td>
                   {row.paymentProof && row.paymentProof.proof_image_url ? (
                     <button
-                      style={{
-                        padding: "6px 12px",
-                        fontSize: "12px",
-                        background: "#dbeafe",
-                        border: "1px solid #0ea5e9",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        color: "#0369a1",
-                        fontWeight: "500",
-                      }}
+                      className="btn-proof"
                       onClick={() => {
                         setImageViewerOpen(true);
                         setSelectedImageUrl(row.paymentProof.proof_image_url);
                       }}
                     >
-                      <Eye size={14} /> View
+                      <Eye size={getResponsiveIconSize()} /> View
                     </button>
                   ) : (
-                    <span style={{ color: "#94a3b8", fontSize: "12px" }}>No proof</span>
+                    <span className="proof-none">No proof</span>
                   )}
                   </td>
 
@@ -2088,23 +2046,23 @@ const openIdGenerator = (row) => {
                     {row.statusCode === "PENDING" ? (
                       <div className="approve-decline-group">
                         <button className="btn-approve" onClick={() => openApproveDialog(row)}>
-                        <CheckCircle size={12} /> Approve
+                        <CheckCircle size={getResponsiveIconSize()} /> Approve
                       </button>
                         <button className="btn-decline" onClick={() => handleDecline(row.id)}>
-                          <XCircle size={12} /> Decline
+                          <XCircle size={getResponsiveIconSize()} /> Decline
                         </button>
                       </div>
                     ) : row.statusCode === "ACTIVE" ? (
                       <span className="table-inline-status table-inline-status--approved">
-                        <CheckCircle size={13} /> Approved
+                        <CheckCircle size={getResponsiveIconSize()} /> Approved
                       </span>
                     ) : row.statusCode === "DROPPED" ? (
                       <span className="table-inline-status table-inline-status--declined">
-                        <XCircle size={13} /> Declined
+                        <XCircle size={getResponsiveIconSize()} /> Declined
                       </span>
                     ) : row.statusCode === "COMPLETED" ? (
                       <span className="table-inline-status table-inline-status--completed">
-                        <CheckCircle size={13} /> Completed
+                        <CheckCircle size={getResponsiveIconSize()} /> Completed
                       </span>
                     ) : (
                       <span style={{ opacity: 0.4 }}>—</span>

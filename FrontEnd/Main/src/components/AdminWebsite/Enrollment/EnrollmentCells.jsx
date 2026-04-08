@@ -2,9 +2,9 @@ import React from "react";
 
 export function StudentCell({ row }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ fontWeight: 700, color: "#111827" }}>{row.studentName}</div>
-      <div style={{ fontSize: 11, color: "#64748b" }}>
+    <div className="cell-container student-cell">
+      <div className="cell-main">{row.studentName}</div>
+      <div className="cell-secondary">
         AY {row.academicYear || "—"} · {row.sectionName || "No section"}
       </div>
     </div>
@@ -13,9 +13,9 @@ export function StudentCell({ row }) {
 
 export function ParentCell({ row }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ fontWeight: 600 }}>{row.parentName}</div>
-      <div style={{ fontSize: 11, color: "#64748b" }}>{row.phone}</div>
+    <div className="cell-container parent-cell">
+      <div className="cell-main">{row.parentName}</div>
+      <div className="cell-secondary">{row.phone}</div>
     </div>
   );
 }
