@@ -788,7 +788,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     transaction_date=aug_due,
                     due_date=aug_due,
                     status_value="POSTED",
-                    reference_number=reference_number or self.generate_reference_number(),
+                    reference_number=self.generate_reference_number(),
                 )
 
             if misc_nov > 0:
@@ -808,7 +808,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     transaction_date=nov_due,
                     due_date=nov_due,
                     status_value="POSTED",
-                    reference_number=reference_number or self.generate_reference_number(),
+                    reference_number=self.generate_reference_number(),
                 )
 
 
