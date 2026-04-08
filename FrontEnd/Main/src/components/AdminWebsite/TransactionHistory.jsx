@@ -165,6 +165,7 @@ const TransactionHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterEntryType, setFilterEntryType] = useState('all');
+  const [sortOrder, setSortOrder] = useState('latest'); // 'latest' or 'oldest'
 
   const [txnPage, setTxnPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
@@ -791,10 +792,11 @@ const TransactionHistory = () => {
         };
       });
 
-      return result.sort((a, b) =>
-        String(b.latest_date || '').localeCompare(String(a.latest_date || ''))
-      );
-    }, [transactions]);
+      return result.sort((a, b) => {
+        const comparison = String(b.latest_date || '').localeCompare(String(a.latest_date || ''));
+        return sortOrder === 'latest' ? comparison : -comparison;
+      });
+    }, [transactions, sortOrder]);
 
   const txnTotalPages = Math.max(1, Math.ceil(groupedTransactions.length / ITEMS_PER_PAGE));
   const paginatedTransactions = useMemo(
@@ -1302,6 +1304,18 @@ const TransactionHistory = () => {
               <option value="all">All Entry Types</option>
               <option value="debit">Debit</option>
               <option value="credit">Credit</option>
+            </select>
+          </div>
+
+          <div className="th-filter-group">
+            <Filter size={20} />
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="th-filter-select"
+            >
+              <option value="latest">Latest to Oldest</option>
+              <option value="oldest">Oldest to Latest</option>
             </select>
           </div>
         </div>
