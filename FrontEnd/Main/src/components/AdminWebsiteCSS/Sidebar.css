@@ -649,7 +649,7 @@
   .as-sidebar.as-mobile {
     width: 80%;
     max-width: 340px;
-    height: 100vh;
+    height: calc(100vh - 56px);
     top: 56px;
     border-radius: 0;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
@@ -757,6 +757,7 @@
   .as-sidebar.as-mobile {
     width: 85%;
     max-width: 320px;
+    height: calc(100vh - 52px);
     top: 52px;
   }
 
@@ -828,6 +829,7 @@
   .as-sidebar.as-mobile {
     width: 90%;
     max-width: 300px;
+    height: calc(100vh - 48px);
     top: 48px;
   }
 

@@ -80,7 +80,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
   const [pendingApplications, setPendingApplications] = useState([]);
   const [performanceMetrics, setPerformanceMetrics] = useState([]);
   const [selectedGradeLevel, setSelectedGradeLevel] = useState("All");
-  const [openAnalysisKey, setOpenAnalysisKey] = useState("");
+  const [expandedAnalysisSection, setExpandedAnalysisSection] = useState("descriptive");
 
   useEffect(() => {
     loadDashboardData();
@@ -869,39 +869,38 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
           </p>
         </div>
 
-        <div className="dash-analysis-columns">
+        <div className="dash-analysis-accordion">
           {analysisSections.map((section) => {
-            const isOpen = openAnalysisKey === section.key;
+            const isOpen = expandedAnalysisSection === section.key;
 
             return (
-            <article
-              key={section.key}
-              className={`dash-insight-card dash-analysis-card dash-analysis-card--${section.key} ${isOpen ? "is-open" : "is-collapsed"}`}
-            >
-              <button
-                type="button"
-                className="dash-analysis-toggle"
-                onClick={() => setOpenAnalysisKey((prev) => (prev === section.key ? "" : section.key))}
-                aria-expanded={isOpen}
-              >
-                <span className="dash-analysis-toggle-copy">
-                  <h4 className="dash-insight-title">{section.title}</h4>
-                  <p className="dash-insights-sub">{section.subtitle}</p>
-                </span>
-                <ChevronDown size={18} className={`dash-analysis-chevron ${isOpen ? "is-open" : ""}`} />
-              </button>
+              <div key={section.key} className="dash-analysis-section">
+                <button
+                  type="button"
+                  className={`dash-analysis-header ${isOpen ? "is-open" : ""}`}
+                  onClick={() => setExpandedAnalysisSection(isOpen ? "" : section.key)}
+                  aria-expanded={isOpen}
+                >
+                  <div className="dash-analysis-header-content">
+                    <h4 className="dash-insight-title">{section.title}</h4>
+                    <p className="dash-insights-sub">{section.subtitle}</p>
+                  </div>
+                  <ChevronDown size={20} className={`dash-analysis-header-chevron ${isOpen ? "is-open" : ""}`} />
+                </button>
 
-              {isOpen && (
-                <div className="dash-analysis-list">
-                  {section.items.map((item) => (
-                    <div key={item.title} className="dash-analysis-item">
-                      <h5 className="dash-analysis-item-title">{item.title}</h5>
-                      <p className="dash-insight-text">{item.body}</p>
+                {isOpen && (
+                  <div className="dash-analysis-body">
+                    <div className="dash-analysis-items">
+                      {section.items.map((item) => (
+                        <div key={item.title} className="dash-analysis-detail-item">
+                          <h5 className="dash-analysis-detail-title">{item.title}</h5>
+                          <p className="dash-insight-text">{item.body}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </article>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

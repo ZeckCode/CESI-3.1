@@ -254,75 +254,98 @@
   }
 }
 
-.dash-analysis-card {
+.dash-analysis-accordion {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
+  background: #fff;
+  border-radius: 12px;
+  border-left: 4px solid #6366f1;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
 }
 
-.dash-analysis-toggle {
-  width: 100%;
-  border: none;
-  background: transparent;
-  padding: 0;
-  margin: 0;
+.dash-analysis-section {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dash-analysis-section:last-child {
+  border-bottom: none;
+}
+
+.dash-analysis-header {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 20px;
+  background: transparent;
+  border: none;
   cursor: pointer;
   text-align: left;
+  transition: background 0.2s ease;
 }
 
-.dash-analysis-toggle-copy {
+.dash-analysis-header:hover {
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.dash-analysis-header-content {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
+  flex: 1;
 }
 
-.dash-analysis-chevron {
-  color: #64748b;
+.dash-analysis-header-chevron {
+  color: #94a3b8;
   flex-shrink: 0;
-  margin-top: 1px;
-  transition: transform 0.2s ease;
+  transition: transform 0.3s ease;
 }
 
-.dash-analysis-chevron.is-open {
+.dash-analysis-header-chevron.is-open {
   transform: rotate(180deg);
 }
 
-.dash-analysis-card.is-collapsed {
-  gap: 0;
+.dash-analysis-body {
+  background: rgba(99, 102, 241, 0.02);
+  padding: 0 20px 16px 20px;
+  animation: slideDown 0.2s ease;
 }
 
-.dash-analysis-card--descriptive {
-  border-left-color: #0ea5e9;
-}
-
-.dash-analysis-card--interpretation {
-  border-left-color: #6366f1;
-}
-
-.dash-analysis-card--recommendations {
-  border-left-color: #10b981;
-}
-
-.dash-analysis-list {
+.dash-analysis-items {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
-.dash-analysis-item {
-  border-top: 1px solid #e5e7eb;
-  padding-top: 8px;
+.dash-analysis-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.dash-analysis-item-title {
-  margin: 0 0 4px;
+.dash-analysis-detail-title {
+  margin: 0;
   font-size: 12px;
   font-weight: 700;
   color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 1000px;
+  }
 }
 
 /* ─── Rows ─── */
