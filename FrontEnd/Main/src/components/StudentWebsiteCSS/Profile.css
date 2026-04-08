@@ -434,6 +434,30 @@ textarea.entry-input {
   }
 }
 
+@media (max-width: 768px) {
+  .profile-container {
+    margin: 1rem 0;
+  }
+  
+  .profile-content {
+    padding: 1.25rem;
+    border-radius: 8px;
+  }
+  
+  .profile-header-text h1 {
+    font-size: 1.5rem;
+  }
+  
+  .profile-details-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .profile-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px) {
   .profile-content {
     padding: 1rem;
@@ -466,5 +490,52 @@ textarea.entry-input {
   .header-actions button {
     flex: 1;
     justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-content {
+    padding: 0.75rem;
+    border-radius: 6px;
+  }
+  
+  .profile-header-text h1 {
+    font-size: 1.2rem;
+  }
+  
+  .profile-header-text p {
+    font-size: 0.85rem;
+  }
+  
+  .hero-avatar {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .student-tags {
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+  
+  .student-tag {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.75rem;
+  }
+  
+  .header-actions button {
+    padding: 0.6rem 1rem;
+    font-size: 0.8rem;
+  }
+  
+  .profile-nav {
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  
+  .profile-nav button {
+    flex: 1;
+    min-width: 80px;
+    padding: 0.75rem 0.5rem;
+    font-size: 0.75rem;
   }
 }

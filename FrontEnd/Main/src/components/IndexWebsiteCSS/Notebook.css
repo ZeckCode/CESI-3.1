@@ -264,6 +264,55 @@
   }
 }
 
+/* ── Tablet (768px) ── */
+@media (max-width: 768px) {
+  .notebook-container {
+    border-radius: 8px;
+    border: 2px solid var(--primary-blue);
+  }
+
+  .notebook-header {
+    padding: 16px 20px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .notebook-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .close-btn {
+    width: 100%;
+  }
+
+  .bookmarks-left {
+    gap: 8px;
+  }
+
+  .bookmark-btn {
+    min-width: 120px;
+    font-size: 0.85rem;
+    padding: 8px;
+  }
+
+  .page-left {
+    padding: 24px;
+  }
+
+  .page-content h2 {
+    font-size: 1.3rem;
+  }
+
+  .page-content h3 {
+    font-size: 1.1rem;
+  }
+
+  .action-btn {
+    font-size: 1rem;
+    padding: 14px;
+  }
+}
+
 @media (max-width: 600px) {
   .notebook-header {
     flex-direction: column;
@@ -291,13 +340,14 @@
   }
 
   .notebook-page {
-    padding: 5px; /* Make text closer to the edge to maximize reading space */
+    padding: 5px;
     background: var(--white);
     max-width: 100vw;
     overflow-x: hidden;
     box-sizing: border-box;
     width: 100%;
   }
+}
   .notebook-container {
     width: 100%;
     margin: 0;

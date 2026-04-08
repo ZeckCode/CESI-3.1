@@ -358,6 +358,103 @@ body {
   font-weight: bold;
 }
 
+/* ── Mobile (480px) ── */
+@media (max-width: 480px) {
+  .logo-circle {
+    width: 50px;
+    height: 50px;
+  }
+
+  .school-name h1 {
+    font-size: 1.1rem;
+    margin-top: 3px;
+    margin-bottom: 3px;
+  }
+
+  .school-name p {
+    font-size: 0.85rem;
+  }
+
+  .header-button {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .apply-btn,
+  .login-btn {
+    padding: 9px 18px;
+    font-size: 0.9rem;
+    min-height: 44px;
+  }
+
+  .book-cover {
+    width: 90%;
+    max-width: 300px;
+    height: 400px;
+  }
+
+  .book-main-title {
+    font-size: 2rem;
+    margin-bottom: 10px;
+  }
+
+  .book-subtitle {
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+  }
+
+  .tap-instruction {
+    font-size: 1rem;
+    padding: 6px 12px;
+  }
+
+  .tap-arrow {
+    font-size: 2rem;
+    margin: 8px 0 20px;
+  }
+}
+
+/* ── Small Mobile (360px) ── */
+@media (max-width: 360px) {
+  .index-header-container {
+    padding: 12px 16px;
+    gap: 12px;
+  }
+
+  .logo-circle {
+    width: 45px;
+    height: 45px;
+  }
+
+  .school-name h1 {
+    font-size: 0.95rem;
+  }
+
+  .school-name p {
+    font-size: 0.75rem;
+  }
+
+  .header-button {
+    gap: 6px;
+  }
+
+  .apply-btn,
+  .login-btn {
+    padding: 8px 14px;
+    font-size: 0.8rem;
+  }
+
+  .book-cover {
+    width: 95%;
+    height: 350px;
+  }
+
+  .book-main-title {
+    font-size: 1.7rem;
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .index-header-container {

@@ -527,8 +527,90 @@
     font-size: 0.95rem;
   }
 
-  /* Hide calendar view on mobile - only show table */
+  /* Calendar view on mobile: show with responsive grid */
   .ss-calendar-scroll {
-    display: none;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+
+  .ss-calendar-grid {
+    display: grid;
+    min-width: 600px;
+    gap: 0;
+  }
+
+  .ss-time-header,
+  .ss-day-header {
+    min-height: 50px;
+    padding: 0.75rem 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .ss-time-cell {
+    min-height: 80px;
+    padding: 0.5rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  .ss-event-card {
+    padding: 0.5rem;
+  }
+
+  .ss-event-subject {
+    font-size: 0.75rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .ss-event-code {
+    font-size: 0.6rem;
+  }
+
+  .ss-event-info {
+    font-size: 0.6rem;
+  }
+}
+
+/* ── Small Mobile (480px) ── */
+@media (max-width: 480px) {
+  .student-schedule-main {
+    padding: 0.75rem;
+  }
+
+  .ss-section-title {
+    font-size: 1.1rem;
+  }
+
+  .ss-toggle-btn {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  .ss-table tbody tr {
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .ss-table tbody tr td {
+    padding: 0.5rem 0;
+  }
+
+  .ss-subject-name {
+    font-size: 0.95rem;
+  }
+
+  .ss-subject-code {
+    font-size: 0.8rem;
+  }
+
+  .ss-day-badge,
+  .ss-room-badge {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .ss-time-cell {
+    font-size: 0.9rem;
   }
 }
