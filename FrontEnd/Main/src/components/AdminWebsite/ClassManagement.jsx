@@ -11,6 +11,7 @@ import '../AdminWebsiteCSS/AdminClassManagement.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import PreviewModal from '../PreviewModal';
+import Toast from '../Global/Toast';
 
 /* ───────────────────────── helpers ───────────────────────── */
 const GRADE_LEVELS = [
@@ -232,6 +233,19 @@ const ClassManagement = () => {
   const [loading, setLoading] = useState(true);
   const [classPreviewOpen, setClassPreviewOpen] = useState(false);
   const [classPreviewData, setClassPreviewData] = useState([]);
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   /* data from API */
   const [sections, setSections] = useState([]);
@@ -481,6 +495,7 @@ const ClassManagement = () => {
           enrollments={enrollments}
           schedules={schedules}
           onRefresh={refreshAll}
+          addToast={addToast}
         />
       )}
       {activeTab === 'schedule' && (
@@ -493,16 +508,17 @@ const ClassManagement = () => {
           schoolYears={schoolYears}
           activeSchoolYear={activeSchoolYear}
           onRefresh={refreshAll}
+          addToast={addToast}
         />
       )}
       {activeTab === 'subjects' && (
-        <SubjectsTab subjects={subjects} teachers={teachers} onRefresh={refreshAll} />
+        <SubjectsTab subjects={subjects} teachers={teachers} onRefresh={refreshAll} addToast={addToast} />
       )}
       {activeTab === 'rooms' && (
-        <RoomsTab rooms={rooms} schedules={schedules} onRefresh={refreshAll} />
+        <RoomsTab rooms={rooms} schedules={schedules} onRefresh={refreshAll} addToast={addToast} />
       )}
       {activeTab === 'schoolyear' && (
-        <SchoolYearTab schoolYears={schoolYears} onRefresh={refreshAll} />
+        <SchoolYearTab schoolYears={schoolYears} onRefresh={refreshAll} addToast={addToast} />
       )}
 
       <PreviewModal
@@ -519,6 +535,8 @@ const ClassManagement = () => {
         ]}
         filename="Class-Management-Report"
       />
+      
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </div>
   );
 };
@@ -526,7 +544,7 @@ const ClassManagement = () => {
 /* ═════════════════════════════════════════════════════════
    CLASSES TAB — sections list + homeroom teacher
    ═════════════════════════════════════════════════════════ */
-function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefresh }) {
+function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefresh, addToast }) {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: '', grade_level: '', adviser: '', room: '' });

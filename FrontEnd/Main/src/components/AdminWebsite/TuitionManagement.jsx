@@ -977,6 +977,8 @@ const TuitionManagement = () => {
         data={previewData}
         filename={`Tuition_${viewMode}`}
       />
+      
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </main>
   );
 };

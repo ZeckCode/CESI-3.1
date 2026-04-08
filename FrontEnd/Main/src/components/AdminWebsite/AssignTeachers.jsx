@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Users } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { Users, Edit2, Trash2 } from 'lucide-react';
+import Toast from '../Global/Toast';
 import '../AdminWebsiteCSS/AssignTeachers.css';
 
 const AssignTeachers = () => {
@@ -19,6 +20,48 @@ const AssignTeachers = () => {
     'Mr. Robert Brown',
     'Mrs. Susan Williams',
   ]);
+
+  const [toasts, setToasts] = useState([]);
+  const [reassigningClass, setReassigningClass] = useState(null);
+  const [selectedNewTeacher, setSelectedNewTeacher] = useState('');
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const handleReassignTeacher = async (classId, oldTeacher, newTeacher) => {
+    if (!newTeacher) {
+      addToast('Selection Required', 'Please select a teacher to assign', 'warning');
+      return;
+    }
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      addToast('Success', `Class reassigned from ${oldTeacher} to ${newTeacher}`, 'success');
+      setReassigningClass(null);
+      setSelectedNewTeacher('');
+    } catch (e) {
+      addToast('Error', 'Failed to reassign teacher. Please try again.', 'error');
+    }
+  };
+
+  const handleRemoveAssignment = async (classId, teacher) => {
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 800));
+      addToast('Success', `${classId} has been removed from ${teacher}'s assignments`, 'success');
+    } catch (e) {
+      addToast('Error', 'Failed to remove assignment. Please try again.', 'error');
+    }
+  };
 
   return (
     <div className="admin-class-management">
@@ -115,16 +158,103 @@ const AssignTeachers = () => {
           return (
             <div key={idx} className="admin-teacher-card">
               <h3>{teacher}</h3>
-              <div className="admin-teacher-info">
-                <p><strong>Classes:</strong></p>
-                <ul>
-                  {teacherClasses.map(cls => (
-                    <li key={cls.id}>
+          <div className="admin-teacher-info">
+            <p><strong>Classes:</strong></p>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <tbody>
+                {teacherClasses.map(cls => (
+                  <tr key={cls.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <td style={{ padding: '8px', textAlign: 'left' }}>
                       {cls.name} ({cls.gradeLevel}) - {cls.enrolled} Students
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                    </td>
+                    <td style={{ padding: '8px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        {reassigningClass === cls.id ? (
+                          <>
+                            <select
+                              value={selectedNewTeacher}
+                              onChange={(e) => setSelectedNewTeacher(e.target.value)}
+                              style={{ padding: '4px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '12px' }}
+                            >
+                              <option value="">Select teacher...</option>
+                              {availableTeachers.map((t) => t !== teacher && <option key={t} value={t}>{t}</option>)}
+                            </select>
+                            <button
+                              onClick={() => handleReassignTeacher(cls.id, teacher, selectedNewTeacher)}
+                              style={{
+                                padding: '4px 8px',
+                                background: '#10b981',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px'
+                              }}
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => { setReassigningClass(null); setSelectedNewTeacher(''); }}
+                              style={{
+                                padding: '4px 8px',
+                                background: '#6b7280',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px'
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setReassigningClass(cls.id)}
+                              title="Reassign teacher"
+                              style={{
+                                padding: '4px 8px',
+                                background: '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '12px'
+                              }}
+                            >
+                              <Edit2 size={14} /> Reassign
+                            </button>
+                            <button
+                              onClick={() => handleRemoveAssignment(cls.id, teacher)}
+                              title="Remove class assignment"
+                              style={{
+                                padding: '4px 8px',
+                                background: '#ef4444',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '12px'
+                              }}
+                            >
+                              <Trash2 size={14} /> Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
             </div>
           );
         })}
@@ -141,6 +271,7 @@ const AssignTeachers = () => {
           <li>Add teacher performance metrics</li>
         </ul>
       </div>
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </div>
   );
 };

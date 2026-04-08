@@ -1,31 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FileText, Download, Filter, BarChart2, Clock, CheckCircle, FileDown, X, RefreshCw } from 'lucide-react';
 import StatCard, { StatsGrid } from './StatCard';
+import Toast from '../Global/Toast';
 import '../AdminWebsiteCSS/ClassManagement.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { apiFetch } from '../api/apiFetch';
-
-// Toast Component
-const Toast = ({ message, type, onClose }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  return (
-    <div className={`toast-notification toast-${type}`}>
-      <div className="toast-content">
-        {type === 'success' && <CheckCircle size={18} />}
-        {type === 'error' && <X size={18} />}
-        <span>{message}</span>
-      </div>
-      <button className="toast-close" onClick={onClose}>
-        <X size={14} />
-      </button>
-    </div>
-  );
-};
 
 // Helper functions
 const getCurrentAcademicYear = () => {
@@ -41,7 +21,6 @@ const Reports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [generatedReports, setGeneratedReports] = useState([]);
   const [currentAcademicYear, setCurrentAcademicYear] = useState('');
-  const [toast, setToast] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -67,6 +46,8 @@ const Reports = () => {
     active_sections: 0,
     total_subjects: 0
   });
+  
+  const [toasts, setToasts] = useState([]);
   
   const [teacherStats, setTeacherStats] = useState({
     total_teachers: 0,
@@ -100,9 +81,17 @@ const Reports = () => {
   
   const now = new Date();
 
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-  };
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   // Load saved reports from localStorage
   useEffect(() => {
@@ -227,10 +216,8 @@ const Reports = () => {
       }
       
       await fetchAcademicYear();
-      showToast('Data refreshed successfully', 'success');
     } catch (error) {
       console.error('Error fetching data:', error);
-      showToast('Failed to load some data', 'error');
     } finally {
       setRefreshing(false);
     }
@@ -682,7 +669,7 @@ const Reports = () => {
     
     setGeneratedReports(prev => [newReport, ...prev]);
     setIsGenerating(false);
-    showToast('Report generated successfully!', 'success');
+    addToast('Success', 'Report generated successfully!', 'success');
   };
   
   const handleDownload = (report) => {
@@ -728,7 +715,7 @@ const Reports = () => {
       <div className="class-management">
         <div style={{ textAlign: 'center', padding: '50px' }}>
           <div className="spinner"></div>
-          <p>Loading reports data...</p>
+      <Toast toasts={toasts} dismissToast={dismissToast} />
         </div>
       </div>
     );
@@ -736,10 +723,6 @@ const Reports = () => {
   
   return (
     <div className="class-management">
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      
-      
-      
       <div className="class-controls">
         <div className="filter-box">
           <Filter size={20} />
@@ -769,7 +752,10 @@ const Reports = () => {
           {isGenerating ? 'Generating...' : 'Generate Report'}
         </button>
 
-        <button className="btn-icon" onClick={refreshAllData} title="Refresh Data" disabled={refreshing}>
+        <button className="btn-icon" onClick={() => {
+          refreshAllData();
+          addToast('Success', 'Data refreshed successfully', 'success');
+        }} title="Refresh Data" disabled={refreshing}>
               <RefreshCw size={16} className={refreshing ? 'spin' : ''} />
         </button>
       </div>
@@ -850,6 +836,8 @@ const Reports = () => {
           </table>
         </div>
       </div>
+      
+      <Toast toasts={toasts} dismissToast={dismissToast} />
       
       <style>{`
         .badge-pdf {

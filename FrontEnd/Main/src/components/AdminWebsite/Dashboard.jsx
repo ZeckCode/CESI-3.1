@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -33,9 +33,11 @@ import {
   AlertCircle,
   Key,
   Send,
+  Crown,
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
 import { generateRevenueInsight, detectRevenueDips, generateEnrollmentInsight, generateAttendanceInsight, generatePaymentInsight, getChartInsightColor } from "../../utils/chartInsights";
+import Toast from "../Global/Toast";
 import "../AdminWebsiteCSS/Dashboard.css";
 
 const COLORS = [
@@ -80,6 +82,20 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
   const [pendingApplications, setPendingApplications] = useState([]);
   const [performanceMetrics, setPerformanceMetrics] = useState([]);
   const [selectedGradeLevel, setSelectedGradeLevel] = useState("All");
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   const [openAnalysisKey, setOpenAnalysisKey] = useState("");
 
   useEffect(() => {
@@ -165,12 +181,15 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
 
       if (!res.ok) {
         const data = await res.json();
+        addToast("Error", data.detail || "Failed to send reset link.", "error");
         console.error("Failed to send reset link:", data.detail || "Unknown error");
       } else {
         // Refresh the dashboard data to update the display
         loadDashboardData();
+        addToast("Success", "Reset link sent successfully.", "success");
       }
     } catch (err) {
+      addToast("Error", err.message || "Failed to send reset link.", "error");
       console.error("Error sending reset link:", err);
     } finally {
       setSendingResetId(null);
@@ -594,7 +613,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
           status: normalizeStatusUpper(r.status),
           requestedAt: r.requested_at || "",
           message: r.message || "",
-          userName: r.user?.username || r.user?.first_name || "Unknown User",
+          userName: r.user_name || "Unknown User",
         }));
 
       setPasswordResetRequests(pendingResets);
@@ -624,10 +643,11 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         grade: getEnrollmentGrade(e),
         appliedDate: e.created_at || e.date_applied || "",
       }));
-
+      
       setPendingApplications(pendingAppsList);
     } catch (err) {
       console.error("Dashboard load error:", err);
+      addToast("Load Error", err.message || "Failed to load dashboard data.", "error");
     } finally {
       setLoading(false);
     }
@@ -636,11 +656,34 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
   const formatCurrency = (val) => `₱${Number(val || 0).toLocaleString()}`;
 
   const filteredPerformanceMetrics = useMemo(
-    () =>
-      performanceMetrics.filter(
-        (student) =>
-          selectedGradeLevel === "All" || student.gradeLevel === selectedGradeLevel
-      ),
+    () => {
+      // Sort by performance score descending
+      const sorted = [...performanceMetrics].sort(
+        (a, b) => Number(b.performanceScore) - Number(a.performanceScore)
+      );
+
+      // If "All Grades" selected or not set yet, limit to 2 per grade level
+      if (!selectedGradeLevel || selectedGradeLevel === "All") {
+        const gradeLevelMap = {};
+        const result = [];
+
+        sorted.forEach((student) => {
+          const grade = student.gradeLevel || "Unassigned";
+          if (!gradeLevelMap[grade]) {
+            gradeLevelMap[grade] = 0;
+          }
+          if (gradeLevelMap[grade] < 2) {
+            result.push(student);
+            gradeLevelMap[grade]++;
+          }
+        });
+
+        return result;
+      } else {
+        // For specific grade, return top performers from that grade
+        return sorted.filter((student) => student.gradeLevel === selectedGradeLevel);
+      }
+    },
     [performanceMetrics, selectedGradeLevel]
   );
 
@@ -791,16 +834,72 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
     stats.attendanceRate,
   ]);
 
-  if (loading) {
-    return (
-      <main className="dashboard-main">
-        <div className="dash-loading">
-          <div className="dash-spinner" />
-          <p>Loading dashboard...</p>
-        </div>
-      </main>
-    );
-  }
+
+
+    const getPerformanceColorSet = (id, idx = 0) => {
+    const colors = [
+      { fill: "#ff6b6b", soft: "rgba(255, 107, 107, 0.18)", border: "rgba(255, 107, 107, 0.38)" },
+      { fill: "#8b5cf6", soft: "rgba(139, 92, 246, 0.18)", border: "rgba(139, 92, 246, 0.38)" },
+      { fill: "#3b82f6", soft: "rgba(59, 130, 246, 0.18)", border: "rgba(59, 130, 246, 0.38)" },
+      { fill: "#06b6d4", soft: "rgba(6, 182, 212, 0.18)", border: "rgba(6, 182, 212, 0.38)" },
+      { fill: "#10b981", soft: "rgba(16, 185, 129, 0.18)", border: "rgba(16, 185, 129, 0.38)" },
+      { fill: "#f59e0b", soft: "rgba(245, 158, 11, 0.18)", border: "rgba(245, 158, 11, 0.38)" },
+      { fill: "#ec4899", soft: "rgba(236, 72, 153, 0.18)", border: "rgba(236, 72, 153, 0.38)" },
+      { fill: "#14b8a6", soft: "rgba(20, 184, 166, 0.18)", border: "rgba(20, 184, 166, 0.38)" },
+      { fill: "#f97316", soft: "rgba(249, 115, 22, 0.18)", border: "rgba(249, 115, 22, 0.38)" },
+      { fill: "#6366f1", soft: "rgba(99, 102, 241, 0.18)", border: "rgba(99, 102, 241, 0.38)" },
+    ];
+
+    const source = String(id ?? `student-${idx}`);
+    const seed = source.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    return colors[seed % colors.length];
+  };
+
+  const getScoreWidth = (score) => {
+    const safe = Math.max(0, Math.min(100, Number(score) || 0));
+    return `${safe}%`;
+  };
+    if (loading) {
+      return (
+        <main className="dashboard-main">
+          <section className="dash-stat-grid">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="dash-skeleton-card">
+                <div className="dash-skeleton-icon shimmer" />
+                <div className="dash-skeleton-copy">
+                  <div className="dash-skeleton-line dash-skeleton-line--lg shimmer" />
+                  <div className="dash-skeleton-line dash-skeleton-line--sm shimmer" />
+                  <div className="dash-skeleton-line dash-skeleton-line--xs shimmer" />
+                </div>
+              </div>
+            ))}
+          </section>
+
+          <section className="dash-row dash-row--3col">
+            <div className="dash-card dash-card--list">
+              <div className="dash-card-head">
+                <ClipboardCheck size={16} />
+                <h3 className="dash-card-title" style={{ fontSize: "13px" }}>Top Students by Performance</h3>
+              </div>
+
+              <div className="dash-performance-list">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="dash-performance-skeleton shimmer" />
+                ))}
+              </div>
+            </div>
+
+            <div className="dash-card">
+              <div className="dash-chart-skeleton shimmer" />
+            </div>
+
+            <div className="dash-card">
+              <div className="dash-chart-skeleton shimmer" />
+            </div>
+          </section>
+        </main>
+      );
+    }
 
   return (
     <main className="dashboard-main">
@@ -1001,21 +1100,22 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         <div className="dash-card dash-card--list">
           <div className="dash-card-head">
             <ClipboardCheck size={16} />
-            <h3 className="dash-card-title">Top 10 Students by Performance</h3>
-            <select 
-              value={selectedGradeLevel}
-              onChange={(e) => setSelectedGradeLevel(e.target.value)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: "6px",
-                border: "1px solid #e5e7eb",
-                fontSize: "13px",
-                fontWeight: 500,
-                backgroundColor: "#fff",
-                cursor: "pointer",
-                marginLeft: "auto"
-              }}
-            >
+            <h3 className="dash-card-title">Top Students by Performance</h3>
+           <select
+            value={selectedGradeLevel}
+            onChange={(e) => setSelectedGradeLevel(e.target.value)}
+            style={{
+              padding: "5px 10px",
+              borderRadius: "8px",
+              border: "1px solid #d1d5db",
+              fontSize: "12px",
+              fontWeight: 600,
+              backgroundColor: "#fff",
+              cursor: "pointer",
+              marginLeft: "auto",
+              height: "32px"
+            }}
+          >
               <option value="All">All Grades</option>
               <option value="Pre-Kinder">Pre-Kinder</option>
               <option value="Kinder">Kinder</option>
@@ -1027,80 +1127,71 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
               <option value="Grade 6">Grade 6</option>
             </select>
           </div>
-          {performanceMetrics.length === 0 && (
+          {filteredPerformanceMetrics.length === 0 && (
             <div className="dash-empty-state">
               <CheckCircle size={24} className="dash-empty-icon" />
               <p className="dash-empty">No student data available</p>
-              <span className="dash-empty-sub">Student performance will appear here once enrollment data is available</span>
+              <span className="dash-empty-sub">Student performance data will appear here once enrollment data is available</span>
             </div>
           )}
-          {performanceMetrics.length > 0 && (
-            <div className="dash-pending-list">
-              {filteredPerformanceMetrics
-                .slice(0, 10)
-                .map((student, idx) => {
+          {filteredPerformanceMetrics.length > 0 && (
+              <div className="dash-performance-list">
+                {filteredPerformanceMetrics.slice(0, 10).map((student, idx) => {
                   const rank = idx + 1;
-                  const scoreColor =
-                    student.performanceScore >= 80
-                      ? "#10b981"
-                      : student.performanceScore >= 70
-                      ? "#f59e0b"
-                      : student.performanceScore >= 60
-                      ? "#3b82f6"
-                      : "#ef4444";
-                  const rowBg =
-                    student.performanceScore >= 80
-                      ? "#ecfdf5"
-                      : student.performanceScore >= 70
-                      ? "#fffbeb"
-                      : student.performanceScore >= 60
-                      ? "#eff6ff"
-                      : "#fef2f2";
+                  const colorSet = getPerformanceColorSet(student.id, idx);
+                  const scorePercent = Number(student.performanceScore) || 0;
+                  const isTopOne = rank === 1;
 
                   return (
                     <div
                       key={student.id || idx}
-                      className="dash-pending-item"
-                      style={{ backgroundColor: rowBg }}
-                      title={`${student.studentName} - ${student.status}`}
+                      className={`dash-performance-item ${isTopOne ? "is-top" : ""}`}
+                      title={`${student.studentName} - ${student.gradeLevel}`}
                     >
-                      <div className="dash-pending-left" style={{ alignItems: "center" }}>
-                        <div
-                          className="dash-rank-badge"
-                          style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: "50%",
-                            backgroundColor: "#eef2ff",
-                            color: "#3730a3",
-                            fontWeight: 700,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            marginRight: 8,
-                            fontSize: 12,
-                          }}
-                        >
-                          {rank}
+                      <div
+                        className="dash-performance-track"
+                        style={{
+                          "--perf-fill": colorSet.fill,
+                          "--perf-soft": colorSet.soft,
+                          "--perf-border": colorSet.border,
+                          "--perf-width": getScoreWidth(scorePercent),
+                        }}
+                      >
+                        <div className="dash-performance-fill" />
+
+                        <div className="dash-performance-content">
+                          <div className="dash-performance-left">
+                            <div className="dash-performance-rank-wrap">
+                              {isTopOne && (
+                                <span className="dash-performance-crown">
+                                  <Crown size={13} />
+                                </span>
+                              )}
+                              <span className="dash-performance-rank">{rank}</span>
+                            </div>
+
+                            <div className="dash-performance-text">
+                              <span className="dash-performance-name">
+                                {student.studentName}
+                              </span>
+                              <span className="dash-performance-grade">
+                                {student.gradeLevel}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="dash-performance-right">
+                            <span className="dash-performance-score">
+                              {scorePercent}%
+                            </span>
+                          </div>
                         </div>
-                        <div className="dash-list-content">
-                          <span className="dash-list-title">{student.studentName}</span>
-                          <span className="dash-list-sub">{student.gradeLevel}</span>
-                        </div>
-                      </div>
-                      <div className="dash-pending-right">
-                        <span
-                          className="dash-pending-date"
-                          style={{ fontWeight: 600, color: scoreColor }}
-                        >
-                          {student.performanceScore}%
-                        </span>
                       </div>
                     </div>
                   );
                 })}
-            </div>
-          )}
+              </div>
+            )}
         </div>
 
         <div className="dash-card dash-card--center">
@@ -1264,7 +1355,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
               </span>
               <div className="dash-list-content">
                 <span className="dash-list-title">
-                  {req.userName || "User"}
+                  {req.userName}
                 </span>
                 <span className="dash-list-sub">
                   {req.email}
@@ -1344,7 +1435,9 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
             </p>
           </div>
         </div>
-      )}    </main>
+      )}
+      <Toast toasts={toasts} dismissToast={dismissToast} />
+    </main>
   );
 };
 

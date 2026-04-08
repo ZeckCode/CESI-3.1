@@ -4,6 +4,7 @@ import {
   BookOpen, GraduationCap, Save, X, UserCheck, UserX, RefreshCw,
 } from 'lucide-react';
 import { apiFetch } from '../api/apiFetch';
+import Toast from '../Global/Toast';
 import StatCard, { StatsGrid } from './StatCard';
 import Pagination from './Pagination';
 import '../AdminWebsiteCSS/UserManagement.css';
@@ -79,6 +80,19 @@ const UserManagement = () => {
   const [studentForm, setStudentForm] = useState({});
   const [studentEditError, setStudentEditError] = useState('');
   const [savingStudent, setSavingStudent] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   // ── fetchers ──
   // Helper to accept either raw array responses or paginated { results: [...] }
@@ -426,11 +440,15 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
     setCreateError('');
     setEmailHint('');
     if (!createForm.username || !createForm.email || !createForm.password) {
-      setCreateError('Username, email and password are required.');
+      const msg = 'Username, email and password are required.';
+      setCreateError(msg);
+      addToast('Validation Error', msg, 'error');
       return;
     }
     if (!isValidTeacherEmail(createForm.email)) {
-      setCreateError('Email must follow teacher format: firstname.lastname@cesi.edu.ph');
+      const msg = 'Email must follow teacher format: firstname.lastname@cesi.edu.ph';
+      setCreateError(msg);
+      addToast('Invalid Email', msg, 'error');
       return;
     }
     setCreating(true);
@@ -457,11 +475,13 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
       if (!res.ok) {
         throw new Error(extractErrorMessage(data, 'Failed to create teacher.'));
       }
+      addToast('Success', 'Teacher created successfully!', 'success');
       setShowCreateForm(false);
       setCreateForm({ username: '', email: '', password: '', subjects: [''], section_teacher: '', employee_id: '' });
       await fetchTeachers();
     } catch (e) {
       setCreateError(e.message);
+      addToast('Error', e.message, 'error');
     } finally {
       setCreating(false);
     }
@@ -495,7 +515,9 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
   const handleSaveStudent = async () => {
     setStudentEditError('');
     if (!studentForm.student_first_name || !studentForm.student_last_name) {
-      setStudentEditError('Student first and last name are required.');
+      const msg = 'Student first and last name are required.';
+      setStudentEditError(msg);
+      addToast('Validation Error', msg, 'error');
       return;
     }
     setSavingStudent(true);
@@ -511,10 +533,12 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || JSON.stringify(err));
       }
+      addToast('Success', 'Student information updated successfully!', 'success');
       closeStudentEdit();
       fetchStudents();
     } catch (e) {
       setStudentEditError(e.message);
+      addToast('Error', e.message, 'error');
     } finally {
       setSavingStudent(false);
     }
@@ -555,10 +579,12 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         const err = await res.json().catch(() => ({}));
         throw new Error(extractErrorMessage(err, 'Failed to update teacher assignment.'));
       }
+      addToast('Success', 'Teacher assignment updated successfully!', 'success');
       setEditingId(null);
       await fetchTeachers();
     } catch (e) {
       setAssignError(e.message);
+      addToast('Error', e.message, 'error');
     }
   };
 
@@ -1041,6 +1067,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
           )}
         </div>
       )}
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </div>
   );
 };
