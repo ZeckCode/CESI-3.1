@@ -619,7 +619,7 @@
 /* KEY: the table wrapper scrolls INSIDE the card, page never overflows */
 .ge__tableWrap {
   overflow: auto;
-  max-height: 65vh;
+  max-height: 80vh;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 8px;
 }
