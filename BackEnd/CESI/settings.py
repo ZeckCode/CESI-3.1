@@ -28,7 +28,23 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-dev-k
 # For testing in production_test branch, we keep True (dev/test). Set DJANGO_DEBUG=False in DigitalOcean when ready.
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
 
+# --- ADD THIS LINE BEFORE THE IF STATEMENT ---
+USE_SPACES = os.environ.get('DO_SPACES_KEY') is not None
 
+if USE_SPACES:
+    # 1. Credentials and Setup
+    AWS_ACCESS_KEY_ID = os.environ.get('DO_SPACES_KEY')
+    AWS_SECRET_ACCESS_KEY = os.environ.get('DO_SPACES_SECRET')
+    AWS_STORAGE_BUCKET_NAME = os.environ.get('DO_SPACES_BUCKET')
+    AWS_S3_ENDPOINT_URL = os.environ.get('DO_SPACES_ENDPOINT')
+    AWS_S3_REGION_NAME = os.environ.get('DO_SPACES_REGION')
+
+    # 2. Storage Rules
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = 'private'
+    
+    # 3. Tell Django to use this as the default storage engine
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
 # Application definition
 
@@ -41,6 +57,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'announcements',
     'rest_framework',
+    'storages',
     
     'rest_framework.authtoken', # For token-based authentication
     'corsheaders',
