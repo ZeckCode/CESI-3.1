@@ -927,12 +927,40 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         base_local = f"{safe_last}{safe_first}".strip() or "student"
 
         def _create_dedicated_portal_user():
-            base_username = f"{base_local}@cesi.edu.ph"
-            username = base_username
-            i = 1
-            while User.objects.filter(username=username).exists():
-                i += 1
-                username = f"{base_local}{i}@cesi.edu.ph"
+            # Try to use student number as primary identifier in username for max uniqueness
+            # Format: studentnumber@cesi.edu.ph or lastname_firstname_studentnumber@cesi.edu.ph
+            student_num = str(enrollment.student_number).strip() if enrollment.student_number else None
+            
+            if student_num:
+                # First try: just student number
+                base_username_options = [
+                    f"student{student_num}@cesi.edu.ph",
+                ]
+            else:
+                # Fallback: name-based if no student number
+                base_username_options = [
+                    f"{base_local}@cesi.edu.ph",
+                ]
+            
+            username = None
+            for candidate in base_username_options:
+                if not User.objects.filter(username=candidate).exists():
+                    username = candidate
+                    break
+            
+            # If the preferred options are taken, append counter
+            if not username:
+                base_attempt = base_username_options[0]  # Use first option as base
+                i = 1
+                while True:
+                    if base_attempt.endswith("@cesi.edu.ph"):
+                        candidate = base_attempt.replace("@cesi.edu.ph", f"{i}@cesi.edu.ph")
+                    else:
+                        candidate = base_attempt.replace("@", f"{i}@")
+                    if not User.objects.filter(username=candidate).exists():
+                        username = candidate
+                        break
+                    i += 1
 
             # User.email must remain unique, so shared enrollment emails use a unique portal email.
             if student_email and not User.objects.filter(email__iexact=student_email).exists():
@@ -953,7 +981,32 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             )
             new_user.set_unusable_password()
             new_user.save()
+            logger.info(
+                "Created dedicated portal user %s (student #%s) for enrollment %s",
+                username,
+                student_num or "NONE",
+                enrollment.pk,
+            )
             return new_user
+
+        # STRICT ISOLATION: Check if this enrollment's student number conflicts with an existing account
+        # If so, the account belongs to a different student and must not be reused
+        if portal_user and create_if_missing and enrollment.student_number:
+            existing_profile = UserProfile.objects.filter(user=portal_user).first()
+            if existing_profile and existing_profile.student_number:
+                linked_student_num = str(existing_profile.student_number).strip()
+                current_student_num = str(enrollment.student_number).strip()
+                if linked_student_num != current_student_num:
+                    logger.warning(
+                        "Enrollment %s (student #%s) was linked to user %s (student #%s); isolating to new account to prevent cross-student overwrites.",
+                        enrollment.pk,
+                        current_student_num,
+                        portal_user.pk,
+                        linked_student_num,
+                    )
+                    portal_user = _create_dedicated_portal_user()
+                    enrollment.parent_user = portal_user
+                    enrollment.save(update_fields=["parent_user"])
 
         if not portal_user and create_if_missing:
             portal_user = _create_dedicated_portal_user()
@@ -978,6 +1031,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 and profile_last
                 and (enrollment_first != profile_first or enrollment_last != profile_last)
             )
+            # STRICT: Student number is primary identifier - any mismatch means different student
             student_number_mismatch = bool(
                 enrollment.student_number
                 and existing_profile.student_number
@@ -1032,6 +1086,23 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         )
 
         if not created:
+            # STRICT SAFETY: Never update a profile with mismatched student number
+            # This protects against any edge case where wrong student data could overwrite existing profile
+            if profile.student_number:
+                profile_student_num = str(profile.student_number).strip()
+                enrollment_student_num = str(enrollment.student_number).strip() if enrollment.student_number else ""
+                
+                if enrollment_student_num and profile_student_num != enrollment_student_num:
+                    logger.error(
+                        "SECURITY: Attempted to update profile with mismatched student numbers. "
+                        "Profile has student #%s but enrollment #%s is trying to update it. "
+                        "Skipping profile update to prevent data corruption.",
+                        profile_student_num,
+                        enrollment_student_num,
+                    )
+                    # Do not update the profile - return early to prevent overwrites
+                    return
+            
             profile.student_first_name = enrollment.first_name or profile.student_first_name
             profile.student_middle_name = enrollment.middle_name or profile.student_middle_name
             profile.student_last_name = enrollment.last_name or profile.student_last_name
