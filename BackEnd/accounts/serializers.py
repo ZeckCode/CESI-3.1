@@ -496,6 +496,8 @@ class PasswordResetRequestCreateSerializer(serializers.Serializer):
 
 class PasswordResetRequestSerializer(serializers.ModelSerializer):
     user_name = serializers.SerializerMethodField()
+    account_email = serializers.SerializerMethodField()
+    email_matches_account = serializers.SerializerMethodField()
 
     class Meta:
         model = PasswordResetRequest
@@ -504,12 +506,22 @@ class PasswordResetRequestSerializer(serializers.ModelSerializer):
             "user",
             "user_name",
             "email",
+            "account_email",
+            "email_matches_account",
             "message",
             "status",
             "requested_at",
             "sent_at",
             "completed_at",
         ]
+
+    def get_account_email(self, obj):
+        return (getattr(obj.user, "email", "") or "").strip()
+
+    def get_email_matches_account(self, obj):
+        request_email = (obj.email or "").strip().lower()
+        account_email = (getattr(obj.user, "email", "") or "").strip().lower()
+        return bool(request_email and account_email and request_email == account_email)
 
     def get_user_name(self, obj):
         user = obj.user
