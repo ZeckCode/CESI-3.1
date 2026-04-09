@@ -689,7 +689,39 @@ def my_grades(request):
     if user.role != "PARENT_STUDENT":
         return Response({"detail": "Forbidden"}, status=403)
 
-    subjects = Subject.objects.all()
+    active_sy = get_active_school_year_obj()
+    enrollment_qs = Enrollment.objects.filter(
+        status="ACTIVE",
+    ).filter(Q(parent_user=user) | Q(student=user)).exclude(section__isnull=True)
+    if active_sy:
+        enrollment_qs = enrollment_qs.filter(section__school_year=active_sy)
+    else:
+        enrollment_qs = Enrollment.objects.none()
+
+    resolved_section_ids = list(enrollment_qs.values_list("section_id", flat=True).distinct())
+    if not resolved_section_ids:
+        try:
+            profile = user.profile
+        except UserProfile.DoesNotExist:
+            profile = None
+        if profile:
+            profile_section = getattr(profile, "section", None)
+            if profile_section and (not active_sy or profile_section.school_year_id == active_sy.id):
+                resolved_section_ids = [profile_section.id]
+
+    subjects_qs = Subject.objects.none()
+    if resolved_section_ids:
+        schedule_qs = Schedule.objects.filter(
+            section_id__in=resolved_section_ids,
+            subject__isnull=False,
+        )
+        if active_sy:
+            schedule_qs = schedule_qs.filter(school_year=active_sy)
+        subject_ids = list(schedule_qs.values_list("subject_id", flat=True).distinct())
+        if subject_ids:
+            subjects_qs = Subject.objects.filter(id__in=subject_ids)
+
+    subjects = subjects_qs.order_by("name")
     result = []
     for subj in subjects:
         quarters = {}
