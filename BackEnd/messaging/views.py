@@ -320,7 +320,9 @@ class ChatViewSet(viewsets.ModelViewSet):
             Q(profile__student_first_name__icontains=query) |
             Q(profile__student_last_name__icontains=query) |
             Q(profile__parent_first_name__icontains=query) |
-            Q(profile__parent_last_name__icontains=query)
+            Q(profile__parent_last_name__icontains=query) |
+            Q(parent_enrollments__first_name__icontains=query) |
+            Q(parent_enrollments__last_name__icontains=query)
         ).exclude(id=request.user.id).distinct()
 
         # Student/parent accounts should primarily discover people in the same section.
@@ -347,12 +349,21 @@ class ChatViewSet(viewsets.ModelViewSet):
             )
 
             if section_ids:
-                classmate_ids = set(
-                    Enrollment.objects.filter(
-                        section_id__in=section_ids,
-                        status='ACTIVE',
-                    ).values_list('student_id', flat=True)
-                )
+                public_user_id = User.objects.filter(
+                    username='public_user'
+                ).values_list('id', flat=True).first()
+                classmate_ids = set()
+                enrollments = Enrollment.objects.filter(
+                    section_id__in=section_ids,
+                    status='ACTIVE',
+                ).values('parent_user_id', 'student_id')
+                for row in enrollments:
+                    candidate_id = row.get('parent_user_id') or row.get('student_id')
+                    if not candidate_id:
+                        continue
+                    if public_user_id and candidate_id == public_user_id:
+                        continue
+                    classmate_ids.add(candidate_id)
                 teacher_ids = set(
                     Schedule.objects.filter(
                         section_id__in=section_ids
