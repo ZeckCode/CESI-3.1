@@ -37,6 +37,7 @@ const StudentMessage = () => {
   const [newChatError, setNewChatError] = useState("");
   const [newChatType, setNewChatType] = useState("individual");
   const [newChatName, setNewChatName] = useState("");
+  const [newChatQuery, setNewChatQuery] = useState("");
   const [initialMessage, setInitialMessage] = useState("");
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [isSending, setIsSending] = useState(false);
@@ -257,6 +258,7 @@ const StudentMessage = () => {
       setShowNewChat(false);
       setNewChatType("individual");
       setNewChatName("");
+      setNewChatQuery("");
       setSelectedUserId(null);
       setInitialMessage("");
       setSelectedUserText("");
@@ -271,8 +273,9 @@ const StudentMessage = () => {
   };
 
   const handleUserSearch = async (query) => {
-    setSelectedUserText(query);
+    setSelectedUserText("");
     setSelectedUserId(null);
+    setNewChatQuery(query);
     if (query.length < 2) {
       setUserSuggestions([]);
       setShowUserDropdown(false);
@@ -291,6 +294,7 @@ const StudentMessage = () => {
   const handleSelectUser = (user) => {
     setSelectedUserId(user.id);
     setSelectedUserText(getUserDisplayName(user));
+    setNewChatQuery("");
     setUserSuggestions([]);
     setShowUserDropdown(false);
   };
@@ -620,44 +624,45 @@ const StudentMessage = () => {
       )}
 
       {showNewChat && (
-        <div style={{position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 3000}}>
-          <div style={{width: "100%", maxWidth: "460px", background: "#fff", borderRadius: "10px", padding: "16px"}}>
-            <h3 style={{marginTop: 0, marginBottom: "12px"}}>Create New Chat</h3>
+        <div className="msgModal">
+          <div className="msgModal__card">
+            <h3 className="msgModal__title">Create New Chat</h3>
             {newChatError && (
-              <div style={{marginBottom: "10px", color: "#b91c1c", fontSize: "13px", fontWeight: 600}}>
+              <div className="msgModal__error">
                 {newChatError}
               </div>
             )}
             <select
               value={newChatType}
               onChange={(e) => setNewChatType(e.target.value)}
-              style={{width: "100%", padding: "8px", marginBottom: "10px"}}
+              className="msgModal__field"
             >
               <option value="individual">Individual DM</option>
               <option value="project">Project Group</option>
             </select>
 
             {newChatType === "individual" && (
-              <div style={{position: "relative", marginBottom: "10px"}}>
+              <div className="msgModal__stack">
                 <input
                   type="text"
                   placeholder="Search users..."
-                  value={selectedUserText}
+                  value={selectedUserText || newChatQuery}
                   onChange={(e) => {
+                    if (selectedUserText) {
+                      setSelectedUserText("");
+                    }
                     handleUserSearch(e.target.value);
                   }}
-                  onFocus={() => selectedUserText.length >= 2 && setShowUserDropdown(true)}
-                  style={{width: "100%", padding: "8px", marginBottom: "10px"}}
+                  onFocus={() => newChatQuery.length >= 2 && setShowUserDropdown(true)}
+                  className="msgModal__field"
                 />
                 {showUserDropdown && userSuggestions.length > 0 && (
-                  <div style={{position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "white", border: "1px solid #ccc", maxHeight: "150px", overflowY: "auto", zIndex: 1000}}>
+                  <div className="msgModal__dropdown">
                     {userSuggestions.map((user) => (
                       <div
                         key={user.id}
                         onClick={() => handleSelectUser(user)}
-                        style={{padding: "8px", borderBottom: "1px solid #eee", cursor: "pointer", backgroundColor: "#f9f9f9"}}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e8e8e8")}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f9f9f9")}
+                        className="msgModal__option"
                       >
                         {getUserDisplayName(user)}
                       </div>
@@ -669,7 +674,7 @@ const StudentMessage = () => {
                     placeholder="Initial message (optional)..."
                     value={initialMessage}
                     onChange={(e) => setInitialMessage(e.target.value)}
-                    style={{width: "100%", padding: "8px", marginTop: "8px", minHeight: "60px", fontFamily: "inherit"}}
+                    className="msgModal__field msgModal__textarea"
                   />
                 )}
               </div>
@@ -681,25 +686,25 @@ const StudentMessage = () => {
                 placeholder="Group name..."
                 value={newChatName}
                 onChange={(e) => setNewChatName(e.target.value)}
-                style={{width: "100%", padding: "8px", marginBottom: "10px"}}
+                className="msgModal__field"
               />
             )}
 
-            <div style={{display: "flex", justifyContent: "flex-end", gap: "8px"}}>
+            <div className="msgModal__actions">
               <button
                 type="button"
                 onClick={() => {
                   setShowNewChat(false);
                   setNewChatError("");
                 }}
-                style={{padding: "8px 12px", border: "1px solid #ccc", background: "#fff"}}
+                className="msgModal__btn"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleCreateNewChat}
-                style={{padding: "8px 12px", backgroundColor: "#24148a", color: "white", border: "none", cursor: "pointer"}}
+                className="msgModal__btn msgModal__btn--primary"
               >
                 Create
               </button>

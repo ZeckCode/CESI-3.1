@@ -71,6 +71,123 @@
 .msg__newBtn:hover { filter: brightness(1.05); }
 .msg__newBtn:active { transform: translateY(1px); }
 
+/* new chat modal */
+.msgModal{
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  z-index: 3000;
+}
+
+.msgModal__card{
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border-radius: 24px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 50px rgba(0,0,0,.2);
+}
+
+.msgModal__title{
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--dark);
+}
+
+.msgModal__error{
+  margin-bottom: 10px;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+
+.msgModal__stack{
+  position: relative;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.msgModal__field{
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  font-weight: 700;
+  background: #fff;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.msgModal__field:focus{
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.msgModal__textarea{
+  border-radius: 16px;
+  min-height: 70px;
+  font-family: inherit;
+}
+
+.msgModal__dropdown{
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 18px 30px rgba(0,0,0,.12);
+}
+
+.msgModal__option{
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 700;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fff;
+}
+
+.msgModal__option:last-child{ border-bottom: 0; }
+.msgModal__option:hover{ background: #f8fafc; }
+
+.msgModal__actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.msgModal__btn{
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.msgModal__btn--primary{
+  background: var(--dark);
+  color: #fff;
+  border: none;
+}
+
 /* main shell */
 .msg__shell{
   background: var(--card-bg);
