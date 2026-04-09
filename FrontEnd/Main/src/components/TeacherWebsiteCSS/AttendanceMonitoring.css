@@ -320,7 +320,7 @@
 
 .am__tableWrap {
   overflow: auto;
-  max-height: calc(100vh - 300px);
+  max-height: calc(100vh - 150px);
 }
 
 /* TABLE */
