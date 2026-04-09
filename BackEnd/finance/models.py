@@ -5,7 +5,10 @@ from accounts.models import User
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from CESI.storage_backends import get_private_storage
 # finance/models.py
+
+PRIVATE_MEDIA_STORAGE = get_private_storage()
 
 class Transaction(models.Model):
     TYPE_CHOICES = [
@@ -262,7 +265,10 @@ class ProofOfPayment(models.Model):
     )
     billed_due_date = models.DateField(null=True, blank=True)
 
-    proof_image = models.ImageField(upload_to='proofs/%Y/%m/%d/')
+    proof_image = models.ImageField(
+        upload_to='proofs/%Y/%m/%d/',
+        storage=PRIVATE_MEDIA_STORAGE,
+    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,

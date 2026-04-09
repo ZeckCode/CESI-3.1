@@ -3,6 +3,7 @@ from io import BytesIO
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from CESI.storage_backends import get_public_storage
 
 try:
     from PIL import Image
@@ -10,6 +11,7 @@ except Exception:
     Image = None
 
 User = get_user_model()
+PUBLIC_MEDIA_STORAGE = get_public_storage()
 
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 ALLOWED_VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov"}  # browser-friendly
@@ -66,6 +68,7 @@ class AnnouncementMedia(models.Model):
     )
     file = models.FileField(
         upload_to="announcements/",
+        storage=PUBLIC_MEDIA_STORAGE,
         validators=[validate_media_file_extension, validate_file_size]
     )
     # Optional binary fallback storage (compressed image bytes)

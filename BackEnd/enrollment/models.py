@@ -3,6 +3,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from accounts.models import Section
+from CESI.storage_backends import get_private_storage
 import os
 from io import BytesIO
 
@@ -10,6 +11,8 @@ try:
     from PIL import Image
 except Exception:
     Image = None
+
+PRIVATE_MEDIA_STORAGE = get_private_storage()
 
 
 class Enrollment(models.Model):
@@ -114,7 +117,12 @@ class Enrollment(models.Model):
     parent_facebook = models.CharField(max_length=100, blank=True, null=True)
 
     # Image
-    id_image = models.ImageField(upload_to="enrollment_ids/", blank=True, null=True)
+    id_image = models.ImageField(
+        upload_to="enrollment_ids/",
+        blank=True,
+        null=True,
+        storage=PRIVATE_MEDIA_STORAGE,
+    )
     # Optional DB-backed compressed image
     id_image_data = models.BinaryField(null=True, blank=True, editable=False)
     id_image_mime = models.CharField(max_length=50, blank=True, null=True, editable=False)
@@ -275,7 +283,10 @@ class EnrollmentDocument(models.Model):
             related_name="documents",
         )
     document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPE_CHOICES)
-    file = models.FileField(upload_to="enrollment_documents/")
+    file = models.FileField(
+        upload_to="enrollment_documents/",
+        storage=PRIVATE_MEDIA_STORAGE,
+    )
     label = models.CharField(max_length=100, blank=True, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
