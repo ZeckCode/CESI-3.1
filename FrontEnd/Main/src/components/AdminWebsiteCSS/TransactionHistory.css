@@ -489,12 +489,34 @@
 }
 
 /* Table */
+.th-table-wrapper {
+  width: 100%;
+}
+
+.th-table-scroll-hint {
+  display: none;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  padding: 0.5rem;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .th-table-container {
   background-color: white;
   border-radius: 0.75rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  position: relative;
 }
 
 .th-table {
@@ -636,10 +658,16 @@
   .th-table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    border-left: 3px solid #2196F3;
+    border-right: 3px solid #2196F3;
+  }
+
+  .th-table-scroll-hint {
+    display: block;
   }
   
   .th-table {
-    min-width: 700px;
+    min-width: 750px;
     border-collapse: collapse;
   }
   
@@ -648,6 +676,11 @@
     font-size: 0.75rem;
     font-weight: 600;
     color: #475569;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #f8fafc;
   }
   
   .th-table td {
@@ -656,11 +689,11 @@
     color: #1e293b;
   }
   
-  .th-student-name-cell { font-size: 0.8rem; }
-  .th-amount-cell { font-size: 0.8rem; }
+  .th-student-name-cell { font-size: 0.8rem; font-weight: 600; }
+  .th-amount-cell { font-size: 0.8rem; font-weight: 700; }
   .th-reference-cell { font-size: 0.75rem; }
   .th-status-badge { padding: 0.2rem 0.6rem; font-size: 0.65rem; }
-  .th-action-btn { padding: 0.3rem 0.4rem; }
+  .th-action-btn { padding: 0.3rem 0.4rem; min-height: 32px; }
   .th-action-btn svg { width: 12px; height: 12px; }
 }
 
@@ -668,11 +701,20 @@
   .th-table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    border-left: 3px solid #2196F3;
+    border-right: 3px solid #2196F3;
+  }
+
+  .th-table-scroll-hint {
+    display: block;
+    font-size: 0.7rem;
+    padding: 0.4rem;
   }
   
   .th-table {
     min-width: 650px;
     border-collapse: collapse;
+    font-size: 0.75rem;
   }
   
   .th-table th {
@@ -681,6 +723,10 @@
     font-weight: 600;
     color: #475569;
     white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #f8fafc;
   }
   
   .th-table td {
@@ -689,25 +735,193 @@
     color: #1e293b;
     white-space: nowrap;
   }
-  
-  .th-student-name-cell { font-size: 0.75rem; }
-  .th-amount-cell { font-size: 0.75rem; font-weight: 600; }
-  .th-reference-cell { font-size: 0.7rem; }
-  .th-status-badge { padding: 0.15rem 0.5rem; font-size: 0.6rem; }
-  .th-action-btn { padding: 0.25rem 0.3rem; }
-  .th-action-btn svg { width: 11px; height: 11px; }
+
+  .th-student-name-cell { 
+    font-size: 0.75rem;
+    font-weight: 600;
+    max-width: 80px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+
+  .th-amount-cell { 
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .th-reference-cell { 
+    font-size: 0.7rem;
+    font-family: 'Courier New', monospace;
+  }
+
+  .th-status-badge { 
+    padding: 0.15rem 0.5rem;
+    font-size: 0.6rem;
+    white-space: nowrap;
+  }
+
+  .th-action-btn { 
+    padding: 0.25rem 0.3rem;
+    min-height: 32px;
+    font-size: 0.65rem;
+  }
+
+  .th-action-btn svg { 
+    width: 11px;
+    height: 11px;
+  }
   
   /* Minimize section headers */
-  .th-section-title { font-size: 1rem; }
+  .th-section-title { font-size: 1rem; margin-bottom: 0.5rem; }
   .th-section-subtitle { font-size: 0.7rem; }
   
   /* Minimize stat cards */
-  .th-stat-card { padding: 0.75rem; border-radius: 0.5rem; }
+  .th-stat-card { 
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
   .th-stat-label { font-size: 0.75rem; }
   .th-stat-value { font-size: 1.25rem; }
   
   /* Compact filters */
-  .th-filter-select, .th-search-input { font-size: 0.85rem; padding: 0.4rem; }
+  .th-filter-select,
+  .th-search-input { 
+    font-size: 0.85rem;
+    padding: 0.4rem;
+    min-height: 40px;
+  }
+
+  .th-filters-container {
+    gap: 0.35rem;
+  }
+
+  .th-header-actions {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .th-header-actions button {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    min-height: 36px;
+  }
+}
+
+/* ── Ultra Mobile (<400px) ── */
+@media (max-width: 400px) {
+  .transaction-history-main {
+    padding: 10px;
+  }
+
+  .th-section {
+    margin-bottom: 1rem;
+  }
+
+  .th-section-title {
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .th-stats-grid {
+    gap: 0.75rem;
+  }
+
+  .th-stat-card {
+    padding: 0.6rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .th-stat-label {
+    font-size: 0.7rem;
+  }
+
+  .th-stat-value {
+    font-size: 1.1rem;
+  }
+
+  .th-filters-container {
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .th-search-input,
+  .th-filter-select {
+    width: 100%;
+    font-size: 0.8rem;
+    padding: 0.35rem;
+    min-height: 38px;
+  }
+
+  .th-table-container {
+    border-left: 2px solid #2196F3;
+    border-right: 2px solid #2196F3;
+    margin: 0 -10px;
+    border-radius: 0;
+  }
+
+  .th-table {
+    min-width: 600px;
+    font-size: 0.7rem;
+  }
+
+  .th-table th {
+    padding: 0.35rem 0.25rem;
+    font-size: 0.65rem;
+    line-height: 1.2;
+  }
+
+  .th-table td {
+    padding: 0.3rem 0.25rem;
+    font-size: 0.7rem;
+  }
+
+  .th-student-name-cell {
+    font-size: 0.7rem;
+    max-width: 70px;
+  }
+
+  .th-amount-cell {
+    font-size: 0.7rem;
+  }
+
+  .th-reference-cell {
+    font-size: 0.65rem;
+  }
+
+  .th-status-badge {
+    padding: 0.1rem 0.4rem;
+    font-size: 0.55rem;
+  }
+
+  .th-action-btn {
+    padding: 0.2rem 0.25rem;
+    min-height: 30px;
+    font-size: 0.6rem;
+  }
+
+  .th-action-btn svg {
+    width: 10px;
+    height: 10px;
+  }
+
+  .th-header-actions {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .th-header-actions button {
+    font-size: 0.7rem;
+    padding: 0.4rem 0.6rem;
+    min-height: 32px;
+    flex: 0 1 calc(50% - 0.2rem);
+  }
+
+  .th-table-scroll-hint {
+    font-size: 0.65rem;
+    padding: 0.3rem;
+  }
 }
 
 /* ═══════════════════════════════════

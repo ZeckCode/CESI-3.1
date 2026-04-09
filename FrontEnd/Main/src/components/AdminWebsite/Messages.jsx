@@ -333,11 +333,7 @@ const AdminMessages = () => {
 
   return (
     <div className="admin-messages-layout">
-      {/* Header */}
-      <div className="admin-messages-header">
-        <h1>Chat Moderation</h1>
-        <p>Manage profanity filters, flagged messages, restrictions, and reports</p>
-      </div>
+   
 
       {/* Tab Navigation */}
       <div className="admin-tabs">

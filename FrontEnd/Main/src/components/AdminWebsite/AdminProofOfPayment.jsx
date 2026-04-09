@@ -204,28 +204,30 @@ export default function AdminProofOfPayment() {
             <p>No proof of payment submissions found.</p>
           </div>
         ) : (
-          <div className="admin-proof-table-container">
-            <table className="admin-proof-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Student</th>
-                  <th>Reference Number</th>
-                  <th>Description</th>
-                  <th>Amount</th>
-                  <th>Bill Type</th>
-                  <th>Payment Date</th>
-                  <th>Type</th>
-                  <th>Submitted Date</th>
-                  <th>Status</th>
-                  <th>Proof Image</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.map((payment) => (
-                  <tr key={payment.id}>
-                    <td>{payment.id}</td>
+          <div className="admin-proof-table-wrapper">
+            <div className="admin-proof-table-container">
+              <div className="admin-proof-table-scroll-hint">← Swipe to scroll →</div>
+              <table className="admin-proof-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Student</th>
+                    <th>Reference Number</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Bill Type</th>
+                    <th>Payment Date</th>
+                    <th>Type</th>
+                    <th>Submitted Date</th>
+                    <th>Status</th>
+                    <th>Proof Image</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((payment) => (
+                    <tr key={payment.id}>
+                    <td data-label="ID">{payment.id}</td>
                     <td data-label="Student">
                       <div className="admin-proof-student-name">
                         {getStudentDisplayName(payment)}
@@ -236,8 +238,8 @@ export default function AdminProofOfPayment() {
                         </div>
                       )}
                     </td>
-                    <td>{payment.reference_number}</td>
-                    <td>
+                    <td data-label="Reference Number">{payment.reference_number}</td>
+                    <td data-label="Description">
                       <div className="admin-proof-description">
                         {payment.formatted_description}
                         {payment.is_enrollment_payment && (
@@ -257,10 +259,10 @@ export default function AdminProofOfPayment() {
                         )}
                       </div>
                     </td>
-                    <td>{formatCurrency(payment.amount)}</td>
-                    <td>{billTypeLabel(payment.billed_item)}</td>
-                    <td>{payment.payment_date || payment.billed_due_date || "—"}</td>
-                    <td>
+                    <td data-label="Amount">{formatCurrency(payment.amount)}</td>
+                    <td data-label="Bill Type">{billTypeLabel(payment.billed_item)}</td>
+                    <td data-label="Payment Date">{payment.payment_date || payment.billed_due_date || "—"}</td>
+                    <td data-label="Type">
                       {payment.is_enrollment_payment ? (
                         <span
                           style={{
@@ -289,8 +291,8 @@ export default function AdminProofOfPayment() {
                         </span>
                       )}
                     </td>
-                    <td>{formatDate(payment.created_at)}</td>
-                    <td>
+                    <td data-label="Submitted Date">{formatDate(payment.created_at)}</td>
+                    <td data-label="Status">
                       <span
                         className={`admin-proof-status-badge admin-proof-status-${payment.status || "pending"}`}
                         style={statusPillStyle(payment.status)}
@@ -298,7 +300,7 @@ export default function AdminProofOfPayment() {
                         {payment.status || "PENDING"}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Proof Image">
                       {payment.proof_image && (
                         <button
                           onClick={() => openImageOverlay(getImageUrl(payment.proof_image))}
@@ -352,6 +354,7 @@ export default function AdminProofOfPayment() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 

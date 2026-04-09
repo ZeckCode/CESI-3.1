@@ -460,17 +460,19 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         
         from finance.models import ProofOfPayment
         
-        # Get student name for reference
+        # Get student name from enrollment (not from user)
         student_name = f"{enrollment.first_name} {enrollment.last_name}".strip()
         
         ProofOfPayment.objects.create(
             user=enrollment.parent_user or enrollment.student,
             enrollment=enrollment,  # Link to enrollment
-            reference_number=f"ENROLL-{enrollment.id}",  # Format that can be parsed later
-            description="Enrollment Initial Payment",  # Base description - admin will format it
+            reference_number=f"ENROLL-{enrollment.id}",
+            description=f"Enrollment Initial Payment - {student_name}",
+            amount=0,  # Will be filled by admin during review
+            billed_item='REGISTRATION',  # Enrollment registration bill type
             proof_image=proof_file,
-            payment_type='enrollment',  # Mark as enrollment payment
-            source='enrollment_form',   # Mark source as enrollment form
+            payment_type='enrollment',
+            source='enrollment_form',
             status='pending'
         )
 

@@ -6,6 +6,7 @@ import '../AdminWebsiteCSS/ClassManagement.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { apiFetch } from '../api/apiFetch';
+import dejavuSansTtfUrl from 'dejavu-fonts-ttf/ttf/DejaVuSans.ttf?url';
 
 // Helper functions
 const getCurrentAcademicYear = () => {
@@ -14,7 +15,115 @@ const getCurrentAcademicYear = () => {
   return today.getMonth() >= 5 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 };
 
-const formatCurrency = (value) => `₱${Number(value || 0).toLocaleString()}`;
+const formatCurrency = (value) => {
+  const amount = Number(value || 0);
+  return `₱${amount.toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
+};
+
+let pdfFontReady;
+
+const ensurePdfFont = async (doc) => {
+  if (!pdfFontReady) {
+    pdfFontReady = (async () => {
+      const response = await fetch(dejavuSansTtfUrl);
+      if (!response.ok) {
+        throw new Error('Failed to load PDF font');
+      }
+
+      const fontBuffer = await response.arrayBuffer();
+      let binary = '';
+      const bytes = new Uint8Array(fontBuffer);
+      const chunkSize = 0x8000;
+
+      for (let index = 0; index < bytes.length; index += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+      }
+
+      return btoa(binary);
+    })();
+  }
+
+  const fontBase64 = await pdfFontReady;
+  if (!doc.getFontList().DejaVuSans) {
+    doc.addFileToVFS('DejaVuSans.ttf', fontBase64);
+    doc.addFont('DejaVuSans.ttf', 'DejaVuSans', 'normal');
+  }
+
+  doc.setFont('DejaVuSans', 'normal');
+};
+
+const normalizeGradeLevel = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const normalized = String(value).trim().toLowerCase().replace(/\s+/g, ' ');
+  const gradeMap = {
+    prek: -1,
+    'pre-k': -1,
+    'pre k': -1,
+    'pre kinder': -1,
+    'pre-kinder': -1,
+    prekindergarten: -1,
+    kinder: 0,
+    kindergarten: 0,
+    grade1: 1,
+    'grade 1': 1,
+    grade2: 2,
+    'grade 2': 2,
+    grade3: 3,
+    'grade 3': 3,
+    grade4: 4,
+    'grade 4': 4,
+    grade5: 5,
+    'grade 5': 5,
+    grade6: 6,
+    'grade 6': 6,
+    0: 0,
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 4,
+    5: 5,
+    6: 6,
+  };
+
+  if (Object.prototype.hasOwnProperty.call(gradeMap, normalized)) {
+    return gradeMap[normalized];
+  }
+
+  const numeric = Number(normalized);
+  return Number.isInteger(numeric) ? numeric : null;
+};
+
+const formatGradeLevel = (value) => {
+  const normalized = normalizeGradeLevel(value);
+  if (normalized === -1) return 'Pre Kinder';
+  if (normalized === 0) return 'Kinder';
+  if (normalized > 0) return `Grade ${normalized}`;
+  return String(value || '—').trim() || '—';
+};
+
+const formatStudentName = (record) => {
+  const directName = String(record?.student_name || record?.student_display_name || record?.name || '').trim();
+  if (directName && !/^public_user$/i.test(directName)) return directName;
+
+  const displayName = String(record?.student_display_name || '').trim();
+  if (displayName && !/^public_user$/i.test(displayName)) return displayName;
+
+  const nestedName = `${record?.student?.first_name || ''} ${record?.student?.last_name || ''}`.trim();
+  if (nestedName) return nestedName;
+
+  const fallbackName = `${record?.first_name || ''} ${record?.last_name || ''}`.trim();
+  if (fallbackName) return fallbackName;
+
+  return record?.student_username || record?.username || '—';
+};
+
+const pdfTableStyles = {
+  font: 'DejaVuSans',
+  fontStyle: 'normal',
+};
 
 const Reports = () => {
   const [reportType, setReportType] = useState('all');
@@ -232,8 +341,29 @@ const Reports = () => {
     fetchAllData();
   }, []);
 
-  const openPrintView = (report) => {
+  const openPrintView = async (report) => {
     const doc = new jsPDF('landscape');
+    await ensurePdfFont(doc);
+
+    let historyRecordsForExport = report.data.historyRecords || [];
+    let historySummaryForExport = report.data.history || {
+      totalRecords: report.data.totalRecords || 0,
+      uniqueStudents: report.data.uniqueStudents || 0,
+      schoolYears: report.data.schoolYears || 0,
+      averageFinal: report.data.averageFinal || '—',
+    };
+
+    if (report.type === 'history' || report.type === 'all') {
+      try {
+        const historyRes = await apiFetch('/api/grades/academic-history/');
+        const historyData = await historyRes.json();
+        const liveHistoryRecords = Array.isArray(historyData) ? historyData : [];
+        historyRecordsForExport = liveHistoryRecords;
+        historySummaryForExport = buildHistoryStats(liveHistoryRecords);
+      } catch (error) {
+        console.warn('Failed to refresh academic history for export:', error);
+      }
+    }
     
     doc.setFontSize(18);
     doc.setTextColor(33, 37, 41);
@@ -298,10 +428,10 @@ const Reports = () => {
     }
     else if (report.type === 'history') {
       summaryData = [
-        ['Total Records', report.data.totalRecords || 0],
-        ['Unique Students', report.data.uniqueStudents || 0],
-        ['School Years', report.data.schoolYears || 0],
-        ['Average Final Grade', report.data.averageFinal || '—'],
+        ['Total Records', historySummaryForExport.totalRecords || 0],
+        ['Unique Students', historySummaryForExport.uniqueStudents || 0],
+        ['School Years', historySummaryForExport.schoolYears || 0],
+        ['Average Final Grade', historySummaryForExport.averageFinal || '—'],
       ];
     }
     else if (report.type === 'all') {
@@ -314,7 +444,7 @@ const Reports = () => {
         ['Total Collected', formatCurrency(report.data.financial?.total_collected || 0)],
         ['Outstanding Balance', formatCurrency(report.data.financial?.outstanding_balance || 0)],
         ['Attendance Records', report.data.attendanceStats?.total_records || 0],
-        ['History Records', report.data.history?.totalRecords || 0],
+        ['History Records', historySummaryForExport.totalRecords || 0],
       ];
     }
     
@@ -324,6 +454,7 @@ const Reports = () => {
         head: [['Metric', 'Value']],
         body: summaryData,
         theme: 'grid',
+        styles: pdfTableStyles,
         headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
         bodyStyles: { fontSize: 9 },
         margin: { left: 14, right: 14 },
@@ -336,7 +467,7 @@ const Reports = () => {
       doc.text('Enrollment Details', 14, startY);
       const tableData = report.data.enrollments.map(e => [
         `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.student_name || '—',
-        e.grade_level || '—',
+        formatGradeLevel(e.grade_level),
         e.section_name || '—',
         e.enrolled_at ? new Date(e.enrolled_at).toLocaleDateString() : '—',
         e.status || '—',
@@ -349,6 +480,7 @@ const Reports = () => {
         head: [['Student Name', 'Grade', 'Section', 'Date', 'Status', 'Payment', 'Parent', 'Contact']],
         body: tableData,
         theme: 'grid',
+        styles: pdfTableStyles,
         headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
         bodyStyles: { fontSize: 7 },
         margin: { left: 14, right: 14 },
@@ -357,7 +489,7 @@ const Reports = () => {
     else if (report.type === 'classes' && report.data.sections?.length > 0) {
       doc.text('Class Details', 14, startY);
       const tableData = report.data.sections.map(s => [
-        s.grade_level || '—',
+        formatGradeLevel(s.grade_level),
         s.name || '—',
         s.adviser_name || 'Unassigned',
         s.room_code || 'Unassigned',
@@ -370,6 +502,7 @@ const Reports = () => {
         head: [['Grade Level', 'Section', 'Adviser', 'Room', 'Active', 'Pending', 'Status']],
         body: tableData,
         theme: 'grid',
+        styles: pdfTableStyles,
         headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
         bodyStyles: { fontSize: 7 },
         margin: { left: 14, right: 14 },
@@ -390,6 +523,7 @@ const Reports = () => {
         head: [['Student', 'Date', 'Type', 'Debit', 'Credit', 'Status']],
         body: tableData,
         theme: 'grid',
+        styles: pdfTableStyles,
         headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
         bodyStyles: { fontSize: 7 },
         margin: { left: 14, right: 14 },
@@ -409,6 +543,7 @@ const Reports = () => {
         head: [['Teacher Name', 'Email', 'Employee ID', 'Subject', 'Status']],
         body: tableData,
         theme: 'grid',
+        styles: pdfTableStyles,
         headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
         bodyStyles: { fontSize: 7 },
         margin: { left: 14, right: 14 },
@@ -417,10 +552,9 @@ const Reports = () => {
     else if (report.type === 'attendance' && report.data.attendanceRecords?.length > 0) {
       doc.text('Attendance Record Details', 14, startY);
       const tableData = report.data.attendanceRecords.map(a => [
-        a.student_name || a.student?.first_name ? `${a.student?.first_name || ''} ${a.student?.last_name || ''}`.trim() : 
-          (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '—'),
+        formatStudentName(a),
         a.student_number || a.student?.student_number || '—',
-        a.grade_level || a.student?.grade_level || '—',
+        formatGradeLevel(a.grade_level || a.student?.grade_level),
         a.section_name || a.section?.name || '—',
         a.subject_name || a.subject?.name || '—',
         a.status || '—',
@@ -432,19 +566,19 @@ const Reports = () => {
         head: [['Student', 'Student #', 'Grade', 'Section', 'Subject', 'Status', 'Date', 'Marked By']],
         body: tableData,
         theme: 'grid',
+        styles: pdfTableStyles,
         headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 7 },
         bodyStyles: { fontSize: 6 },
         margin: { left: 14, right: 14 },
       });
     }
-    else if (report.type === 'history' && report.data.historyRecords?.length > 0) {
+    else if (report.type === 'history' && historyRecordsForExport?.length > 0) {
       doc.text('Academic History Record Details', 14, startY);
-      const tableData = report.data.historyRecords.map(h => [
+      const tableData = historyRecordsForExport.map(h => [
         h.school_year || '—',
-        h.student_name || h.student?.first_name ? `${h.student?.first_name || ''} ${h.student?.last_name || ''}`.trim() : 
-          (h.first_name ? `${h.first_name} ${h.last_name || ''}`.trim() : '—'),
+        formatStudentName(h),
         h.student_number || h.student?.student_number || '—',
-        h.grade_level || h.student?.grade_level || '—',
+        formatGradeLevel(h.grade_level || h.student?.grade_level),
         h.section_name || h.section?.name || '—',
         h.subject_name || h.subject?.name || '—',
         h.final_grade || '—',
@@ -455,6 +589,7 @@ const Reports = () => {
         head: [['School Year', 'Student Name', 'Student #', 'Grade', 'Section', 'Subject', 'Final Grade', 'Remarks']],
         body: tableData,
         theme: 'grid',
+        styles: pdfTableStyles,
         headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 7 },
         bodyStyles: { fontSize: 6 },
         margin: { left: 14, right: 14 },
@@ -469,11 +604,12 @@ const Reports = () => {
           head: [['Student Name', 'Grade', 'Section', 'Status']],
           body: report.data.enrollments.slice(0, 20).map(e => [
             `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.student_name || '—',
-            e.grade_level || '—',
+            formatGradeLevel(e.grade_level),
             e.section_name || '—',
             e.status || '—'
           ]),
           theme: 'grid',
+          styles: pdfTableStyles,
           headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
           bodyStyles: { fontSize: 7 },
           margin: { left: 14, right: 14 },
@@ -488,12 +624,13 @@ const Reports = () => {
           startY: startY + 5,
           head: [['Grade', 'Section', 'Students', 'Status']],
           body: report.data.sections.map(s => [
-            s.grade_level || '—',
+            formatGradeLevel(s.grade_level),
             s.name || '—',
             s.student_count || 0,
             s.student_count > 0 ? 'ONGOING' : 'EXPIRED'
           ]),
           theme: 'grid',
+          styles: pdfTableStyles,
           headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
           bodyStyles: { fontSize: 7 },
           margin: { left: 14, right: 14 },
@@ -508,14 +645,14 @@ const Reports = () => {
           startY: startY + 5,
           head: [['Student', 'Section', 'Subject', 'Status', 'Date']],
           body: report.data.attendanceRecords.slice(0, 20).map(a => [
-            a.student_name || a.student?.first_name ? `${a.student?.first_name || ''} ${a.student?.last_name || ''}`.trim() : 
-              (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '—'),
+            formatStudentName(a),
             a.section_name || a.section?.name || '—',
             a.subject_name || a.subject?.name || '—',
             a.status || '—',
             a.date || '—'
           ]),
           theme: 'grid',
+          styles: pdfTableStyles,
           headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
           bodyStyles: { fontSize: 7 },
           margin: { left: 14, right: 14 },
@@ -523,15 +660,14 @@ const Reports = () => {
         startY = doc.lastAutoTable.finalY + 15;
       }
 
-      if (report.data.historyRecords?.length > 0) {
+      if (historyRecordsForExport?.length > 0) {
         if (startY > 250) { doc.addPage(); startY = 20; }
         doc.text('Academic History Records', 14, startY);
         autoTable(doc, {
           startY: startY + 5,
           head: [['Student', 'School Year', 'Subject', 'Final Grade', 'Remarks']],
-          body: report.data.historyRecords.slice(0, 20).map(h => [
-            h.student_name || h.student?.first_name ? `${h.student?.first_name || ''} ${h.student?.last_name || ''}`.trim() : 
-              (h.first_name ? `${h.first_name} ${h.last_name || ''}`.trim() : '—'),
+          body: historyRecordsForExport.slice(0, 20).map(h => [
+            formatStudentName(h),
             h.school_year || '—',
             h.subject_name || h.subject?.name || '—',
             h.final_grade || '—',
@@ -673,7 +809,10 @@ const Reports = () => {
   };
   
   const handleDownload = (report) => {
-    openPrintView(report);
+    openPrintView(report).catch((error) => {
+      console.error('Failed to generate PDF report:', error);
+      addToast('Error', 'Failed to generate PDF report.', 'error');
+    });
   };
   
   const getFilteredReports = () => {

@@ -15,6 +15,7 @@ from .serializers import (
     StudentScoreSerializer,
     ClassStandingSerializer,
     AcademicRecordSerializer,
+    resolve_student_display_name,
 )
 from accounts.models import User, UserProfile, Subject
 from classmanagement.models import Schedule, SchoolYear
@@ -118,8 +119,14 @@ def normalize_grade_level(value):
 
     grade_map = {
         "prek": -1,
+        "pre-k": -1,
+        "pre k": -1,
+        "pre kinder": -1,
         "pre-kinder": -1,
+        "prekindergarten": -1,
+        "pre kindergarten": -1,
         "kinder": 0,
+        "kindergarten": 0,
         "grade1": 1,
         "grade2": 2,
         "grade3": 3,
@@ -153,7 +160,7 @@ def normalize_grade_level(value):
 def grade_level_label(value):
     normalized = normalize_grade_level(value)
     if normalized == -1:
-        return "Pre-Kinder"
+        return "Pre Kinder"
     if normalized == 0:
         return "Kinder"
     if normalized is not None and normalized > 0:
@@ -612,9 +619,25 @@ def publish_academic_history(request):
         if not student:
             continue
 
+        enrollment = Enrollment.objects.filter(
+            student=student,
+            academic_year=school_year,
+        ).order_by("-created_at", "-id").first()
+
         grade_level = normalize_grade_level(section_obj.grade_level if section_obj.grade_level is not None else row.get("grade_level"))
+        student_name = (
+            (f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() if enrollment else "")
+            or resolve_student_display_name(student, school_year)
+        )
+        student_number = (
+            (enrollment.student_number if enrollment else None)
+            or getattr(getattr(student, "profile", None), "student_number", None)
+            or ""
+        )
 
         defaults = {
+            "student_name": student_name,
+            "student_number": student_number,
             "section_name": section_obj.name or "",
             "subject_name": subject.name,
             "subject_code": subject.code,
@@ -1361,7 +1384,7 @@ def my_academic_history(request):
     if user.role != "PARENT_STUDENT":
         return Response({"detail": "Forbidden"}, status=403)
 
-    records = AcademicRecord.objects.filter(student=user).order_by("-school_year", "subject_name")
+    records = AcademicRecord.objects.select_related("student", "student__profile").filter(student=user).order_by("-school_year", "subject_name")
     serialized = AcademicRecordSerializer(records, many=True).data
 
     grouped = {}
@@ -1423,7 +1446,7 @@ class AcademicRecordDetail(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.user
         if user.role not in ("ADMIN", "TEACHER"):
             return AcademicRecord.objects.none()
-        return AcademicRecord.objects.all()
+        return AcademicRecord.objects.select_related("student", "student__profile", "recorded_by").all()
 
     def perform_update(self, serializer):
         serializer.save(recorded_by=self.request.user)

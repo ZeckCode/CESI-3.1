@@ -1347,22 +1347,24 @@ const TransactionHistory = () => {
           </div>
         </div>
 
-        <div className="th-table-container">
-          <table className="th-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Enrollment</th>
-                <th>Student No.</th>
-                <th>Student Name</th>
-                <th>Total Debit</th>
-                <th>Total Credit</th>
-                <th>Balance</th>
-                <th>Advance Available</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+        <div className="th-table-wrapper">
+          <div className="th-table-scroll-hint">← Swipe to scroll →</div>
+          <div className="th-table-container">
+            <table className="th-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Enrollment</th>
+                  <th>Student No.</th>
+                  <th>Student Name</th>
+                  <th>Total Debit</th>
+                  <th>Total Credit</th>
+                  <th>Balance</th>
+                  <th>Advance Available</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
 
             <tbody>
               {groupedTransactions.length === 0 ? (
@@ -1467,15 +1469,17 @@ const TransactionHistory = () => {
                                 <strong>{group.enrollment_id ? `Enrollment #${group.enrollment_id}` : 'Legacy ledger record'}</strong>
                               </div>
 
-                            <div className="th-table-container" style={{ marginTop: '0.75rem' }}>
-                              <table className="th-table">
-                                <thead>
-                                  <tr>
-                                    <th>Date</th>
-                                    <th>Reference</th>
-                                    <th>Entry Type</th>
-                                    <th>Item</th>
-                                    <th>Debit</th>
+                            <div className="th-table-wrapper" style={{ marginTop: '0.75rem' }}>
+                              <div className="th-table-scroll-hint">← Swipe to scroll →</div>
+                              <div className="th-table-container">
+                                <table className="th-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Date</th>
+                                      <th>Reference</th>
+                                      <th>Entry Type</th>
+                                      <th>Item</th>
+                                      <th>Debit</th>
                                     <th>Credit</th>
                                     <th>Balance</th>
                                     <th>Status</th>
@@ -1539,6 +1543,7 @@ const TransactionHistory = () => {
                                     ))}
                                 </tbody>
                               </table>
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -1549,20 +1554,21 @@ const TransactionHistory = () => {
               )}
             </tbody>
           </table>
-
-          <Pagination
-            currentPage={txnPage}
-            totalPages={txnTotalPages}
-            onPageChange={setTxnPage}
-            totalItems={groupedTransactions.length}
-            itemsPerPage={ITEMS_PER_PAGE}
-          />
+          </div>
         </div>
-        </div>
-        )}
 
-        {activeTab === 'advance-refund' && (
-        <div>
+        <Pagination
+          currentPage={txnPage}
+          totalPages={txnTotalPages}
+          onPageChange={setTxnPage}
+          totalItems={groupedTransactions.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+        />
+      </div>
+      )}
+
+      {activeTab === 'advance-refund' && (
+      <div>
         <div className="th-section-header">
           <div>
             <h2 className="th-section-title">Advance / Refund Requests</h2>
@@ -1570,17 +1576,19 @@ const TransactionHistory = () => {
           </div>
         </div>
 
-        <div className="th-table-container">
-          <table className="th-table">
-            <thead>
-              <tr>
-                <th>Created</th>
-                <th>Student</th>
-                <th>Student No.</th>
-                <th>Enrollment</th>
-                <th>Request Type</th>
-                <th>Amount</th>
-                <th>Reason</th>
+        <div className="th-table-wrapper">
+          <div className="th-table-scroll-hint">← Swipe to scroll →</div>
+          <div className="th-table-container">
+            <table className="th-table">
+              <thead>
+                <tr>
+                  <th>Created</th>
+                  <th>Student</th>
+                  <th>Student No.</th>
+                  <th>Enrollment</th>
+                  <th>Request Type</th>
+                  <th>Amount</th>
+                  <th>Reason</th>
                 <th>Status</th>
                 <th>Remarks</th>
                 <th>Actions</th>
@@ -1664,6 +1672,7 @@ const TransactionHistory = () => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
         </div>
         )}

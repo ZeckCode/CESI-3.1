@@ -233,6 +233,7 @@ Push-Location "$FrontendDir"
 $packageJsonPath = Join-Path $FrontendDir "package.json"
 $packageLockPath = Join-Path $FrontendDir "package-lock.json"
 $nodeModulesPath = Join-Path $FrontendDir "node_modules"
+$dejaVuFontPath = Join-Path $FrontendDir "node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf"
 
 if (-not (Test-Path $packageJsonPath)) {
     Write-Err "package.json not found in frontend: $FrontendDir"
@@ -286,6 +287,9 @@ if (-not (Test-NpmPackageInstalled "jspdf-autotable")) {
 if (-not (Test-NpmPackageInstalled "html2canvas")) {
     $missingFrontendPackages += "html2canvas"
 }
+if (-not (Test-NpmPackageInstalled "dejavu-fonts-ttf")) {
+    $missingFrontendPackages += "dejavu-fonts-ttf"
+}
 
 if ($missingFrontendPackages.Count -gt 0) {
     Write-Step "Installing missing frontend libraries: $($missingFrontendPackages -join ', ')"
@@ -299,8 +303,18 @@ if ($missingFrontendPackages.Count -gt 0) {
     Write-Ok "Required frontend libraries installed"
 }
 else {
-    Write-Ok "react-quill-new, jspdf, jspdf-autotable and html2canvas already installed"
+    Write-Ok "react-quill-new, jspdf, jspdf-autotable, html2canvas and dejavu-fonts-ttf already installed"
 }
+
+if (-not (Test-Path $dejaVuFontPath)) {
+    Write-Err "DejaVu font file not found at: $dejaVuFontPath"
+    Write-Err "Reinstall dejavu-fonts-ttf in FrontEnd/Main or delete node_modules and rerun start-dev.ps1"
+    Pop-Location
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+
+Write-Ok "DejaVuSans.ttf found for PDF export"
 
 Pop-Location
 

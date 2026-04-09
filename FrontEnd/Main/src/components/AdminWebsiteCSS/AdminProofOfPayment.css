@@ -209,16 +209,39 @@
 }
 
 /* Table */
+.admin-proof-table-wrapper {
+  width: 100%;
+}
+
+.admin-proof-table-scroll-hint {
+  display: none;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  padding: 0.5rem;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .admin-proof-table-container {
   background-color: white;
   border-radius: 0.75rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  position: relative;
 }
 
 .admin-proof-table {
   width: 100%;
+  min-width: 1100px;
   border-collapse: collapse;
   table-layout: auto;
 }
@@ -547,6 +570,16 @@
   .admin-proof-search-box {
     min-width: 250px;
   }
+
+  .admin-proof-table {
+    min-width: 980px;
+  }
+
+  .admin-proof-table th,
+  .admin-proof-table td {
+    padding: 0.8rem 0.6rem;
+    font-size: 0.82rem;
+  }
 }
 
 /* ── Mobile (<768px) ── */
@@ -603,13 +636,42 @@
     min-height: 44px;
   }
 
+  .admin-proof-table-scroll-hint {
+    display: block;
+  }
+
   .admin-proof-table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    border-left: 3px solid #2196F3;
+    border-right: 3px solid #2196F3;
   }
 
   .admin-proof-table {
-    min-width: 100%;
+    min-width: 860px;
+    font-size: 0.8rem;
+  }
+
+  .admin-proof-table th,
+  .admin-proof-table td {
+    padding: 0.65rem 0.45rem;
+    font-size: 0.76rem;
+  }
+
+  .admin-proof-student-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .admin-proof-description {
+    max-width: 130px;
+    font-size: 0.75rem;
+  }
+
+  .action-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
   }
 
   .admin-proof-modal {
@@ -688,59 +750,76 @@
     min-height: 44px;
   }
 
+  .admin-proof-table-scroll-hint {
+    display: block;
+    font-size: 0.7rem;
+    padding: 0.4rem;
+  }
+
   .admin-proof-table {
     border: 0;
-    font-size: 13px;
+    font-size: 11px;
+    min-width: 720px;
   }
 
   .admin-proof-table thead {
-    display: none;
+    background-color: #f8fafc;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .admin-proof-table th {
+    padding: 0.5rem 0.35rem;
+    font-size: 0.65rem;
+    font-weight: 600;
   }
 
   .admin-proof-table tbody tr {
-    display: block;
-    margin-bottom: 1rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 1rem;
-    background: white;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid #e2e8f0;
   }
 
-  .admin-proof-table tbody tr td {
-    display: block;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid #f1f5f9;
-    text-align: left;
+  .admin-proof-table td {
+    padding: 0.5rem 0.35rem;
+    font-size: 0.7rem;
   }
 
-  .admin-proof-table tbody tr td:last-child {
-    border-bottom: 0;
-    padding-bottom: 0;
-  }
-
-  .admin-proof-table tbody tr td:first-child {
+  .admin-proof-student-name {
     font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 0.5rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #e2e8f0;
+    font-size: 0.85rem;
   }
 
-  .admin-proof-table td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    color: #475569;
-    display: block;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.4rem;
-    color: #64748b;
+  .admin-proof-student-grade {
+    font-size: 0.65rem;
   }
 
   .admin-proof-description {
-    max-width: 100%;
+    max-width: 120px;
+    font-size: 0.75rem;
+    word-wrap: break-word;
+  }
+
+  .admin-proof-status-badge {
+    font-size: 0.65rem;
+    padding: 0.3rem 0.6rem;
+  }
+
+  .action-icon {
+    width: 32px;
+    height: 32px;
+    min-height: 40px;
+    min-width: 40px;
+    font-size: 0.85rem;
+  }
+
+  .admin-proof-view-image {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+  }
+
+  .admin-proof-view-image svg {
+    width: 12px;
+    height: 12px;
   }
 
   .admin-proof-modal {
@@ -878,7 +957,7 @@
 
   .admin-proof-table {
     min-width: 100%;
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .admin-proof-table thead {
