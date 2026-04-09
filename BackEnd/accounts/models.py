@@ -13,13 +13,13 @@ from CESI.storage_backends import get_public_storage
 # =========================
 PUBLIC_MEDIA_STORAGE = get_public_storage()
 class UserManager(BaseUserManager):
-    def create_user(self, username, email, password=None, role="PARENT_STUDENT", **extra_fields):
+    def create_user(self, username, email=None, password=None, role="PARENT_STUDENT", **extra_fields):
         if not username:
             raise ValueError("Username required")
-        if not email:
+        if not email and role != "PARENT_STUDENT":
             raise ValueError("Email required")
 
-        email = self.normalize_email(email)
+        email = self.normalize_email(email) if email else None
 
         user = self.model(
             username=username,
@@ -66,7 +66,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     username = models.CharField(max_length=50, unique=True)
-    email = models.EmailField(unique=True)  # keep unique (good for real systems)
+    email = models.EmailField(null=True, blank=True)
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="PARENT_STUDENT")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="ACTIVE")

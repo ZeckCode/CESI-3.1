@@ -18,23 +18,29 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>First Name</label>
           <input
+            ref={registerFieldRef("motherFirst")}
             value={form.motherFirst}
             onChange={(e) => setForm((prev) => ({ ...prev, motherFirst: e.target.value }))}
           />
+          <FieldError error={errors.motherFirst} />
         </div>
         <div className="form-group">
           <label>Middle Name</label>
           <input
+            ref={registerFieldRef("motherMiddle")}
             value={form.motherMiddle}
             onChange={(e) => setForm((prev) => ({ ...prev, motherMiddle: e.target.value }))}
           />
+          <FieldError error={errors.motherMiddle} />
         </div>
         <div className="form-group">
           <label>Last Name</label>
           <input
+            ref={registerFieldRef("motherLast")}
             value={form.motherLast}
             onChange={(e) => setForm((prev) => ({ ...prev, motherLast: e.target.value }))}
           />
+          <FieldError error={errors.motherLast} />
         </div>
         <div className="form-group">
           <label>Mobile Number {form.motherContact.length}/11</label>
@@ -67,23 +73,29 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>First Name</label>
           <input
+            ref={registerFieldRef("fatherFirst")}
             value={form.fatherFirst}
             onChange={(e) => setForm((prev) => ({ ...prev, fatherFirst: e.target.value }))}
           />
+          <FieldError error={errors.fatherFirst} />
         </div>
         <div className="form-group">
           <label>Middle Name</label>
           <input
+            ref={registerFieldRef("fatherMiddle")}
             value={form.fatherMiddle}
             onChange={(e) => setForm((prev) => ({ ...prev, fatherMiddle: e.target.value }))}
           />
+          <FieldError error={errors.fatherMiddle} />
         </div>
         <div className="form-group">
           <label>Last Name</label>
           <input
+            ref={registerFieldRef("fatherLast")}
             value={form.fatherLast}
             onChange={(e) => setForm((prev) => ({ ...prev, fatherLast: e.target.value }))}
           />
+          <FieldError error={errors.fatherLast} />
         </div>
         <div className="form-group">
           <label>Mobile Number {form.fatherContact.length}/11</label>
@@ -116,23 +128,29 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>First Name</label>
           <input
+            ref={registerFieldRef("guardianFirst")}
             value={form.guardianFirst}
             onChange={(e) => setForm((prev) => ({ ...prev, guardianFirst: e.target.value }))}
           />
+          <FieldError error={errors.guardianFirst} />
         </div>
         <div className="form-group">
           <label>Middle Name</label>
           <input
+            ref={registerFieldRef("guardianMiddle")}
             value={form.guardianMiddle}
             onChange={(e) => setForm((prev) => ({ ...prev, guardianMiddle: e.target.value }))}
           />
+          <FieldError error={errors.guardianMiddle} />
         </div>
         <div className="form-group">
           <label>Last Name</label>
           <input
+            ref={registerFieldRef("guardianLast")}
             value={form.guardianLast}
             onChange={(e) => setForm((prev) => ({ ...prev, guardianLast: e.target.value }))}
           />
+          <FieldError error={errors.guardianLast} />
         </div>
         <div className="form-group">
           <label>Mobile Number {form.guardianContact.length}/11</label>

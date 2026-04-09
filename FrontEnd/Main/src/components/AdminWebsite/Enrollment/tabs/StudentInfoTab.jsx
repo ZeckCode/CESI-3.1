@@ -1,5 +1,18 @@
 import React from "react";
 
+const RELIGION_OPTIONS = [
+  "Roman Catholic",
+  "Christian",
+  "Iglesia ni Cristo",
+  "Muslim",
+  "Born Again",
+  "Seventh-day Adventist",
+  "Jehovah's Witness",
+  "Buddhist",
+  "Hindu",
+  "None",
+];
+
 export default function StudentInfoTab({
   formData,
   isReadOnly,
@@ -255,25 +268,34 @@ export default function StudentInfoTab({
           </div>
           <div className="form-group">
             <label>Religion</label>
-            <input
+            <select
               name="religion"
               value={formData.religion}
               onChange={onInputChange}
               disabled={isReadOnly}
-            />
+            >
+              <option value="">Select</option>
+              {RELIGION_OPTIONS.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+              <option value="others_specify">Others (specify)</option>
+            </select>
+            {formData.religion === "others_specify" && (
+              <input
+                name="custom_religion"
+                value={formData.custom_religion || ""}
+                onChange={onInputChange}
+                disabled={isReadOnly}
+                placeholder="Please specify religion"
+                style={{ marginTop: 8 }}
+              />
+            )}
           </div>
         </div>
 
         <div className="form-row">
-          <div className="form-group">
-            <label>Telephone</label>
-            <input
-              name="telephone_number"
-              value={formData.telephone_number}
-              onChange={onInputChange}
-              disabled={isReadOnly}
-            />
-          </div>
           <div className="form-group">
             <label>Mobile</label>
             <input

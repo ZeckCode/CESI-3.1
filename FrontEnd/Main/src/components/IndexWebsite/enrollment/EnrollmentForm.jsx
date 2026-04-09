@@ -142,6 +142,8 @@ const EnrollmentForm = ({ onClose }) => {
     // Handle family contact error by focusing on mother contact field
     if (fieldName === "familyContact") {
       node = fieldRefs.current["motherContact"];
+    } else if (fieldName === "familyRequired") {
+      node = fieldRefs.current["motherFirst"] || fieldRefs.current["motherContact"];
     } else {
       node = fieldRefs.current[fieldName];
     }
@@ -260,6 +262,50 @@ const EnrollmentForm = ({ onClose }) => {
     return Object.keys(stepErrors).length === 0;
   };
 
+  const normalizeServerErrors = useCallback((data) => {
+    if (!data || typeof data !== "object") return {};
+
+    const keyMap = {
+      first_name: "firstName",
+      last_name: "lastName",
+      middle_name: "middleName",
+      birth_date: "birthDate",
+      mobile_number: "mobile",
+      telephone_number: "mobile",
+      payment_mode: "paymentMode",
+      payment_method: "paymentMethod",
+      grade_level: "gradeLevel",
+      education_level: "educationLevel",
+      custom_religion: "customReligion",
+      student_photo: "studentPhotoFile",
+      payment_proof_file: "paymentProofFile",
+      region: "region",
+      city: "city",
+      province: "province",
+      barangay: "barangay",
+      street: "street",
+      lrn: "lrn",
+      email: "email",
+      religion: "religion",
+      "parent_info.mother_contact": "motherContact",
+      "parent_info.father_contact": "fatherContact",
+      "parent_info.guardian_contact": "guardianContact",
+    };
+
+    const normalized = {};
+
+    Object.entries(data).forEach(([rawKey, value]) => {
+      const mappedKey = keyMap[rawKey] || rawKey;
+      normalized[mappedKey] = value;
+    });
+
+    if (normalized.non_field_errors && !normalized.familyRequired) {
+      normalized.familyRequired = normalized.non_field_errors;
+    }
+
+    return normalized;
+  }, []);
+
   const nextStep = () => {
     if (currentStep === STEP_KEYS.PRIVACY || currentStep === STEP_KEYS.INSTRUCTIONS) {
       setCurrentStep((prev) => prev + 1);
@@ -344,7 +390,10 @@ const EnrollmentForm = ({ onClose }) => {
         region: form.region,
       })
     );
-    formData.append("religion", form.religion === "Others" ? (form.customReligion || "") : form.religion);
+    formData.append(
+      "religion",
+      form.religion === "others_specify" ? (form.customReligion || "") : form.religion
+    );
     formData.append("mobile_number", normalizedMobile);
     formData.append("parent_facebook", form.parentFacebook);
     formData.append("payment_mode", form.paymentMode);
@@ -410,8 +459,9 @@ const EnrollmentForm = ({ onClose }) => {
         addToast("Submission Failed", errorMsg, "error");
 
         if (data && typeof data === "object") {
-          setErrors(data);
-          const firstKey = Object.keys(data)[0];
+          const normalizedErrors = normalizeServerErrors(data);
+          setErrors(normalizedErrors);
+          const firstKey = Object.keys(normalizedErrors)[0];
           if (firstKey) focusFieldError(firstKey);
         }
         return;
@@ -583,7 +633,7 @@ const EnrollmentForm = ({ onClose }) => {
           />
         )}
       </form>
-      <Toast toasts={toasts} dismissToast={dismissToast} />
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };

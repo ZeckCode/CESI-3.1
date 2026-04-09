@@ -75,6 +75,35 @@ const getResponsiveIconSize = () => {
   return 12;
 };
 
+const RELIGION_OPTIONS = [
+  "Roman Catholic",
+  "Christian",
+  "Iglesia ni Cristo",
+  "Muslim",
+  "Born Again",
+  "Seventh-day Adventist",
+  "Jehovah's Witness",
+  "Buddhist",
+  "Hindu",
+  "None",
+];
+
+const isKnownReligion = (value) => RELIGION_OPTIONS.includes(String(value || "").trim());
+
+const mapReligionToForm = (religion) => {
+  const cleaned = String(religion || "").trim();
+  if (!cleaned) return { religion: "", custom_religion: "" };
+  if (isKnownReligion(cleaned)) return { religion: cleaned, custom_religion: "" };
+  return { religion: "others_specify", custom_religion: cleaned };
+};
+
+const resolveReligionForPayload = (formData) => {
+  if (formData.religion === "others_specify") {
+    return String(formData.custom_religion || "").trim();
+  }
+  return String(formData.religion || "").trim();
+};
+
 export default function EnrollmentManagement() {
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -434,7 +463,6 @@ export default function EnrollmentManagement() {
           e?.parent_info?.father_contact ||
           e?.parent_info?.guardian_contact ||
           e?.mobile_number ||
-          e?.telephone_number ||
           "(not set)",
                 };
       }),
@@ -541,11 +569,10 @@ export default function EnrollmentManagement() {
     if (!e.payment_mode) missing.push("Payment Mode");
     // if (!e.parent_facebook?.trim()) missing.push("Parent Facebook");
 
-    const hasStudentContact =
-      e.email?.trim() || e.mobile_number?.trim() || e.telephone_number?.trim();
+    const hasStudentContact = e.email?.trim() || e.mobile_number?.trim();
 
     if (!hasStudentContact) {
-      missing.push("At least one contact (Email, Mobile, or Telephone)");
+      missing.push("At least one contact (Email or Mobile)");
     }
 
     const lrnRequiredGrades = [
@@ -607,6 +634,7 @@ export default function EnrollmentManagement() {
     const mother = splitFullName(e?.parent_info?.mother_name || "");
     const guardian = splitFullName(e?.parent_info?.guardian_name || "");
     const addr = splitAddress(e.address || "");
+    const religionFields = mapReligionToForm(e.religion);
     setEditingId(e.id);
     setModalMode(mode);
     setModalStatus(e.status || "PENDING");
@@ -627,8 +655,8 @@ export default function EnrollmentManagement() {
       payment_mode: e.payment_mode || "",
       section: e.section ? String(e.section) : "",
       email: e.email || "",
-      religion: e.religion || "",
-      telephone_number: e.telephone_number || "",
+      religion: religionFields.religion,
+      custom_religion: religionFields.custom_religion,
       mobile_number: e.mobile_number || "",
       parent_facebook: e.parent_facebook || "",
       street: addr.street,
@@ -691,6 +719,8 @@ export default function EnrollmentManagement() {
         ? { ...p, education_level: value, grade_level: "", section: "" }
         : name === "grade_level"
         ? { ...p, grade_level: value, section: "" }
+        : name === "religion"
+        ? { ...p, religion: value, custom_religion: value === "others_specify" ? p.custom_religion : "" }
         : { ...p, [name]: value }
     );
   };
@@ -816,12 +846,11 @@ export default function EnrollmentManagement() {
     if (!formData.education_level) missing.push("Education Level");
     if (!formData.student_type) missing.push("Student Type");
     if (!formData.academic_year) missing.push("Academic Year");
-    if (
-      !formData.email?.trim() &&
-      !formData.mobile_number?.trim() &&
-      !formData.telephone_number?.trim()
-    ) {
-      missing.push("At least one contact (Email, Mobile, or Telephone)");
+    if (!formData.email?.trim() && !formData.mobile_number?.trim()) {
+      missing.push("At least one contact (Email or Mobile)");
+    }
+    if (formData.religion === "others_specify" && !formData.custom_religion?.trim()) {
+      missing.push("Religion (specify)");
     }
     // if (!formData.parent_facebook?.trim()) missing.push("Parent Facebook");
     if (!formData.payment_mode) missing.push("Payment Mode");
@@ -1198,6 +1227,7 @@ const handleApproveModal = async () => {
     const mother = splitFullName(e?.parent_info?.mother_name || "");
     const guardian = splitFullName(e?.parent_info?.guardian_name || "");
     const addr = splitAddress(e.address || "");
+    const religionFields = mapReligionToForm(e.religion);
 
     setEditingId(e.id);
     setModalMode("edit");
@@ -1213,8 +1243,8 @@ const handleApproveModal = async () => {
       gender: e.gender || "",
       lrn: e.lrn || "",
       email: e.email || "",
-      religion: e.religion || "",
-      telephone_number: e.telephone_number || "",
+      religion: religionFields.religion,
+      custom_religion: religionFields.custom_religion,
       mobile_number: e.mobile_number || "",
       parent_facebook: e.parent_facebook || "",
       street: addr.street,
@@ -1298,8 +1328,7 @@ const handleApproveModal = async () => {
       section: formData.section || null,
       email: formData.email,
       address: buildAddress(formData),
-      religion: formData.religion,
-      telephone_number: formData.telephone_number,
+      religion: resolveReligionForPayload(formData),
       mobile_number: normalizedMobile ?? formData.mobile_number,
       parent_facebook: formData.parent_facebook,
       remarks: formData.remarks,

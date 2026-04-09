@@ -337,7 +337,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 last_name=student_last_name,
                 birth_date=latest_enrollment.birth_date,
                 gender=latest_enrollment.gender,
-                email=user.email or latest_enrollment.email,
+                email=latest_enrollment.email,
                 address=address,
                 religion=latest_enrollment.religion,
                 telephone_number=latest_enrollment.telephone_number,
@@ -962,19 +962,9 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                         break
                     i += 1
 
-            # User.email must remain unique, so shared enrollment emails use a unique portal email.
-            if student_email and not User.objects.filter(email__iexact=student_email).exists():
-                account_email = student_email
-            else:
-                account_email = f"{base_local}@cesi.local"
-                j = 1
-                while User.objects.filter(email__iexact=account_email).exists():
-                    j += 1
-                    account_email = f"{base_local}{j}@cesi.local"
-
             new_user = User.objects.create(
                 username=username,
-                email=account_email,
+                email=student_email or None,
                 role="PARENT_STUDENT",
                 status="ACTIVE",
                 is_active=True,
@@ -1057,14 +1047,8 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         parent_first_name, parent_last_name = self._get_parent_names_from_enrollment(enrollment)
 
         if student_email and portal_user.email != student_email:
-            email_taken = (
-                User.objects.filter(email__iexact=student_email)
-                .exclude(pk=portal_user.pk)
-                .exists()
-            )
-            if not email_taken:
-                portal_user.email = student_email
-                portal_user.save(update_fields=["email"])
+            portal_user.email = student_email
+            portal_user.save(update_fields=["email"])
 
         profile, created = UserProfile.objects.get_or_create(
             user=portal_user,

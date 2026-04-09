@@ -41,11 +41,12 @@ const StepStudent = ({
         </div>
 
         <div className="form-group">
-          <label>Middle Name <span className="required">*</span></label>
+          <label>Middle Name</label>
           <input
             ref={registerFieldRef("middleName")}
             value={form.middleName}
             onChange={(e) => setForm((prev) => ({ ...prev, middleName: e.target.value }))}
+            placeholder="Optional"
           />
           <FieldError error={errors.middleName} />
         </div>
@@ -158,15 +159,15 @@ const StepStudent = ({
                 {item}
               </option>
             ))}
-            <option value="Others">Others (Please specify)</option>
+            <option value="others_specify">Others (specify)</option>
           </select>
           <FieldError error={errors.religion} />
-          {form.religion === "Others" && (
+          {form.religion === "others_specify" && (
             <>
               <input
                 ref={registerFieldRef("customReligion")}
                 type="text"
-                placeholder="Enter your religion"
+                placeholder="Please specify your religion"
                 value={form.customReligion || ""}
                 onChange={(e) => setForm((prev) => ({ ...prev, customReligion: e.target.value }))}
                 style={{ marginTop: "8px" }}

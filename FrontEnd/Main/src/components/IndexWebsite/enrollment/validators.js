@@ -76,7 +76,6 @@ export const validateStudentStep = (data) => {
 
   if (!data.lastName.trim()) errors.lastName = "Last name is required.";
   if (!data.firstName.trim()) errors.firstName = "First name is required.";
-  if (!data.middleName.trim()) errors.middleName = "Middle name is required.";
   if (!data.birthDate) errors.birthDate = "Birth date is required.";
   else if (ageValidation && !ageValidation.ok) errors.birthDate = ageValidation.msg;
 
@@ -89,7 +88,7 @@ export const validateStudentStep = (data) => {
   }
 
   if (!data.religion) errors.religion = "Please select religion.";
-  else if (data.religion === "Others" && !data.customReligion?.trim()) {
+  else if (data.religion === "others_specify" && !data.customReligion?.trim()) {
     errors.customReligion = "Please specify your religion.";
   }
 

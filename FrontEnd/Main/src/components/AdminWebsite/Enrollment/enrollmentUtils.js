@@ -192,7 +192,7 @@ export const emptyForm = () => ({
   section: "",
   email: "",
   religion: "",
-  telephone_number: "",
+  custom_religion: "",
   mobile_number: "",
   parent_facebook: "",
   street: "",

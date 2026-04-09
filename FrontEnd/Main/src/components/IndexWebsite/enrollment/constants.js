@@ -21,7 +21,6 @@ export const RELIGION_OPTIONS = [
   "Buddhist",
   "Hindu",
   "None",
-  "Other",
 ];
 
 export const LRN_REQUIRED_GRADES = [
