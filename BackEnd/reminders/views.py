@@ -171,35 +171,47 @@ def _build_payment_reminder_email_message(*, transaction, amount, status_value, 
     balance_due = Decimal(str(transaction.debit or transaction.amount or 0)) - Decimal(str(transaction.credit or 0))
     balance_due = balance_due if balance_due > 0 else Decimal("0.00")
 
+    status_text = str(status_value).upper()
     lines = [
+        "Greetings!",
+        "",
+        "Dear Parent/Guardian,",
+        "",
         body,
         "",
-        "This notice is being sent to help you stay updated on your student's current financial standing.",
-        "",
-        "Payment Details:",
+        "Please see the account details below:",
         f"Student Name     : {student_name}",
         f"Billing Category : {transaction_type}",
         f"Reference Number : {reference_number}",
         f"Amount Due       : ₱{amount_due}",
         f"Balance Remaining: ₱{balance_due}",
-        f"Current Status   : {str(status_value).upper()}",
+        f"Current Status   : {status_text}",
     ]
 
     if due_date:
         lines.append(f"Due Date         : {due_date}")
 
+    if status_text == "OVERDUE":
+        lines.extend([
+            "",
+            "Our records indicate that this account is already overdue.",
+            "Kindly settle the outstanding balance at the soonest possible time.",
+        ])
+    else:
+        lines.extend([
+            "",
+            "This account is currently pending.",
+            "Kindly settle this before the due date to avoid being marked as overdue.",
+        ])
+
     lines.extend([
         "",
-        "Recommended Next Steps:",
-        "1. Open your Student Portal to review the full ledger and payment history.",
-        "2. Arrange payment on or before the due date to avoid further penalties or delays.",
-        "3. Keep your payment reference for verification and future concerns.",
+        "You may review your full ledger and payment history in the Student Portal.",
+        "If payment has already been made, please allow time for posting and disregard this notice once updated.",
         "",
-        "If you have already settled this balance recently, please disregard this message or allow time for posting.",
-        "For assistance, you may contact the school finance office during office hours.",
-        "",
-        "Thank you for your prompt attention.",
-        "CESI Finance Office",
+        "Sincerely,",
+        "Caloocan Evangelical School Inc.",
+        "Admissions Office",
     ])
 
     return "\n".join(lines).strip()
@@ -328,7 +340,7 @@ def send_payment_reminder(request, transaction_id):
 
     event_type = "PAYMENT_OVERDUE" if status_upper == "OVERDUE" else "PAYMENT_DUE"
     title = (
-        f"Formal {'Overdue' if status_upper == 'OVERDUE' else 'Payment'} Notice - "
+        f"{'Overdue' if status_upper == 'OVERDUE' else 'Payment Due'} Notice - "
         f"{getattr(transaction, 'student_name', 'Student')}"
     )
     message = _build_payment_reminder_email_message(
@@ -337,9 +349,8 @@ def send_payment_reminder(request, transaction_id):
         status_value=status_value,
         due_date=due_date,
         body=(
-            "Dear Parent/Guardian,\n\n"
-            f"This is a formal reminder regarding the outstanding school account balance for "
-            f"{getattr(transaction, 'student_name', 'your child')}."
+            "This is from Caloocan Evangelical School Inc. to inform you that your student's "
+            "account has not yet been fully settled."
         )
     )
 
@@ -410,7 +421,7 @@ def send_bulk_payment_reminders(request):
         status_value = str(transaction.status).upper()
         event_type = "PAYMENT_OVERDUE" if status_value == "OVERDUE" else "PAYMENT_DUE"
         title = (
-            f"Formal {'Overdue' if status_value == 'OVERDUE' else 'Payment'} Notice - "
+            f"{'Overdue' if status_value == 'OVERDUE' else 'Payment Due'} Notice - "
             f"{getattr(transaction, 'student_name', 'Student')}"
         )
         email_message = _build_payment_reminder_email_message(
@@ -419,8 +430,8 @@ def send_bulk_payment_reminders(request):
             status_value=transaction.status,
             due_date=due_date,
             body=(
-                f"Dear Parent/Guardian,\n\n"
-                f"This is an official reminder regarding your child's {transaction_type} account balance."
+                "This is from Caloocan Evangelical School Inc. to inform you that your student's "
+                f"{transaction_type} account has not yet been fully settled."
             ),
         )
 

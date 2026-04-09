@@ -19,6 +19,7 @@ from .views import (
     update_student_profile,
     UpdateProfileView,
     PasswordResetRequestCreateView,
+    PasswordResetRequestVerifyCodeView,
     AdminPasswordResetRequestListView,
     AdminSendPasswordResetLinkView,
     PasswordResetConfirmView,
@@ -59,6 +60,7 @@ urlpatterns = [
 
     # Forgot Password
     path("password-reset-request/", PasswordResetRequestCreateView.as_view(), name="password-reset-request"),
+    path("password-reset-request/verify-code/", PasswordResetRequestVerifyCodeView.as_view(), name="password-reset-request-verify-code"),
     path("admin/password-reset-requests/", AdminPasswordResetRequestListView.as_view(), name="admin-password-reset-requests"),
     path("admin/password-reset-requests/<int:pk>/send-link/", AdminSendPasswordResetLinkView.as_view(), name="admin-send-password-reset-link"),
     path("password-reset-confirm/", PasswordResetConfirmView.as_view(), name="password-reset-confirm"),

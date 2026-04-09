@@ -903,7 +903,9 @@
     padding: 0.3rem 0.7rem;
     font-size: 0.65rem;
   }
-}
+
+  .tm-search-input,
+  .tm-filter-select {
     padding: 8px;
     font-size: 13px;
   }

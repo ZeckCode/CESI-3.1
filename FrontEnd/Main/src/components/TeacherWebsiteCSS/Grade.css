@@ -124,6 +124,12 @@
   font-weight: 800;
   font-size: 32px;
   color: var(--text);
+  letter-spacing: -0.5px;
+  line-height: 1.25;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
 }
 
 @media (max-width: 768px) {
@@ -136,13 +142,6 @@
   .ge__title {
     font-size: 22px;
   }
-}
-  letter-spacing: -0.5px;
-  line-height: 1.25;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 14px;
 }
 
 .ge__subtitle {

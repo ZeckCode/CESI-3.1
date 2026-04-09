@@ -458,13 +458,40 @@ class CreateUserSerializer(serializers.Serializer):
 
 
 class PasswordResetRequestCreateSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=50)
     email = serializers.EmailField()
     message = serializers.CharField(required=False, allow_blank=True)
 
-    def validate_email(self, value):
-        if not User.objects.filter(email__iexact=value).exists():
-            raise serializers.ValidationError("No account found with this email.")
-        return value
+    def validate(self, attrs):
+        username = (attrs.get("username") or "").strip()
+        email = (attrs.get("email") or "").strip().lower()
+
+        if not username:
+            raise serializers.ValidationError({"username": "Username is required."})
+
+        user = User.objects.filter(username__iexact=username).first()
+        if not user:
+            raise serializers.ValidationError(
+                {"detail": "No account found with this username."}
+            )
+
+        # Allow shared recipient emails by validating enrollment contact email too.
+        matches_user_email = (user.email or "").strip().lower() == email
+        matches_enrollment_email = Enrollment.objects.filter(
+            student=user,
+            email__iexact=email,
+        ).exists()
+
+        if not (matches_user_email or matches_enrollment_email):
+            raise serializers.ValidationError(
+                {"detail": "This email does not match the selected username."}
+            )
+
+        attrs["username"] = username
+        attrs["email"] = email
+        attrs["recipient_email"] = email
+        attrs["user"] = user
+        return attrs
 
 
 class PasswordResetRequestSerializer(serializers.ModelSerializer):

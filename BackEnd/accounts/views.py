@@ -9,6 +9,8 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from django.db.models import Q
+from django.core.cache import cache
+import random
 
 from django.contrib.auth import authenticate, login, logout, logout as django_logout
 from django.views.decorators.csrf import csrf_exempt
@@ -669,36 +671,139 @@ class PasswordResetRequestCreateView(APIView):
         serializer = PasswordResetRequestCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        email = serializer.validated_data["email"].strip().lower()
+        user = serializer.validated_data["user"]
+        recipient_email = serializer.validated_data["recipient_email"]
         message = serializer.validated_data.get("message", "").strip()
 
-        user = User.objects.filter(email__iexact=email).first()
-        if not user:
-            return Response(
-                {"detail": "No account found with this email."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        verification_code = f"{random.randint(0, 999999):06d}"
+        cache_key = f"pwd-reset-verify:{user.id}:{recipient_email}"
+        cache.set(
+            cache_key,
+            {
+                "user_id": user.id,
+                "recipient_email": recipient_email,
+                "message": message,
+                "code": verification_code,
+                "attempts": 0,
+            },
+            timeout=10 * 60,
+        )
 
-        existing_pending = PasswordResetRequest.objects.filter(
-            user=user,
-            status__in=["PENDING", "LINK_SENT"]
-        ).exists()
-
-        if existing_pending:
-            return Response(
-                {"detail": "A password reset request is already pending for this account."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        PasswordResetRequest.objects.create(
-            user=user,
-            email=user.email,
-            message=message,
-            status="PENDING",
+        send_mail(
+            subject="CESI Password Reset Verification Code",
+            message=(
+                f"Hello {user.username},\n\n"
+                f"Your password reset verification code is: {verification_code}\n\n"
+                f"This code expires in 10 minutes.\n"
+                f"If you did not request this, please ignore this email.\n"
+            ),
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@cesi.com"),
+            recipient_list=[recipient_email],
+            fail_silently=False,
         )
 
         return Response(
-            {"detail": "Password reset request submitted. Please wait for admin approval."},
+            {
+                "detail": "Verification code sent to your email. Enter the code to continue.",
+                "requires_code": True,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PasswordResetRequestVerifyCodeView(APIView):
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = PasswordResetRequestCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.validated_data["user"]
+        recipient_email = serializer.validated_data["recipient_email"]
+        message = serializer.validated_data.get("message", "").strip()
+        code = (request.data.get("code") or "").strip()
+
+        if not code:
+            return Response(
+                {"detail": "Verification code is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cache_key = f"pwd-reset-verify:{user.id}:{recipient_email}"
+        payload = cache.get(cache_key)
+        if not payload:
+            return Response(
+                {"detail": "Verification expired. Please request a new code."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        attempts = int(payload.get("attempts", 0))
+        if attempts >= 5:
+            cache.delete(cache_key)
+            return Response(
+                {"detail": "Too many incorrect attempts. Please request a new code."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if payload.get("code") != code:
+            payload["attempts"] = attempts + 1
+            cache.set(cache_key, payload, timeout=10 * 60)
+            return Response(
+                {"detail": "Invalid verification code."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        existing_requests = PasswordResetRequest.objects.filter(
+            user=user,
+            status__in=["PENDING", "LINK_SENT"]
+        ).order_by("-requested_at", "-id")
+
+        final_message = message or payload.get("message", "")
+        refreshed_existing = False
+
+        if existing_requests.exists():
+            current_request = existing_requests.first()
+            current_request.email = recipient_email
+            current_request.message = final_message
+            current_request.status = "PENDING"
+            current_request.requested_at = timezone.now()
+            current_request.sent_at = None
+            current_request.completed_at = None
+            current_request.save(
+                update_fields=[
+                    "email",
+                    "message",
+                    "status",
+                    "requested_at",
+                    "sent_at",
+                    "completed_at",
+                ]
+            )
+
+            duplicate_ids = list(existing_requests.values_list("id", flat=True))[1:]
+            if duplicate_ids:
+                PasswordResetRequest.objects.filter(id__in=duplicate_ids).delete()
+
+            refreshed_existing = True
+        else:
+            PasswordResetRequest.objects.create(
+                user=user,
+                email=recipient_email,
+                message=final_message,
+                status="PENDING",
+            )
+
+        cache.delete(cache_key)
+
+        return Response(
+            {
+                "detail": (
+                    "Password reset request refreshed and resubmitted. Please wait for admin approval."
+                    if refreshed_existing
+                    else "Password reset request submitted. Please wait for admin approval."
+                )
+            },
             status=status.HTTP_201_CREATED,
         )
 
@@ -802,14 +907,21 @@ class AdminSendPasswordResetLinkView(APIView):
             f"Thanks,\n"
             f"CESI Admin"
         )
-        print("SENDING TO:", user.email)
+        recipient_email = (reset_request.email or user.email or "").strip()
+        if not recipient_email:
+            return Response(
+                {"detail": "No recipient email found for this request."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        print("SENDING TO:", recipient_email)
         print("RESET LINK:", reset_link)
             
         send_mail(
             subject=subject,
             message=message,
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@cesi.com"),
-            recipient_list=[user.email],
+            recipient_list=[recipient_email],
             fail_silently=False,
         )
 
