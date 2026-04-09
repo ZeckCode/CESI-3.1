@@ -18,6 +18,11 @@ from reminders.views import create_reminder_once
 from reminders.models import Reminder
 from accounts.models import User, UserProfile
 from .models import AdvanceRequest, Transaction, TuitionConfig, ProofOfPayment
+from .utils import (
+    normalize_money,
+    recompute_running_balances_for_enrollment,
+    recompute_transaction_statuses_for_enrollment,
+)
 from .serializers import (
     TransactionSerializer,
     TransactionCreateSerializer,
@@ -55,21 +60,6 @@ def ledger_totals_for_enrollment(enrollment):
     total_credit = Decimal(str(totals.get('total_credit') or 0))
     balance = total_debit - total_credit
     return total_debit, total_credit, balance
-
-
-def recompute_running_balances_for_enrollment(enrollment):
-    rows = Transaction.objects.filter(enrollment=enrollment).order_by(
-        'transaction_date', 'date_posted', 'id'
-    )
-
-    running = Decimal('0.00')
-    for row in rows:
-        running += Decimal(str(row.debit or 0)) - Decimal(str(row.credit or 0))
-        if row.balance != running:
-            row.balance = running
-            row.save(update_fields=['balance'])
-
-    return running
 
 
 def compute_simple_ledger_status(balance):
@@ -223,7 +213,9 @@ def auto_apply_previous_advance_to_enrollment(target_enrollment):
         )
 
         recompute_running_balances_for_enrollment(source_enrollment)
+        recompute_transaction_statuses_for_enrollment(source_enrollment)
         recompute_running_balances_for_enrollment(target_enrollment)
+        recompute_transaction_statuses_for_enrollment(target_enrollment)
 
         total_applied += to_apply
         remaining_needed -= to_apply
@@ -891,6 +883,8 @@ def pay_student_balance(request):
     except Exception:
         return Response({'detail': 'Invalid amount.'}, status=400)
 
+    amount = normalize_money(amount)
+
     if amount <= 0:
         return Response({'detail': 'Amount must be greater than 0.'}, status=400)
 
@@ -963,6 +957,7 @@ def pay_student_balance(request):
 
             
         new_balance = recompute_running_balances_for_enrollment(enrollment)
+        recompute_transaction_statuses_for_enrollment(enrollment)
         send_payment_received_reminder(sender=request.user, payment_tx=payment_tx)
         
     return Response({
@@ -999,6 +994,8 @@ def refund_student_payment(request):
         amount = Decimal(str(amount_raw))
     except Exception:
         return Response({'detail': 'Invalid amount.'}, status=400)
+
+    amount = normalize_money(amount)
 
     if amount <= 0:
         return Response({'detail': 'Refund amount must be greater than 0.'}, status=400)
@@ -1058,6 +1055,7 @@ def refund_student_payment(request):
 
 
         new_balance = recompute_running_balances_for_enrollment(enrollment)
+        recompute_transaction_statuses_for_enrollment(enrollment)
         
     return Response({
         'success': True,
@@ -1121,6 +1119,8 @@ def my_advance_requests(request):
         amount = Decimal(str(amount_raw))
     except Exception:
         return Response({'detail': 'Invalid amount.'}, status=400)
+
+    amount = normalize_money(amount)
 
     if amount <= 0:
         return Response({'detail': 'Amount must be greater than 0.'}, status=400)
@@ -1271,6 +1271,7 @@ def process_advance_request(request, pk):
             )
 
             new_balance = recompute_running_balances_for_enrollment(obj.enrollment)
+            recompute_transaction_statuses_for_enrollment(obj.enrollment)
 
         obj.status = 'PROCESSED'
         obj.admin_remarks = remarks or f'Refund transaction #{refund_tx.id} created.'
@@ -1409,6 +1410,7 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
             )
 
             new_balance = recompute_running_balances_for_enrollment(proof.enrollment)
+            recompute_transaction_statuses_for_enrollment(proof.enrollment)
 
             proof.status = 'approved'
             proof.admin_remarks = request.data.get('remarks', '')

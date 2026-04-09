@@ -189,11 +189,7 @@
 
     const filteredTransactions = useMemo(
       () =>
-        transactions.filter(
-          (tx) =>
-            normalizeStatus(tx.status) !== "pending" &&
-            tx.transaction_type !== "CONTRIBUTION"
-        ),
+        transactions.filter((tx) => tx.transaction_type !== "CONTRIBUTION"),
       [transactions]
     );
 
@@ -563,10 +559,6 @@
                             }}
                             className="ledger-group-info"
                           >
-                            <div>
-                              <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Semester</div>
-                              <div style={{ fontWeight: 700, color: "#1e293b" }}>{group.semester || "—"}</div>
-                            </div>
                             <div>
                               <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Total Billed</div>
                               <div style={{ fontWeight: 700, color: "#1e293b" }}>{formatCurrency(group.totalDebit)}</div>
@@ -1155,7 +1147,6 @@
                             {buildLedgerGroupTitle(group) || "Ledger Record"}
                           </h4>
                           <div className="ledger-print-group-info">
-                            <div><strong>Semester:</strong> {group.semester || "—"}</div>
                             <div><strong>Total Billed:</strong> {formatCurrency(group.totalDebit)}</div>
                             <div><strong>Total Paid:</strong> {formatCurrency(group.totalCredit)}</div>
                             <div><strong>Payable Balance:</strong> {formatCurrency(group.payableBalance)}</div>
@@ -1393,7 +1384,6 @@
                             borderRadius: "0.5rem",
                           }}
                         >
-                          <div><strong>Semester:</strong> {group.semester || "—"}</div>
                           <div><strong>Total Billed:</strong> {formatCurrency(group.totalDebit)}</div>
                           <div><strong>Total Paid:</strong> {formatCurrency(group.totalCredit)}</div>
                           <div><strong>Payable Balance:</strong> {formatCurrency(group.payableBalance)}</div>

@@ -67,7 +67,6 @@ const STATUS_OPTIONS = [
   { value: 'PAID', label: 'Paid' },
   { value: 'PARTIAL', label: 'Partial' },
   { value: 'PENDING', label: 'Pending' },
-  { value: 'OVERDUE', label: 'Overdue' },
   { value: 'POSTED', label: 'Posted' },
 ];
 
@@ -78,7 +77,6 @@ const EMPTY_FORM = {
   entry_type: 'CREDIT',
   item: 'PAYMENT',
   school_year: '2026-2027',
-  semester: '1st',
   amount: '',
   description: '',
   payment_method: 'CASH',
@@ -131,6 +129,28 @@ const statusPriority = {
   PENDING: 3,
   POSTED: 4,
   PAID: 5,
+};
+
+const isDueForReminder = (dueDate) => {
+  if (!dueDate) return false;
+
+  const due = new Date(`${dueDate}T00:00:00`);
+  if (Number.isNaN(due.getTime())) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return due <= today;
+};
+
+const canSendReminderForTransaction = (tx) => {
+  if (!tx || tx.entry_type !== 'DEBIT') return false;
+
+  const status = String(tx.status || '').toUpperCase();
+  if (!['PENDING', 'OVERDUE'].includes(status)) return false;
+
+  if (!isDueForReminder(tx.due_date || tx.transaction_date)) return false;
+
+  return Number(tx.debit || 0) > Number(tx.credit || 0);
 };
 
 const TransactionHistory = () => {
@@ -356,7 +376,6 @@ const TransactionHistory = () => {
       entry_type: txn.entry_type || 'CREDIT',
       item: txn.item || 'PAYMENT',
       school_year: txn.school_year || '2026-2027',
-      semester: txn.semester || '1st',
       amount: txn.amount || '',
       description: txn.description || '',
       payment_method: txn.payment_method || 'CASH',
@@ -412,11 +431,16 @@ const TransactionHistory = () => {
 
     setSubmitting(true);
     try {
+      const statusValue = String(formData.status || '').toUpperCase() === 'OVERDUE'
+        ? 'PENDING'
+        : formData.status;
+
       const body = {
         ...formData,
         amount: parseFloat(formData.amount).toFixed(2),
         due_date: formData.due_date || null,
         transaction_date: formData.transaction_date || null,
+        status: statusValue,
       };
       if (editingTxn) {
       delete body.parent;
@@ -613,7 +637,6 @@ const TransactionHistory = () => {
         'Student Number': group.student_number,
         'Student Name': group.student_name,
         'School Year': group.school_year || '—',
-        'Semester': group.semester || '—',
         'Grade Level': group.grade_level || '—',
         'Student Type': formatStudentType(group.student_type),
         'Payment Mode': formatPaymentMode(group.payment_mode),
@@ -640,7 +663,6 @@ const TransactionHistory = () => {
         'Student Number': group.student_number,
         'Student Name': group.student_name,
         'School Year': group.school_year || '—',
-        'Semester': group.semester || '—',
         'Grade Level': group.grade_level || '—',
         'Student Type': formatStudentType(group.student_type),
         'Payment Mode': formatPaymentMode(group.payment_mode),
@@ -824,7 +846,7 @@ const TransactionHistory = () => {
 
   const isReminderEligible = (group) =>
     Number(group.balance || 0) > 0 &&
-    ['PENDING', 'OVERDUE', 'PARTIAL', 'POSTED'].includes(group.account_status);
+    (group.rows || []).some((tx) => canSendReminderForTransaction(tx));
 
   const getAdvanceCredit = (group) =>
     (group?.rows || []).reduce((sum, tx) => {
@@ -1107,7 +1129,7 @@ const TransactionHistory = () => {
     const reminderQueue = groupedTransactions.filter(
       (group) =>
         Number(group.balance || 0) > 0 &&
-        ['PENDING', 'OVERDUE', 'PARTIAL', 'POSTED'].includes(group.account_status)
+        ['PENDING', 'OVERDUE'].includes(group.account_status)
     ).length;
 
     const advancePool = groupedTransactions.reduce(
@@ -1462,8 +1484,7 @@ const TransactionHistory = () => {
                             <h4 className="th-detail-title">{buildLedgerGroupTitle(group)}</h4>
 
                                <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
-                                Student: <strong>{group.student_name}</strong> ({group.student_number}) | Semester:{' '}
-                                <strong>{group.semester || '—'}</strong> | Payable Balance:{' '}
+                                Student: <strong>{group.student_name}</strong> ({group.student_number}) | Payable Balance:{' '}
                                 <strong>{formatCurrency(group.balance)}</strong> | Advance Available:{' '}
                                 <strong>{formatCurrency(getRefundableAmount(group))}</strong> | Ref:{' '}
                                 <strong>{group.enrollment_id ? `Enrollment #${group.enrollment_id}` : 'Legacy ledger record'}</strong>
@@ -1511,8 +1532,7 @@ const TransactionHistory = () => {
                                           </span>
                                         </td>
                                         <td className="th-actions-cell">
-                                          {tx.entry_type === 'DEBIT' &&
-                                            ['PENDING', 'OVERDUE', 'PARTIAL', 'POSTED'].includes(tx.status) && (
+                                          {canSendReminderForTransaction(tx) && (
                                               <button
                                                 className="th-action-btn th-reminder-btn"
                                                 onClick={() => sendReminder(tx.id)}
@@ -1806,31 +1826,16 @@ const TransactionHistory = () => {
                 </div>
               </div>
 
-              <div className="th-form-row">
-                <div className="th-form-group">
-                  <label>School Year</label>
-                  <input
-                    type="text"
-                    name="school_year"
-                    value={formData.school_year}
-                    onChange={handleFormChange}
-                    className="th-form-input"
-                    placeholder="2026-2027"
-                  />
-                </div>
-
-                <div className="th-form-group">
-                  <label>Semester</label>
-                  <select
-                    name="semester"
-                    value={formData.semester}
-                    onChange={handleFormChange}
-                    className="th-form-input"
-                  >
-                    <option value="1st">1st</option>
-                    <option value="2nd">2nd</option>
-                  </select>
-                </div>
+              <div className="th-form-group">
+                <label>School Year</label>
+                <input
+                  type="text"
+                  name="school_year"
+                  value={formData.school_year}
+                  onChange={handleFormChange}
+                  className="th-form-input"
+                  placeholder="2026-2027"
+                />
               </div>
 
               <div className="th-form-row">

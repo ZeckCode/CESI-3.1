@@ -1,10 +1,14 @@
 
 #Reminders views.py
+import logging
+
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
 from django.db.models import Q
 
 from django.db import IntegrityError
@@ -21,6 +25,9 @@ from finance.models import Transaction
 from decimal import Decimal
 from finance.models import Transaction, ProofOfPayment
 from enrollment.models import Enrollment
+
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(["POST"])
@@ -136,6 +143,52 @@ def create_reminder_once(
     return reminder, created
 
 
+def _send_payment_reminder_email(*, recipient, title, message):
+    recipient_email = getattr(recipient, "email", "") if recipient else ""
+    if not recipient_email:
+        return False
+
+    try:
+        send_mail(
+            subject=title,
+            message=message,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost"),
+            recipient_list=[recipient_email],
+            fail_silently=False,
+        )
+        return True
+    except Exception:
+        logger.exception("Failed to send payment reminder email to %s", recipient_email)
+        return False
+
+
+def _build_payment_reminder_email_message(*, transaction, amount, status_value, due_date, body):
+    balance_due = Decimal(str(transaction.debit or transaction.amount or 0)) - Decimal(str(transaction.credit or 0))
+    balance_due = balance_due if balance_due > 0 else Decimal("0.00")
+
+    lines = [
+        body,
+        "",
+        "Account Summary:",
+        f"Student: {getattr(transaction, 'student_name', 'your child')}",
+        f"Reference No: {getattr(transaction, 'reference_number', 'N/A')}",
+        f"Amount Due: ₱{amount}",
+        f"Balance Remaining: ₱{balance_due}",
+        f"Status: {status_value}",
+    ]
+
+    if due_date:
+        lines.append(f"Due Date: {due_date}")
+
+    lines.extend([
+        "",
+        "You can review this in the Student Portal as well.",
+        "Please settle this payment as soon as possible.",
+    ])
+
+    return "\n".join(lines).strip()
+
+
 def _resolve_student_recipient(student_id=None, student_number=None):
     profiles = UserProfile.objects.select_related("user")
 
@@ -243,18 +296,29 @@ def send_payment_reminder(request, transaction_id):
     status_value = getattr(transaction, "status", "PENDING")
     due_date = getattr(transaction, "due_date", None)
     transaction_type = getattr(transaction, "transaction_type", "Payment")
+    status_upper = str(status_value).upper()
 
-    event_type = "PAYMENT_OVERDUE" if str(status_value).upper() == "OVERDUE" else "PAYMENT_DUE"
+    if status_upper not in {"PENDING", "OVERDUE"}:
+        return Response(
+            {"detail": "Only pending and overdue payments can receive reminders."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if due_date and due_date > timezone.localdate():
+        return Response(
+            {"detail": "This payment is not due yet."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    event_type = "PAYMENT_OVERDUE" if status_upper == "OVERDUE" else "PAYMENT_DUE"
     title = f"Payment Reminder - {transaction_type}"
-
-    message = (
-        f"Good day. This is a payment reminder for {getattr(transaction, 'student_name', 'your child')}.\n"
-        f"Reference No: {getattr(transaction, 'reference_number', 'N/A')}.\n"
-        f"Amount due: ₱{amount}.\n"
-        f"Status: {status_value}.\n"
-        f"{f'Due date: {due_date}.' if due_date else ''}\n"
-        f"Please settle this payment as soon as possible."
-    ).strip()
+    message = _build_payment_reminder_email_message(
+        transaction=transaction,
+        amount=amount,
+        status_value=status_value,
+        due_date=due_date,
+        body=f"Good day. This is a payment reminder for {getattr(transaction, 'student_name', 'your child')}."
+    )
 
     reminder, created = create_reminder_once(
         recipient=recipient,
@@ -267,11 +331,14 @@ def send_payment_reminder(request, transaction_id):
         reference_date=due_date or timezone.localdate(),
     )
 
+    emailed = _send_payment_reminder_email(recipient=recipient, title=title, message=message)
+
     return Response(
         {
-            "detail": "Payment reminder sent successfully." if created else "Payment reminder already sent for this billing date.",
+            "detail": "Payment reminder emailed successfully." if emailed else "Reminder saved, but email could not be sent.",
             "reminder": ReminderSerializer(reminder).data,
             "created": created,
+            "emailed": emailed,
         },
         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
     )
@@ -295,35 +362,50 @@ def send_bulk_payment_reminders(request):
     if not is_admin(request.user):
         return Response(
             {"detail": "Only admin can send bulk payment reminders."},
-            status=status.HTTP_403_FORBIDDEN
+            status=status.HTTP_403_FORBIDDEN,
         )
 
+    today = timezone.localdate()
     transactions = Transaction.objects.select_related("parent").filter(
         entry_type="DEBIT",
-        status__in=["PENDING", "OVERDUE", "PARTIAL", "POSTED"]
+        status__in=["PENDING", "OVERDUE"],
+        due_date__isnull=False,
+        due_date__lte=today,
     )
 
     created_count = 0
-    skipped_count = 0
+    duplicate_count = 0
+    emailed_count = 0
+    missing_email_count = 0
+    email_failed_count = 0
 
     for transaction in transactions:
         recipient = transaction.parent
         amount = getattr(transaction, "amount", None)
         due_date = getattr(transaction, "due_date", None)
         transaction_type = getattr(transaction, "transaction_type", "Payment")
-        event_type = "PAYMENT_OVERDUE" if str(transaction.status).upper() == "OVERDUE" else "PAYMENT_DUE"
+        status_value = str(transaction.status).upper()
+        event_type = "PAYMENT_OVERDUE" if status_value == "OVERDUE" else "PAYMENT_DUE"
+        title = (
+            f"Formal {'Overdue' if status_value == 'OVERDUE' else 'Payment'} Notice - "
+            f"{getattr(transaction, 'student_name', 'Student')}"
+        )
+        email_message = _build_payment_reminder_email_message(
+            transaction=transaction,
+            amount=amount,
+            status_value=transaction.status,
+            due_date=due_date,
+            body=(
+                f"Dear Parent/Guardian,\n\n"
+                f"This is an official reminder regarding your child's {transaction_type} account balance."
+            ),
+        )
 
         reminder, created = create_reminder_once(
             recipient=recipient,
             sender=request.user,
-            title=f"Payment Reminder - {transaction_type}",
-            message=(
-                f"Good day. This is a reminder regarding your child's {transaction_type}. "
-                f"Reference No: {getattr(transaction, 'reference_number', 'N/A')}. "
-                f"Amount Due: ₱{amount}. "
-                f"{f'Due Date: {due_date}. ' if due_date else ''}"
-                f"Please settle this payment as soon as possible."
-            ).strip(),
+            title=title,
+            message=email_message,
             reminder_type="PAYMENT",
             event_type=event_type,
             transaction=transaction,
@@ -333,14 +415,32 @@ def send_bulk_payment_reminders(request):
         if created:
             created_count += 1
         else:
-            skipped_count += 1
+            duplicate_count += 1
+
+        emailed = _send_payment_reminder_email(
+            recipient=recipient,
+            title=title,
+            message=email_message,
+        )
+        if emailed:
+            emailed_count += 1
+        elif not getattr(recipient, "email", ""):
+            missing_email_count += 1
+        else:
+            email_failed_count += 1
 
     return Response(
         {
-            "detail": f"{created_count} reminder(s) sent, {skipped_count} skipped as duplicates."
+            "detail": (
+                f"{created_count} reminder record(s) saved, "
+                f"{emailed_count} email(s) sent, "
+                f"{missing_email_count} skipped for missing email, "
+                f"{email_failed_count} email(s) failed, "
+                f"{duplicate_count} skipped as duplicates."
+            )
         },
         status=status.HTTP_200_OK,
-    )   
+    )
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def send_performance_reminder(request):

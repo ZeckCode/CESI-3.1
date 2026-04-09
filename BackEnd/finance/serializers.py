@@ -5,7 +5,9 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import Transaction, TuitionConfig, ProofOfPayment, AdvanceRequest
+from .utils import normalize_money, recompute_transaction_statuses_for_enrollment
 from accounts.models import User, UserProfile
+from enrollment.models import Enrollment
 
 
 class TransactionSerializer(serializers.ModelSerializer):
@@ -123,10 +125,10 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_status(self, value):
-        allowed = {'PAID', 'PARTIAL', 'PENDING', 'OVERDUE', 'POSTED'}
+        allowed = {'PAID', 'PARTIAL', 'PENDING', 'POSTED'}
         if value not in allowed:
             raise serializers.ValidationError(
-                "Invalid status. Allowed values: PAID, PARTIAL, PENDING, OVERDUE, POSTED."
+                "Invalid status. Allowed values: PAID, PARTIAL, PENDING, POSTED."
             )
         return value
 
@@ -154,6 +156,29 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
                 return
             except UserProfile.DoesNotExist:
                 validated_data['student_name'] = parent.username
+
+    def _resolve_enrollment(self, validated_data):
+        if validated_data.get('enrollment'):
+            return validated_data['enrollment']
+
+        parent = validated_data.get('parent') or getattr(self.instance, 'parent', None)
+        if not parent:
+            return None
+
+        enrollment = Enrollment.objects.filter(
+            parent_user=parent,
+            status='ACTIVE'
+        ).order_by('-created_at').first()
+
+        if enrollment:
+            validated_data['enrollment'] = enrollment
+            validated_data.setdefault('student_number_snapshot', enrollment.student_number)
+            validated_data.setdefault('grade_level_snapshot', enrollment.grade_level)
+            validated_data.setdefault('payment_mode_snapshot', enrollment.payment_mode)
+            validated_data.setdefault('student_type_snapshot', enrollment.student_type)
+            validated_data.setdefault('school_year', enrollment.academic_year)
+
+        return enrollment
 
     def _compute_next_balance(self, parent=None, enrollment=None):
         qs = Transaction.objects.all()
@@ -267,9 +292,11 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         self._auto_fill_student_name(validated_data)
+        enrollment = self._resolve_enrollment(validated_data)
 
-        enrollment = validated_data.get('enrollment')
         parent = validated_data.get('parent')
+        if validated_data.get('amount') is not None:
+            validated_data['amount'] = normalize_money(validated_data['amount'])
 
         if enrollment:
             validated_data.setdefault('student_number_snapshot', enrollment.student_number)
@@ -292,10 +319,13 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
         tx = super().create(validated_data)
         tx.balance = self._compute_next_balance(parent=parent, enrollment=enrollment)
         tx.save(update_fields=['balance'])
+        if enrollment:
+            recompute_transaction_statuses_for_enrollment(enrollment)
         return tx
 
     def update(self, instance, validated_data):
         self._auto_fill_student_name(validated_data)
+        enrollment = self._resolve_enrollment(validated_data)
         tx = super().update(instance, validated_data)
 
         qs = Transaction.objects.all()
@@ -312,6 +342,9 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
             if row.balance != running:
                 row.balance = running
                 row.save(update_fields=['balance'])
+
+        if tx.enrollment_id:
+            recompute_transaction_statuses_for_enrollment(tx.enrollment)
 
         return tx
 
