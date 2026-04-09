@@ -211,20 +211,36 @@ class ChatViewSet(viewsets.ModelViewSet):
             # Auto-add all students in section + teacher
             from enrollment.models import Enrollment
             
-            students = Enrollment.objects.filter(
+            public_user_id = User.objects.filter(
+                username='public_user'
+            ).values_list('id', flat=True).first()
+
+            enrollments = Enrollment.objects.filter(
                 section=chat.section,
                 status="ACTIVE"
-            ).values_list('student_id', flat=True).distinct()
+            ).values('parent_user_id', 'student_id')
+
+            student_ids = set()
+            for row in enrollments:
+                candidate_id = row.get('parent_user_id') or row.get('student_id')
+                if not candidate_id:
+                    continue
+                if public_user_id and candidate_id == public_user_id:
+                    continue
+                student_ids.add(candidate_id)
 
             # Add teacher
-            ChatMember.objects.get_or_create(
+            member, created = ChatMember.objects.get_or_create(
                 chat=chat,
                 user=chat.creator,
                 defaults={'is_admin': True}
             )
+            if not created and not member.is_admin:
+                member.is_admin = True
+                member.save(update_fields=['is_admin'])
 
             # Add students
-            for student_id in students:
+            for student_id in student_ids:
                 ChatMember.objects.get_or_create(
                     chat=chat,
                     user_id=student_id,
@@ -321,8 +337,10 @@ class ChatViewSet(viewsets.ModelViewSet):
             Q(profile__student_last_name__icontains=query) |
             Q(profile__parent_first_name__icontains=query) |
             Q(profile__parent_last_name__icontains=query) |
+            Q(profile__student_number__icontains=query) |
             Q(parent_enrollments__first_name__icontains=query) |
-            Q(parent_enrollments__last_name__icontains=query)
+            Q(parent_enrollments__last_name__icontains=query) |
+            Q(parent_enrollments__student_number__icontains=query)
         ).exclude(id=request.user.id).distinct()
 
         # Student/parent accounts should primarily discover people in the same section.

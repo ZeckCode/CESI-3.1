@@ -41,7 +41,7 @@ const Messages = () => {
   const [newChatError, setNewChatError] = useState("");
   const [newChatType, setNewChatType] = useState("individual");
   const [newChatName, setNewChatName] = useState("");
-  const [newChatTarget, setNewChatTarget] = useState("");
+  const [newChatQuery, setNewChatQuery] = useState("");
   const [initialMessage, setInitialMessage] = useState("");
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [newChatSection, setNewChatSection] = useState("");
@@ -300,7 +300,7 @@ const Messages = () => {
       setShowNewChat(false);
       setNewChatType("individual");
       setNewChatName("");
-      setNewChatTarget("");
+      setNewChatQuery("");
       setInitialMessage("");
       setNewChatSection("");
       setNewChatSubject("");
@@ -316,7 +316,7 @@ const Messages = () => {
   };
 
   const handleUserSearch = async (query) => {
-    setNewChatTarget(query);
+    setNewChatQuery(query);
     setSelectedUserId(null);
     if (query.length < 2) {
       setUserSuggestions([]);
@@ -335,7 +335,7 @@ const Messages = () => {
 
   const handleSelectUser = (user) => {
     setSelectedUserId(user.id);
-    setNewChatTarget("");
+    setNewChatQuery("");
     setSelectedUserText(getUserDisplayName(user));
     setUserSuggestions([]);
     setShowUserDropdown(false);
@@ -746,12 +746,12 @@ const Messages = () => {
                 <input
                   type="text"
                   placeholder="Search users..."
-                  value={selectedUserText || newChatTarget}
+                  value={selectedUserText || newChatQuery}
                   onChange={(e) => {
                     setSelectedUserText("");
                     handleUserSearch(e.target.value);
                   }}
-                  onFocus={() => String(newChatTarget).length >= 2 && setShowUserDropdown(true)}
+                  onFocus={() => newChatQuery.length >= 2 && setShowUserDropdown(true)}
                   style={{width: "100%", padding: "8px", marginBottom: "10px"}}
                 />
                 {showUserDropdown && userSuggestions.length > 0 && (

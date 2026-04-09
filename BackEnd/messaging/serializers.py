@@ -37,6 +37,15 @@ class UserMinimalSerializer(serializers.ModelSerializer):
             if p_full:
                 return p_full
 
+        if obj.role == 'PARENT_STUDENT':
+            enrollment = None
+            if hasattr(obj, 'parent_enrollments'):
+                enrollment = obj.parent_enrollments.order_by('-updated_at', '-created_at').first()
+            if enrollment:
+                full = f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip()
+                if full:
+                    return full
+
         return obj.username
 
 
