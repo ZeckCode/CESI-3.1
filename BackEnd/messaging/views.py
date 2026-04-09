@@ -102,6 +102,45 @@ class ProfanityWordViewSet(viewsets.ModelViewSet):
 class ChatViewSet(viewsets.ModelViewSet):
     """Manage chats (create, list, detail)."""
     permission_classes = [IsAuthenticated]
+
+    def _sync_class_chat_members(self, chat, teacher=None):
+        from enrollment.models import Enrollment
+
+        public_user_id = User.objects.filter(
+            username='public_user'
+        ).values_list('id', flat=True).first()
+
+        enrollments = Enrollment.objects.filter(
+            section=chat.section,
+            status="ACTIVE"
+        ).values('parent_user_id', 'student_id')
+
+        student_ids = set()
+        for row in enrollments:
+            candidate_id = row.get('parent_user_id') or row.get('student_id')
+            if not candidate_id:
+                continue
+            if public_user_id and candidate_id == public_user_id:
+                continue
+            student_ids.add(candidate_id)
+
+        teacher_user = teacher or chat.creator
+        if teacher_user:
+            member, created = ChatMember.objects.get_or_create(
+                chat=chat,
+                user=teacher_user,
+                defaults={'is_admin': True}
+            )
+            if not created and not member.is_admin:
+                member.is_admin = True
+                member.save(update_fields=['is_admin'])
+
+        for student_id in student_ids:
+            ChatMember.objects.get_or_create(
+                chat=chat,
+                user_id=student_id,
+                defaults={'is_admin': False}
+            )
     
     def get_queryset(self):
         """Filter chats user is member of and not restricted from."""
@@ -143,6 +182,49 @@ class ChatViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Create a new chat (individual or group)."""
+        chat_type = request.data.get('chat_type')
+
+        if chat_type == 'GROUP_CLASS':
+            if request.user.role != 'TEACHER':
+                return Response(
+                    {'detail': 'Only teachers can create class group chats.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            section_id = request.data.get('section')
+            subject_id = request.data.get('subject')
+            school_year = request.data.get('school_year')
+
+            if not section_id or not subject_id:
+                return Response(
+                    {'detail': 'Class chat requires section and subject.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if not school_year:
+                return Response(
+                    {'detail': 'Class chat requires school year.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            existing = Chat.objects.filter(
+                chat_type='GROUP_CLASS',
+                section_id=section_id,
+                subject_id=subject_id,
+                school_year=school_year,
+            ).first()
+
+            if existing:
+                if not existing.is_active:
+                    existing.is_active = True
+                    existing.save(update_fields=['is_active', 'updated_at'])
+
+                self._sync_class_chat_members(existing, teacher=request.user)
+                return Response(
+                    ChatDetailSerializer(existing, context={'request': request}).data,
+                    status=status.HTTP_200_OK
+                )
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -209,43 +291,7 @@ class ChatViewSet(viewsets.ModelViewSet):
 
         elif chat.chat_type == 'GROUP_CLASS':
             # Auto-add all students in section + teacher
-            from enrollment.models import Enrollment
-            
-            public_user_id = User.objects.filter(
-                username='public_user'
-            ).values_list('id', flat=True).first()
-
-            enrollments = Enrollment.objects.filter(
-                section=chat.section,
-                status="ACTIVE"
-            ).values('parent_user_id', 'student_id')
-
-            student_ids = set()
-            for row in enrollments:
-                candidate_id = row.get('parent_user_id') or row.get('student_id')
-                if not candidate_id:
-                    continue
-                if public_user_id and candidate_id == public_user_id:
-                    continue
-                student_ids.add(candidate_id)
-
-            # Add teacher
-            member, created = ChatMember.objects.get_or_create(
-                chat=chat,
-                user=chat.creator,
-                defaults={'is_admin': True}
-            )
-            if not created and not member.is_admin:
-                member.is_admin = True
-                member.save(update_fields=['is_admin'])
-
-            # Add students
-            for student_id in student_ids:
-                ChatMember.objects.get_or_create(
-                    chat=chat,
-                    user_id=student_id,
-                    defaults={'is_admin': False}
-                )
+            self._sync_class_chat_members(chat)
 
         elif chat.chat_type == 'GROUP_PROJECT':
             # Only add creator

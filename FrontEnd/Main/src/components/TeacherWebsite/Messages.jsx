@@ -664,6 +664,14 @@ const Messages = () => {
   const restrictionNotice = getRestrictionNotice(activeRestriction);
   const filteredGroupChats = filteredChats.filter((chat) => chat.chat_type !== "INDIVIDUAL");
   const filteredDirectChats = filteredChats.filter((chat) => chat.chat_type === "INDIVIDUAL");
+  const currentUserId = currentUser?.id;
+  const isGroupCreator = selectedChat?.creator?.id === currentUserId;
+  const isGroupAdmin = Boolean(
+    selectedChat?.members?.some(
+      (member) => member.user?.id === currentUserId && member.is_admin
+    )
+  );
+  const canManageGroup = Boolean(isGroupCreator || isGroupAdmin);
 
   if (loading) {
     return (
@@ -942,7 +950,7 @@ const Messages = () => {
                   <div className="chatHead__meta">
                     <div style={{display: "flex", alignItems: "center", gap: "10px"}}>
                       <div className="chatHead__name">{getChatDisplayName(selectedChat)}</div>
-                      {selectedChat.chat_type !== "INDIVIDUAL" && selectedChat.creator?.id === currentUser?.id && (
+                      {selectedChat.chat_type !== "INDIVIDUAL" && canManageGroup && (
                         <button
                           onClick={() => {
                             setShowGroupActionsModal(true);
@@ -967,7 +975,7 @@ const Messages = () => {
               </div>
 
               {/* Add member form */}
-              {showAddMemberForm && false && selectedChat.chat_type !== "INDIVIDUAL" && selectedChat.creator?.id === currentUser?.id && (
+              {showAddMemberForm && false && selectedChat.chat_type !== "INDIVIDUAL" && canManageGroup && (
                 <div style={{padding: "10px", borderBottom: "1px solid #eee", backgroundColor: "#f9f9f9"}}>
                   <div style={{position: "relative", marginBottom: "5px"}}>
                     <input
@@ -1001,7 +1009,7 @@ const Messages = () => {
                           <div key={member.id} style={{display: "flex", alignItems: "center", gap: "5px", backgroundColor: "#24148a", color: "white", padding: "5px 10px", borderRadius: "4px", fontSize: "12px"}}>
                             {getUserDisplayName(member.user)}
                             {getMemberRoleLabel(member) ? `(${getMemberRoleLabel(member)})` : ""}
-                            {selectedChat.creator?.id === currentUser?.id && member.user.id !== currentUser?.id && (
+                            {canManageGroup && member.user.id !== currentUser?.id && member.user.id !== selectedChat?.creator?.id && (
                               <button onClick={() => handleRemoveMember(member.user.id)} style={{background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "12px"}}>✕</button>
                             )}
                           </div>
@@ -1137,7 +1145,7 @@ const Messages = () => {
                 </div>
               )}
 
-              {showGroupActionsModal && selectedChat?.chat_type !== "INDIVIDUAL" && selectedChat.creator?.id === currentUser?.id && (
+              {showGroupActionsModal && selectedChat?.chat_type !== "INDIVIDUAL" && canManageGroup && (
                 <div style={{position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 2200}}>
                   <div style={{width: "100%", maxWidth: "460px", background: "#fff", borderRadius: "10px", padding: "16px"}}>
                     {groupActionView === "menu" && (
@@ -1161,12 +1169,14 @@ const Messages = () => {
                           >
                             Add/Remove Members
                           </button>
-                          <button
-                            onClick={handleDeleteConversation}
-                            style={{padding: "10px", border: "1px solid #e3b0b0", color: "#8a1414", background: "#fff", textAlign: "left"}}
-                          >
-                            Delete Conversation
-                          </button>
+                          {isGroupCreator && (
+                            <button
+                              onClick={handleDeleteConversation}
+                              style={{padding: "10px", border: "1px solid #e3b0b0", color: "#8a1414", background: "#fff", textAlign: "left"}}
+                            >
+                              Delete Conversation
+                            </button>
+                          )}
                         </div>
                         <div style={{display: "flex", justifyContent: "flex-end", marginTop: "12px"}}>
                           <button onClick={() => setShowGroupActionsModal(false)} style={{padding: "8px 12px", border: "1px solid #ccc", background: "#fff"}}>Close</button>
