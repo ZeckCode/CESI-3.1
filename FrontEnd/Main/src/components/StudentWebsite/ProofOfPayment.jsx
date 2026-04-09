@@ -42,7 +42,6 @@ export default function ProofOfPayment() {
     description: "",
     amount: "",
     billed_item: "PAYMENT",
-    payment_date: "",
     proof_image: null,
   });
 
@@ -172,11 +171,6 @@ export default function ProofOfPayment() {
       formDataToSend.append("billed_item", formData.billed_item);
       formDataToSend.append("proof_image", formData.proof_image);
 
-      // Change this key if your backend expects billed_due_date instead
-      if (formData.payment_date) {
-        formDataToSend.append("billed_due_date", formData.payment_date);
-      }
-
       const response = await apiFetch("/api/finance/proof-of-payments/", {
         method: "POST",
         body: formDataToSend,
@@ -197,7 +191,6 @@ export default function ProofOfPayment() {
         description: "",
         amount: "",
         billed_item: "PAYMENT",
-        payment_date: "",
         proof_image: null,
       });
 
@@ -326,21 +319,6 @@ export default function ProofOfPayment() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="payment_date" className="form-label">
-                Payment Date
-              </label>
-              <input
-                type="date"
-                id="payment_date"
-                name="payment_date"
-                value={formData.payment_date}
-                onChange={handleInputChange}
-                className="form-input"
-                disabled={submitting}
-              />
-            </div>
-
-            <div className="form-group">
               <label htmlFor="proof_image" className="form-label">
                 Proof of Payment Image <span className="required">*</span>
               </label>
@@ -394,7 +372,7 @@ export default function ProofOfPayment() {
 
                   <div className="proof-item-details">
                     <div className="proof-detail">
-                      <strong>Submitted:</strong> {formatDate(payment.created_at)}
+                      <strong>Submitted:</strong> {formatDate(payment.submitted_date || payment.created_at)}
                     </div>
 
                     <div className="proof-detail">
@@ -408,13 +386,6 @@ export default function ProofOfPayment() {
                     <div className="proof-detail">
                       <strong>Bill Type:</strong> {payment.billed_item || "—"}
                     </div>
-
-                    {(payment.payment_date || payment.billed_due_date) && (
-                      <div className="proof-detail">
-                        <strong>Payment Date:</strong>{" "}
-                        {payment.payment_date || payment.billed_due_date}
-                      </div>
-                    )}
 
                     {payment.admin_remarks && (
                       <div className="proof-detail proof-remarks">

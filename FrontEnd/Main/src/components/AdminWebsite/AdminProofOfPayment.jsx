@@ -210,24 +210,20 @@ export default function AdminProofOfPayment() {
               <table className="admin-proof-table">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Student</th>
                     <th>Reference Number</th>
-                    <th>Description</th>
+                    <th>Student</th>
                     <th>Amount</th>
                     <th>Bill Type</th>
-                    <th>Payment Date</th>
                     <th>Type</th>
                     <th>Submitted Date</th>
                     <th>Status</th>
-                    <th>Proof Image</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {payments.map((payment) => (
                     <tr key={payment.id}>
-                    <td data-label="ID">{payment.id}</td>
+                    <td data-label="Reference Number">{payment.reference_number}</td>
                     <td data-label="Student">
                       <div className="admin-proof-student-name">
                         {getStudentDisplayName(payment)}
@@ -238,30 +234,8 @@ export default function AdminProofOfPayment() {
                         </div>
                       )}
                     </td>
-                    <td data-label="Reference Number">{payment.reference_number}</td>
-                    <td data-label="Description">
-                      <div className="admin-proof-description">
-                        {payment.formatted_description}
-                        {payment.is_enrollment_payment && (
-                          <span
-                            style={{
-                              display: "inline-block",
-                              marginLeft: "8px",
-                              fontSize: "10px",
-                              background: "#dbeafe",
-                              color: "#1e40af",
-                              padding: "2px 6px",
-                              borderRadius: "12px",
-                            }}
-                          >
-                            Initial Payment
-                          </span>
-                        )}
-                      </div>
-                    </td>
                     <td data-label="Amount">{formatCurrency(payment.amount)}</td>
                     <td data-label="Bill Type">{billTypeLabel(payment.billed_item)}</td>
-                    <td data-label="Payment Date">{payment.payment_date || payment.billed_due_date || "—"}</td>
                     <td data-label="Type">
                       {payment.is_enrollment_payment ? (
                         <span
@@ -291,7 +265,7 @@ export default function AdminProofOfPayment() {
                         </span>
                       )}
                     </td>
-                    <td data-label="Submitted Date">{formatDate(payment.created_at)}</td>
+                    <td data-label="Submitted Date">{formatDate(payment.submitted_date || payment.created_at)}</td>
                     <td data-label="Status">
                       <span
                         className={`admin-proof-status-badge admin-proof-status-${payment.status || "pending"}`}
@@ -300,32 +274,17 @@ export default function AdminProofOfPayment() {
                         {payment.status || "PENDING"}
                       </span>
                     </td>
-                    <td data-label="Proof Image">
-                      {payment.proof_image && (
-                        <button
-                          onClick={() => openImageOverlay(getImageUrl(payment.proof_image))}
-                          className="admin-proof-view-image"
-                          style={{
-                            padding: "6px 12px",
-                            fontSize: "12px",
-                            background: "#dbeafe",
-                            border: "1px solid #0ea5e9",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            color: "#0369a1",
-                            fontWeight: "500",
-                          }}
-                        >
-                          <Eye size={14} /> View
-                        </button>
-                      )}
-                    </td>
                     <td data-label="Actions">
+                      <div className="admin-proof-actions-icons">
+                        <button
+                          className="action-icon"
+                          onClick={() => openActionModal(payment, "view")}
+                          title="View"
+                        >
+                          <Eye size={18} />
+                        </button>
                       {payment.status === "pending" ? (
-                        <div className="admin-proof-actions-icons">
+                        <>
                           <button
                             className="action-icon approve-icon"
                             onClick={() => openActionModal(payment, "approve")}
@@ -340,7 +299,7 @@ export default function AdminProofOfPayment() {
                           >
                             <X size={18} />
                           </button>
-                        </div>
+                        </>
                       ) : (
                         <span className={`admin-proof-reviewed ${payment.status}`}>
                           {payment.status === "approved" ? <Check size={14} /> : <X size={14} />}
@@ -349,6 +308,7 @@ export default function AdminProofOfPayment() {
                           </span>
                         </span>
                       )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -376,7 +336,11 @@ export default function AdminProofOfPayment() {
                 }}
               >
                 <h3 style={{ margin: 0 }}>
-                  {actionType === "approve" ? "Approve" : "Reject"} Payment Proof
+                  {actionType === "approve"
+                    ? "Approve Payment Proof"
+                    : actionType === "reject"
+                    ? "Reject Payment Proof"
+                    : "View Payment Proof"}
                 </h3>
                 <button
                   onClick={() => setShowModal(false)}
@@ -392,30 +356,47 @@ export default function AdminProofOfPayment() {
                 </button>
               </div>
 
-              <p>
-                <strong>Student:</strong> {getStudentDisplayName(selectedPayment)}
-              </p>
-              <p>
-                <strong>Reference Number:</strong> {selectedPayment?.reference_number}
-              </p>
-              <p>
-                <strong>Description:</strong> {selectedPayment?.formatted_description}
-              </p>
-              <p>
-                <strong>Amount:</strong> {formatCurrency(selectedPayment?.amount)}
-              </p>
-              <p>
-                <strong>Bill Type:</strong> {billTypeLabel(selectedPayment?.billed_item)}
-              </p>
-              <p>
-                <strong>Payment Date:</strong>{" "}
-                {selectedPayment?.payment_date ||
-                  selectedPayment?.billed_due_date ||
-                  "—"}
-              </p>
+              <div className="admin-proof-modal-meta">
+                <div className="admin-proof-modal-row">
+                  <div className="admin-proof-modal-label">Student</div>
+                  <div className="admin-proof-modal-value">
+                    {getStudentDisplayName(selectedPayment)}
+                  </div>
+                </div>
+                <div className="admin-proof-modal-row">
+                  <div className="admin-proof-modal-label">Reference Number</div>
+                  <div className="admin-proof-modal-value">
+                    {selectedPayment?.reference_number || "—"}
+                  </div>
+                </div>
+                <div className="admin-proof-modal-row">
+                  <div className="admin-proof-modal-label">Description</div>
+                  <div className="admin-proof-modal-value">
+                    {selectedPayment?.formatted_description || "—"}
+                  </div>
+                </div>
+                <div className="admin-proof-modal-row">
+                  <div className="admin-proof-modal-label">Amount</div>
+                  <div className="admin-proof-modal-value">
+                    {formatCurrency(selectedPayment?.amount)}
+                  </div>
+                </div>
+                <div className="admin-proof-modal-row">
+                  <div className="admin-proof-modal-label">Bill Type</div>
+                  <div className="admin-proof-modal-value">
+                    {billTypeLabel(selectedPayment?.billed_item)}
+                  </div>
+                </div>
+                <div className="admin-proof-modal-row">
+                  <div className="admin-proof-modal-label">Submitted Date</div>
+                  <div className="admin-proof-modal-value">
+                    {formatDate(selectedPayment?.submitted_date || selectedPayment?.created_at)}
+                  </div>
+                </div>
+              </div>
 
               {selectedPayment?.proof_image && (
-                <div style={{ marginBottom: "16px" }}>
+                <div className="admin-proof-modal-image-wrap" style={{ marginBottom: "16px" }}>
                   <label
                     style={{
                       display: "block",
@@ -443,26 +424,28 @@ export default function AdminProofOfPayment() {
                 </div>
               )}
 
-              <div className="form-group">
-                <label>Remarks (Optional):</label>
-                <textarea
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                  rows="3"
-                  placeholder={
-                    actionType === "approve"
-                      ? "Add approval remarks (optional)"
-                      : "Provide reason for rejection (optional)"
-                  }
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "4px",
-                    fontFamily: "inherit",
-                  }}
-                />
-              </div>
+              {actionType !== "view" && (
+                <div className="form-group">
+                  <label>Remarks (Optional):</label>
+                  <textarea
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    rows="3"
+                    placeholder={
+                      actionType === "approve"
+                        ? "Add approval remarks (optional)"
+                        : "Provide reason for rejection (optional)"
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "4px",
+                      fontFamily: "inherit",
+                    }}
+                  />
+                </div>
+              )}
 
               <div
                 className="admin-proof-modal-actions"
@@ -480,23 +463,25 @@ export default function AdminProofOfPayment() {
                     cursor: "pointer",
                   }}
                 >
-                  Cancel
+                  {actionType === "view" ? "Close" : "Cancel"}
                 </button>
-                <button
-                  className={actionType === "approve" ? "btn-approve" : "btn-reject"}
-                  onClick={handleAction}
-                  style={{
-                    flex: 1,
-                    padding: "10px",
-                    border: "none",
-                    background: actionType === "approve" ? "#10b981" : "#ef4444",
-                    color: "white",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
-                >
-                  {actionType === "approve" ? "Approve" : "Reject"}
-                </button>
+                {actionType !== "view" && (
+                  <button
+                    className={actionType === "approve" ? "btn-approve" : "btn-reject"}
+                    onClick={handleAction}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      border: "none",
+                      background: actionType === "approve" ? "#10b981" : "#ef4444",
+                      color: "white",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {actionType === "approve" ? "Approve" : "Reject"}
+                  </button>
+                )}
               </div>
             </div>
           </div>

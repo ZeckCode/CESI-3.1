@@ -211,6 +211,7 @@ const PaymentReminders = () => {
         </div>
 
         <div className="pr-table-container">
+          <div className="pr-table-scroll-hint">← Swipe to scroll →</div>
           <table className="pr-table">
             <thead>
               <tr>

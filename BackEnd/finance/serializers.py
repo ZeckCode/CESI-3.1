@@ -467,6 +467,7 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
     student_grade = serializers.SerializerMethodField()
     proof_image_url = serializers.SerializerMethodField()
     enrollment_id = serializers.SerializerMethodField()
+    submitted_date = serializers.DateTimeField(source="created_at", read_only=True)
     payment_type = serializers.CharField(read_only=True)
     source = serializers.CharField(read_only=True)
 
@@ -483,6 +484,7 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
             "proof_image_url",
             "status",
             "admin_remarks",
+            "submitted_date",
             "created_at",
             "updated_at",
             "student_name",
@@ -497,6 +499,7 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
             "id",
             "status",
             "admin_remarks",
+            "submitted_date",
             "created_at",
             "updated_at",
             "student_name",

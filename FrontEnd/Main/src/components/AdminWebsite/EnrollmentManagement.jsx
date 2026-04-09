@@ -1984,8 +1984,6 @@ const openIdGenerator = (row) => {
                 <th>Enrollment Date</th>
                 <th>Status</th>
                 <th>Promotion Ready</th>
-                <th>Payment Info</th>
-                <th>Payment Proof</th>
                 <th>Parent / Guardian</th>
                 <th>Approve / Decline</th>
                 <th>Actions</th>
@@ -2029,56 +2027,29 @@ const openIdGenerator = (row) => {
                   </td>
 
                   <td>
-                    <div className="payment-info-container">
-                      {row.paymentMethod === "online" ? (
-                        <span className="payment-badge">
-                          Online
-                        </span>
-                      ) : row.paymentMethod === "onsite" ? (
-                        <span className="payment-badge onsite">
-                          Onsite
-                        </span>
-                      ) : null}
-                      {row.paymentMode === "cash" ? (
-                        <span className="payment-badge cash">
-                          Cash
-                        </span>
-                      ) : row.paymentMode === "installment" ? (
-                        <span className="payment-badge installment">
-                          Installment
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-
-                  <td>
-                  {row.paymentProof && row.paymentProof.proof_image_url ? (
-                    <button
-                      className="btn-proof"
-                      onClick={() => {
-                        setImageViewerOpen(true);
-                        setSelectedImageUrl(row.paymentProof.proof_image_url);
-                      }}
-                    >
-                      <Eye size={getResponsiveIconSize()} /> View
-                    </button>
-                  ) : (
-                    <span className="proof-none">No proof</span>
-                  )}
-                  </td>
-
-                  <td>
                     <ParentCell row={row} />
                   </td>
 
                   <td>
                     {row.statusCode === "PENDING" ? (
                       <div className="approve-decline-group">
-                        <button className="btn-approve" onClick={() => openApproveDialog(row)}>
-                        <CheckCircle size={getResponsiveIconSize()} /> Approve
-                      </button>
-                        <button className="btn-decline" onClick={() => handleDecline(row.id)}>
-                          <XCircle size={getResponsiveIconSize()} /> Decline
+                        <button
+                          className="btn-approve"
+                          onClick={() => openApproveDialog(row)}
+                          title="Approve"
+                          aria-label="Approve"
+                        >
+                          <CheckCircle size={getResponsiveIconSize()} />
+                          <span>Approve</span>
+                        </button>
+                        <button
+                          className="btn-decline"
+                          onClick={() => handleDecline(row.id)}
+                          title="Decline"
+                          aria-label="Decline"
+                        >
+                          <XCircle size={getResponsiveIconSize()} />
+                          <span>Decline</span>
                         </button>
                       </div>
                     ) : row.statusCode === "ACTIVE" ? (

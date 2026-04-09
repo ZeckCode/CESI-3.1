@@ -425,8 +425,19 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.users-table-scroll-hint {
+  display: none;
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+  padding: 8px 10px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
 .users-table {
   width: 100%;
+  min-width: 1120px;
   border-collapse: collapse;
 }
 
@@ -443,6 +454,7 @@
   color: #374151;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .users-table tbody tr {
@@ -458,6 +470,16 @@
   padding: 15px;
   font-size: 14px;
   color: #1f2937;
+  white-space: nowrap;
+}
+
+.users-table th:nth-child(1),
+.users-table td:nth-child(1),
+.users-table th:nth-child(5),
+.users-table td:nth-child(5),
+.users-table th:nth-child(2),
+.users-table td:nth-child(2) {
+  white-space: normal;
 }
 
 .users-table a {
@@ -590,11 +612,16 @@
 
   .users-table {
     font-size: 12px;
+    min-width: 1020px;
   }
 
   .users-table th,
   .users-table td {
     padding: 10px;
+  }
+
+  .users-table-scroll-hint {
+    display: block;
   }
 
   .modal-content {
@@ -641,6 +668,10 @@
     font-size: 11px;
   }
 
+  .users-table {
+    min-width: 980px;
+  }
+
   .user-status-badge {
     padding: 4px 8px;
     font-size: 10px;
@@ -653,11 +684,15 @@
 }
 
 @media (max-width: 600px) {
-  .users-table { border: 0; }
-  .users-table thead { display: none; }
-  .users-table tbody tr { display: block; margin-bottom: 0.75rem; border: 1px solid rgba(15,23,42,0.04); border-radius: 8px; padding: 0.5rem; background: white; }
-  .users-table tbody tr td { display: flex; justify-content: space-between; padding: 0.6rem 0.5rem; border-bottom: 1px dashed rgba(15,23,42,0.03); }
-  .users-table tbody tr td:last-child { border-bottom: 0; }
+  .users-table {
+    min-width: 960px;
+  }
+
+  .users-table th,
+  .users-table td {
+    padding: 7px;
+    font-size: 11px;
+  }
 }
 
 /* ========== INLINE EDITING ========== */

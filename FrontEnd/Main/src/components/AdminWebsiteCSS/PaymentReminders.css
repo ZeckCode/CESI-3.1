@@ -304,11 +304,23 @@
   border-radius: 0.75rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
+}
+
+.pr-table-scroll-hint {
+  display: none;
+  text-align: center;
+  font-size: 12px;
+  color: #64748b;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .pr-table {
   width: 100%;
+  min-width: 920px;
   border-collapse: collapse;
   table-layout: auto;
 }
@@ -343,6 +355,14 @@
   padding: 1rem;
   font-size: 0.9rem;
   color: #1e293b;
+  white-space: nowrap;
+}
+
+.pr-table td:nth-child(3),
+.pr-table th:nth-child(3),
+.pr-table td:nth-child(2),
+.pr-table th:nth-child(2) {
+  white-space: normal;
 }
 
 .pr-student-name {
@@ -425,15 +445,46 @@
   .pr-table-container {
     overflow-x: auto;
   }
+
+  .pr-table-scroll-hint {
+    display: block;
+  }
+
+  .pr-table {
+    min-width: 860px;
+  }
+
+  .pr-table th,
+  .pr-table td {
+    padding: 0.75rem 0.625rem;
+    font-size: 0.8rem;
+  }
+
+  .pr-btn-send {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.75rem;
+  }
 }
 
 @media (max-width: 600px) {
-  .pr-table { border: 0; }
-  .pr-table thead { display: none; }
-  .pr-table tbody tr { display: block; margin-bottom: 0.75rem; border: 1px solid rgba(15,23,42,0.04); border-radius: 8px; padding: 0.5rem; background: white; }
-  .pr-table tbody tr td { display: flex; justify-content: space-between; padding: 0.6rem 0.5rem; border-bottom: 1px dashed rgba(15,23,42,0.03); }
-  .pr-table tbody tr td:last-child { border-bottom: 0; }
-  .pr-search-box { min-width: 0; }
+  .pr-table {
+    min-width: 820px;
+  }
+
+  .pr-search-box {
+    min-width: 0;
+  }
+
+  .pr-table th,
+  .pr-table td {
+    padding: 0.625rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .pr-status-badge {
+    font-size: 0.68rem;
+    padding: 0.3rem 0.65rem;
+  }
 }
 
 

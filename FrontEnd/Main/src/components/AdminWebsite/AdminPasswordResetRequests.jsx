@@ -24,7 +24,7 @@ export default function AdminPasswordResetRequests() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -44,11 +44,11 @@ export default function AdminPasswordResetRequests() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addToast]);
 
   useEffect(() => {
     fetchRequests();
-  }, []);
+  }, [fetchRequests]);
 
   const handleSendLink = async (id) => {
     try {
@@ -139,6 +139,7 @@ export default function AdminPasswordResetRequests() {
         <div className="reset-empty">{getEmptyText()}</div>
       ) : (
         <div className="reset-table-wrap">
+          <div className="reset-table-scroll-hint">← Swipe to scroll →</div>
           <table className="reset-table">
             <thead>
               <tr>

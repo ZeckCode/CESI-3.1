@@ -903,6 +903,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         <div className="users-container">
           {filteredStudents.length > 0 ? (
             <>
+            <div className="users-table-scroll-hint">← Swipe to scroll →</div>
             <table className="users-table">
               <thead>
                 <tr>
@@ -952,6 +953,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
           {assignError && <div className="form-error" style={{ marginBottom: '1rem' }}>{assignError}</div>}
           {filteredTeachers.length > 0 ? (
             <>
+            <div className="users-table-scroll-hint">← Swipe to scroll →</div>
             <table className="users-table">
               <thead>
                 <tr>
