@@ -19,6 +19,7 @@ from .serializers import (
     ChatRequestCreateSerializer, MessageReportSerializer, MessageReportCreateSerializer
 )
 from accounts.models import User, Section, Subject
+from classmanagement.models import SchoolYear
 
 
 # ═══════════════════════════════════════════════════════════
@@ -174,10 +175,10 @@ class ChatViewSet(viewsets.ModelViewSet):
                 )
 
         elif chat_type == 'GROUP_CLASS':
-            # Teachers and parent/student accounts can create class groups
-            if request.user.role not in ['TEACHER', 'PARENT_STUDENT']:
+            # Teachers create class groups
+            if request.user.role != 'TEACHER':
                 return Response(
-                    {'detail': 'Only teachers or parent/student users can create class group chats.'},
+                    {'detail': 'Only teachers can create class group chats.'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             # Requires section + subject
@@ -213,14 +214,22 @@ class ChatViewSet(viewsets.ModelViewSet):
             students = Enrollment.objects.filter(
                 section=chat.section,
                 status="ACTIVE"
-            ).values_list('student_id', flat=True)
+            ).values_list('student_id', flat=True).distinct()
 
             # Add teacher
-            ChatMember.objects.create(chat=chat, user=chat.creator, is_admin=True)
+            ChatMember.objects.get_or_create(
+                chat=chat,
+                user=chat.creator,
+                defaults={'is_admin': True}
+            )
 
             # Add students
             for student_id in students:
-                ChatMember.objects.create(chat=chat, user_id=student_id, is_admin=False)
+                ChatMember.objects.get_or_create(
+                    chat=chat,
+                    user_id=student_id,
+                    defaults={'is_admin': False}
+                )
 
         elif chat.chat_type == 'GROUP_PROJECT':
             # Only add creator
@@ -296,6 +305,8 @@ class ChatViewSet(viewsets.ModelViewSet):
     def search_users(self, request):
         """Search for users to add to chat (autofill)."""
         query = request.query_params.get('q', '').strip()
+        scope = request.query_params.get('scope', '').strip().lower()
+        allow_global = scope in {'all', 'global', 'project', 'group_project', 'project_group'}
         if not query or len(query) < 2:
             return Response(
                 {'detail': 'Query must be at least 2 characters.'},
@@ -314,7 +325,7 @@ class ChatViewSet(viewsets.ModelViewSet):
 
         # Student/parent accounts should primarily discover people in the same section.
         # This avoids unhelpful username-only global results.
-        if request.user.role == 'PARENT_STUDENT':
+        if request.user.role == 'PARENT_STUDENT' and not allow_global:
             from enrollment.models import Enrollment
             from classmanagement.models import Schedule
 
@@ -377,11 +388,22 @@ class ChatViewSet(viewsets.ModelViewSet):
     def search_sections(self, request):
         """Search for sections (autofill for class chats)."""
         query = request.query_params.get('q', '').strip()
-        if not query or len(query) < 1:
-            # Return all if no query
-            sections = Section.objects.all().values('id', 'name', 'grade_level')[:10]
+        school_year_id = request.query_params.get('school_year')
+
+        sections = Section.objects.all()
+        if school_year_id:
+            sections = sections.filter(school_year_id=school_year_id)
         else:
-            sections = Section.objects.filter(
+            active_sy = SchoolYear.objects.filter(is_active=True).first()
+            if active_sy:
+                sections = sections.filter(school_year=active_sy)
+            else:
+                sections = sections.filter(school_year__isnull=True)
+
+        if not query or len(query) < 1:
+            sections = sections.values('id', 'name', 'grade_level')[:10]
+        else:
+            sections = sections.filter(
                 Q(name__icontains=query) |
                 Q(grade_level__icontains=query)
             ).values('id', 'name', 'grade_level')[:10]

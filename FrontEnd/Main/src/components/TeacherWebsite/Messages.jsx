@@ -182,8 +182,12 @@ const Messages = () => {
       const sy = await getSchoolYear();
       setSchoolYear(sy);
 
+      const sectionUrl = sy?.id
+        ? `/api/accounts/sections/?school_year=${sy.id}`
+        : "/api/accounts/sections/";
+
       const [sectionsRes, subjectsRes] = await Promise.all([
-        fetch("/api/accounts/sections/", {
+        fetch(sectionUrl, {
           headers: { Authorization: `Token ${token}` },
         }),
         fetch("/api/accounts/subjects/", {
@@ -376,7 +380,10 @@ const Messages = () => {
   const handleSectionSearch = async (query) => {
     setNewChatSection(query);
     try {
-      const data = await searchSections(query);
+      const data = await searchSections(
+        query,
+        schoolYear?.id ? { schoolYearId: schoolYear.id } : undefined
+      );
       setSectionSuggestions(data || []);
       setShowSectionDropdown(true);
     } catch (err) {
@@ -450,7 +457,8 @@ const Messages = () => {
     }
 
     try {
-      const data = await searchUsers(query);
+      const searchScope = selectedChat?.chat_type === "GROUP_PROJECT" ? "project" : "";
+      const data = await searchUsers(query, searchScope ? { scope: searchScope } : undefined);
       const existingIds = selectedChat.members?.map((m) => m.user.id) || [];
       const filtered = (data || []).filter((u) => !existingIds.includes(u.id));
       setMemberSuggestions(filtered);
@@ -602,6 +610,13 @@ const Messages = () => {
       return `${chat.section_name} - ${chat.subject_name}`;
     }
     return chat.name || "Group";
+  };
+
+  const getMemberRoleLabel = (member) => {
+    if (!member) return "";
+    if (member.user?.id === selectedChat?.creator?.id) return "creator";
+    if (member.is_admin) return "leader";
+    return "";
   };
 
   const getRequestSenderDisplayName = (chatRequest) => {
@@ -984,7 +999,8 @@ const Messages = () => {
                       <div style={{display: "flex", flexWrap: "wrap", gap: "5px"}}>
                         {selectedChat.members.map((member) => (
                           <div key={member.id} style={{display: "flex", alignItems: "center", gap: "5px", backgroundColor: "#24148a", color: "white", padding: "5px 10px", borderRadius: "4px", fontSize: "12px"}}>
-                            {getUserDisplayName(member.user)} {member.is_admin && "(admin)"}
+                            {getUserDisplayName(member.user)}
+                            {getMemberRoleLabel(member) ? `(${getMemberRoleLabel(member)})` : ""}
                             {selectedChat.creator?.id === currentUser?.id && member.user.id !== currentUser?.id && (
                               <button onClick={() => handleRemoveMember(member.user.id)} style={{background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "12px"}}>✕</button>
                             )}
@@ -1192,7 +1208,8 @@ const Messages = () => {
                             <div style={{display: "flex", flexWrap: "wrap", gap: "6px"}}>
                               {selectedChat.members.map((member) => (
                                 <div key={member.id} style={{display: "flex", alignItems: "center", gap: "5px", backgroundColor: "#24148a", color: "white", padding: "5px 10px", borderRadius: "4px", fontSize: "12px"}}>
-                                  {getUserDisplayName(member.user)} {member.is_admin && "(admin)"}
+                                  {getUserDisplayName(member.user)}
+                                  {getMemberRoleLabel(member) ? `(${getMemberRoleLabel(member)})` : ""}
                                   {member.user.id !== currentUser?.id && (
                                     <button onClick={() => handleRemoveMember(member.user.id)} style={{background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "12px"}}>✕</button>
                                   )}

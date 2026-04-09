@@ -4,7 +4,6 @@ import {
   listChats,
   getChatDetail,
   updateChat,
-  createClassChat,
   createProjectChat,
   searchUsers,
   sendMessage,
@@ -38,11 +37,8 @@ const StudentMessage = () => {
   const [newChatError, setNewChatError] = useState("");
   const [newChatType, setNewChatType] = useState("individual");
   const [newChatName, setNewChatName] = useState("");
-  const [newChatTarget, setNewChatTarget] = useState("");
   const [initialMessage, setInitialMessage] = useState("");
   const [selectedUserId, setSelectedUserId] = useState(null);
-  const [newChatSection, setNewChatSection] = useState("");
-  const [newChatSubject, setNewChatSubject] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [respondingToRequest, setRespondingToRequest] = useState(null);
@@ -50,8 +46,6 @@ const StudentMessage = () => {
   const [userSuggestions, setUserSuggestions] = useState([]);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [selectedUserText, setSelectedUserText] = useState("");
-  const [sections, setSections] = useState([]);
-  const [subjects, setSubjects] = useState([]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showGroupActionsModal, setShowGroupActionsModal] = useState(false);
   const [groupActionView, setGroupActionView] = useState("menu");
@@ -165,21 +159,6 @@ const StudentMessage = () => {
         }
       }
 
-      // Load lightweight dropdown options used by parent/student class chat creation.
-      const [sectionsRes, subjectsRes] = await Promise.all([
-        apiFetch("/api/accounts/sections/"),
-        apiFetch("/api/accounts/subjects/"),
-      ]);
-
-      if (sectionsRes.ok) {
-        const data = await sectionsRes.json();
-        setSections(Array.isArray(data) ? data : data.results || []);
-      }
-      if (subjectsRes.ok) {
-        const data = await subjectsRes.json();
-        setSubjects(Array.isArray(data) ? data : data.results || []);
-      }
-
       // Fetch school year
       const sy = await getSchoolYear();
       setSchoolYear(sy);
@@ -264,17 +243,11 @@ const StudentMessage = () => {
       setNewChatError("Please enter a group name");
       return;
     }
-    if (newChatType === "class" && (!newChatSection || !newChatSubject)) {
-      setNewChatError("Please select both section and subject");
-      return;
-    }
 
     try {
       let chatData = null;
       if (newChatType === "individual") {
         await createChatRequest(selectedUserId, initialMessage || "");
-      } else if (newChatType === "class") {
-        chatData = await createClassChat(newChatSection, newChatSubject, schoolYear.name);
       } else {
         chatData = await createProjectChat(newChatName, schoolYear.name);
       }
@@ -284,11 +257,8 @@ const StudentMessage = () => {
       setShowNewChat(false);
       setNewChatType("individual");
       setNewChatName("");
-      setNewChatTarget("");
       setSelectedUserId(null);
       setInitialMessage("");
-      setNewChatSection("");
-      setNewChatSubject("");
       setSelectedUserText("");
       setNewChatError("");
       if (chatData?.id) {
@@ -397,7 +367,8 @@ const StudentMessage = () => {
     }
 
     try {
-      const data = await searchUsers(query);
+      const searchScope = selectedChat?.chat_type === "GROUP_PROJECT" ? "project" : "";
+      const data = await searchUsers(query, searchScope ? { scope: searchScope } : undefined);
       const existingIds = selectedChat.members?.map((m) => m.user.id) || [];
       const filtered = (data || []).filter((u) => !existingIds.includes(u.id));
       setMemberSuggestions(filtered);
@@ -511,6 +482,13 @@ const StudentMessage = () => {
       return `${chat.section_name} - ${chat.subject_name}`;
     }
     return chat.name || "Group";
+  };
+
+  const getMemberRoleLabel = (member) => {
+    if (!member) return "";
+    if (member.user?.id === selectedChat?.creator?.id) return "creator";
+    if (member.is_admin) return "leader";
+    return "";
   };
 
   const getRequestSenderDisplayName = (chatRequest) => {
@@ -656,7 +634,6 @@ const StudentMessage = () => {
               style={{width: "100%", padding: "8px", marginBottom: "10px"}}
             >
               <option value="individual">Individual DM</option>
-              <option value="class">Class Group</option>
               <option value="project">Project Group</option>
             </select>
 
@@ -696,33 +673,6 @@ const StudentMessage = () => {
                   />
                 )}
               </div>
-            )}
-
-            {newChatType === "class" && (
-              <>
-                <select
-                  value={newChatSection}
-                  onChange={(e) => setNewChatSection(e.target.value)}
-                  style={{width: "100%", padding: "8px", marginBottom: "10px"}}
-                >
-                  <option value="">Select section</option>
-                  {sections.map((section) => (
-                    <option key={section.id} value={section.id}>
-                      {section.name} {section.grade_level ? `- ${section.grade_level}` : ""}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={newChatSubject}
-                  onChange={(e) => setNewChatSubject(e.target.value)}
-                  style={{width: "100%", padding: "8px", marginBottom: "10px"}}
-                >
-                  <option value="">Select subject</option>
-                  {subjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>{subject.name}</option>
-                  ))}
-                </select>
-              </>
             )}
 
             {newChatType === "project" && (
@@ -920,7 +870,8 @@ const StudentMessage = () => {
                       <div style={{display: "flex", flexWrap: "wrap", gap: "5px"}}>
                         {selectedChat.members.map((member) => (
                           <div key={member.id} style={{display: "flex", alignItems: "center", gap: "5px", backgroundColor: "#24148a", color: "white", padding: "5px 10px", borderRadius: "4px", fontSize: "12px"}}>
-                            {getUserDisplayName(member.user)} {member.is_admin && "(admin)"}
+                            {getUserDisplayName(member.user)}
+                            {getMemberRoleLabel(member) ? `(${getMemberRoleLabel(member)})` : ""}
                             {selectedChat.creator?.id === currentUser?.id && member.user.id !== currentUser?.id && (
                               <button onClick={() => handleRemoveMember(member.user.id)} style={{background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "12px"}}>✕</button>
                             )}
@@ -1119,7 +1070,8 @@ const StudentMessage = () => {
                             <div style={{display: "flex", flexWrap: "wrap", gap: "6px"}}>
                               {selectedChat.members.map((member) => (
                                 <div key={member.id} style={{display: "flex", alignItems: "center", gap: "5px", backgroundColor: "#24148a", color: "white", padding: "5px 10px", borderRadius: "4px", fontSize: "12px"}}>
-                                  {getUserDisplayName(member.user)} {member.is_admin && "(admin)"}
+                                  {getUserDisplayName(member.user)}
+                                  {getMemberRoleLabel(member) ? `(${getMemberRoleLabel(member)})` : ""}
                                   {member.user.id !== currentUser?.id && (
                                     <button onClick={() => handleRemoveMember(member.user.id)} style={{background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "12px"}}>✕</button>
                                   )}
