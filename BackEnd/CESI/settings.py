@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+from urllib.parse import urlparse
 from pathlib import Path
 import dj_database_url
 
@@ -36,8 +37,33 @@ if USE_SPACES:
     AWS_ACCESS_KEY_ID = os.environ.get('DO_SPACES_KEY')
     AWS_SECRET_ACCESS_KEY = os.environ.get('DO_SPACES_SECRET')
     AWS_STORAGE_BUCKET_NAME = os.environ.get('DO_SPACES_BUCKET')
-    AWS_S3_ENDPOINT_URL = os.environ.get('DO_SPACES_ENDPOINT')
     AWS_S3_REGION_NAME = os.environ.get('DO_SPACES_REGION')
+    raw_endpoint = os.environ.get('DO_SPACES_ENDPOINT') or ""
+    AWS_S3_ENDPOINT_URL = raw_endpoint or (
+        f"https://{AWS_S3_REGION_NAME}.digitaloceanspaces.com"
+        if AWS_S3_REGION_NAME
+        else None
+    )
+    custom_domain = (
+        os.environ.get("DO_SPACES_CDN_DOMAIN")
+        or os.environ.get("DO_SPACES_CUSTOM_DOMAIN")
+        or None
+    )
+
+    if AWS_S3_ENDPOINT_URL and AWS_STORAGE_BUCKET_NAME:
+        parsed = urlparse(AWS_S3_ENDPOINT_URL)
+        host = parsed.netloc
+        bucket_prefix = f"{AWS_STORAGE_BUCKET_NAME}."
+        if host.startswith(bucket_prefix):
+            custom_domain = custom_domain or host
+            AWS_S3_ENDPOINT_URL = f"{parsed.scheme}://{host[len(bucket_prefix):]}"
+        elif parsed.path and parsed.path != "/":
+            path_bucket = parsed.path.strip("/").split("/")[0]
+            if path_bucket == AWS_STORAGE_BUCKET_NAME:
+                AWS_S3_ENDPOINT_URL = f"{parsed.scheme}://{host}"
+
+    if custom_domain:
+        AWS_S3_CUSTOM_DOMAIN = custom_domain
 
     # 2. Storage Rules
     AWS_S3_FILE_OVERWRITE = False
