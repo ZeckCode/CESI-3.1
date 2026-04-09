@@ -20,14 +20,6 @@ import "../StudentWebsiteCSS/StudentPortal.css";
 
 const API_BASE = "";
 
-const authHeaders = (extra = {}) => {
-  const token = getToken();
-  return {
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...extra,
-  };
-};
-
 const computeEnrollmentWindow = (settings) => {
   const autoOpen = () => {
     const today = new Date();
@@ -82,11 +74,16 @@ export default function StudentMain() {
     let pollInterval = null;
 
     const loadUnreadReminders = async () => {
+      const token = getToken();
+      if (!token) {
+        if (isMounted) {
+          setUnreadReminders(0);
+        }
+        return;
+      }
+
       try {
-        const res = await fetch(`${API_BASE}/api/reminders/`, {
-          credentials: "include",
-          headers: authHeaders(),
-        });
+        const res = await apiFetch(`${API_BASE}/api/reminders/`);
 
         if (!res.ok) throw new Error("Failed to load reminders");
 
@@ -247,7 +244,7 @@ export default function StudentMain() {
             onClose={() => setShowNotificationList(false)}
             unreadCount={unreadReminders}
             reminderType="PAYMENT"
-            onNavigate={(menu, reminder) => {
+            onNavigate={(menu) => {
               setActiveMenu(menu);
               setShowNotificationList(false);
             }}

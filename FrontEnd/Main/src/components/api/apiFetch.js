@@ -59,8 +59,8 @@ export async function apiFetch(url, options = {}) {
   const { headers: extraHeaders, credentials, ...rest } = options;
   const requestUrl = resolveUrl(url);
   const response = await fetch(requestUrl, {
-    // Token auth is primary; omitting cookies avoids local stale-session warnings.
-    credentials: credentials || 'omit',
+    // Send cookies by default so session-authenticated requests also work.
+    credentials: credentials || 'include',
     ...rest,
     headers: authHeaders(extraHeaders),
   });

@@ -163,27 +163,43 @@ def _send_payment_reminder_email(*, recipient, title, message):
 
 
 def _build_payment_reminder_email_message(*, transaction, amount, status_value, due_date, body):
+    student_name = getattr(transaction, "student_name", "your child")
+    reference_number = getattr(transaction, "reference_number", "N/A")
+    transaction_type = getattr(transaction, "transaction_type", "Payment")
+
+    amount_due = Decimal(str(amount or transaction.debit or transaction.amount or 0))
     balance_due = Decimal(str(transaction.debit or transaction.amount or 0)) - Decimal(str(transaction.credit or 0))
     balance_due = balance_due if balance_due > 0 else Decimal("0.00")
 
     lines = [
         body,
         "",
-        "Account Summary:",
-        f"Student: {getattr(transaction, 'student_name', 'your child')}",
-        f"Reference No: {getattr(transaction, 'reference_number', 'N/A')}",
-        f"Amount Due: ₱{amount}",
+        "This notice is being sent to help you stay updated on your student's current financial standing.",
+        "",
+        "Payment Details:",
+        f"Student Name     : {student_name}",
+        f"Billing Category : {transaction_type}",
+        f"Reference Number : {reference_number}",
+        f"Amount Due       : ₱{amount_due}",
         f"Balance Remaining: ₱{balance_due}",
-        f"Status: {status_value}",
+        f"Current Status   : {str(status_value).upper()}",
     ]
 
     if due_date:
-        lines.append(f"Due Date: {due_date}")
+        lines.append(f"Due Date         : {due_date}")
 
     lines.extend([
         "",
-        "You can review this in the Student Portal as well.",
-        "Please settle this payment as soon as possible.",
+        "Recommended Next Steps:",
+        "1. Open your Student Portal to review the full ledger and payment history.",
+        "2. Arrange payment on or before the due date to avoid further penalties or delays.",
+        "3. Keep your payment reference for verification and future concerns.",
+        "",
+        "If you have already settled this balance recently, please disregard this message or allow time for posting.",
+        "For assistance, you may contact the school finance office during office hours.",
+        "",
+        "Thank you for your prompt attention.",
+        "CESI Finance Office",
     ])
 
     return "\n".join(lines).strip()
@@ -311,13 +327,20 @@ def send_payment_reminder(request, transaction_id):
         )
 
     event_type = "PAYMENT_OVERDUE" if status_upper == "OVERDUE" else "PAYMENT_DUE"
-    title = f"Payment Reminder - {transaction_type}"
+    title = (
+        f"Formal {'Overdue' if status_upper == 'OVERDUE' else 'Payment'} Notice - "
+        f"{getattr(transaction, 'student_name', 'Student')}"
+    )
     message = _build_payment_reminder_email_message(
         transaction=transaction,
         amount=amount,
         status_value=status_value,
         due_date=due_date,
-        body=f"Good day. This is a payment reminder for {getattr(transaction, 'student_name', 'your child')}."
+        body=(
+            "Dear Parent/Guardian,\n\n"
+            f"This is a formal reminder regarding the outstanding school account balance for "
+            f"{getattr(transaction, 'student_name', 'your child')}."
+        )
     )
 
     reminder, created = create_reminder_once(

@@ -3,6 +3,28 @@ import { X, Trash2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { apiFetch } from '../api/apiFetch';
 import '../AdminWebsiteCSS/NotificationList.css';
 
+const formatReminderParagraphs = (message) => {
+  const text = String(message || '').trim();
+  if (!text) return ['New notification'];
+
+  const byLineBreak = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (byLineBreak.length > 1) {
+    return byLineBreak;
+  }
+
+  // Fallback for old single-line reminders: split into sentences for readability.
+  const bySentence = text
+    .split(/(?<=[.!?])\s+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return bySentence.length > 1 ? bySentence : [text];
+};
+
 const NotificationList = ({ onClose, unreadCount, onNavigate, reminderType = 'PAYMENT' }) => {
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -179,7 +201,9 @@ const NotificationList = ({ onClose, unreadCount, onNavigate, reminderType = 'PA
                             {reminder.title || reminder.student_name || 'Notification'}
                           </div>
                           <div className="notification-item-text">
-                            {reminder.message || 'New notification'}
+                            {formatReminderParagraphs(reminder.message).map((paragraph, index) => (
+                              <p key={`${reminder.id}-unread-${index}`}>{paragraph}</p>
+                            ))}
                           </div>
                           <div className="notification-item-time">
                             {reminder.created_at && formatDate(reminder.created_at)}
@@ -233,7 +257,9 @@ const NotificationList = ({ onClose, unreadCount, onNavigate, reminderType = 'PA
                             {reminder.title || reminder.student_name || 'Notification'}
                           </div>
                           <div className="notification-item-text">
-                            {reminder.message || 'Notification sent'}
+                            {formatReminderParagraphs(reminder.message || 'Notification sent').map((paragraph, index) => (
+                              <p key={`${reminder.id}-read-${index}`}>{paragraph}</p>
+                            ))}
                           </div>
                           <div className="notification-item-time">
                             {reminder.created_at && formatDate(reminder.created_at)}
