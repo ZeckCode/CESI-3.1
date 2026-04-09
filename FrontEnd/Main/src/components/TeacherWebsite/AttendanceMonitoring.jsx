@@ -169,17 +169,28 @@ const AttendanceMonitoring = () => {
     return schedules.filter((s) => String(s.section?.id || s.section) === selectedSection);
   }, [schedules, selectedSection]);
 
+  const uniqueSchedules = useMemo(() => {
+    const subjectMap = new Map();
+    filteredSchedules.forEach((sched) => {
+      const subjectName = sched.subject?.name || sched.subject_name || "Unknown";
+      if (!subjectMap.has(subjectName)) {
+        subjectMap.set(subjectName, sched);
+      }
+    });
+    return Array.from(subjectMap.values());
+  }, [filteredSchedules]);
+
   useEffect(() => {
-    if (!selectedSection || filteredSchedules.length === 0) {
+    if (!selectedSection || uniqueSchedules.length === 0) {
       setSelectedSchedule("");
       return;
     }
 
-    const hasCurrent = filteredSchedules.some((s) => String(s.id) === selectedSchedule);
+    const hasCurrent = uniqueSchedules.some((s) => String(s.id) === selectedSchedule);
     if (!hasCurrent) {
-      setSelectedSchedule(String(filteredSchedules[0].id));
+      setSelectedSchedule(String(uniqueSchedules[0].id));
     }
-  }, [filteredSchedules, selectedSection, selectedSchedule]);
+  }, [uniqueSchedules, selectedSection, selectedSchedule]);
 
   const fetchStudentsAndAttendance = useCallback(async () => {
     if (!selectedSection || !selectedSchedule) return;
@@ -1559,16 +1570,16 @@ const AttendanceMonitoring = () => {
             ))}
           </select>
 
-          {filteredSchedules.length > 0 && (
+          {uniqueSchedules.length > 0 && (
             <select
               className="am__select am__select--schedule"
               value={selectedSchedule}
               onChange={(e) => setSelectedSchedule(e.target.value)}
             >
               <option value="">Select Subject</option>
-              {filteredSchedules.map((sched) => (
+              {uniqueSchedules.map((sched) => (
                 <option key={sched.id} value={sched.id}>
-                  {sched.subject?.name || sched.subject_name} ({sched.day_of_week} {sched.start_time?.slice(0, 5)})
+                  {sched.subject?.name || sched.subject_name}
                 </option>
               ))}
             </select>
