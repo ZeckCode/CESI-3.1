@@ -156,7 +156,14 @@ export default function AdminPasswordResetRequests() {
               {filteredRequests.map((item) => (
                 <tr key={item.id}>
                   <td>{item.user_name}</td>
-                  <td>{item.email}</td>
+                  <td>
+                    <div>{item.email}</div>
+                    {item.email_matches_account === false && (
+                      <div style={{ marginTop: "4px", fontSize: "12px", color: "#b45309" }}>
+                        Shared enrollment email (account email: {item.account_email || "N/A"})
+                      </div>
+                    )}
+                  </td>
                   <td>{item.message || "—"}</td>
                   <td>
                    <span className={`reset-status-badge ${item.status.toLowerCase()}`}>

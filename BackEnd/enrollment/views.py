@@ -920,40 +920,84 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         student_email = (enrollment.email or "").strip().lower()
         portal_user = enrollment.parent_user
 
-        if not portal_user and create_if_missing and student_email:
-            portal_user = User.objects.filter(email__iexact=student_email).first()
+        raw_last = (enrollment.last_name or "").strip().lower()
+        raw_first = (enrollment.first_name or "").strip().lower()
+        safe_last = slugify(raw_last).replace("-", "")
+        safe_first = slugify(raw_first).replace("-", "")
+        base_local = f"{safe_last}{safe_first}".strip() or "student"
 
-            if not portal_user:
-                raw_last = (enrollment.last_name or "").strip().lower()
-                raw_first = (enrollment.first_name or "").strip().lower()
+        def _create_dedicated_portal_user():
+            base_username = f"{base_local}@cesi.edu.ph"
+            username = base_username
+            i = 1
+            while User.objects.filter(username=username).exists():
+                i += 1
+                username = f"{base_local}{i}@cesi.edu.ph"
 
-                safe_last = slugify(raw_last).replace("-", "")
-                safe_first = slugify(raw_first).replace("-", "")
+            # User.email must remain unique, so shared enrollment emails use a unique portal email.
+            if student_email and not User.objects.filter(email__iexact=student_email).exists():
+                account_email = student_email
+            else:
+                account_email = f"{base_local}@cesi.local"
+                j = 1
+                while User.objects.filter(email__iexact=account_email).exists():
+                    j += 1
+                    account_email = f"{base_local}{j}@cesi.local"
 
-                base_local = f"{safe_last}{safe_first}".strip() or "student"
-                base_username = f"{base_local}@cesi.edu.ph"
+            new_user = User.objects.create(
+                username=username,
+                email=account_email,
+                role="PARENT_STUDENT",
+                status="ACTIVE",
+                is_active=True,
+            )
+            new_user.set_unusable_password()
+            new_user.save()
+            return new_user
 
-                username = base_username
-                i = 1
-                while User.objects.filter(username=username).exists():
-                    i += 1
-                    username = f"{base_local}{i}@cesi.edu.ph"
-
-                portal_user = User.objects.create(
-                    username=username,
-                    email=student_email,
-                    role="PARENT_STUDENT",
-                    status="ACTIVE",
-                    is_active=True,
-                )
-                portal_user.set_unusable_password()
-                portal_user.save()
+        if not portal_user and create_if_missing:
+            portal_user = _create_dedicated_portal_user()
 
             enrollment.parent_user = portal_user
             enrollment.save(update_fields=["parent_user"])
 
         if not portal_user:
             return
+
+        existing_profile = UserProfile.objects.filter(user=portal_user).first()
+        if existing_profile and create_if_missing:
+            enrollment_first = slugify((enrollment.first_name or "").strip().lower())
+            enrollment_last = slugify((enrollment.last_name or "").strip().lower())
+            profile_first = slugify((existing_profile.student_first_name or "").strip().lower())
+            profile_last = slugify((existing_profile.student_last_name or "").strip().lower())
+
+            names_mismatch = bool(
+                enrollment_first
+                and enrollment_last
+                and profile_first
+                and profile_last
+                and (enrollment_first != profile_first or enrollment_last != profile_last)
+            )
+            student_number_mismatch = bool(
+                enrollment.student_number
+                and existing_profile.student_number
+                and str(enrollment.student_number).strip() != str(existing_profile.student_number).strip()
+            )
+            lrn_mismatch = bool(
+                enrollment.lrn
+                and existing_profile.lrn
+                and str(enrollment.lrn).strip() != str(existing_profile.lrn).strip()
+            )
+
+            if names_mismatch or student_number_mismatch or lrn_mismatch:
+                logger.warning(
+                    "Enrollment %s linked to user %s that appears to belong to another student; creating dedicated user.",
+                    enrollment.pk,
+                    portal_user.pk,
+                )
+                portal_user = _create_dedicated_portal_user()
+                enrollment.parent_user = portal_user
+                enrollment.save(update_fields=["parent_user"])
 
         grade_code = (enrollment.grade_level or "").strip()
         parent_first_name, parent_last_name = self._get_parent_names_from_enrollment(enrollment)
@@ -1521,12 +1565,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 payment_description = f"{payment_description} | Proof Ref: {proof_reference}"      
 
             if recipient_email:
-                existing_user = User.objects.filter(email__iexact=recipient_email).first()
-                had_existing_user = existing_user is not None
-
-                if existing_user and not enrollment.parent_user:
-                    enrollment.parent_user = existing_user
-                    enrollment.save(update_fields=["parent_user"])
+                had_existing_user = bool(enrollment.parent_user_id)
 
                 self._sync_student_user_and_profile(
                     enrollment,
