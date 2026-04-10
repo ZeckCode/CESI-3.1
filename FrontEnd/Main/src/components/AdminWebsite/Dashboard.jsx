@@ -82,7 +82,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
   const [pendingApplications, setPendingApplications] = useState([]);
   const [performanceMetrics, setPerformanceMetrics] = useState([]);
   const [selectedGradeLevel, setSelectedGradeLevel] = useState("All");
-  const [expandedAnalysisSection, setExpandedAnalysisSection] = useState("descriptive");
+  const [expandedAnalysisSection, setExpandedAnalysisSection] = useState("");
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((title, message, type = "warning") => {

@@ -20,6 +20,7 @@ import OrganizationalChart from "./OrganizationalChart";
 import NotificationList from "./NotificationList";
 import { apiFetch } from "../api/apiFetch";
 import "../AdminWebsiteCSS/AdminDashboard.css";
+import "../AdminWebsiteCSS/ResponsiveUtils.css";
 
 function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState("dashboard");

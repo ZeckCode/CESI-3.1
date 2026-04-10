@@ -75,6 +75,16 @@ const getResponsiveIconSize = () => {
   return 12;
 };
 
+// Helper function for responsive stat card icon sizes
+const getStatCardIconSize = () => {
+  if (typeof window === 'undefined') return 20;
+  const width = window.innerWidth;
+  if (width <= 375) return 14;
+  if (width <= 480) return 16;
+  if (width <= 768) return 18;
+  return 20;
+};
+
 const RELIGION_OPTIONS = [
   "Roman Catholic",
   "Christian",
@@ -137,6 +147,7 @@ export default function EnrollmentManagement() {
   const [toasts, setToasts] = useState([]);
   const [enrollmentPreviewOpen, setEnrollmentPreviewOpen] = useState(false);
   const [enrollmentPreviewData, setEnrollmentPreviewData] = useState([]);
+  const [statCardIconSize, setStatCardIconSize] = useState(getStatCardIconSize());
 
   const [docUploadFile, setDocUploadFile] = useState(null);
   const [docUploadType, setDocUploadType] = useState("other");
@@ -277,6 +288,15 @@ export default function EnrollmentManagement() {
     fetchProofs();
 
   }, [fetchSettings, fetchSections, fetchProofs, fetchEnrollments]);
+
+  // Handle responsive icon size for stat cards on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setStatCardIconSize(getStatCardIconSize());
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const callAction = async (id, actionName, payload = null) => {
     const res = await apiFetch(`/api/enrollments/${id}/${actionName}/`, {
@@ -1717,14 +1737,14 @@ const openIdGenerator = (row) => {
           <StatCard
             label="Total"
             value={stats.total}
-            icon={<Users size={20} />}
+            icon={<Users size={statCardIconSize} />}
             color="blue"
             subtitle="All enrollees"
           />
           <StatCard
             label="Enrolled"
             value={stats.active}
-            icon={<UserCheck size={20} />}
+            icon={<UserCheck size={statCardIconSize} />}
             color="green"
             subtitle={
               stats.total
@@ -1736,7 +1756,7 @@ const openIdGenerator = (row) => {
           <StatCard
             label="Pending"
             value={stats.pending}
-            icon={<Clock size={20} />}
+            icon={<Clock size={statCardIconSize} />}
             color="yellow"
             subtitle={
               stats.total
@@ -1747,7 +1767,7 @@ const openIdGenerator = (row) => {
           <StatCard
             label="Declined"
             value={stats.dropped}
-            icon={<UserMinus size={20} />}
+            icon={<UserMinus size={statCardIconSize} />}
             color="red"
             subtitle={
               stats.total
@@ -1760,7 +1780,7 @@ const openIdGenerator = (row) => {
           <StatCard
             label="Enrollment"
             value={window_.isOpen ? `Open · ${window_.daysLeft}d left` : "Closed"}
-            icon={<Calendar size={20} />}
+            icon={<Calendar size={statCardIconSize} />}
             color={window_.isOpen ? "teal" : "red"}
             subtitle={window_.isOpen ? "Accepting enrollees" : "Window closed"}
           />
