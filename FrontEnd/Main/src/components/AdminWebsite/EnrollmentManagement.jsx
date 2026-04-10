@@ -507,6 +507,16 @@ export default function EnrollmentManagement() {
     [normalized]
   );
 
+  const quickStatusOptions = useMemo(
+    () => FILTER_OPTIONS.filter((option) => option.value !== "All"),
+    []
+  );
+
+  const quickPromotionOptions = useMemo(
+    () => PROMOTION_FILTER_OPTIONS.filter((option) => option.value !== "All"),
+    []
+  );
+
   const gradeOptions = useMemo(() => {
     if (formData.education_level === "preschool") {
       return [
@@ -1962,6 +1972,63 @@ const openIdGenerator = (row) => {
             ))}
           </select>
         </div>
+
+        <button
+          type="button"
+          className="filter-reset-btn"
+          onClick={() => {
+            setSearchTerm("");
+            setFilterStatus("All");
+            setFilterPromotionStatus("All");
+          }}
+          title="Reset all filters"
+        >
+          <XCircle size={14} /> Reset Filters
+        </button>
+      </div>
+
+      <div className="enrollment-quick-filters">
+        <div className="quick-filter-group">
+          <span className="quick-filter-label">Status:</span>
+          <button
+            type="button"
+            className={`quick-filter-chip ${filterStatus === "All" ? "active" : ""}`}
+            onClick={() => setFilterStatus("All")}
+          >
+            All
+          </button>
+          {quickStatusOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`quick-filter-chip ${filterStatus === option.value ? "active" : ""}`}
+              onClick={() => setFilterStatus(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="quick-filter-group">
+          <span className="quick-filter-label">Promotion:</span>
+          <button
+            type="button"
+            className={`quick-filter-chip ${filterPromotionStatus === "All" ? "active" : ""}`}
+            onClick={() => setFilterPromotionStatus("All")}
+          >
+            All
+          </button>
+          {quickPromotionOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`quick-filter-chip ${filterPromotionStatus === option.value ? "active" : ""}`}
+              onClick={() => setFilterPromotionStatus(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="enrollments-container">
@@ -1977,117 +2044,131 @@ const openIdGenerator = (row) => {
             </div>
           </div>
         ) : (
-          <table className="enrollments-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Enrollment Date</th>
-                <th>Status</th>
-                <th>Promotion Ready</th>
-                <th>Parent / Guardian</th>
-                <th>Approve / Decline</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {paginatedEnrollments.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <StudentCell row={row} />
-                  </td>
-
-                  <td>
-                    {row.enrollmentDate
-                      ? new Date(row.enrollmentDate).toLocaleDateString()
-                      : "—"}
-                  </td>
-
-                  <td>
-                    <StatusBadge code={row.statusCode} />
-                  </td>
-
-                  <td>
-                    {row.statusCode === "ACTIVE" && (
-                      (() => {
-                        const promotion = getPromotionReadiness(row);
-                        return (
-                          <div
-                            className={`promotion-ready-badge ${promotion.status}`}
-                            title={promotion.reason}
-                          >
-                            {promotion.status === "ready" && "✓ Ready"}
-                            {promotion.status === "completed" && "✓ Completed"}
-                            {promotion.status === "pending" && "⏱ Pending"}
-                            {promotion.status === "ineligible" && "✕ Ineligible"}
-                          </div>
-                        );
-                      })()
-                    )}
-                  </td>
-
-                  <td>
-                    <ParentCell row={row} />
-                  </td>
-
-                  <td>
-                    {row.statusCode === "PENDING" ? (
-                      <div className="approve-decline-group">
-                        <button
-                          className="btn-approve"
-                          onClick={() => openApproveDialog(row)}
-                          title="Approve"
-                          aria-label="Approve"
-                        >
-                          <CheckCircle size={getResponsiveIconSize()} />
-                          <span>Approve</span>
-                        </button>
-                        <button
-                          className="btn-decline"
-                          onClick={() => handleDecline(row.id)}
-                          title="Decline"
-                          aria-label="Decline"
-                        >
-                          <XCircle size={getResponsiveIconSize()} />
-                          <span>Decline</span>
-                        </button>
-                      </div>
-                    ) : row.statusCode === "ACTIVE" ? (
-                      <span className="table-inline-status table-inline-status--approved">
-                        <CheckCircle size={getResponsiveIconSize()} /> Approved
-                      </span>
-                    ) : row.statusCode === "DROPPED" ? (
-                      <span className="table-inline-status table-inline-status--declined">
-                        <XCircle size={getResponsiveIconSize()} /> Declined
-                      </span>
-                    ) : row.statusCode === "COMPLETED" ? (
-                      <span className="table-inline-status table-inline-status--completed">
-                        <CheckCircle size={getResponsiveIconSize()} /> Completed
-                      </span>
-                    ) : (
-                      <span style={{ opacity: 0.4 }}>—</span>
-                    )}
-                  </td>
-
-                  <td>
-                    <div className="action-buttons" style={{ justifyContent: "flex-start" }}>
-                      <TableActionMenu
-                        row={row}
-                        gradeLabel={gradeLabel}
-                        getNextGrade={getNextGrade}
-                        onView={() => openModal(row, "view")}
-                        onEdit={() => openModal(row, "edit")}
-                        onDelete={() => handleDeleteEnrollment(row.id)}
-                        onIdUpload={() => openIdUploadModal(row)}
-                        onPromote={() => handlePromote(row)}
-                        onGenerateId={() => openIdGenerator(row)}
-                      />
-                    </div>
-                  </td>
+          <div className="enrollments-table-scroll">
+            <table className="enrollments-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Enrollment Date</th>
+                  <th>Status</th>
+                  <th>Promotion Ready</th>
+                  <th>Parent / Guardian</th>
+                  <th>Approve / Decline</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {paginatedEnrollments.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      <div className="table-row-content table-row-content--student">
+                        <StudentCell row={row} />
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="table-row-content table-row-content--date">
+                        {row.enrollmentDate
+                          ? new Date(row.enrollmentDate).toLocaleDateString()
+                          : "—"}
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="table-row-content table-row-content--status">
+                        <StatusBadge code={row.statusCode} />
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="table-row-content table-row-content--promotion">
+                        {row.statusCode === "ACTIVE" && (
+                          (() => {
+                            const promotion = getPromotionReadiness(row);
+                            return (
+                              <div
+                                className={`promotion-ready-badge ${promotion.status}`}
+                                title={promotion.reason}
+                              >
+                                {promotion.status === "ready" && "✓ Ready"}
+                                {promotion.status === "completed" && "✓ Completed"}
+                                {promotion.status === "pending" && "⏱ Pending"}
+                                {promotion.status === "ineligible" && "✕ Ineligible"}
+                              </div>
+                            );
+                          })()
+                        )}
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="table-row-content table-row-content--parent">
+                        <ParentCell row={row} />
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="table-row-content table-row-content--approval">
+                        {row.statusCode === "PENDING" ? (
+                          <div className="approve-decline-group">
+                            <button
+                              className="btn-approve table-btn-approve"
+                              onClick={() => openApproveDialog(row)}
+                              title="Approve"
+                              aria-label="Approve"
+                            >
+                              <CheckCircle size={getResponsiveIconSize()} />
+                            </button>
+                            <button
+                              className="btn-decline table-btn-decline"
+                              onClick={() => handleDecline(row.id)}
+                              title="Decline"
+                              aria-label="Decline"
+                            >
+                              <XCircle size={getResponsiveIconSize()} />
+                            </button>
+                          </div>
+                        ) : row.statusCode === "ACTIVE" ? (
+                          <span className="table-inline-status table-inline-status--approved">
+                            <CheckCircle size={getResponsiveIconSize()} /> Approved
+                          </span>
+                        ) : row.statusCode === "DROPPED" ? (
+                          <span className="table-inline-status table-inline-status--declined">
+                            <XCircle size={getResponsiveIconSize()} /> Declined
+                          </span>
+                        ) : row.statusCode === "COMPLETED" ? (
+                          <span className="table-inline-status table-inline-status--completed">
+                            <CheckCircle size={getResponsiveIconSize()} /> Completed
+                          </span>
+                        ) : (
+                          <span style={{ opacity: 0.4 }}>—</span>
+                        )}
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="table-row-content table-row-content--actions">
+                        <div className="action-buttons" style={{ justifyContent: "flex-start" }}>
+                          <TableActionMenu
+                            row={row}
+                            gradeLabel={gradeLabel}
+                            getNextGrade={getNextGrade}
+                            onView={() => openModal(row, "view")}
+                            onEdit={() => openModal(row, "edit")}
+                            onDelete={() => handleDeleteEnrollment(row.id)}
+                            onIdUpload={() => openIdUploadModal(row)}
+                            onPromote={() => handlePromote(row)}
+                            onGenerateId={() => openIdGenerator(row)}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         <Pagination
