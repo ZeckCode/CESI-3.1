@@ -780,15 +780,15 @@ const TuitionManagement = () => {
               )}
             </tbody>
           </table>
-
-          <Pagination
-            currentPage={tmPage}
-            totalPages={tmTotalPages}
-            onPageChange={setTmPage}
-            totalItems={filteredData.length}
-            itemsPerPage={ITEMS_PER_PAGE}
-          />
         </div>
+
+        <Pagination
+          currentPage={tmPage}
+          totalPages={tmTotalPages}
+          onPageChange={setTmPage}
+          totalItems={filteredData.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+        />
       </section>
 
       {showModal && (
