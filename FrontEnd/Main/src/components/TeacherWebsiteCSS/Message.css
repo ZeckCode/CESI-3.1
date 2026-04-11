@@ -344,8 +344,7 @@
   flex-direction: column;
   gap: 14px;
   scroll-behavior: smooth;
-  scrollbar-width: thin;
-  scrollbar-color: #5ba3c7 #f0f0f0;
+  scrollbar-width: none;
 }
 
 /* Webkit scrollbar styling for Chrome, Safari */
@@ -422,7 +421,7 @@
   background: #fff;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0;
   flex-shrink: 0;
 }
 
