@@ -3,8 +3,10 @@
   display: flex;
   background-color: #ffffff;
   margin: 0;
-  height: calc(100vh - 0px);
+  height: 100vh;
+  max-height: 100vh;
   min-width: 0;
+  overflow: hidden;
 }
 
 /* Left sidebar with chat list */
@@ -28,6 +30,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .chat-new-btn {
@@ -58,6 +61,7 @@
   background: #f9fafb;
   max-height: 300px;
   overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .chat-new-form select,
