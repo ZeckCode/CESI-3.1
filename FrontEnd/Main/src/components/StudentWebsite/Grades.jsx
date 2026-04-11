@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { 
   FileText, Download, BookOpen, Award, TrendingUp, CheckCircle, AlertCircle, Info
 } from 'lucide-react';
+import ExcelJS from "exceljs";
 import "../StudentWebsiteCSS/Grades.css";
 import { apiFetch } from "../api/apiFetch";
 import PreviewModal from "../PreviewModal";
@@ -21,28 +22,32 @@ const Grades = () => {
   const [previewData, setPreviewData] = useState([]);
   const [activeTooltip, setActiveTooltip] = useState(null);
 
+  const [schedules, setSchedules] = useState([]);
+
   useEffect(() => {
     (async () => {
       try {
-        const [gradesRes, syRes, profileRes] = await Promise.all([
+        const [gradesRes, syRes, schedulesRes] = await Promise.all([
           apiFetch("/api/grades/my-grades/"),
           apiFetch("/api/classmanagement/school-years/active/"),
-          apiFetch("/api/accounts/profile/"),
+          apiFetch("/api/classmanagement/schedules/my/"),
         ]);
         if (gradesRes.ok) {
-          setGrades(await gradesRes.json());
+          const gradesData = await gradesRes.json();
+          console.log("Grades API response:", gradesData);
+          setGrades(gradesData);
         }
         if (syRes.ok) {
           const syData = await syRes.json();
           setSchoolYear(syData.name || "");
         }
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          const name = profileData.user?.get_full_name || profileData.user?.username || "";
-          setStudentName(name);
+        if (schedulesRes.ok) {
+          const schData = await schedulesRes.json();
+          console.log("Schedules API response:", schData);
+          setSchedules(schData);
         }
       } catch (e) {
-        console.error(e);
+        console.error("Error fetching data:", e);
       } finally {
         setLoading(false);
       }
@@ -172,20 +177,121 @@ const Grades = () => {
     return null;
   };
 
+  const getTeacherForSubject = (subjectName) => {
+    console.log("Looking for subject:", subjectName);
+    console.log("Available schedules:", schedules);
+    
+    const schedule = schedules.find(
+      (s) => s.subject_name === subjectName
+    );
+    
+    console.log("Found schedule:", schedule);
+    
+    if (schedule?.teacher_name) {
+      return schedule.teacher_name;
+    }
+    return null;
+  };
+
   const handleExport = () => {
-    const exportData = grades.map((g) => ({
-      'Subject': g.subject_name || '—',
-      'Quarter 1': g.q1_grade ?? '—',
-      'Quarter 2': g.q2_grade ?? '—',
-      'Quarter 3': g.q3_grade ?? '—',
-      'Quarter 4': g.q4_grade ?? '—',
-      'Final Grade': g.final_grade ?? '—',
-      'Remarks': g.remarks || '—',
-      'Teacher': g.teacher_name || '—',
-    }));
+    const exportData = grades.map((g) => {
+      const subjectName = g.subject_name || g.subject;
+      const teacherFromSchedule = getTeacherForSubject(subjectName);
+      return {
+        'Subject': subjectName || '—',
+        'Quarter 1': g.q1 ?? g.q1_grade ?? g.quarter_1 ?? '—',
+        'Quarter 2': g.q2 ?? g.q2_grade ?? g.quarter_2 ?? '—',
+        'Quarter 3': g.q3 ?? g.q3_grade ?? g.quarter_3 ?? '—',
+        'Quarter 4': g.q4 ?? g.q4_grade ?? g.quarter_4 ?? '—',
+        'Final Grade': g.final_grade ?? '—',
+        'Remarks': g.remarks || g.status || '—',
+        'Teacher': teacherFromSchedule || '—',
+      };
+    });
 
     setPreviewData(exportData);
     setShowPreview(true);
+  };
+
+  const handleDownloadGradesExcel = async () => {
+    const exportData = grades.map((g) => {
+      const subjectName = g.subject_name || g.subject;
+      const teacherFromSchedule = getTeacherForSubject(subjectName);
+      return {
+        'Subject': subjectName || '—',
+        'Quarter 1': g.q1 ?? g.q1_grade ?? g.quarter_1 ?? '—',
+        'Quarter 2': g.q2 ?? g.q2_grade ?? g.quarter_2 ?? '—',
+        'Quarter 3': g.q3 ?? g.q3_grade ?? g.quarter_3 ?? '—',
+        'Quarter 4': g.q4 ?? g.q4_grade ?? g.quarter_4 ?? '—',
+        'Final Grade': g.final_grade ?? '—',
+        'Remarks': g.remarks || g.status || '—',
+        'Teacher': teacherFromSchedule || '—',
+      };
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Grade Report");
+
+    const headers = ['Subject', 'Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4', 'Final Grade', 'Remarks', 'Teacher'];
+
+    // Add header row
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell((cell, colNumber) => {
+      if (colNumber <= 8) {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+        cell.alignment = { horizontal: 'center', vertical: 'center' };
+      }
+    });
+
+    // Add data rows
+    exportData.forEach((row) => {
+      const dataRow = worksheet.addRow([
+        row['Subject'],
+        row['Quarter 1'],
+        row['Quarter 2'],
+        row['Quarter 3'],
+        row['Quarter 4'],
+        row['Final Grade'],
+        row['Remarks'],
+        row['Teacher'],
+      ]);
+
+      // Set alignment for all cells in the row
+      dataRow.eachCell((cell, colNumber) => {
+        // Left-align Subject (column 1) and Teacher (column 8)
+        if (colNumber === 1 || colNumber === 8) {
+          cell.alignment = { horizontal: 'left', vertical: 'center' };
+        } else {
+          cell.alignment = { horizontal: 'center', vertical: 'center' };
+        }
+      });
+    });
+
+    // Set column widths
+    worksheet.columns = [
+      { width: 20 },
+      { width: 12 },
+      { width: 12 },
+      { width: 12 },
+      { width: 12 },
+      { width: 12 },
+      { width: 12 },
+      { width: 15 },
+    ];
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Grade-Report-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    alert('✓ Grade report downloaded successfully!');
   };
 
   return (
@@ -424,7 +530,18 @@ const Grades = () => {
         onClose={() => setShowPreview(false)}
         title={`Grade Report - ${studentName}`}
         data={previewData}
+        columns={[
+          { key: 'Subject', label: 'SUBJECT' },
+          { key: 'Quarter 1', label: 'QUARTER 1' },
+          { key: 'Quarter 2', label: 'QUARTER 2' },
+          { key: 'Quarter 3', label: 'QUARTER 3' },
+          { key: 'Quarter 4', label: 'QUARTER 4' },
+          { key: 'Final Grade', label: 'FINAL GRADE' },
+          { key: 'Remarks', label: 'REMARKS' },
+          { key: 'Teacher', label: 'TEACHER' },
+        ]}
         filename="Grades"
+        onDownloadExcel={handleDownloadGradesExcel}
       />
     </main>
   );
