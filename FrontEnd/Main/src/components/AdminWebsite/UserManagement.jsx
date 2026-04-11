@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, Edit2, Search, Filter, Users,
-  BookOpen, GraduationCap, Save, X, UserCheck, UserX, RefreshCw, ArrowRightLeft, FileUp,
+  BookOpen, GraduationCap, Save, X, UserCheck, UserX, RefreshCw, ArrowRightLeft, FileUp, Trash2,
 } from 'lucide-react';
 import { apiFetch } from '../api/apiFetch';
 import Toast from '../Global/Toast';
@@ -76,6 +76,8 @@ const UserManagement = () => {
   });
   const [transferError, setTransferError] = useState('');
   const [savingTransfer, setSavingTransfer] = useState(false);
+  const [deleteTargetUser, setDeleteTargetUser] = useState(null);
+  const [deletingUser, setDeletingUser] = useState(false);
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((title, message, type = "warning") => {
@@ -771,6 +773,36 @@ const UserManagement = () => {
     printWindow.print();
   };
 
+  const openDeleteUserModal = (u) => {
+    setDeleteTargetUser(u);
+  };
+
+  const closeDeleteUserModal = () => {
+    if (deletingUser) return;
+    setDeleteTargetUser(null);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteTargetUser) return;
+    const displayName = studentNameDisplay(deleteTargetUser) || deleteTargetUser.username || `ID ${deleteTargetUser.id}`;
+
+    try {
+      setDeletingUser(true);
+      const res = await apiFetch(`/api/accounts/users/${deleteTargetUser.id}/`, { method: 'DELETE' });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(extractErrorMessage(payload, 'Failed to delete user.'));
+      }
+      addToast('Deleted', `${displayName} and related records were deleted.`, 'success');
+      setDeleteTargetUser(null);
+      await refreshAll(true);
+    } catch (e) {
+      addToast('Delete Failed', e.message, 'error');
+    } finally {
+      setDeletingUser(false);
+    }
+  };
+
   // ── inline assignment ──
   const startEdit = (teacher) => {
     const existingSubjectIds = teacherSubjects(teacher)
@@ -1263,6 +1295,27 @@ const UserManagement = () => {
         </div>
       )}
 
+      {/* ── Delete User Confirmation Modal ── */}
+      {deleteTargetUser && (
+        <div className="modal-overlay" onClick={closeDeleteUserModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Delete User</h2>
+            <div className="form-group">
+              <p style={{ margin: 0, color: '#334155', lineHeight: 1.5 }}>
+                Delete <strong>{studentNameDisplay(deleteTargetUser) || deleteTargetUser.username || `ID ${deleteTargetUser.id}`}</strong>?
+                This will also remove enrollment, academic, and financial records linked to this account. This action cannot be undone.
+              </p>
+            </div>
+            <div className="form-actions">
+              <button className="btn-secondary" onClick={closeDeleteUserModal} disabled={deletingUser}>Cancel</button>
+              <button className="btn-delete" onClick={handleDeleteUser} disabled={deletingUser}>
+                <Trash2 size={16} /> {deletingUser ? 'Deleting…' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search & Filter */}
       <div className="user-controls">
         <div className="search-box">
@@ -1339,6 +1392,9 @@ const UserManagement = () => {
                         </button>
                         <button className="btn-save" onClick={() => openTransferModal(u)} title="Transfer Workflow">
                           <ArrowRightLeft size={16} />
+                        </button>
+                        <button className="btn-delete" onClick={() => openDeleteUserModal(u)} title="Delete User and Records">
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </td>
@@ -1512,6 +1568,9 @@ const UserManagement = () => {
                         <div className="action-buttons">
                           <button className="btn-save" onClick={() => openTransferModal(u)} title="Review Transfer Request">
                             <ArrowRightLeft size={16} />
+                          </button>
+                          <button className="btn-delete" onClick={() => openDeleteUserModal(u)} title="Delete User and Records">
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </td>

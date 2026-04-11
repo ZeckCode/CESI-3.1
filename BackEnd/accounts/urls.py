@@ -18,6 +18,7 @@ from .views import (
     update_teacher_assignment,
     update_student_profile,
     transfer_student,
+    delete_user_with_records,
     request_transfer,
     UpdateProfileView,
     PasswordResetRequestCreateView,
@@ -56,6 +57,7 @@ urlpatterns = [
     path("users/<int:user_id>/assign/", update_teacher_assignment, name="update-teacher-assignment"),
     path("users/<int:user_id>/update-student/", update_student_profile, name="update-student-profile"),
     path("users/<int:user_id>/transfer/", transfer_student, name="transfer-student"),
+    path("users/<int:user_id>/", delete_user_with_records, name="delete-user-with-records"),
    
     
     # Set new Password

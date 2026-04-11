@@ -9,6 +9,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
+from django.db import transaction as db_transaction
 from django.db.models import Q, Sum
 from django.core.cache import cache
 import random
@@ -828,6 +829,58 @@ def request_transfer(request):
         {
             "detail": "Transfer request submitted. Awaiting admin approval.",
             "transfer_status": profile.transfer_status,
+        },
+        status=200,
+    )
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_user_with_records(request, user_id):
+    if request.user.role != "ADMIN":
+        return Response({"detail": "Only admins can delete users."}, status=403)
+
+    if request.user.id == user_id:
+        return Response({"detail": "You cannot delete your own admin account."}, status=400)
+
+    try:
+        target_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"detail": "User not found."}, status=404)
+
+    from enrollment.models import Enrollment
+    from grades.models import AcademicRecord, StudentScore, ClassStanding
+    from finance.models import Transaction, ProofOfPayment, AdvanceRequest
+
+    with db_transaction.atomic():
+        enrollments_deleted = Enrollment.objects.filter(
+            Q(student=target_user) | Q(parent_user=target_user)
+        ).delete()[0]
+        academic_deleted = AcademicRecord.objects.filter(student=target_user).delete()[0]
+        scores_deleted = StudentScore.objects.filter(student=target_user).delete()[0]
+        standings_deleted = ClassStanding.objects.filter(student=target_user).delete()[0]
+        transactions_deleted = Transaction.objects.filter(parent=target_user).delete()[0]
+        proofs_deleted = ProofOfPayment.objects.filter(user=target_user).delete()[0]
+        advance_deleted = AdvanceRequest.objects.filter(user=target_user).delete()[0]
+
+        username = target_user.username
+        role = target_user.role
+        target_user.delete()
+
+    return Response(
+        {
+            "detail": "User and related records deleted successfully.",
+            "deleted": {
+                "user": username,
+                "role": role,
+                "enrollments": enrollments_deleted,
+                "academic_records": academic_deleted,
+                "student_scores": scores_deleted,
+                "class_standings": standings_deleted,
+                "transactions": transactions_deleted,
+                "proof_of_payments": proofs_deleted,
+                "advance_requests": advance_deleted,
+            },
         },
         status=200,
     )
