@@ -15,6 +15,20 @@ const getStudentId = (student) =>
 const getStudentNumber = (student) =>
   String(student?.student_number || student?.lrn || "").trim();
 
+const formatStudentName = (student) => {
+  const name = student?.name || "N/A";
+  const parts = name.trim().split(/\s+/);
+  
+  if (parts.length === 0) return "N/A";
+  if (parts.length === 1) return parts[0]; // Single name, return as-is
+  
+  // Multiple parts: treat last part as surname, rest as first/middle names
+  const surname = parts[parts.length - 1];
+  const firstNames = parts.slice(0, -1).join(" ");
+  
+  return `${surname}, ${firstNames}`;
+};
+
 const getStudentKey = (student) => {
   if (!student) return "";
 
@@ -787,7 +801,7 @@ const AttendanceMonitoring = () => {
                             fontSize: "13px",
                             fontWeight: "500"
                           }}>
-                            {student.name || "N/A"}
+                            {formatStudentName(student)}
                           </td>
                           {daysArray.map((day) => {
                             const dayStatus = attendanceByDay[studentKey]?.[day] || "";
@@ -995,7 +1009,7 @@ const AttendanceMonitoring = () => {
       // Add data rows
       students.forEach((student, studentIdx) => {
         const studentKey = getStudentKey(student);
-        const rowData = [student.name || "N/A"];
+        const rowData = [formatStudentName(student)];
         
         // Add attendance for each day
         daysArray.forEach((day) => {
@@ -1051,8 +1065,11 @@ const AttendanceMonitoring = () => {
       link.download = `Monthly-Attendance-${currentSection?.name || "N/A"}_${timestamp}.xlsx`;
       link.click();
       URL.revokeObjectURL(url);
+
+      alert('✓ Attendance report downloaded successfully!');
     } catch (err) {
       console.error("Error downloading attendance Excel:", err);
+      alert('Failed to download attendance report. Please try again.');
       throw err;
     }
   };
@@ -1310,7 +1327,7 @@ const AttendanceMonitoring = () => {
         
         // Student name cell
         pdf.rect(xPos, yPosition, firstColWidth, rowHeight);
-        pdf.text((student.name || "N/A").substring(0, 18), xPos + 2, yPosition + 5);
+        pdf.text(formatStudentName(student).substring(0, 20), xPos + 2, yPosition + 5);
         xPos += firstColWidth;
         
         // Day cells with color coding
@@ -1388,6 +1405,8 @@ const AttendanceMonitoring = () => {
       
       // Save PDF
       pdf.save(`Monthly-Attendance-${currentSection?.name || "N/A"}_${timestamp}.pdf`);
+
+      alert('✓ PDF report downloaded successfully!');
     } catch (err) {
       console.error("Error downloading attendance PDF:", err);
       alert("Failed to download PDF file. Please try again.");
@@ -1430,7 +1449,7 @@ const AttendanceMonitoring = () => {
                     <tr className="am__tr" key={studentKey || student.id || idx}>
                       <td className="am__td am__td--left am__td--num">{idx + 1}</td>
                       <td className="am__td am__td--left">
-                        <div className="am__name">{student.name}</div>
+                        <div className="am__name">{formatStudentName(student)}</div>
                         <div className="am__id">{student.username}</div>
                       </td>
 
