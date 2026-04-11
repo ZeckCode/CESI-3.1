@@ -722,13 +722,11 @@ const Messages = () => {
         </div>
       )}
 
-      {showChatList && (
-        <div
-          className="msg__listOverlay"
-          role="presentation"
-          onClick={() => setShowChatList(false)}
-        />
-      )}
+      <div
+        className={`msg__listOverlay${showChatList ? " active" : ""}`}
+        role="presentation"
+        onClick={() => setShowChatList(false)}
+      />
 
       {showNewChat && (
         <div style={{position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 3000}}>
