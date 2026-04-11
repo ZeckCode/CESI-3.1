@@ -64,14 +64,85 @@
 .admin-class-management .unified-stats-grid {
   grid-template-columns: repeat(4, 1fr);
   margin-bottom: 0;
+  gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .admin-class-management .unified-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-class-management .unified-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-class-management .unified-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-class-management .unified-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
 }
 
 .admin-class-management .unified-stat-card {
   padding: 1.5rem 1.75rem;
 }
 
+@media (max-width: 768px) {
+  .admin-class-management .unified-stat-card {
+    padding: 1.2rem 1.4rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-class-management .unified-stat-card {
+    padding: 1rem 1.2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-class-management .unified-stat-card {
+    padding: 0.8rem 1rem;
+  }
+}
+
 .admin-class-management .unified-stat-value {
   font-size: 2rem;
+}
+
+@media (max-width: 768px) {
+  .admin-class-management .unified-stat-value {
+    font-size: 1.4rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-class-management .unified-stat-value {
+    font-size: 1.1rem;
+  }
+}
+
+.admin-class-management .unified-stat-label {
+  font-size: 0.85rem;
+}
+
+@media (max-width: 480px) {
+  .admin-class-management .unified-stat-label {
+    font-size: 0.75rem;
+  }
 }
 
 /* Colored background tints per card */
@@ -341,6 +412,37 @@
   margin-bottom: 25px;
 }
 
+@media (max-width: 1024px) {
+  .admin-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+}
+
 .admin-stat-card {
   background: white;
   padding: 20px;
@@ -348,6 +450,34 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   border-left: 4px solid #5BA3C7;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .admin-stat-card {
+    padding: 16px 18px;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-stat-card {
+    padding: 14px 16px;
+    gap: 12px;
+    flex-direction: row;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-stat-card {
+    padding: 12px 14px;
+    gap: 10px;
+    flex-direction: column;
+    border-left: none;
+    border-top: 3px solid #5BA3C7;
+  }
 }
 
 .admin-stat-card:hover {
@@ -364,11 +494,38 @@
   letter-spacing: 0.5px;
 }
 
+@media (max-width: 768px) {
+  .admin-stat-card h3 {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-stat-card h3 {
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+}
+
 .admin-stat-number {
   margin: 10px 0 0 0;
   font-size: 28px;
   font-weight: 700;
   color: #1f2937;
+}
+
+@media (max-width: 768px) {
+  .admin-stat-number {
+    font-size: 24px;
+    margin: 5px 0 0 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-stat-number {
+    font-size: 18px;
+    margin: 0;
+  }
 }
 
 /* ========== FORM CARD ========== */

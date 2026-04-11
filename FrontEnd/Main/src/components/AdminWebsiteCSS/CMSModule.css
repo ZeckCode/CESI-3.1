@@ -60,6 +60,55 @@
   cursor: not-allowed;
 }
 
+/* Main Navigation Tabs */
+.cms-main-tabs {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  margin-bottom: 20px !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+  padding-bottom: 10px !important;
+}
+
+.cms-main-tabs button {
+  padding: 8px 16px !important;
+  border-radius: 8px !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+@media (max-width: 768px) {
+  .cms-main-tabs {
+    gap: 8px !important;
+    margin-bottom: 16px !important;
+    padding-bottom: 8px !important;
+  }
+  
+  .cms-main-tabs button {
+    padding: 8px 14px !important;
+    font-size: 13px !important;
+    flex: 1 1 calc(50% - 4px) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .cms-main-tabs {
+    gap: 6px !important;
+    margin-bottom: 14px !important;
+    padding-bottom: 6px !important;
+  }
+  
+  .cms-main-tabs button {
+    padding: 7px 12px !important;
+    font-size: 12px !important;
+    flex: 1 1 calc(50% - 3px) !important;
+  }
+}
+
 /* Warning & Error Messages */
 .cms-warning {
   background: #fffbeb;
@@ -854,6 +903,8 @@
   font-weight: 800;
   cursor: pointer;
   transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .cms-tab:hover {
@@ -865,6 +916,36 @@
   background: linear-gradient(135deg, #3b82f6, #8b5cf6);
   color: #fff;
   border-color: transparent;
+}
+
+@media (max-width: 768px) {
+  .cms-tabs {
+    gap: 8px;
+    margin: 12px 0 18px;
+  }
+  
+  .cms-tab {
+    padding: 7px 13px;
+    font-size: 12px;
+    flex-shrink: 1;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .cms-tabs {
+    gap: 6px;
+    margin: 10px 0 16px;
+  }
+  
+  .cms-tab {
+    padding: 6px 11px;
+    font-size: 11px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 

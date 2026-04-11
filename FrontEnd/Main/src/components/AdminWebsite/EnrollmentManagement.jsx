@@ -75,6 +75,16 @@ const getResponsiveIconSize = () => {
   return 12;
 };
 
+// Helper function for responsive stat card icon sizes
+const getStatCardIconSize = () => {
+  if (typeof window === 'undefined') return 20;
+  const width = window.innerWidth;
+  if (width <= 375) return 14;
+  if (width <= 480) return 16;
+  if (width <= 768) return 18;
+  return 20;
+};
+
 const RELIGION_OPTIONS = [
   "Roman Catholic",
   "Christian",
@@ -137,6 +147,7 @@ export default function EnrollmentManagement() {
   const [toasts, setToasts] = useState([]);
   const [enrollmentPreviewOpen, setEnrollmentPreviewOpen] = useState(false);
   const [enrollmentPreviewData, setEnrollmentPreviewData] = useState([]);
+  const [statCardIconSize, setStatCardIconSize] = useState(getStatCardIconSize());
 
   const [docUploadFile, setDocUploadFile] = useState(null);
   const [docUploadType, setDocUploadType] = useState("other");
@@ -277,6 +288,15 @@ export default function EnrollmentManagement() {
     fetchProofs();
 
   }, [fetchSettings, fetchSections, fetchProofs, fetchEnrollments]);
+
+  // Handle responsive icon size for stat cards on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setStatCardIconSize(getStatCardIconSize());
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const callAction = async (id, actionName, payload = null) => {
     const res = await apiFetch(`/api/enrollments/${id}/${actionName}/`, {
@@ -505,6 +525,16 @@ export default function EnrollmentManagement() {
       dropped: normalized.filter((e) => e.statusCode === "DROPPED").length,
     }),
     [normalized]
+  );
+
+  const quickStatusOptions = useMemo(
+    () => FILTER_OPTIONS.filter((option) => option.value !== "All"),
+    []
+  );
+
+  const quickPromotionOptions = useMemo(
+    () => PROMOTION_FILTER_OPTIONS.filter((option) => option.value !== "All"),
+    []
   );
 
   const gradeOptions = useMemo(() => {
@@ -1707,14 +1737,14 @@ const openIdGenerator = (row) => {
           <StatCard
             label="Total"
             value={stats.total}
-            icon={<Users size={20} />}
+            icon={<Users size={statCardIconSize} />}
             color="blue"
             subtitle="All enrollees"
           />
           <StatCard
             label="Enrolled"
             value={stats.active}
-            icon={<UserCheck size={20} />}
+            icon={<UserCheck size={statCardIconSize} />}
             color="green"
             subtitle={
               stats.total
@@ -1726,7 +1756,7 @@ const openIdGenerator = (row) => {
           <StatCard
             label="Pending"
             value={stats.pending}
-            icon={<Clock size={20} />}
+            icon={<Clock size={statCardIconSize} />}
             color="yellow"
             subtitle={
               stats.total
@@ -1737,7 +1767,7 @@ const openIdGenerator = (row) => {
           <StatCard
             label="Declined"
             value={stats.dropped}
-            icon={<UserMinus size={20} />}
+            icon={<UserMinus size={statCardIconSize} />}
             color="red"
             subtitle={
               stats.total
@@ -1750,7 +1780,7 @@ const openIdGenerator = (row) => {
           <StatCard
             label="Enrollment"
             value={window_.isOpen ? `Open · ${window_.daysLeft}d left` : "Closed"}
-            icon={<Calendar size={20} />}
+            icon={<Calendar size={statCardIconSize} />}
             color={window_.isOpen ? "teal" : "red"}
             subtitle={window_.isOpen ? "Accepting enrollees" : "Window closed"}
           />
@@ -1962,6 +1992,63 @@ const openIdGenerator = (row) => {
             ))}
           </select>
         </div>
+
+        <button
+          type="button"
+          className="filter-reset-btn"
+          onClick={() => {
+            setSearchTerm("");
+            setFilterStatus("All");
+            setFilterPromotionStatus("All");
+          }}
+          title="Reset all filters"
+        >
+          <XCircle size={14} /> Reset Filters
+        </button>
+      </div>
+
+      <div className="enrollment-quick-filters">
+        <div className="quick-filter-group">
+          <span className="quick-filter-label">Status:</span>
+          <button
+            type="button"
+            className={`quick-filter-chip ${filterStatus === "All" ? "active" : ""}`}
+            onClick={() => setFilterStatus("All")}
+          >
+            All
+          </button>
+          {quickStatusOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`quick-filter-chip ${filterStatus === option.value ? "active" : ""}`}
+              onClick={() => setFilterStatus(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="quick-filter-group">
+          <span className="quick-filter-label">Promotion:</span>
+          <button
+            type="button"
+            className={`quick-filter-chip ${filterPromotionStatus === "All" ? "active" : ""}`}
+            onClick={() => setFilterPromotionStatus("All")}
+          >
+            All
+          </button>
+          {quickPromotionOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`quick-filter-chip ${filterPromotionStatus === option.value ? "active" : ""}`}
+              onClick={() => setFilterPromotionStatus(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="enrollments-container">
@@ -1977,117 +2064,131 @@ const openIdGenerator = (row) => {
             </div>
           </div>
         ) : (
-          <table className="enrollments-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Enrollment Date</th>
-                <th>Status</th>
-                <th>Promotion Ready</th>
-                <th>Parent / Guardian</th>
-                <th>Approve / Decline</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {paginatedEnrollments.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <StudentCell row={row} />
-                  </td>
-
-                  <td>
-                    {row.enrollmentDate
-                      ? new Date(row.enrollmentDate).toLocaleDateString()
-                      : "—"}
-                  </td>
-
-                  <td>
-                    <StatusBadge code={row.statusCode} />
-                  </td>
-
-                  <td>
-                    {row.statusCode === "ACTIVE" && (
-                      (() => {
-                        const promotion = getPromotionReadiness(row);
-                        return (
-                          <div
-                            className={`promotion-ready-badge ${promotion.status}`}
-                            title={promotion.reason}
-                          >
-                            {promotion.status === "ready" && "✓ Ready"}
-                            {promotion.status === "completed" && "✓ Completed"}
-                            {promotion.status === "pending" && "⏱ Pending"}
-                            {promotion.status === "ineligible" && "✕ Ineligible"}
-                          </div>
-                        );
-                      })()
-                    )}
-                  </td>
-
-                  <td>
-                    <ParentCell row={row} />
-                  </td>
-
-                  <td>
-                    {row.statusCode === "PENDING" ? (
-                      <div className="approve-decline-group">
-                        <button
-                          className="btn-approve"
-                          onClick={() => openApproveDialog(row)}
-                          title="Approve"
-                          aria-label="Approve"
-                        >
-                          <CheckCircle size={getResponsiveIconSize()} />
-                          <span>Approve</span>
-                        </button>
-                        <button
-                          className="btn-decline"
-                          onClick={() => handleDecline(row.id)}
-                          title="Decline"
-                          aria-label="Decline"
-                        >
-                          <XCircle size={getResponsiveIconSize()} />
-                          <span>Decline</span>
-                        </button>
-                      </div>
-                    ) : row.statusCode === "ACTIVE" ? (
-                      <span className="table-inline-status table-inline-status--approved">
-                        <CheckCircle size={getResponsiveIconSize()} /> Approved
-                      </span>
-                    ) : row.statusCode === "DROPPED" ? (
-                      <span className="table-inline-status table-inline-status--declined">
-                        <XCircle size={getResponsiveIconSize()} /> Declined
-                      </span>
-                    ) : row.statusCode === "COMPLETED" ? (
-                      <span className="table-inline-status table-inline-status--completed">
-                        <CheckCircle size={getResponsiveIconSize()} /> Completed
-                      </span>
-                    ) : (
-                      <span style={{ opacity: 0.4 }}>—</span>
-                    )}
-                  </td>
-
-                  <td>
-                    <div className="action-buttons" style={{ justifyContent: "flex-start" }}>
-                      <TableActionMenu
-                        row={row}
-                        gradeLabel={gradeLabel}
-                        getNextGrade={getNextGrade}
-                        onView={() => openModal(row, "view")}
-                        onEdit={() => openModal(row, "edit")}
-                        onDelete={() => handleDeleteEnrollment(row.id)}
-                        onIdUpload={() => openIdUploadModal(row)}
-                        onPromote={() => handlePromote(row)}
-                        onGenerateId={() => openIdGenerator(row)}
-                      />
-                    </div>
-                  </td>
+          <div className="enrollments-table-scroll">
+            <table className="enrollments-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Enrollment Date</th>
+                  <th>Status</th>
+                  <th>Promotion Ready</th>
+                  <th>Parent / Guardian</th>
+                  <th>Approve / Decline</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {paginatedEnrollments.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      <div className="table-row-content table-row-content--student">
+                        <StudentCell row={row} />
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="table-row-content table-row-content--date">
+                        {row.enrollmentDate
+                          ? new Date(row.enrollmentDate).toLocaleDateString()
+                          : "—"}
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="table-row-content table-row-content--status">
+                        <StatusBadge code={row.statusCode} />
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="table-row-content table-row-content--promotion">
+                        {row.statusCode === "ACTIVE" && (
+                          (() => {
+                            const promotion = getPromotionReadiness(row);
+                            return (
+                              <div
+                                className={`promotion-ready-badge ${promotion.status}`}
+                                title={promotion.reason}
+                              >
+                                {promotion.status === "ready" && "✓ Ready"}
+                                {promotion.status === "completed" && "✓ Completed"}
+                                {promotion.status === "pending" && "⏱ Pending"}
+                                {promotion.status === "ineligible" && "✕ Ineligible"}
+                              </div>
+                            );
+                          })()
+                        )}
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="table-row-content table-row-content--parent">
+                        <ParentCell row={row} />
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="table-row-content table-row-content--approval">
+                        {row.statusCode === "PENDING" ? (
+                          <div className="approve-decline-group">
+                            <button
+                              className="btn-approve table-btn-approve"
+                              onClick={() => openApproveDialog(row)}
+                              title="Approve"
+                              aria-label="Approve"
+                            >
+                              <CheckCircle size={getResponsiveIconSize()} />
+                            </button>
+                            <button
+                              className="btn-decline table-btn-decline"
+                              onClick={() => handleDecline(row.id)}
+                              title="Decline"
+                              aria-label="Decline"
+                            >
+                              <XCircle size={getResponsiveIconSize()} />
+                            </button>
+                          </div>
+                        ) : row.statusCode === "ACTIVE" ? (
+                          <span className="table-inline-status table-inline-status--approved">
+                            <CheckCircle size={getResponsiveIconSize()} /> Approved
+                          </span>
+                        ) : row.statusCode === "DROPPED" ? (
+                          <span className="table-inline-status table-inline-status--declined">
+                            <XCircle size={getResponsiveIconSize()} /> Declined
+                          </span>
+                        ) : row.statusCode === "COMPLETED" ? (
+                          <span className="table-inline-status table-inline-status--completed">
+                            <CheckCircle size={getResponsiveIconSize()} /> Completed
+                          </span>
+                        ) : (
+                          <span style={{ opacity: 0.4 }}>—</span>
+                        )}
+                      </div>
+                    </td>
+
+                    <td>
+                      <div className="table-row-content table-row-content--actions">
+                        <div className="action-buttons" style={{ justifyContent: "flex-start" }}>
+                          <TableActionMenu
+                            row={row}
+                            gradeLabel={gradeLabel}
+                            getNextGrade={getNextGrade}
+                            onView={() => openModal(row, "view")}
+                            onEdit={() => openModal(row, "edit")}
+                            onDelete={() => handleDeleteEnrollment(row.id)}
+                            onIdUpload={() => openIdUploadModal(row)}
+                            onPromote={() => handlePromote(row)}
+                            onGenerateId={() => openIdGenerator(row)}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         <Pagination

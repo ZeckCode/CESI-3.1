@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Edit2 } from "lucide-react";
+import { X, Edit2, CheckCircle, XCircle } from "lucide-react";
 import StudentInfoTab from "./tabs/StudentInfoTab";
 import ParentInfoTab from "./tabs/ParentInfoTab";
 import DocumentsTab from "./tabs/DocumentsTab";
@@ -176,9 +176,11 @@ export default function EnrollmentDetailsModal({
             {editingId && modalStatus === "PENDING" && (
               <>
                 <button className="btn-decline" onClick={onDecline}>
+                  <XCircle size={14} />
                   Decline
                 </button>
                 <button className="btn-approve" onClick={onApprove}>
+                  <CheckCircle size={14} />
                   Approve
                 </button>
               </>

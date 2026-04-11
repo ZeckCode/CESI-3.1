@@ -615,13 +615,11 @@ const StudentMessage = () => {
         </div>
       )}
 
-      {showChatList && (
-        <div
-          className="msg__listOverlay"
-          role="presentation"
-          onClick={() => setShowChatList(false)}
-        />
-      )}
+      <div
+        className={`msg__listOverlay${showChatList ? " active" : ""}`}
+        role="presentation"
+        onClick={() => setShowChatList(false)}
+      />
 
       {showNewChat && (
         <div className="msgModal">

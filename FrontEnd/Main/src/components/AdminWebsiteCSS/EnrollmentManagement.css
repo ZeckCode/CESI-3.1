@@ -239,11 +239,11 @@
 
 @media (max-width: 480px) {
   .btn-approve {
-    padding: 2px 5px;
-    font-size: 6px;
-    min-height: 18px;
-    gap: 1px;
-    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 9px;
+    min-height: 28px;
+    gap: 3px;
+    border-radius: 4px;
   }
 
   .btn-approve svg {
@@ -292,16 +292,16 @@
 
 @media (max-width: 480px) {
   .btn-decline {
-    padding: 2px 5px;
-    font-size: 6px;
-    min-height: 18px;
-    gap: 1px;
-    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 9px;
+    min-height: 28px;
+    gap: 3px;
+    border-radius: 4px;
   }
 
   .btn-decline svg {
-    width: 9px;
-    height: 9px;
+    width: 12px;
+    height: 12px;
   }
 }
 
@@ -334,6 +334,30 @@
 @media (max-width: 768px) {
   .enrollment-management .unified-stats-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  .enrollment-management .unified-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .enrollment-management .unified-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+}
+
+@media (max-width: 375px) {
+  .enrollment-management .unified-stats-grid {
+    gap: 6px;
+    margin-bottom: 6px;
   }
 }
 
@@ -341,8 +365,66 @@
   padding: 1.5rem 1.75rem;
 }
 
+@media (max-width: 768px) {
+  .enrollment-management .unified-stat-card {
+    padding: 1.2rem 1.4rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .enrollment-management .unified-stat-card {
+    padding: 1rem 1.2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .enrollment-management .unified-stat-card {
+    padding: 0.7rem 0.9rem;
+  }
+}
+
+@media (max-width: 375px) {
+  .enrollment-management .unified-stat-card {
+    padding: 0.6rem 0.8rem;
+  }
+}
+
 .enrollment-management .unified-stat-value {
   font-size: 2rem;
+}
+
+@media (max-width: 768px) {
+  .enrollment-management .unified-stat-value {
+    font-size: 1.4rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .enrollment-management .unified-stat-value {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 375px) {
+  .enrollment-management .unified-stat-value {
+    font-size: 0.95rem;
+  }
+}
+
+.enrollment-management .unified-stat-label {
+  font-size: 0.85rem;
+}
+
+@media (max-width: 480px) {
+  .enrollment-management .unified-stat-label {
+    font-size: 0.70rem;
+  }
+}
+
+@media (max-width: 375px) {
+  .enrollment-management .unified-stat-label {
+    font-size: 0.65rem;
+  }
 }
 
 /* Colored background tints per card */
@@ -356,9 +438,9 @@
 /* ========== CONTROLS ========== */
 .enrollment-controls {
   display: grid;
-  grid-template-columns: 1fr 220px;
+  grid-template-columns: 1fr 220px 220px auto;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 @media (max-width: 768px) {
@@ -428,10 +510,93 @@
 .search-box input::placeholder { color: #b0b7c8; }
 .search-box svg, .filter-box svg { color: #9ca3af; flex-shrink: 0; width: 18px; height: 18px; }
 
+.filter-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1.5px solid #dbe2f0;
+  background: #ffffff;
+  color: #475569;
+  border-radius: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-reset-btn:hover {
+  border-color: #4f6ef7;
+  color: #4f6ef7;
+  background: #f0f3ff;
+}
+
+.enrollment-quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.quick-filter-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quick-filter-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  margin-right: 2px;
+}
+
+.quick-filter-chip {
+  border: 1px solid #dbe2f0;
+  background: #fff;
+  color: #475569;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quick-filter-chip:hover {
+  border-color: #4f6ef7;
+  color: #4f6ef7;
+  background: #f0f3ff;
+}
+
+.quick-filter-chip.active {
+  border-color: #4f6ef7;
+  color: #ffffff;
+  background: #4f6ef7;
+}
+
 @media (max-width: 480px) {
   .search-box svg, .filter-box svg {
     width: 16px;
     height: 16px;
+  }
+
+  .filter-reset-btn {
+    min-height: 38px;
+    font-size: 11px;
+    padding: 0 12px;
+  }
+
+  .quick-filter-label {
+    font-size: 11px;
+  }
+
+  .quick-filter-chip {
+    font-size: 10px;
+    padding: 5px 9px;
   }
 }
 
@@ -440,11 +605,14 @@
   background: white;
   border-radius: 12px;
   border: 1px solid #e5e8f0;
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
   margin-bottom: 20px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.03);
-  /* Smooth scrolling for touch devices */
+}
+
+.enrollments-table-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
 }
@@ -482,32 +650,35 @@
 @media (max-width: 768px) {
   .enrollments-table {
     min-width: 600px;
-    font-size: 11px;
+    font-size: 12px;
   }
 }
 
 @media (max-width: 600px) {
   .enrollments-table {
-    min-width: 500px;
-    font-size: 9px;
+    min-width: 550px;
+    font-size: 12px;
   }
 }
 
 @media (max-width: 480px) {
   .enrollments-table {
-    min-width: 450px;
-    font-size: 8px;
+    min-width: 500px;
+    font-size: 13px;
   }
   
   .enrollments-table th {
-    padding: 5px 6px;
-    font-size: 6px;
-    letter-spacing: 0.1px;
+    padding: 10px 12px;
+    font-size: 11px;
+    letter-spacing: 0.2px;
   }
   
   .enrollments-table td {
-    padding: 5px 6px;
-    font-size: 7px;
+    padding: 12px 14px;
+    font-size: 12px;
+    word-break: break-word;
+    white-space: normal;
+    line-height: 1.5;
   }
 }
 
@@ -535,7 +706,16 @@
 .enrollments-table th:nth-child(7),
 .enrollments-table td:nth-child(7) {
   width: 1%;
+}
+
+.enrollments-table th:nth-child(6),
+.enrollments-table th:nth-child(7) {
   white-space: nowrap;
+}
+
+.enrollments-table td:nth-child(6),
+.enrollments-table td:nth-child(7) {
+  white-space: normal;
 }
 
 .enrollments-table th:nth-child(6),
@@ -564,9 +744,9 @@
 
 @media (max-width: 480px) {
   .enrollments-table th {
-    padding: 6px 7px;
-    font-size: 7px;
-    letter-spacing: 0.3px;
+    padding: 10px 12px;
+    font-size: 11px;
+    letter-spacing: 0.2px;
   }
 }
 
@@ -574,6 +754,7 @@
   border-bottom: 1px solid #f0f2f7;
   transition: all 0.15s ease;
   background: #ffffff;
+  overflow: visible;
 }
 .enrollments-table tbody tr:last-child { border-bottom: 1px solid #e5e8f0; }
 .enrollments-table tbody tr:hover { 
@@ -588,43 +769,78 @@
   vertical-align: middle;
   word-break: break-word;
   overflow-wrap: break-word;
+  overflow: visible;
+}
+
+.table-row-content {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.table-row-content--student,
+.table-row-content--parent {
+  align-items: flex-start;
+}
+
+.table-row-content--date {
+  white-space: nowrap;
+}
+
+.table-row-content--status,
+.table-row-content--promotion,
+.table-row-content--approval,
+.table-row-content--actions {
+  white-space: normal;
 }
 
 @media (max-width: 1024px) {
   .enrollments-table td {
-    padding: 9px 11px;
-    font-size: 11px;
+    padding: 10px 12px;
+    font-size: 12px;
   }
 }
 
 @media (max-width: 768px) {
   .enrollments-table td {
-    padding: 8px 9px;
-    font-size: 10px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .table-row-content {
+    gap: 5px;
   }
 }
 
 @media (max-width: 600px) {
   .enrollments-table td {
-    padding: 6px 7px;
-    font-size: 9px;
+    padding: 10px 12px;
+    font-size: 12px;
   }
 }
 
 @media (max-width: 480px) {
   .enrollments-table td {
-    padding: 5px 6px;
-    font-size: 7px;
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+
+  .table-row-content {
+    gap: 4px;
   }
 
   .enrollments-table th:nth-child(6),
   .enrollments-table td:nth-child(6) {
-    padding-right: 4px;
+    padding-right: 8px;
   }
 
   .enrollments-table th:nth-child(7),
   .enrollments-table td:nth-child(7) {
-    padding-left: 4px;
+    padding-left: 8px;
   }
 }
 
@@ -664,31 +880,31 @@
   }
 
   .cell-main {
-    font-size: 9px;
-    line-height: 1;
+    font-size: 11px;
+    line-height: 1.2;
   }
 
   .cell-secondary {
-    font-size: 8px;
-    line-height: 1;
+    font-size: 10px;
+    line-height: 1.1;
   }
 }
 
 @media (max-width: 480px) {
   .cell-container {
-    gap: 1px;
+    gap: 2px;
   }
 
   .cell-main {
-    font-size: 7px;
+    font-size: 11px;
     font-weight: 700;
-    line-height: 1;
+    line-height: 1.2;
   }
 
   .cell-secondary {
-    font-size: 6px;
+    font-size: 10px;
     color: #94a3b8;
-    line-height: 1;
+    line-height: 1.1;
   }
 }
 
@@ -710,8 +926,8 @@
 
 @media (max-width: 480px) {
   .status-badge {
-    padding: 3px 8px;
-    font-size: 8px;
+    padding: 4px 8px;
+    font-size: 10px;
     border-radius: 4px;
   }
 }
@@ -738,8 +954,8 @@
 
 @media (max-width: 480px) {
   .fee-badge {
-    padding: 3px 8px;
-    font-size: 8px;
+    padding: 4px 8px;
+    font-size: 10px;
     border-radius: 4px;
   }
 }
@@ -756,8 +972,8 @@
   flex-wrap: wrap;
 }
 
-.btn-approve,
-.btn-decline {
+.approve-decline-group .table-btn-approve,
+.approve-decline-group .table-btn-decline {
   width: 36px;
   height: 36px;
   min-width: 36px;
@@ -770,8 +986,8 @@
   gap: 0;
 }
 
-.btn-approve svg,
-.btn-decline svg {
+.approve-decline-group .table-btn-approve svg,
+.approve-decline-group .table-btn-decline svg {
   width: 16px;
   height: 16px;
 }
@@ -787,16 +1003,16 @@
     gap: 3px;
   }
 
-  .btn-approve,
-  .btn-decline {
+  .approve-decline-group .table-btn-approve,
+  .approve-decline-group .table-btn-decline {
     width: 34px;
     height: 34px;
     min-width: 34px;
     min-height: 34px;
   }
 
-  .btn-approve svg,
-  .btn-decline svg {
+  .approve-decline-group .table-btn-approve svg,
+  .approve-decline-group .table-btn-decline svg {
     width: 14px;
     height: 14px;
   }
@@ -810,8 +1026,8 @@
     align-items: center;
   }
 
-  .btn-approve,
-  .btn-decline {
+  .approve-decline-group .table-btn-approve,
+  .approve-decline-group .table-btn-decline {
     width: 32px;
     height: 32px;
     min-width: 32px;
@@ -819,8 +1035,8 @@
     border-radius: 7px;
   }
 
-  .btn-approve svg,
-  .btn-decline svg {
+  .approve-decline-group .table-btn-approve svg,
+  .approve-decline-group .table-btn-decline svg {
     width: 12px;
     height: 12px;
   }
@@ -862,33 +1078,33 @@
 
 @media (max-width: 1024px) {
   .table-inline-status {
-    padding: 3px 8px;
-    font-size: 9px;
-    gap: 3px;
+    padding: 4px 10px;
+    font-size: 12px;
+    gap: 4px;
   }
 }
 
 @media (max-width: 768px) {
   .table-inline-status {
-    padding: 2px 7px;
-    font-size: 8px;
-    gap: 2px;
-    border-radius: 3px;
+    padding: 4px 10px;
+    font-size: 11px;
+    gap: 4px;
+    border-radius: 6px;
   }
 }
 
 @media (max-width: 480px) {
   .table-inline-status {
-    padding: 1px 5px;
-    font-size: 6px;
-    gap: 1px;
-    border-radius: 2px;
-    letter-spacing: 0.1px;
+    padding: 4px 8px;
+    font-size: 10px;
+    gap: 3px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
   }
 
   .table-inline-status svg {
-    width: 8px;
-    height: 8px;
+    width: 12px;
+    height: 12px;
   }
 }
 
@@ -1091,24 +1307,24 @@
 
 @media (max-width: 1024px) {
   .promotion-ready-badge {
-    padding: 3px 8px;
-    font-size: 10px;
+    padding: 4px 10px;
+    font-size: 12px;
   }
 }
 
 @media (max-width: 768px) {
   .promotion-ready-badge {
-    padding: 2px 7px;
-    font-size: 8px;
-    border-radius: 3px;
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 4px;
   }
 }
 
 @media (max-width: 480px) {
   .promotion-ready-badge {
-    padding: 1px 5px;
-    font-size: 6px;
-    border-radius: 2px;
+    padding: 4px 8px;
+    font-size: 10px;
+    border-radius: 4px;
   }
 }
 
@@ -1433,7 +1649,7 @@
   }
 }
 
-/* Final override for enrollment approve / decline controls */
+/* Final override for table approve / decline icon controls */
 .enrollment-management .enrollments-table .approve-decline-group {
   display: inline-flex;
   align-items: center;
@@ -1442,49 +1658,44 @@
   width: auto;
 }
 
-.enrollment-management .enrollments-table .approve-decline-group .btn-approve,
-.enrollment-management .enrollments-table .approve-decline-group .btn-decline {
+.enrollment-management .enrollments-table .approve-decline-group .table-btn-approve,
+.enrollment-management .enrollments-table .approve-decline-group .table-btn-decline {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  width: auto !important;
-  min-width: 90px !important;
-  height: 30px !important;
-  min-height: 30px !important;
-  padding: 0 10px !important;
+  gap: 0;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
   border-radius: 7px !important;
-  font-size: 10px !important;
+  font-size: 0;
   font-weight: 700 !important;
   line-height: 1;
   white-space: nowrap;
   flex: 0 0 auto;
 }
 
-.enrollment-management .enrollments-table .approve-decline-group .btn-approve span,
-.enrollment-management .enrollments-table .approve-decline-group .btn-decline span {
-  display: inline;
-}
-
-.enrollment-management .enrollments-table .approve-decline-group .btn-approve svg,
-.enrollment-management .enrollments-table .approve-decline-group .btn-decline svg {
+.enrollment-management .enrollments-table .approve-decline-group .table-btn-approve svg,
+.enrollment-management .enrollments-table .approve-decline-group .table-btn-decline svg {
   width: 12px !important;
   height: 12px !important;
   flex: 0 0 auto;
 }
 
-.enrollment-management .enrollments-table .approve-decline-group .btn-approve {
+.enrollment-management .enrollments-table .approve-decline-group .table-btn-approve {
   background: #d1fae5 !important;
   color: #047857 !important;
 }
 
-.enrollment-management .enrollments-table .approve-decline-group .btn-decline {
+.enrollment-management .enrollments-table .approve-decline-group .table-btn-decline {
   background: #fee2e2 !important;
   color: #991b1b !important;
 }
 
-.enrollment-management .enrollments-table .approve-decline-group .btn-approve:hover,
-.enrollment-management .enrollments-table .approve-decline-group .btn-decline:hover {
+.enrollment-management .enrollments-table .approve-decline-group .table-btn-approve:hover,
+.enrollment-management .enrollments-table .approve-decline-group .table-btn-decline:hover {
   transform: translateY(-1px);
 }
 
@@ -1493,18 +1704,18 @@
     gap: 4px;
   }
 
-  .enrollment-management .enrollments-table .approve-decline-group .btn-approve,
-  .enrollment-management .enrollments-table .approve-decline-group .btn-decline {
-    min-width: 84px !important;
-    height: 28px !important;
-    min-height: 28px !important;
-    padding: 0 8px !important;
-    font-size: 10px !important;
-    gap: 4px;
+  .enrollment-management .enrollments-table .approve-decline-group .table-btn-approve,
+  .enrollment-management .enrollments-table .approve-decline-group .table-btn-decline {
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    gap: 0;
   }
 
-  .enrollment-management .enrollments-table .approve-decline-group .btn-approve svg,
-  .enrollment-management .enrollments-table .approve-decline-group .btn-decline svg {
+  .enrollment-management .enrollments-table .approve-decline-group .table-btn-approve svg,
+  .enrollment-management .enrollments-table .approve-decline-group .table-btn-decline svg {
     width: 11px !important;
     height: 11px !important;
   }
@@ -1515,19 +1726,20 @@
     gap: 4px;
   }
 
-  .enrollment-management .enrollments-table .approve-decline-group .btn-approve,
-  .enrollment-management .enrollments-table .approve-decline-group .btn-decline {
-    min-width: 76px !important;
-    height: 26px !important;
-    min-height: 26px !important;
-    padding: 0 7px !important;
-    font-size: 9px !important;
-    gap: 4px;
+  .enrollment-management .enrollments-table .approve-decline-group .table-btn-approve,
+  .enrollment-management .enrollments-table .approve-decline-group .table-btn-decline {
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 !important;
+    font-size: 0;
+    gap: 0;
     border-radius: 6px !important;
   }
 
-  .enrollment-management .enrollments-table .approve-decline-group .btn-approve svg,
-  .enrollment-management .enrollments-table .approve-decline-group .btn-decline svg {
+  .enrollment-management .enrollments-table .approve-decline-group .table-btn-approve svg,
+  .enrollment-management .enrollments-table .approve-decline-group .table-btn-decline svg {
     width: 10px !important;
     height: 10px !important;
   }
@@ -1825,6 +2037,9 @@
     gap: 10px;
     margin-bottom: 16px;
   }
+  .enrollment-quick-filters {
+    margin-bottom: 14px;
+  }
   .search-box, .filter-box {
     padding: 12px 14px;
     min-height: 44px;
@@ -1836,9 +2051,12 @@
   .enrollment-management .unified-stats-grid { grid-template-columns: repeat(2, 1fr); }
   .form-row { grid-template-columns: 1fr; gap: 12px; }
   .enrollments-container { 
-    overflow-x: auto; 
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
     border-radius: 10px;
+  }
+  .enrollments-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .enrollments-table { 
     min-width: 650px;
@@ -1896,7 +2114,7 @@
 
 @media (max-width: 768px) {
   /* Optimize table for horizontal scrolling on tablets */
-  .enrollments-container {
+  .enrollments-table-scroll {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
@@ -1913,6 +2131,10 @@
     border-radius: 8px;
     margin-bottom: 12px;
     box-shadow: inset -15px 0 8px -8px rgba(0,0,0,0.08);
+    overflow: visible;
+  }
+
+  .enrollments-table-scroll {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -2041,8 +2263,8 @@
 
   .approve-decline-group { flex-direction: row; width: auto; gap: 4px; align-items: center; flex-wrap: nowrap; }
 
-  .btn-approve,
-  .btn-decline {
+  .approve-decline-group .table-btn-approve,
+  .approve-decline-group .table-btn-decline {
     width: 36px;
     min-width: 36px;
     height: 36px;
@@ -2052,8 +2274,8 @@
     border-radius: 7px;
   }
 
-  .btn-approve svg,
-  .btn-decline svg {
+  .approve-decline-group .table-btn-approve svg,
+  .approve-decline-group .table-btn-decline svg {
     width: 14px;
     height: 14px;
   }
@@ -2282,6 +2504,20 @@
   display: inline-flex;
   gap: 6px;
   align-items: center;
+}
+
+.enrollment-management .enrollments-container {
+  overflow: visible !important;
+}
+
+.enrollment-management .enrollments-table-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.enrollment-management .enrollments-table tbody tr,
+.enrollment-management .enrollments-table td {
+  overflow: visible;
 }
 
 .action-view-button {
