@@ -3,6 +3,7 @@ import { Plus, X, Edit2, Trash2, Settings, Calendar, FileText, Printer } from "l
 import "../TeacherWebsiteCSS/Grade.css";
 import { apiFetch } from "../api/apiFetch";
 import PreviewModal from "../PreviewModal";
+import ExcelJS from "exceljs";
 
 const API = "";
 
@@ -1024,6 +1025,83 @@ const Grade = () => {
     }
   };
 
+  const handleDownloadGradeExcel = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Grade Sheet');
+
+      // Get column headers from gradePreviewColumns
+      const headers = gradePreviewColumns.map(col => col.label);
+      
+      // Add header row
+      const headerRow = worksheet.addRow(headers);
+      
+      // Style header row
+      headerRow.eachCell((cell) => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF2563eb' }, // Blue
+        };
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } },
+        };
+      });
+      headerRow.height = 25;
+
+      // Add data rows
+      printPreviewData.forEach((rowData) => {
+        const row = worksheet.addRow(headers.map(header => rowData[header] || ''));
+        
+        // Style data cells
+        row.eachCell((cell, colNumber) => {
+          const isStudentNameColumn = colNumber === 1; // First column is Student Name
+          cell.alignment = { 
+            horizontal: isStudentNameColumn ? 'left' : 'center', 
+            vertical: 'center', 
+            wrapText: true 
+          };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFdddddd' } },
+            left: { style: 'thin', color: { argb: 'FFdddddd' } },
+            bottom: { style: 'thin', color: { argb: 'FFdddddd' } },
+            right: { style: 'thin', color: { argb: 'FFdddddd' } },
+          };
+          cell.font = { size: 11 };
+        });
+        row.height = 20;
+      });
+
+      // Set column widths
+      worksheet.columns.forEach((col) => {
+        col.width = 18;
+      });
+
+      // Generate and download file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `Grade-Sheet-${selectedSubject?.name || "N/A"}-${currentSection?.name || "N/A"}_${timestamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      alert('✓ Grade sheet downloaded successfully!');
+    } catch (err) {
+      console.error('Error downloading Excel:', err);
+      alert('Failed to download grade sheet. Please try again.');
+    }
+  };
+
   const weightTotal =
     Number(tempWeights.activity_weight || 0) +
     Number(tempWeights.quiz_weight || 0) +
@@ -1758,6 +1836,7 @@ const Grade = () => {
           { key: "Status", label: "Status" },
         ]}
         filename={`Grade-Sheet-${selectedSubject?.name || "N/A"}-${currentSection?.name || "N/A"}`}
+        onDownloadExcel={handleDownloadGradeExcel}
       />
     </div>
   );

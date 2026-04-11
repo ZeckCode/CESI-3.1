@@ -37,8 +37,8 @@ const PreviewModal = ({
         XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
         const timestamp = new Date().toISOString().slice(0, 10);
         XLSX.writeFile(wb, `${filename}_${timestamp}.xlsx`);
+        alert('✓ Excel file downloaded successfully!');
       }
-      alert('✓ Excel file downloaded successfully!');
     } catch (err) {
       console.error('Error downloading Excel:', err);
       alert('Failed to download Excel file. Please try again.');
@@ -194,8 +194,8 @@ const PreviewModal = ({
         }
         
         doc.save(`${filename}_${dateOnly}.pdf`);
+        alert('✓ PDF file downloaded successfully!');
       }
-      alert('✓ PDF file downloaded successfully!');
     } catch (err) {
       console.error('Error downloading PDF:', err);
       alert('Failed to download PDF file. Please try again.');
