@@ -110,6 +110,7 @@ export default function EnrollmentManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterPromotionStatus, setFilterPromotionStatus] = useState("All");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [enrollPage, setEnrollPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
@@ -1910,7 +1911,7 @@ const openIdGenerator = (row) => {
         </div>
       )}
 
-      <div className="enrollment-controls">
+      <div className={`enrollment-controls ${mobileFiltersOpen ? "mobile-filters-open" : ""}`}>
         <div className="search-box enrollment-search-box">
           <Search size={16} />
           <input
@@ -1920,6 +1921,19 @@ const openIdGenerator = (row) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+
+        <button
+          type="button"
+          className={`mobile-filter-toggle ${mobileFiltersOpen ? "active" : ""}`}
+          onClick={() => setMobileFiltersOpen((prev) => !prev)}
+          aria-expanded={mobileFiltersOpen}
+          aria-label="Toggle filter options"
+        >
+          <Filter size={14} />
+          {mobileFiltersOpen ? "Hide Filters" : "Show Filters"}
+        </button>
+
+        <div className={`enrollment-controls-advanced ${mobileFiltersOpen ? "open" : ""}`}>
 
         <div className="filter-box enrollment-filter-box">
           <Filter size={16} />
@@ -1961,9 +1975,10 @@ const openIdGenerator = (row) => {
         >
           <XCircle size={14} /> Reset Filters
         </button>
+        </div>
       </div>
 
-      <div className="enrollment-quick-filters">
+      <div className={`enrollment-quick-filters ${mobileFiltersOpen ? "open" : ""}`}>
         <div className="quick-filter-group enrollment-quick-filter-group">
           <span className="quick-filter-label enrollment-quick-filter-label">Status:</span>
           <button

@@ -144,6 +144,7 @@ class TeacherProfileReadSerializer(serializers.ModelSerializer):
 class UserProfileReadSerializer(serializers.ModelSerializer):
     section = SectionSerializer(read_only=True)
     avatar_url = serializers.SerializerMethodField()
+    transfer_clearance_url = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
@@ -156,6 +157,13 @@ class UserProfileReadSerializer(serializers.ModelSerializer):
             "payment_mode",
             "parent_first_name", "parent_middle_name", "parent_last_name",
             "contact_number", "address",
+            "transfer_status", "is_read_only",
+            "transfer_date", "transfer_reason",
+            "destination_school_name", "destination_school_address", "destination_school_contact",
+            "transfer_reference_number", "transfer_notes",
+            "allow_transfer_with_balance", "outstanding_balance_snapshot",
+            "transfer_requested_at", "transfer_approved_at", "transfer_approved_by",
+            "transfer_clearance", "transfer_clearance_url",
             "avatar", "avatar_url",
         ]
 
@@ -165,6 +173,14 @@ class UserProfileReadSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.avatar.url)
             return obj.avatar.url
+        return None
+
+    def get_transfer_clearance_url(self, obj):
+        if obj.transfer_clearance:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.transfer_clearance.url)
+            return obj.transfer_clearance.url
         return None
 
 
@@ -275,6 +291,27 @@ class StudentProfileUpdateSerializer(serializers.Serializer):
         return value
 
 
+class StudentTransferDecisionSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=["PENDING", "APPROVED", "REJECTED"])
+    transfer_date = serializers.DateField(required=False, allow_null=True)
+    transfer_reason = serializers.CharField(required=False, allow_blank=True)
+    destination_school_name = serializers.CharField(required=False, allow_blank=True)
+    destination_school_address = serializers.CharField(required=False, allow_blank=True)
+    destination_school_contact = serializers.CharField(required=False, allow_blank=True)
+    transfer_reference_number = serializers.CharField(required=False, allow_blank=True)
+    transfer_notes = serializers.CharField(required=False, allow_blank=True)
+    allow_transfer_with_balance = serializers.BooleanField(required=False, default=False)
+
+
+class StudentTransferRequestSerializer(serializers.Serializer):
+    transfer_reason = serializers.CharField(required=True, allow_blank=False)
+    destination_school_name = serializers.CharField(required=True, allow_blank=False)
+    destination_school_address = serializers.CharField(required=False, allow_blank=True)
+    destination_school_contact = serializers.CharField(required=False, allow_blank=True)
+    transfer_reference_number = serializers.CharField(required=False, allow_blank=True)
+    transfer_notes = serializers.CharField(required=False, allow_blank=True)
+
+
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField()
@@ -286,7 +323,7 @@ class CreateUserSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, min_length=6)
     role = serializers.ChoiceField(choices=["ADMIN", "TEACHER", "PARENT_STUDENT"])
     status = serializers.ChoiceField(
-        choices=["ACTIVE", "INACTIVE", "SUSPENDED"],
+        choices=["NEW", "ACTIVE", "INACTIVE", "SUSPENDED", "TRANSFERRED"],
         required=False,
     )
 

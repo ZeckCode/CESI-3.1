@@ -1,6 +1,7 @@
 # accounts/views.py
 import token
 from urllib import request
+from decimal import Decimal
 
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -8,7 +9,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.core.cache import cache
 import random
 
@@ -26,7 +27,7 @@ from rest_framework import generics, status as http_status
 from rest_framework.authtoken.models import Token
 
 
-from .models import User, Subject, Section, TeacherProfile, PasswordResetRequest
+from .models import User, Subject, Section, TeacherProfile, PasswordResetRequest, UserProfile
 
 from .serializers import (
     CreateUserSerializer,
@@ -35,6 +36,8 @@ from .serializers import (
     UserDetailSerializer,
     TeacherAssignmentSerializer,
     StudentProfileUpdateSerializer,
+    StudentTransferDecisionSerializer,
+    StudentTransferRequestSerializer,
     PasswordResetRequestCreateSerializer,
     PasswordResetRequestSerializer,
 )
@@ -182,8 +185,6 @@ class UpdateProfileView(APIView):
         user = request.user
 
         if user.role == "PARENT_STUDENT":
-            from .models import UserProfile
-
             profile, _ = UserProfile.objects.get_or_create(
                 user=user,
                 defaults={
@@ -196,6 +197,12 @@ class UpdateProfileView(APIView):
                     "grade_level": "grade1",
                 }
             )
+
+            if profile.is_read_only:
+                return Response(
+                    {"detail": "This student account is read-only due to transfer processing."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
             updatable_fields = [
                 "parent_first_name",
@@ -648,6 +655,182 @@ def update_student_profile(request, user_id):
         .get(pk=student_user.pk)
     )
     return Response(UserDetailSerializer(student_user, context={"request": request}).data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def transfer_student(request, user_id):
+    if request.user.role != "ADMIN":
+        return Response({"detail": "Forbidden"}, status=403)
+
+    try:
+        student_user = User.objects.get(id=user_id, role="PARENT_STUDENT")
+    except User.DoesNotExist:
+        return Response({"detail": "Student not found"}, status=404)
+
+    profile = getattr(student_user, "profile", None)
+    if not profile:
+        return Response({"detail": "Student profile not found"}, status=404)
+
+    serializer = StudentTransferDecisionSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    from finance.models import Transaction
+
+    totals = Transaction.objects.filter(parent=student_user).aggregate(
+        total_debit=Sum("debit"),
+        total_credit=Sum("credit"),
+    )
+    total_debit = Decimal(str(totals.get("total_debit") or "0"))
+    total_credit = Decimal(str(totals.get("total_credit") or "0"))
+    outstanding_balance = total_debit - total_credit
+
+    decision = data.get("decision")
+    allow_with_balance = bool(data.get("allow_transfer_with_balance", False))
+
+    if decision == "APPROVED" and outstanding_balance > 0 and not allow_with_balance:
+        return Response(
+            {
+                "detail": "Student has outstanding balance. Enable 'allow transfer with balance' to approve.",
+                "outstanding_balance": str(outstanding_balance),
+            },
+            status=400,
+        )
+
+    profile.transfer_status = decision
+    profile.transfer_reason = data.get("transfer_reason", "")
+    profile.destination_school_name = data.get("destination_school_name", "")
+    profile.destination_school_address = data.get("destination_school_address", "")
+    profile.destination_school_contact = data.get("destination_school_contact", "")
+    profile.transfer_reference_number = data.get("transfer_reference_number", "")
+    profile.transfer_notes = data.get("transfer_notes", "")
+    profile.allow_transfer_with_balance = allow_with_balance
+    profile.outstanding_balance_snapshot = outstanding_balance
+    profile.transfer_requested_at = timezone.now()
+
+    if data.get("transfer_date"):
+        profile.transfer_date = data["transfer_date"]
+    elif decision == "APPROVED":
+        profile.transfer_date = timezone.localdate()
+
+    if "transfer_clearance" in request.FILES:
+        profile.transfer_clearance = request.FILES["transfer_clearance"]
+
+    if decision == "APPROVED":
+        grade = str(profile.grade_level or "").lower()
+        if grade in ["prek", "kinder"]:
+            student_user.status = "NEW"
+        else:
+            student_user.status = "TRANSFERRED"
+
+        student_user.is_active = True
+        profile.is_read_only = True
+        profile.transfer_approved_at = timezone.now()
+        profile.transfer_approved_by = request.user
+
+        latest_enrollment = (
+            Enrollment.objects
+            .filter(Q(parent_user=student_user) | Q(student=student_user))
+            .order_by("-created_at", "-id")
+            .first()
+        )
+        if latest_enrollment:
+            latest_enrollment.status = "COMPLETED"
+            latest_enrollment.completed_at = timezone.now()
+            if grade in ["prek", "kinder"]:
+                latest_enrollment.student_type = "new"
+            note = f"Transfer decision approved by {request.user.username}."
+            latest_enrollment.remarks = f"{latest_enrollment.remarks or ''}\n{note}".strip()
+            latest_enrollment.save(update_fields=["status", "completed_at", "student_type", "remarks"])
+
+    elif decision == "REJECTED":
+        profile.is_read_only = False
+        student_user.status = "ACTIVE"
+        student_user.is_active = True
+
+    else:  # PENDING
+        profile.is_read_only = True
+        student_user.status = "SUSPENDED"
+        student_user.is_active = True
+
+    profile.save()
+    student_user.save(update_fields=["status", "is_active"])
+
+    student_user.refresh_from_db()
+    student_user = (
+        User.objects
+        .select_related(
+            "profile",
+            "profile__section",
+            "profile__section__adviser",
+            "profile__section__adviser__user",
+        )
+        .get(pk=student_user.pk)
+    )
+
+    return Response(
+        {
+            "detail": "Transfer decision saved.",
+            "outstanding_balance": str(outstanding_balance),
+            "user": UserDetailSerializer(student_user, context={"request": request}).data,
+        },
+        status=200,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def request_transfer(request):
+    if request.user.role != "PARENT_STUDENT":
+        return Response({"detail": "Only student accounts can request transfer."}, status=403)
+
+    student_user = request.user
+    profile = getattr(student_user, "profile", None)
+    if not profile:
+        return Response({"detail": "Student profile not found."}, status=404)
+
+    if profile.transfer_status == "PENDING":
+        return Response({"detail": "A transfer request is already pending admin review."}, status=400)
+
+    # Business rule: block transfer request once any Q2 grade exists.
+    from grades.models import AcademicRecord, StudentScore, ClassStanding
+
+    has_q2_grade = (
+        AcademicRecord.objects.filter(student=student_user, q2__isnull=False).exists()
+        or StudentScore.objects.filter(student=student_user, grade_item__quarter=2).exists()
+        or ClassStanding.objects.filter(student=student_user, quarter=2).exists()
+    )
+
+    if has_q2_grade:
+        return Response(
+            {"detail": "Transfer request is not allowed because 2nd quarter grades already exist."},
+            status=400,
+        )
+
+    serializer = StudentTransferRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    profile.transfer_status = "PENDING"
+    profile.transfer_reason = data.get("transfer_reason", "")
+    profile.destination_school_name = data.get("destination_school_name", "")
+    profile.destination_school_address = data.get("destination_school_address", "")
+    profile.destination_school_contact = data.get("destination_school_contact", "")
+    profile.transfer_reference_number = data.get("transfer_reference_number", "")
+    profile.transfer_notes = data.get("transfer_notes", "")
+    profile.transfer_requested_at = timezone.now()
+    profile.transfer_approved_at = None
+    profile.transfer_approved_by = None
+    profile.save()
+
+    return Response(
+        {
+            "detail": "Transfer request submitted. Awaiting admin approval.",
+            "transfer_status": profile.transfer_status,
+        },
+        status=200,
+    )
 
 
 

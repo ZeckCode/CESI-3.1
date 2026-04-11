@@ -60,16 +60,18 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     STATUS_CHOICES = (
+        ("NEW", "New"),
         ("ACTIVE", "Active"),
         ("INACTIVE", "Inactive"),
         ("SUSPENDED", "Suspended"),
+        ("TRANSFERRED", "Transferred"),
     )
 
     username = models.CharField(max_length=50, unique=True)
     email = models.EmailField(null=True, blank=True)
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="PARENT_STUDENT")
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="ACTIVE")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -183,6 +185,40 @@ class UserProfile(models.Model):
     # Profile Picture
     avatar = models.ImageField(
         upload_to="avatars/",
+        blank=True,
+        null=True,
+        storage=PUBLIC_MEDIA_STORAGE,
+    )
+
+    # Transfer lifecycle data (admin-managed)
+    TRANSFER_STATUS_CHOICES = [
+        ("NONE", "None"),
+        ("PENDING", "Pending"),
+        ("APPROVED", "Approved"),
+        ("REJECTED", "Rejected"),
+    ]
+    transfer_status = models.CharField(max_length=20, choices=TRANSFER_STATUS_CHOICES, default="NONE")
+    is_read_only = models.BooleanField(default=False)
+    transfer_date = models.DateField(blank=True, null=True)
+    transfer_reason = models.TextField(blank=True, null=True)
+    destination_school_name = models.CharField(max_length=255, blank=True, null=True)
+    destination_school_address = models.TextField(blank=True, null=True)
+    destination_school_contact = models.CharField(max_length=120, blank=True, null=True)
+    transfer_reference_number = models.CharField(max_length=100, blank=True, null=True)
+    transfer_notes = models.TextField(blank=True, null=True)
+    allow_transfer_with_balance = models.BooleanField(default=False)
+    outstanding_balance_snapshot = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    transfer_requested_at = models.DateTimeField(blank=True, null=True)
+    transfer_approved_at = models.DateTimeField(blank=True, null=True)
+    transfer_approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_transfers",
+    )
+    transfer_clearance = models.FileField(
+        upload_to="transfer_clearance/",
         blank=True,
         null=True,
         storage=PUBLIC_MEDIA_STORAGE,

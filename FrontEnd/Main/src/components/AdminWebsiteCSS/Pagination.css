@@ -151,9 +151,6 @@
   .pagination-dots {
     height: 28px;
     font-size: 12px;
-  }
-}
-  .pagination-dots {
     min-width: 20px;
   }
 }

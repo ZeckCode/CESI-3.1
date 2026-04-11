@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, Edit2, Search, Filter, Users,
-  BookOpen, GraduationCap, Save, X, UserCheck, UserX, RefreshCw,
+  BookOpen, GraduationCap, Save, X, UserCheck, UserX, RefreshCw, ArrowRightLeft, FileUp,
 } from 'lucide-react';
 import { apiFetch } from '../api/apiFetch';
 import Toast from '../Global/Toast';
@@ -14,31 +14,9 @@ import '../AdminWebsiteCSS/UserManagement.css';
 ───────────────────────────────────────────── */
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
-const formatTeacherEmail = (firstName, lastName) => {
-  const first = (firstName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  const last = (lastName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  return first && last ? `${first}.${last}@cesi.edu.ph` : '';
-};
-
-const formatStudentEmail = (lastName, firstName) => {
-  const last = (lastName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  const first = (firstName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  return last && first ? `${last}.${first}@cesi.edu.ph` : '';
-};
-
 const isValidTeacherEmail = (email) => {
   const normalized = normalizeEmail(email);
   return /^[a-z0-9]+\.[a-z0-9]+@cesi\.edu\.ph$/.test(normalized);
-};
-
-const isValidStudentEmail = (email) => {
-  const normalized = normalizeEmail(email);
-  return /^[a-z0-9]+\.[a-z0-9]+@cesi\.edu\.ph$/.test(normalized);
-};
-
-const isValidAdminEmail = (email) => {
-  const normalized = normalizeEmail(email);
-  return normalized === 'cesi.admin@cesi.edu.ph' || /^admin|^cesi\.admin@cesi\.edu\.ph$/.test(normalized);
 };
 
 const UserManagement = () => {
@@ -56,8 +34,10 @@ const UserManagement = () => {
   const [activeTab, setActiveTab] = useState('students');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
+  const [transferDecisionFilter, setTransferDecisionFilter] = useState('All');
   const [studentPage, setStudentPage] = useState(1);
   const [teacherPage, setTeacherPage] = useState(1);
+  const [transferPage, setTransferPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
   // create teacher modal
@@ -80,6 +60,22 @@ const UserManagement = () => {
   const [studentForm, setStudentForm] = useState({});
   const [studentEditError, setStudentEditError] = useState('');
   const [savingStudent, setSavingStudent] = useState(false);
+  const [showTransferForm, setShowTransferForm] = useState(false);
+  const [transferStudent, setTransferStudent] = useState(null);
+  const [transferForm, setTransferForm] = useState({
+    decision: 'PENDING',
+    transfer_date: '',
+    transfer_reason: '',
+    destination_school_name: '',
+    destination_school_address: '',
+    destination_school_contact: '',
+    transfer_reference_number: '',
+    transfer_notes: '',
+    allow_transfer_with_balance: false,
+    transfer_clearance: null,
+  });
+  const [transferError, setTransferError] = useState('');
+  const [savingTransfer, setSavingTransfer] = useState(false);
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((title, message, type = "warning") => {
@@ -402,6 +398,9 @@ const UserManagement = () => {
     );
   };
 
+  const normalizedStatus = (value) => String(value || 'INACTIVE').toUpperCase();
+  const normalizedTransferStatus = (value) => String(value || 'NONE').toUpperCase();
+
   // ── filter ──
   const filteredStudents = students.filter((u) => {
     const name = studentName(u).toLowerCase();
@@ -410,8 +409,8 @@ const UserManagement = () => {
       name.includes(searchTerm.toLowerCase()) ||
       parent.includes(searchTerm.toLowerCase()) ||
       u.email.toLowerCase().includes(searchTerm.toLowerCase());
-      const statusCode = String(u.status || "INACTIVE").toUpperCase();
-const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUpperCase();
+    const statusCode = normalizedStatus(u.status);
+    const matchStatus = filterStatus === 'All' || statusCode === filterStatus.toUpperCase();
     return matchSearch && matchStatus;
   });
 
@@ -421,9 +420,31 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
       u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       subjectName.toLowerCase().includes(searchTerm.toLowerCase());
-   const statusCode = String(u.status || "INACTIVE").toUpperCase();
-const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUpperCase();
+    const statusCode = normalizedStatus(u.status);
+    const matchStatus = filterStatus === 'All' || statusCode === filterStatus.toUpperCase();
     return matchSearch && matchStatus;
+  });
+
+  const transferRequests = students.filter((u) => normalizedTransferStatus(u.profile?.transfer_status) !== 'NONE');
+
+  const filteredTransferRequests = transferRequests.filter((u) => {
+    const transferStatus = normalizedTransferStatus(u.profile?.transfer_status);
+    const matchStatus = transferDecisionFilter === 'All' || transferStatus === transferDecisionFilter.toUpperCase();
+
+    const haystack = [
+      studentNameDisplay(u),
+      parentNameDisplay(u),
+      u.email,
+      u.profile?.destination_school_name,
+      u.profile?.transfer_reason,
+      u.profile?.transfer_reference_number,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    const matchSearch = haystack.includes(searchTerm.toLowerCase());
+    return matchStatus && matchSearch;
   });
 
   // ── pagination slicing ──
@@ -431,9 +452,11 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
   const paginatedStudents = filteredStudents.slice((studentPage - 1) * ITEMS_PER_PAGE, studentPage * ITEMS_PER_PAGE);
   const teacherTotalPages = Math.ceil(filteredTeachers.length / ITEMS_PER_PAGE);
   const paginatedTeachers = filteredTeachers.slice((teacherPage - 1) * ITEMS_PER_PAGE, teacherPage * ITEMS_PER_PAGE);
+  const transferTotalPages = Math.ceil(filteredTransferRequests.length / ITEMS_PER_PAGE);
+  const paginatedTransfers = filteredTransferRequests.slice((transferPage - 1) * ITEMS_PER_PAGE, transferPage * ITEMS_PER_PAGE);
 
   // reset page on filter/search/tab changes
-  useEffect(() => { setStudentPage(1); setTeacherPage(1); }, [searchTerm, filterStatus, activeTab]);
+  useEffect(() => { setStudentPage(1); setTeacherPage(1); setTransferPage(1); }, [searchTerm, filterStatus, transferDecisionFilter, activeTab]);
 
   // ── create teacher ──
   const handleCreateTeacher = async () => {
@@ -544,6 +567,210 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
     }
   };
 
+  const openTransferModal = (u) => {
+    setTransferStudent(u);
+    setTransferError('');
+    setTransferForm({
+      decision: 'PENDING',
+      transfer_date: '',
+      transfer_reason: '',
+      destination_school_name: '',
+      destination_school_address: '',
+      destination_school_contact: '',
+      transfer_reference_number: '',
+      transfer_notes: '',
+      allow_transfer_with_balance: false,
+      transfer_clearance: null,
+    });
+    setShowTransferForm(true);
+  };
+
+  const closeTransferModal = () => {
+    setShowTransferForm(false);
+    setTransferStudent(null);
+    setTransferError('');
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) return '—';
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return '—';
+    return dt.toLocaleString();
+  };
+
+  const submitTransferDecision = async () => {
+    if (!transferStudent) return;
+
+    setTransferError('');
+    setSavingTransfer(true);
+    try {
+      const formData = new FormData();
+      formData.append('decision', transferForm.decision);
+      if (transferForm.transfer_date) formData.append('transfer_date', transferForm.transfer_date);
+      formData.append('transfer_reason', transferForm.transfer_reason || '');
+      formData.append('destination_school_name', transferForm.destination_school_name || '');
+      formData.append('destination_school_address', transferForm.destination_school_address || '');
+      formData.append('destination_school_contact', transferForm.destination_school_contact || '');
+      formData.append('transfer_reference_number', transferForm.transfer_reference_number || '');
+      formData.append('transfer_notes', transferForm.transfer_notes || '');
+      formData.append('allow_transfer_with_balance', transferForm.allow_transfer_with_balance ? 'true' : 'false');
+      if (transferForm.transfer_clearance) {
+        formData.append('transfer_clearance', transferForm.transfer_clearance);
+      }
+
+      const res = await apiFetch(`/api/accounts/users/${transferStudent.id}/transfer/`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(extractErrorMessage(payload, 'Failed to save transfer decision.'));
+      }
+
+      addToast('Success', 'Transfer decision saved successfully.', 'success');
+      closeTransferModal();
+      await fetchStudents();
+    } catch (e) {
+      setTransferError(e.message);
+      addToast('Error', e.message, 'error');
+    } finally {
+      setSavingTransfer(false);
+    }
+  };
+
+  const printTransferClearance = () => {
+    if (!transferStudent) {
+      addToast('Print Error', 'No selected student for clearance printing.', 'error');
+      return;
+    }
+
+    const student = studentNameDisplay(transferStudent) || 'N/A';
+    const grade = studentGradeDisplay(transferStudent) || 'N/A';
+    const section = studentSectionDisplay(transferStudent) || 'N/A';
+    const parent = parentNameDisplay(transferStudent) || 'N/A';
+    const dateValue = transferForm.transfer_date || new Date().toISOString().slice(0, 10);
+    const decisionLabel = transferForm.decision === 'APPROVED'
+      ? 'Approved'
+      : transferForm.decision === 'REJECTED'
+        ? 'Rejected'
+        : 'Pending';
+
+    const printWindow = window.open('', '_blank', 'width=900,height=1200');
+    if (!printWindow) {
+      addToast('Print Blocked', 'Enable pop-ups to print transfer clearance.', 'warning');
+      return;
+    }
+
+    const escapeHtml = (value) => String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+    const html = `
+      <!doctype html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Transfer Clearance - ${escapeHtml(student)}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 28px; color: #111827; }
+          .header { text-align: center; margin-bottom: 24px; }
+          .header h1 { margin: 0 0 6px; font-size: 22px; }
+          .header p { margin: 0; color: #4b5563; }
+          .card { border: 1px solid #d1d5db; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+          .row { margin: 8px 0; }
+          .label { color: #4b5563; font-size: 12px; margin-bottom: 2px; }
+          .value { font-size: 14px; font-weight: 600; white-space: pre-wrap; word-break: break-word; }
+          .full { grid-column: 1 / -1; }
+          .signatures { margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+          .sig-line { border-top: 1px solid #111827; margin-top: 38px; padding-top: 6px; font-size: 12px; color: #374151; }
+          @media print {
+            body { margin: 12mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Caloocan Evangelical School Inc.</h1>
+          <p>Student Transfer Clearance</p>
+        </div>
+
+        <div class="card">
+          <div class="grid">
+            <div>
+              <div class="label">Student Name</div>
+              <div class="value">${escapeHtml(student)}</div>
+            </div>
+            <div>
+              <div class="label">Clearance Date</div>
+              <div class="value">${escapeHtml(dateValue)}</div>
+            </div>
+            <div>
+              <div class="label">Grade Level</div>
+              <div class="value">${escapeHtml(grade)}</div>
+            </div>
+            <div>
+              <div class="label">Section</div>
+              <div class="value">${escapeHtml(section)}</div>
+            </div>
+            <div>
+              <div class="label">Parent / Guardian</div>
+              <div class="value">${escapeHtml(parent)}</div>
+            </div>
+            <div>
+              <div class="label">Decision</div>
+              <div class="value">${escapeHtml(decisionLabel)}</div>
+            </div>
+            <div class="full">
+              <div class="label">Destination School</div>
+              <div class="value">${escapeHtml(transferForm.destination_school_name || 'N/A')}</div>
+            </div>
+            <div class="full">
+              <div class="label">Destination Address</div>
+              <div class="value">${escapeHtml(transferForm.destination_school_address || 'N/A')}</div>
+            </div>
+            <div>
+              <div class="label">Destination Contact</div>
+              <div class="value">${escapeHtml(transferForm.destination_school_contact || 'N/A')}</div>
+            </div>
+            <div>
+              <div class="label">Reference Number</div>
+              <div class="value">${escapeHtml(transferForm.transfer_reference_number || 'N/A')}</div>
+            </div>
+            <div class="full">
+              <div class="label">Reason for Transfer</div>
+              <div class="value">${escapeHtml(transferForm.transfer_reason || 'N/A')}</div>
+            </div>
+            <div class="full">
+              <div class="label">Admin Notes</div>
+              <div class="value">${escapeHtml(transferForm.transfer_notes || 'N/A')}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="signatures">
+          <div>
+            <div class="sig-line">Prepared by (Admin)</div>
+          </div>
+          <div>
+            <div class="sig-line">Parent / Guardian Signature</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
   // ── inline assignment ──
   const startEdit = (teacher) => {
     const existingSubjectIds = teacherSubjects(teacher)
@@ -599,6 +826,12 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
     active: teachers.filter((t) => t.status === 'ACTIVE').length,
     assigned: teachers.filter((t) => teacherSubjects(t).length > 0).length,
   };
+  const transferStats = {
+    total: transferRequests.length,
+    pending: transferRequests.filter((s) => normalizedTransferStatus(s.profile?.transfer_status) === 'PENDING').length,
+    approved: transferRequests.filter((s) => normalizedTransferStatus(s.profile?.transfer_status) === 'APPROVED').length,
+    rejected: transferRequests.filter((s) => normalizedTransferStatus(s.profile?.transfer_status) === 'REJECTED').length,
+  };
 
   if (loading) {
     return (
@@ -625,6 +858,12 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
           >
             <BookOpen size={18} /> Teachers ({teacherStats.total})
           </button>
+          <button
+            className={`tab-btn ${activeTab === 'transfers' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('transfers'); setSearchTerm(''); setTransferDecisionFilter('All'); }}
+          >
+            <ArrowRightLeft size={18} /> Transfer Requests ({transferStats.total})
+          </button>
         </div>
         {activeTab === 'teachers' && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -638,6 +877,11 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         )}
         {activeTab === 'students' && (
           <button className="btn-secondary" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest data from database">
+            <RefreshCw size={16} /> {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+        )}
+        {activeTab === 'transfers' && (
+          <button className="btn-secondary" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest transfer requests from database">
             <RefreshCw size={16} /> {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
         )}
@@ -661,6 +905,14 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
           <StatCard label="Total Teachers" value={teacherStats.total} icon={<BookOpen size={20} />} color="blue" />
           <StatCard label="Active" value={teacherStats.active} icon={<UserCheck size={20} />} color="green" />
           <StatCard label="Assigned to Subject" value={teacherStats.assigned} icon={<GraduationCap size={20} />} color="purple" />
+        </StatsGrid>
+      )}
+      {activeTab === 'transfers' && (
+        <StatsGrid>
+          <StatCard label="Total Requests" value={transferStats.total} icon={<ArrowRightLeft size={20} />} color="blue" />
+          <StatCard label="Pending" value={transferStats.pending} icon={<RefreshCw size={20} />} color="red" />
+          <StatCard label="Approved" value={transferStats.approved} icon={<UserCheck size={20} />} color="green" />
+          <StatCard label="Rejected" value={transferStats.rejected} icon={<UserX size={20} />} color="purple" />
         </StatsGrid>
       )}
 
@@ -875,6 +1127,142 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         </div>
       )}
 
+      {/* ── Student Transfer Decision Modal ── */}
+      {showTransferForm && transferStudent && (
+        <div className="modal-overlay" onClick={closeTransferModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Student Transfer Decision</h2>
+            {transferError && <div className="form-error">{transferError}</div>}
+
+            <div className="form-group">
+              <label>Student</label>
+              <input type="text" value={studentNameDisplay(transferStudent)} readOnly />
+            </div>
+
+            <div className="form-group">
+              <label>Decision *</label>
+              <select
+                value={transferForm.decision}
+                onChange={(e) => setTransferForm({ ...transferForm, decision: e.target.value })}
+              >
+                <option value="PENDING">Pending</option>
+                <option value="APPROVED">Approve Transfer</option>
+                <option value="REJECTED">Reject Transfer</option>
+              </select>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Transfer Date</label>
+                <input
+                  type="date"
+                  value={transferForm.transfer_date}
+                  onChange={(e) => setTransferForm({ ...transferForm, transfer_date: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Reference Number</label>
+                <input
+                  type="text"
+                  value={transferForm.transfer_reference_number}
+                  onChange={(e) => setTransferForm({ ...transferForm, transfer_reference_number: e.target.value })}
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Destination School Name</label>
+              <input
+                type="text"
+                value={transferForm.destination_school_name}
+                onChange={(e) => setTransferForm({ ...transferForm, destination_school_name: e.target.value })}
+              />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Destination Contact</label>
+                <input
+                  type="text"
+                  value={transferForm.destination_school_contact}
+                  onChange={(e) => setTransferForm({ ...transferForm, destination_school_contact: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Clearance File</label>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => setTransferForm({
+                    ...transferForm,
+                    transfer_clearance: e.target.files && e.target.files.length ? e.target.files[0] : null,
+                  })}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Destination School Address</label>
+              <input
+                type="text"
+                value={transferForm.destination_school_address}
+                onChange={(e) => setTransferForm({ ...transferForm, destination_school_address: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Transfer Reason</label>
+              <input
+                type="text"
+                value={transferForm.transfer_reason}
+                onChange={(e) => setTransferForm({ ...transferForm, transfer_reason: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Admin Notes</label>
+              <input
+                type="text"
+                value={transferForm.transfer_notes}
+                onChange={(e) => setTransferForm({ ...transferForm, transfer_notes: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group" style={{ marginTop: -8 }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={transferForm.allow_transfer_with_balance}
+                  onChange={(e) => setTransferForm({ ...transferForm, allow_transfer_with_balance: e.target.checked })}
+                />
+                Allow transfer even when outstanding balance exists
+              </label>
+            </div>
+
+            <div className="form-group" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
+              <label style={{ marginBottom: 10 }}>Request History / Audit</label>
+              <div style={{ fontSize: 13, color: '#334155', display: 'grid', gap: 6 }}>
+                <div><strong>Current Request Status:</strong> {normalizedTransferStatus(transferStudent.profile?.transfer_status)}</div>
+                <div><strong>Requested At:</strong> {formatDateTime(transferStudent.profile?.transfer_requested_at)}</div>
+                <div><strong>Approved At:</strong> {formatDateTime(transferStudent.profile?.transfer_approved_at)}</div>
+                <div><strong>Approved By (User ID):</strong> {transferStudent.profile?.transfer_approved_by || '—'}</div>
+                <div><strong>Recorded Reason:</strong> {transferStudent.profile?.transfer_reason || '—'}</div>
+                <div><strong>Recorded Destination:</strong> {transferStudent.profile?.destination_school_name || '—'}</div>
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button className="btn-secondary" onClick={closeTransferModal}>Cancel</button>
+              <button className="btn-secondary" onClick={printTransferClearance}>Print Clearance</button>
+              <button className="btn-primary" onClick={submitTransferDecision} disabled={savingTransfer}>
+                <FileUp size={16} /> {savingTransfer ? 'Saving…' : 'Save Decision'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search & Filter */}
       <div className="user-controls">
         <div className="search-box">
@@ -883,18 +1271,32 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
             type="text"
             placeholder={activeTab === 'students'
               ? 'Search students by name, parent, or email...'
-              : 'Search teachers by name, subject, or email...'}
+              : activeTab === 'transfers'
+                ? 'Search transfer requests by student, parent, destination, reason...'
+                : 'Search teachers by name, subject, or email...'}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <div className="filter-box">
           <Filter size={18} />
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="All">All Status</option>
-            <option value="Active">Active Only</option>
-            <option value="Inactive">Inactive Only</option>
-          </select>
+          {activeTab === 'transfers' ? (
+            <select value={transferDecisionFilter} onChange={(e) => setTransferDecisionFilter(e.target.value)}>
+              <option value="All">All Decisions</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          ) : (
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="All">All Status</option>
+              <option value="Active">Active Only</option>
+              <option value="Inactive">Inactive Only</option>
+              <option value="Suspended">Suspended Only</option>
+              <option value="Transferred">Transferred Only</option>
+              <option value="New">New Only</option>
+            </select>
+          )}
         </div>
       </div>
 
@@ -915,6 +1317,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                   <th>Parent / Guardian</th>
                   <th>Email</th>
                   <th>Contact</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -928,10 +1331,14 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                     <td>{parentNameDisplay(u)}</td>
                     <td><a href={`mailto:${u.email}`}>{u.email}</a></td>
                     <td>{contactDisplay(u)}</td>
+                    <td><span className={`user-status-badge ${normalizedStatus(u.status).toLowerCase()}`}>{normalizedStatus(u.status)}</span></td>
                     <td>
                       <div className="action-buttons">
                         <button className="btn-edit" onClick={() => openStudentEdit(u)} title="Edit Student">
                           <Edit2 size={16} />
+                        </button>
+                        <button className="btn-save" onClick={() => openTransferModal(u)} title="Transfer Workflow">
+                          <ArrowRightLeft size={16} />
                         </button>
                       </div>
                     </td>
@@ -1066,6 +1473,56 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
             </>
           ) : (
             <div className="no-results"><BookOpen size={48} /><p>No teachers found.</p></div>
+          )}
+        </div>
+      )}
+
+      {/* ── TRANSFER REQUESTS TABLE ── */}
+      {activeTab === 'transfers' && (
+        <div className="users-container">
+          {filteredTransferRequests.length > 0 ? (
+            <>
+              <div className="users-table-scroll-hint">← Swipe to scroll →</div>
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th>Student Name</th>
+                    <th>Parent / Guardian</th>
+                    <th>Grade</th>
+                    <th>Requested At</th>
+                    <th>Destination School</th>
+                    <th>Reason</th>
+                    <th>Decision</th>
+                    <th>Approved At</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedTransfers.map((u) => (
+                    <tr key={`transfer-${u.id}`}>
+                      <td><strong>{studentNameDisplay(u)}</strong></td>
+                      <td>{parentNameDisplay(u)}</td>
+                      <td>{studentGradeDisplay(u)}</td>
+                      <td>{formatDateTime(u.profile?.transfer_requested_at)}</td>
+                      <td>{u.profile?.destination_school_name || '—'}</td>
+                      <td>{u.profile?.transfer_reason || '—'}</td>
+                      <td><span className={`user-status-badge ${normalizedTransferStatus(u.profile?.transfer_status).toLowerCase()}`}>{normalizedTransferStatus(u.profile?.transfer_status)}</span></td>
+                      <td>{formatDateTime(u.profile?.transfer_approved_at)}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button className="btn-save" onClick={() => openTransferModal(u)} title="Review Transfer Request">
+                            <ArrowRightLeft size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <Pagination currentPage={transferPage} totalPages={transferTotalPages} onPageChange={setTransferPage} totalItems={filteredTransferRequests.length} itemsPerPage={ITEMS_PER_PAGE} />
+            </>
+          ) : (
+            <div className="no-results"><ArrowRightLeft size={48} /><p>No transfer requests found.</p></div>
           )}
         </div>
       )}

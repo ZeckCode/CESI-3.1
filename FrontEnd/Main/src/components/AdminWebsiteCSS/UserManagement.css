@@ -221,6 +221,22 @@
   transform: scale(1.05);
 }
 
+.btn-save {
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-save:hover {
+  background: #059669;
+  transform: scale(1.05);
+}
+
 .btn-delete {
   background: #ef4444;
   color: white;
@@ -512,6 +528,21 @@
 .user-status-badge.inactive {
   background: #fee2e2;
   color: #7f1d1d;
+}
+
+.user-status-badge.suspended {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.user-status-badge.transferred {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.user-status-badge.new {
+  background: #cffafe;
+  color: #155e75;
 }
 
 .user-status-badge.on\ leave {

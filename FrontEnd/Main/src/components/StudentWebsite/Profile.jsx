@@ -14,6 +14,8 @@ const UPDATE_ENDPOINTS = [
   "/api/accounts/me/update/",
 ];
 
+const TRANSFER_REQUEST_ENDPOINT = "/api/accounts/me/transfer-request/";
+
 const gradeLabelFromProfile = (raw) => {
   if (raw == null) return "—";
   const v = String(raw).trim();
@@ -150,6 +152,16 @@ const Profile = () => {
   const [editForm, setEditForm] = useState({});
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
+  const [requestingTransfer, setRequestingTransfer] = useState(false);
+  const [showTransferRequestForm, setShowTransferRequestForm] = useState(false);
+  const [transferRequestForm, setTransferRequestForm] = useState({
+    transfer_reason: "",
+    destination_school_name: "",
+    destination_school_address: "",
+    destination_school_contact: "",
+    transfer_reference_number: "",
+    transfer_notes: "",
+  });
   const fileInputRef = useRef(null);
 
   const loadProfile = async () => {
@@ -313,6 +325,51 @@ const Profile = () => {
     });
   };
 
+  const handleTransferRequestChange = (field, value) => {
+    setTransferRequestForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmitTransferRequest = async () => {
+    setRequestingTransfer(true);
+    setError("");
+    try {
+      const res = await fetchWithToken(TRANSFER_REQUEST_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(transferRequestForm),
+      });
+
+      const text = await res.text();
+      let json = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        json = { detail: text };
+      }
+
+      if (!res.ok) {
+        throw new Error(json?.detail || `Transfer request failed (${res.status}).`);
+      }
+
+      await loadProfile();
+      setShowTransferRequestForm(false);
+      setTransferRequestForm({
+        transfer_reason: "",
+        destination_school_name: "",
+        destination_school_address: "",
+        destination_school_contact: "",
+        transfer_reference_number: "",
+        transfer_notes: "",
+      });
+    } catch (e) {
+      setError(e.message || "Failed to submit transfer request.");
+    } finally {
+      setRequestingTransfer(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="profile-content">
@@ -338,6 +395,7 @@ const Profile = () => {
   }
 
   const displayAvatar = avatarPreview || studentData.avatar_url;
+  const transferStatus = String(data?.profile?.transfer_status || "NONE").toUpperCase();
 
   // Helper to get status-specific message
   const getStatusMessage = () => {
@@ -356,6 +414,9 @@ const Profile = () => {
 
   const statusMessage = getStatusMessage();
   const isDropped = String(studentData.status).toUpperCase() === 'DROPPED';
+  const transferPending = transferStatus === "PENDING";
+  const transferApproved = transferStatus === "APPROVED";
+  const canRequestTransfer = !transferPending && !transferApproved;
 
   return (
     <div className="profile-content">
@@ -367,6 +428,26 @@ const Profile = () => {
           <div>
             <strong>{formatEnrollmentStatus(studentData.status)} Status</strong>
             <p>{statusMessage}</p>
+          </div>
+        </div>
+      )}
+
+      {transferPending && (
+        <div className="status-alert status-alert-pending">
+          <AlertCircle size={20} style={{ marginRight: "12px" }} />
+          <div>
+            <strong>Transfer Request Pending</strong>
+            <p>Your request is submitted and waiting for admin approval.</p>
+          </div>
+        </div>
+      )}
+
+      {transferApproved && (
+        <div className="status-alert status-alert-completed">
+          <AlertCircle size={20} style={{ marginRight: "12px" }} />
+          <div>
+            <strong>Transfer Approved</strong>
+            <p>Your transfer request has been approved by the admin.</p>
           </div>
         </div>
       )}
@@ -453,6 +534,87 @@ const Profile = () => {
           </div>
         </div>
       </div>
+
+      <section className="details-card" style={{ marginBottom: "1.5rem" }}>
+        <div className="details-header">
+          <i className="bi bi-send me-2"></i>
+          Transfer Request
+        </div>
+        <div className="details-body">
+          {!showTransferRequestForm ? (
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+              <div>
+                <div className="entry-label">Current transfer status</div>
+                <div className="entry-value">{transferStatus}</div>
+                <div className="entry-label" style={{ marginTop: "6px" }}>
+                  Note: Request is blocked once 2nd quarter grades exist.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="edit-profile-btn"
+                onClick={() => setShowTransferRequestForm(true)}
+                disabled={!canRequestTransfer}
+              >
+                Request Transfer
+              </button>
+            </div>
+          ) : (
+            <>
+              <EditRow
+                label="Reason for Transfer *"
+                value={transferRequestForm.transfer_reason}
+                onChange={(v) => handleTransferRequestChange("transfer_reason", v)}
+              />
+              <EditRow
+                label="Destination School Name *"
+                value={transferRequestForm.destination_school_name}
+                onChange={(v) => handleTransferRequestChange("destination_school_name", v)}
+              />
+              <EditRow
+                label="Destination School Address"
+                value={transferRequestForm.destination_school_address}
+                onChange={(v) => handleTransferRequestChange("destination_school_address", v)}
+              />
+              <EditRow
+                label="Destination School Contact"
+                value={transferRequestForm.destination_school_contact}
+                onChange={(v) => handleTransferRequestChange("destination_school_contact", v)}
+              />
+              <EditRow
+                label="Reference Number"
+                value={transferRequestForm.transfer_reference_number}
+                onChange={(v) => handleTransferRequestChange("transfer_reference_number", v)}
+              />
+              <EditRow
+                label="Additional Notes"
+                value={transferRequestForm.transfer_notes}
+                onChange={(v) => handleTransferRequestChange("transfer_notes", v)}
+                textarea
+                isLast
+              />
+              <div className="header-actions" style={{ marginTop: "12px" }}>
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={() => setShowTransferRequestForm(false)}
+                  disabled={requestingTransfer}
+                >
+                  <X size={16} /> Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-save"
+                  onClick={handleSubmitTransferRequest}
+                  disabled={requestingTransfer}
+                >
+                  <Check size={16} /> {requestingTransfer ? "Submitting..." : "Submit Request"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
 
       <div className="profile-details-grid">
         <section className="details-card">
