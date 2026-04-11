@@ -369,22 +369,28 @@ const Notebook = ({ onClose, openEnrollment }) => {
                 href="https://www.facebook.com/cesicaloocan"
                 target="_blank"
                 rel="noopener noreferrer"
+                className="link-btn"
+                style={{ display: 'block', width: '100%', boxSizing: 'border-box' }}
               >
-                <button className="link-btn">🔔 Facebook</button>
+                🔔 Facebook
               </a>
               <a
                 href="../../../public/CESI-CAL-SY2526.pdf"
                 target="_blank"
                 rel="noopener noreferrer"
+                className="link-btn"
+                style={{ display: 'block', width: '100%', boxSizing: 'border-box' }}
               >
-                <button className="link-btn">📅 School Calendar</button>
+                📅 School Calendar
               </a>
               <a
                 href="../../../public/CESI-TF-SY2425.pdf"
                 target="_blank"
                 rel="noopener noreferrer"
+                className="link-btn"
+                style={{ display: 'block', width: '100%', boxSizing: 'border-box' }}
               >
-                <button className="link-btn">📚 Tuition Fees</button>
+                📚 Tuition Fees
               </a>
             </div>
           </div>

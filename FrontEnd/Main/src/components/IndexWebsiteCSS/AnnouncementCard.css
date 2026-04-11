@@ -292,3 +292,421 @@
   color: #334155;
   white-space: pre-wrap;
 }
+
+/* ============================================
+   ENHANCED RESPONSIVE RULES FOR ANNOUNCEMENTS
+   ============================================ */
+
+/* Tablet (1024px and below) */
+@media (max-width: 1024px) {
+  .ann-card--row {
+    grid-template-columns: 200px 1fr;
+    gap: 16px;
+  }
+
+  .ann-thumb {
+    width: 200px;
+    height: 140px;
+  }
+
+  .ann-modal {
+    max-width: 90vw;
+    padding: 24px;
+  }
+
+  .ann-modal-content {
+    font-size: 14px;
+  }
+}
+
+/* Medium tablet (768px and below) */
+@media (max-width: 768px) {
+  .announcements-container {
+    gap: 16px;
+  }
+
+  .ann-card {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .ann-card--row {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    align-items: center;
+  }
+
+  .ann-thumb {
+    width: 100%;
+    height: 160px;
+    border-radius: 12px;
+  }
+
+  .ann-title {
+    font-size: 16px;
+  }
+
+  .ann-meta {
+    font-size: 11px;
+    padding: 5px 10px;
+    gap: 8px;
+  }
+
+  .ann-role {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  .ann-desc {
+    font-size: 13px;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+
+  .ann-expand-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  /* Modal adjustments */
+  .ann-modal-overlay {
+    padding: 20px;
+  }
+
+  .ann-modal {
+    max-width: 95vw;
+    max-height: 88vh;
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  .ann-modal-close {
+    font-size: 20px;
+    top: 14px;
+    right: 14px;
+  }
+
+  .ann-modal-image {
+    margin-bottom: 16px;
+    border-radius: 12px;
+    max-height: 400px;
+  }
+
+  .ann-modal-title {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+
+  .ann-modal-meta {
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+
+  .ann-modal-content {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+}
+
+/* Small tablet (600px and below) */
+@media (max-width: 600px) {
+  .announcements-container {
+    gap: 12px;
+  }
+
+  .ann-card {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .ann-card--row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .ann-thumb {
+    width: 100%;
+    height: 140px;
+    border-radius: 10px;
+  }
+
+  .ann-title {
+    font-size: 14px;
+  }
+
+  .ann-meta {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+
+  .ann-desc {
+    font-size: 12px;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .ann-expand-btn {
+    font-size: 11px;
+  }
+
+  .ann-modal {
+    max-width: 100%;
+    max-height: 85vh;
+    padding: 16px;
+  }
+
+  .ann-modal-title {
+    font-size: 16px;
+  }
+
+  .ann-modal-meta {
+    font-size: 11px;
+  }
+
+  .ann-modal-image {
+    max-height: 300px;
+  }
+}
+
+/* Mobile (480px and below) */
+@media (max-width: 480px) {
+  .announcements-container {
+    gap: 10px;
+  }
+
+  .ann-card {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #e8eef7;
+  }
+
+  .ann-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px -12px rgba(0, 0, 0, 0.12);
+  }
+
+  .ann-card--row {
+    gap: 8px;
+  }
+
+  .ann-card--noimg {
+    padding: 10px;
+  }
+
+  .ann-thumb {
+    width: 100%;
+    height: 120px;
+    border-radius: 8px;
+  }
+
+  .ann-thumb:hover {
+    filter: brightness(1.02);
+  }
+
+  .ann-right {
+    gap: 8px;
+  }
+
+  .ann-top {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .ann-title {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .ann-meta {
+    font-size: 9px;
+    padding: 3px 6px;
+    gap: 6px;
+    flex-wrap: wrap;
+    background: #f8fafc;
+    border-radius: 6px;
+  }
+
+  .ann-role {
+    font-size: 8px;
+    padding: 2px 5px;
+    border-radius: 4px;
+  }
+
+  .ann-desc {
+    font-size: 11px;
+    line-height: 1.4;
+    margin: 0;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .ann-desc.expanded {
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    -webkit-box-orient: unset;
+  }
+
+  .ann-expand-btn {
+    font-size: 10px;
+    padding: 4px 8px;
+    margin-top: 4px;
+    background: #fafbfc;
+    border: 1px solid #e2e8f0;
+  }
+
+  /* Modal */
+  .ann-modal-overlay {
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.8);
+  }
+
+  .ann-modal {
+    max-width: 100%;
+    width: calc(100% - 16px);
+    max-height: 90vh;
+    padding: 14px;
+    border-radius: 12px;
+    overflow-y: auto;
+  }
+
+  .ann-modal-close {
+    font-size: 18px;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+
+  .ann-modal-image {
+    margin-bottom: 12px;
+    border-radius: 8px;
+    max-height: 250px;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  .ann-modal-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 6px 0;
+    line-height: 1.3;
+  }
+
+  .ann-modal-meta {
+    font-size: 10px;
+    margin-bottom: 10px;
+    color: #666;
+  }
+
+  .ann-modal-content {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #333;
+  }
+
+  /* Image zoom overlay */
+  .image-overlay {
+    padding: 10px;
+  }
+
+  .zoomed-image {
+    max-width: 100vw;
+    max-height: 85vh;
+    border-radius: 8px;
+  }
+
+  .image-overlay .close-btn {
+    font-size: 24px;
+    top: 8px;
+    right: 8px;
+  }
+}
+
+/* Extra small phones (360px and below) */
+@media (max-width: 360px) {
+  .announcements-container {
+    gap: 8px;
+  }
+
+  .ann-card {
+    padding: 8px;
+    border-radius: 6px;
+  }
+
+  .ann-card:hover {
+    transform: translateY(0);
+  }
+
+  .ann-thumb {
+    width: 100%;
+    height: 100px;
+    border-radius: 6px;
+  }
+
+  .ann-title {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .ann-meta {
+    font-size: 8px;
+    padding: 2px 4px;
+    gap: 4px;
+  }
+
+  .ann-role {
+    font-size: 7px;
+    padding: 1px 4px;
+  }
+
+  .ann-desc {
+    font-size: 10px;
+    line-height: 1.3;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+
+  .ann-expand-btn {
+    font-size: 9px;
+    padding: 3px 6px;
+  }
+
+  .ann-modal {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .ann-modal-title {
+    font-size: 13px;
+  }
+
+  .ann-modal-meta {
+    font-size: 9px;
+  }
+
+  .ann-modal-image {
+    max-height: 200px;
+    margin-bottom: 10px;
+  }
+
+  .ann-modal-content {
+    font-size: 11px;
+  }
+
+  .ann-modal-close {
+    font-size: 16px;
+    width: 24px;
+    height: 24px;
+  }
+
+  .image-overlay .close-btn {
+    font-size: 20px;
+  }
+}
