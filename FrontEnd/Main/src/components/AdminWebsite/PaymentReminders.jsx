@@ -22,8 +22,6 @@ const PaymentReminders = () => {
   const [sendingId, setSendingId] = useState(null);
   const [sendingBulk, setSendingBulk] = useState(false);
   const [toasts, setToasts] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
 
   const addToast = useCallback((title, message, type = "warning") => {
     const id = Date.now() + Math.random();
@@ -58,11 +56,6 @@ const PaymentReminders = () => {
     loadReminders();
   }, []);
 
-  // Reset to page 1 when search or filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, filterStatus]);
-
   const filteredReminders = useMemo(() => {
     return reminders.filter((r) => {
       const text = searchTerm.toLowerCase();
@@ -86,46 +79,6 @@ const PaymentReminders = () => {
 
   const pendingCount = reminders.filter((r) => !r.is_read).length;
   const remindedCount = reminders.filter((r) => r.is_read).length;
-
-  // Pagination logic
-  const totalPages = Math.ceil(filteredReminders.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedReminders = filteredReminders.slice(startIndex, endIndex);
-
-  // Generate page numbers with ellipsis for many pages
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxPagesToShow = 5;
-    const halfRange = Math.floor(maxPagesToShow / 2);
-    
-    let startPage = Math.max(1, currentPage - halfRange);
-    let endPage = Math.min(totalPages, currentPage + halfRange);
-    
-    // Adjust range if near start or end
-    if (currentPage <= halfRange) {
-      endPage = Math.min(totalPages, maxPagesToShow);
-    }
-    if (currentPage > totalPages - halfRange) {
-      startPage = Math.max(1, totalPages - maxPagesToShow + 1);
-    }
-
-    if (startPage > 1) {
-      pages.push(1);
-      if (startPage > 2) pages.push('...');
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i);
-    }
-
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) pages.push('...');
-      pages.push(totalPages);
-    }
-
-    return pages;
-  };
 
   const sendReminder = async (transactionId) => {
     if (!transactionId) {
@@ -279,8 +232,8 @@ const PaymentReminders = () => {
                     <p>Loading reminders...</p>
                   </td>
                 </tr>
-              ) : paginatedReminders.length > 0 ? (
-                paginatedReminders.map((r) => (
+              ) : filteredReminders.length > 0 ? (
+                filteredReminders.map((r) => (
                   <tr
                     key={r.id}
                     className={hoveredRow === r.id ? "pr-row-hover" : ""}
@@ -344,54 +297,6 @@ const PaymentReminders = () => {
             </tbody>
           </table>
         </div>
-
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="pr-pagination-container">
-            <div className="pr-pagination-info">
-              Showing {startIndex + 1} to {Math.min(endIndex, filteredReminders.length)} of {filteredReminders.length} reminders
-            </div>
-            <div className="pr-pagination-controls">
-              <button
-                className="pr-pagination-btn"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                title="Go to previous page"
-              >
-                ← Previous
-              </button>
-
-              <div className="pr-pagination-numbers">
-                {getPageNumbers().map((page, idx) => (
-                  page === '...' ? (
-                    <span key={`ellipsis-${idx}`} className="pr-pagination-ellipsis">...</span>
-                  ) : (
-                    <button
-                      key={page}
-                      className={`pr-pagination-number ${currentPage === page ? 'pr-pagination-active' : ''}`}
-                      onClick={() => setCurrentPage(page)}
-                      title={`Go to page ${page}`}
-                    >
-                      {page}
-                    </button>
-                  )
-                ))}
-              </div>
-
-              <button
-                className="pr-pagination-btn"
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                title="Go to next page"
-              >
-                Next →
-              </button>
-            </div>
-            <div className="pr-pagination-page-indicator">
-              Page {currentPage} of {totalPages}
-            </div>
-          </div>
-        )}
       </section>
       <Toast toasts={toasts} dismissToast={dismissToast} />
     </main>

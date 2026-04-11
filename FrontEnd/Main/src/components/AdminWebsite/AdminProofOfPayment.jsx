@@ -54,8 +54,6 @@ export default function AdminProofOfPayment() {
   const [showModal, setShowModal] = useState(false);
   const [actionType, setActionType] = useState("");
   const [imageOverlay, setImageOverlay] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     fetchPayments();
@@ -193,65 +191,6 @@ export default function AdminProofOfPayment() {
     setImageOverlay(null);
   };
 
-  // Pagination calculations
-  const totalPages = Math.ceil(payments.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedPayments = payments.slice(startIndex, endIndex);
-
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
-
-  const handleItemsPerPageChange = (e) => {
-    setItemsPerPage(parseInt(e.target.value, 10));
-    setCurrentPage(1);
-  };
-
-  const getPaginationNumbers = () => {
-    const maxButtons = 5;
-    const pages = [];
-
-    if (totalPages <= maxButtons) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      pages.push(1);
-
-      let startPage = Math.max(2, currentPage - 1);
-      let endPage = Math.min(totalPages - 1, currentPage + 1);
-
-      if (startPage > 2) {
-        pages.push("...");
-      }
-
-      for (let i = startPage; i <= endPage; i++) {
-        pages.push(i);
-      }
-
-      if (endPage < totalPages - 1) {
-        pages.push("...");
-      }
-
-      pages.push(totalPages);
-    }
-
-    return pages;
-  };
-
   return (
     <div className="admin-proof-wrapper">
       <div className="admin-proof-content">
@@ -282,7 +221,7 @@ export default function AdminProofOfPayment() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedPayments.map((payment) => (
+                  {payments.map((payment) => (
                     <tr key={payment.id}>
                     <td data-label="Reference Number">{payment.reference_number}</td>
                     <td data-label="Student">
@@ -376,70 +315,6 @@ export default function AdminProofOfPayment() {
               </tbody>
             </table>
             </div>
-
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="admin-proof-pagination-container">
-                <div className="admin-proof-pagination-info">
-                  Showing {startIndex + 1}-{Math.min(endIndex, payments.length)} of {payments.length} records
-                </div>
-
-                <div className="admin-proof-pagination-controls">
-                  <button
-                    className="admin-proof-pagination-btn"
-                    onClick={handlePreviousPage}
-                    disabled={currentPage === 1}
-                  >
-                    ← Previous
-                  </button>
-
-                  <div className="admin-proof-pagination-numbers">
-                    {getPaginationNumbers().map((page, index) => (
-                      page === "..." ? (
-                        <span key={`ellipsis-${index}`} className="admin-proof-pagination-ellipsis">
-                          ...
-                        </span>
-                      ) : (
-                        <button
-                          key={page}
-                          className={`admin-proof-pagination-number ${
-                            page === currentPage
-                              ? "admin-proof-pagination-active"
-                              : ""
-                          }`}
-                          onClick={() => handlePageChange(page)}
-                        >
-                          {page}
-                        </button>
-                      )
-                    ))}
-                  </div>
-
-                  <button
-                    className="admin-proof-pagination-btn"
-                    onClick={handleNextPage}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next →
-                  </button>
-                </div>
-
-                <div className="admin-proof-pagination-items-per-page">
-                  <label htmlFor="items-per-page">Items per page:</label>
-                  <select
-                    id="items-per-page"
-                    className="admin-proof-pagination-select"
-                    value={itemsPerPage}
-                    onChange={handleItemsPerPageChange}
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                  </select>
-                </div>
-              </div>
-            )}
           </div>
         )}
 

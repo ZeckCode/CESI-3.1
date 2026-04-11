@@ -75,16 +75,6 @@ const getResponsiveIconSize = () => {
   return 12;
 };
 
-// Helper function for responsive stat card icon sizes
-const getStatCardIconSize = () => {
-  if (typeof window === 'undefined') return 20;
-  const width = window.innerWidth;
-  if (width <= 375) return 14;
-  if (width <= 480) return 16;
-  if (width <= 768) return 18;
-  return 20;
-};
-
 const RELIGION_OPTIONS = [
   "Roman Catholic",
   "Christian",
@@ -147,7 +137,6 @@ export default function EnrollmentManagement() {
   const [toasts, setToasts] = useState([]);
   const [enrollmentPreviewOpen, setEnrollmentPreviewOpen] = useState(false);
   const [enrollmentPreviewData, setEnrollmentPreviewData] = useState([]);
-  const [statCardIconSize, setStatCardIconSize] = useState(getStatCardIconSize());
 
   const [docUploadFile, setDocUploadFile] = useState(null);
   const [docUploadType, setDocUploadType] = useState("other");
@@ -288,15 +277,6 @@ export default function EnrollmentManagement() {
     fetchProofs();
 
   }, [fetchSettings, fetchSections, fetchProofs, fetchEnrollments]);
-
-  // Handle responsive icon size for stat cards on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      setStatCardIconSize(getStatCardIconSize());
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const callAction = async (id, actionName, payload = null) => {
     const res = await apiFetch(`/api/enrollments/${id}/${actionName}/`, {
@@ -1706,17 +1686,17 @@ const openIdGenerator = (row) => {
       <div className="enrollment-stats-section">
         <div className="enrollment-stats-header">
           <div className="enrollment-stats-title">Enrollment Overview</div>
-          <div className="header-actions">
-            <button className="btn-primary" onClick={openCreateModal}>
+          <div className="header-actions enrollment-header-actions">
+            <button className="btn-primary enrollment-btn-primary" onClick={openCreateModal}>
               + Add Enrollee
             </button>
 
-            <button className="btn-icon" onClick={fetchEnrollments} title="Refresh">
+            <button className="btn-icon enrollment-btn-icon" onClick={fetchEnrollments} title="Refresh">
               <RefreshCw size={16} />
             </button>
 
             <button
-              className="btn-icon"
+              className="btn-icon enrollment-btn-icon"
               onClick={handleEnrollmentPreview}
               title="View and Export Enrollment Data"
             >
@@ -1724,7 +1704,7 @@ const openIdGenerator = (row) => {
             </button>
 
             <button
-              className={`btn-icon ${settingsOpen ? "btn-icon--active" : ""}`}
+              className={`btn-icon enrollment-btn-icon ${settingsOpen ? "btn-icon--active enrollment-btn-icon--active" : ""}`}
               onClick={() => setSettingsOpen((v) => !v)}
               title="School Year Settings"
             >
@@ -1737,14 +1717,14 @@ const openIdGenerator = (row) => {
           <StatCard
             label="Total"
             value={stats.total}
-            icon={<Users size={statCardIconSize} />}
+            icon={<Users size={20} />}
             color="blue"
             subtitle="All enrollees"
           />
           <StatCard
             label="Enrolled"
             value={stats.active}
-            icon={<UserCheck size={statCardIconSize} />}
+            icon={<UserCheck size={20} />}
             color="green"
             subtitle={
               stats.total
@@ -1756,7 +1736,7 @@ const openIdGenerator = (row) => {
           <StatCard
             label="Pending"
             value={stats.pending}
-            icon={<Clock size={statCardIconSize} />}
+            icon={<Clock size={20} />}
             color="yellow"
             subtitle={
               stats.total
@@ -1767,7 +1747,7 @@ const openIdGenerator = (row) => {
           <StatCard
             label="Declined"
             value={stats.dropped}
-            icon={<UserMinus size={statCardIconSize} />}
+            icon={<UserMinus size={20} />}
             color="red"
             subtitle={
               stats.total
@@ -1780,7 +1760,7 @@ const openIdGenerator = (row) => {
           <StatCard
             label="Enrollment"
             value={window_.isOpen ? `Open · ${window_.daysLeft}d left` : "Closed"}
-            icon={<Calendar size={statCardIconSize} />}
+            icon={<Calendar size={20} />}
             color={window_.isOpen ? "teal" : "red"}
             subtitle={window_.isOpen ? "Accepting enrollees" : "Window closed"}
           />
@@ -1790,47 +1770,32 @@ const openIdGenerator = (row) => {
       {settingsOpen && (
         <div className="settings-panel">
           <div className="settings-panel__header">
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Calendar size={16} style={{ color: "#4f6ef7" }} />
-              <span style={{ fontWeight: 700, fontSize: 14 }}>
+            <div className="settings-panel__title-row">
+              <Calendar size={16} className="settings-panel__title-icon" />
+              <span className="settings-panel__title-text">
                 Enrollment Window & School Year
               </span>
             </div>
 
             <button
               onClick={() => setSettingsOpen(false)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#6b7280",
-                display: "flex",
-              }}
+              className="settings-panel__close-btn"
             >
               <XCircle size={16} />
             </button>
           </div>
 
           {settingsLoading ? (
-            <div
-              style={{
-                padding: "20px",
-                textAlign: "center",
-                color: "#6b7280",
-                fontSize: 13,
-              }}
-            >
+            <div className="settings-panel__loading">
               Loading settings…
             </div>
           ) : (
             <>
               <div className="settings-panel__status">
                 <div
-                  className="settings-panel__status-badge"
-                  style={{
-                    background: window_.isOpen ? "#d1fae5" : "#fee2e2",
-                    color: window_.isOpen ? "#065f46" : "#7f1d1d",
-                  }}
+                  className={`settings-panel__status-badge ${
+                    window_.isOpen ? "settings-panel__status-badge--open" : "settings-panel__status-badge--closed"
+                  }`}
                 >
                   {window_.isOpen ? <CheckCircle size={13} /> : <XCircle size={13} />}
                   {window_.isOpen
@@ -1840,7 +1805,7 @@ const openIdGenerator = (row) => {
                     : "Closed"}
                 </div>
 
-                <div style={{ fontSize: 12, color: "#6b7280" }}>
+                <div className="settings-panel__status-text">
                   {fmtDate(window_.openDate)} → {fmtDate(window_.closeDate)} · AY{" "}
                   <strong>{window_.academicYear}</strong>
                 </div>
@@ -1886,15 +1851,7 @@ const openIdGenerator = (row) => {
                   {draft.open_date && (
                     <button
                       onClick={() => setDraft((p) => ({ ...p, open_date: "" }))}
-                      style={{
-                        fontSize: 11,
-                        color: "#6b7280",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        marginTop: 4,
-                        textDecoration: "underline",
-                      }}
+                      className="settings-panel__clear-btn"
                     >
                       Clear (use auto)
                     </button>
@@ -1909,26 +1866,25 @@ const openIdGenerator = (row) => {
                     </span>
                   </label>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div className="settings-panel__days-row">
                     <input
                       type="number"
                       min={1}
                       max={60}
-                      className="settings-panel__input"
-                      style={{ width: 80 }}
+                      className="settings-panel__input settings-panel__days-input"
                       value={draft.window_days}
                       onChange={(e) =>
                         setDraft((p) => ({ ...p, window_days: e.target.value }))
                       }
                     />
-                    <span style={{ fontSize: 13, color: "#6b7280" }}>days</span>
+                    <span className="settings-panel__days-text">days</span>
                   </div>
                 </div>
               </div>
 
               <div className="settings-panel__actions">
                 <button
-                  className="btn-primary"
+                  className="btn-primary enrollment-btn-primary"
                   onClick={handleSaveSettings}
                   disabled={settingsSaving}
                 >
@@ -1942,7 +1898,7 @@ const openIdGenerator = (row) => {
                 </button>
 
                 <button
-                  className="btn-secondary"
+                  className="btn-secondary enrollment-btn-secondary"
                   onClick={handleResetSettings}
                   disabled={settingsSaving}
                 >
@@ -1955,7 +1911,7 @@ const openIdGenerator = (row) => {
       )}
 
       <div className="enrollment-controls">
-        <div className="search-box">
+        <div className="search-box enrollment-search-box">
           <Search size={16} />
           <input
             type="text"
@@ -1965,7 +1921,7 @@ const openIdGenerator = (row) => {
           />
         </div>
 
-        <div className="filter-box">
+        <div className="filter-box enrollment-filter-box">
           <Filter size={16} />
           <select
             value={filterStatus}
@@ -1979,7 +1935,7 @@ const openIdGenerator = (row) => {
           </select>
         </div>
 
-        <div className="filter-box">
+        <div className="filter-box enrollment-filter-box">
           <Filter size={16} />
           <select
             value={filterPromotionStatus}
@@ -1995,7 +1951,7 @@ const openIdGenerator = (row) => {
 
         <button
           type="button"
-          className="filter-reset-btn"
+          className="filter-reset-btn enrollment-filter-reset-btn"
           onClick={() => {
             setSearchTerm("");
             setFilterStatus("All");
@@ -2008,11 +1964,11 @@ const openIdGenerator = (row) => {
       </div>
 
       <div className="enrollment-quick-filters">
-        <div className="quick-filter-group">
-          <span className="quick-filter-label">Status:</span>
+        <div className="quick-filter-group enrollment-quick-filter-group">
+          <span className="quick-filter-label enrollment-quick-filter-label">Status:</span>
           <button
             type="button"
-            className={`quick-filter-chip ${filterStatus === "All" ? "active" : ""}`}
+            className={`quick-filter-chip enrollment-quick-filter-chip ${filterStatus === "All" ? "active" : ""}`}
             onClick={() => setFilterStatus("All")}
           >
             All
@@ -2021,7 +1977,7 @@ const openIdGenerator = (row) => {
             <button
               key={option.value}
               type="button"
-              className={`quick-filter-chip ${filterStatus === option.value ? "active" : ""}`}
+              className={`quick-filter-chip enrollment-quick-filter-chip ${filterStatus === option.value ? "active" : ""}`}
               onClick={() => setFilterStatus(option.value)}
             >
               {option.label}
@@ -2029,11 +1985,11 @@ const openIdGenerator = (row) => {
           ))}
         </div>
 
-        <div className="quick-filter-group">
-          <span className="quick-filter-label">Promotion:</span>
+        <div className="quick-filter-group enrollment-quick-filter-group">
+          <span className="quick-filter-label enrollment-quick-filter-label">Promotion:</span>
           <button
             type="button"
-            className={`quick-filter-chip ${filterPromotionStatus === "All" ? "active" : ""}`}
+            className={`quick-filter-chip enrollment-quick-filter-chip ${filterPromotionStatus === "All" ? "active" : ""}`}
             onClick={() => setFilterPromotionStatus("All")}
           >
             All
@@ -2042,7 +1998,7 @@ const openIdGenerator = (row) => {
             <button
               key={option.value}
               type="button"
-              className={`quick-filter-chip ${filterPromotionStatus === option.value ? "active" : ""}`}
+              className={`quick-filter-chip enrollment-quick-filter-chip ${filterPromotionStatus === option.value ? "active" : ""}`}
               onClick={() => setFilterPromotionStatus(option.value)}
             >
               {option.label}
@@ -2053,13 +2009,13 @@ const openIdGenerator = (row) => {
 
       <div className="enrollments-container">
         {loading ? (
-          <div className="no-results">Loading…</div>
+          <div className="no-results enrollment-no-results">Loading…</div>
         ) : filteredEnrollments.length === 0 ? (
-          <div className="no-results">
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+          <div className="no-results enrollment-no-results">
+            <div className="enrollment-no-results__title">
               No enrollment records found
             </div>
-            <div style={{ fontSize: 13, color: "#94a3b8" }}>
+            <div className="enrollment-no-results__subtitle">
               Try changing the search keyword or status filter.
             </div>
           </div>
@@ -2133,7 +2089,7 @@ const openIdGenerator = (row) => {
                         {row.statusCode === "PENDING" ? (
                           <div className="approve-decline-group">
                             <button
-                              className="btn-approve table-btn-approve"
+                              className="btn-approve enrollment-btn-approve table-btn-approve"
                               onClick={() => openApproveDialog(row)}
                               title="Approve"
                               aria-label="Approve"
@@ -2141,7 +2097,7 @@ const openIdGenerator = (row) => {
                               <CheckCircle size={getResponsiveIconSize()} />
                             </button>
                             <button
-                              className="btn-decline table-btn-decline"
+                              className="btn-decline enrollment-btn-decline table-btn-decline"
                               onClick={() => handleDecline(row.id)}
                               title="Decline"
                               aria-label="Decline"
@@ -2162,14 +2118,14 @@ const openIdGenerator = (row) => {
                             <CheckCircle size={getResponsiveIconSize()} /> Completed
                           </span>
                         ) : (
-                          <span style={{ opacity: 0.4 }}>—</span>
+                          <span className="table-inline-status--muted">—</span>
                         )}
                       </div>
                     </td>
 
                     <td>
                       <div className="table-row-content table-row-content--actions">
-                        <div className="action-buttons" style={{ justifyContent: "flex-start" }}>
+                        <div className="action-buttons enrollment-action-buttons action-buttons--start">
                           <TableActionMenu
                             row={row}
                             gradeLabel={gradeLabel}
@@ -2274,48 +2230,15 @@ const openIdGenerator = (row) => {
 
       {/* Payment Proof Modal */}
       {paymentProofModalOpen && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "rgba(0, 0, 0, 0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
-        }} onClick={() => setPaymentProofModalOpen(false)}>
-          <div style={{
-            background: "#fff",
-            borderRadius: 8,
-            boxShadow: "0 10px 40px rgba(0, 0, 0, 0.2)",
-            maxWidth: 600,
-            width: "90%",
-            maxHeight: "80vh",
-            overflow: "auto",
-            padding: 24,
-          }} onClick={(e) => e.stopPropagation()}>
-            <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 20,
-              borderBottom: "1px solid #e2e8f0",
-              paddingBottom: 16,
-            }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#1e293b" }}>
+        <div className="payment-proof-overlay" onClick={() => setPaymentProofModalOpen(false)}>
+          <div className="payment-proof-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="payment-proof-panel__header">
+              <h3 className="payment-proof-panel__title">
                 Review Payment Proof
               </h3>
               <button
                 onClick={() => setPaymentProofModalOpen(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: 20,
-                  cursor: "pointer",
-                  color: "#64748b",
-                }}
+                className="payment-proof-panel__close"
               >
                 ×
               </button>
@@ -2327,102 +2250,49 @@ const openIdGenerator = (row) => {
 
               return (
                 <div>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{
-                      display: "block",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#64748b",
-                      textTransform: "uppercase",
-                      marginBottom: 4,
-                    }}>
+                  <div className="payment-proof-panel__section">
+                    <label className="payment-proof-panel__label">
                       Student Name
                     </label>
-                    <div style={{ fontSize: 14, color: "#1e293b" }}>
+                    <div className="payment-proof-panel__value">
                       {proof.student_name || "N/A"}
                     </div>
                   </div>
 
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{
-                      display: "block",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#64748b",
-                      textTransform: "uppercase",
-                      marginBottom: 4,
-                    }}>
+                  <div className="payment-proof-panel__section">
+                    <label className="payment-proof-panel__label">
                       Reference Number
                     </label>
-                    <div style={{ fontSize: 14, color: "#1e293b" }}>
+                    <div className="payment-proof-panel__value">
                       {proof.reference_number}
                     </div>
                   </div>
 
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{
-                      display: "block",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#64748b",
-                      textTransform: "uppercase",
-                      marginBottom: 8,
-                    }}>
+                  <div className="payment-proof-panel__section">
+                    <label className="payment-proof-panel__label payment-proof-panel__image-label">
                       Payment Proof Image
                     </label>
                     {proof.proof_image_url ? (
                       <img
                         src={proof.proof_image_url}
                         alt="Payment proof"
-                        style={{
-                          width: "100%",
-                          maxHeight: 300,
-                          objectFit: "contain",
-                          borderRadius: 6,
-                          border: "1px solid #e2e8f0",
-                          cursor: "pointer",
-                        }}
+                        className="payment-proof-panel__image"
                         onClick={() => {
                           setImageViewerOpen(true);
                           setSelectedImageUrl(proof.proof_image_url);
                         }}
                       />
                     ) : (
-                      <div style={{
-                        width: "100%",
-                        height: 200,
-                        background: "#f1f5f9",
-                        borderRadius: 6,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#94a3b8",
-                      }}>
+                      <div className="payment-proof-panel__empty">
                         No image available
                       </div>
                     )}
                   </div>
 
-                  <div style={{
-                    display: "flex",
-                    gap: 12,
-                    marginTop: 24,
-                    borderTop: "1px solid #e2e8f0",
-                    paddingTop: 16,
-                  }}>
+                  <div className="payment-proof-panel__footer">
                     <button
                       onClick={() => setPaymentProofModalOpen(false)}
-                      style={{
-                        padding: "10px 16px",
-                        border: "1px solid #0ea5e9",
-                        background: "#e0f2fe",
-                        borderRadius: 4,
-                        fontSize: 13,
-                        fontWeight: 500,
-                        cursor: "pointer",
-                        color: "#0369a1",
-                        transition: "all 0.2s",
-                      }}
+                      className="payment-proof-panel__button"
                     >
                       Close
                     </button>
@@ -2436,46 +2306,17 @@ const openIdGenerator = (row) => {
 
       {/* Image Overlay - Place this OUTSIDE all modals */}
       {imageViewerOpen && selectedImageUrl && (
-        <div
-          onClick={() => setImageViewerOpen(false)}
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.9)",
-            zIndex: 10000, // Higher than modals
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-          }}
-        >
+        <div className="image-viewer-overlay" onClick={() => setImageViewerOpen(false)}>
           <button
             onClick={() => setImageViewerOpen(false)}
-            style={{
-              position: "absolute",
-              top: "20px",
-              right: "20px",
-              background: "none",
-              border: "none",
-              color: "white",
-              cursor: "pointer",
-              zIndex: 10001,
-            }}
+            className="image-viewer-overlay__close"
           >
             <XCircle size={32} />
           </button>
           <img
             src={selectedImageUrl}
             alt="Payment proof full view"
-            style={{
-              maxWidth: "90vw",
-              maxHeight: "90vh",
-              objectFit: "contain",
-              borderRadius: "8px",
-            }}
+            className="image-viewer-overlay__image"
             onClick={(e) => e.stopPropagation()}
           />
         </div>
@@ -2499,112 +2340,66 @@ const openIdGenerator = (row) => {
       />
 
        {approveDialogOpen && approveTargetRow && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15, 23, 42, 0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1100,
-            padding: 16,
-          }}
-          onClick={closeApproveDialog}
-        >
-          <div
-            style={{
-              background: "#fff",
-              width: "100%",
-              maxWidth: 760,
-              maxHeight: "90vh",
-              overflow: "auto",
-              borderRadius: 12,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
-              padding: 24,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 18,
-                borderBottom: "1px solid #e2e8f0",
-                paddingBottom: 12,
-              }}
-            >
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+        <div className="approve-enrollment-overlay" onClick={closeApproveDialog}>
+          <div className="approve-enrollment-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="approve-enrollment-panel__header">
+              <h3 className="approve-enrollment-panel__title">
                 Approve Enrollment
               </h3>
               <button
                 onClick={closeApproveDialog}
-                style={{
-                  border: "none",
-                  background: "none",
-                  fontSize: 22,
-                  cursor: "pointer",
-                  color: "#64748b",
-                }}
+                className="approve-enrollment-panel__close"
               >
                 ×
               </button>
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 16,
-                marginBottom: 20,
-              }}
-            >
+            <div className="approve-enrollment-panel__grid">
               <div>
-                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+                <div className="approve-enrollment-panel__meta-label">
                   Student
                 </div>
-                <div style={{ fontWeight: 600 }}>{approveTargetRow.studentName}</div>
+                <div className="approve-enrollment-panel__meta-value">{approveTargetRow.studentName}</div>
               </div>
 
               <div>
-                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+                <div className="approve-enrollment-panel__meta-label">
                   Enrollment ID
                 </div>
-                <div style={{ fontWeight: 600 }}>#{approveTargetRow.id}</div>
+                <div className="approve-enrollment-panel__meta-value">#{approveTargetRow.id}</div>
               </div>
 
               <div>
-                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+                <div className="approve-enrollment-panel__meta-label">
                   Grade Level
                 </div>
-                <div style={{ fontWeight: 600 }}>{approveTargetRow.gradeLevel}</div>
+                <div className="approve-enrollment-panel__meta-value">{approveTargetRow.gradeLevel}</div>
               </div>
 
               <div>
-                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+                <div className="approve-enrollment-panel__meta-label">
                   Academic Year
                 </div>
-                <div style={{ fontWeight: 600 }}>{approveTargetRow.academicYear || "—"}</div>
+                <div className="approve-enrollment-panel__meta-value">{approveTargetRow.academicYear || "—"}</div>
               </div>
 
               <div>
-                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+                <div className="approve-enrollment-panel__meta-label">
                   Payment Mode
                 </div>
-                <div style={{ fontWeight: 600 }}>{approveTargetRow.paymentMode || "—"}</div>
+                <div className="approve-enrollment-panel__meta-value">{approveTargetRow.paymentMode || "—"}</div>
               </div>
 
               <div>
-                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+                <div className="approve-enrollment-panel__meta-label">
                   Payment Method
                 </div>
-                <div style={{ fontWeight: 600 }}>{approveTargetRow.paymentMethod || "—"}</div>
+                <div className="approve-enrollment-panel__meta-value">{approveTargetRow.paymentMethod || "—"}</div>
               </div>
             </div>
 
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>
+            <div className="approve-enrollment-panel__section">
+              <div className="approve-enrollment-panel__section-title">
                 Proof of Payment
               </div>
 
@@ -2612,32 +2407,17 @@ const openIdGenerator = (row) => {
                 <img
                   src={approveTargetRow.paymentProof.proof_image_url}
                   alt="Proof of payment"
-                  style={{
-                    width: "100%",
-                    maxHeight: 320,
-                    objectFit: "contain",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: 8,
-                    background: "#f8fafc",
-                  }}
+                  className="approve-enrollment-panel__proof-image"
                 />
               ) : (
-                <div
-                  style={{
-                    padding: 24,
-                    border: "1px dashed #cbd5e1",
-                    borderRadius: 8,
-                    color: "#94a3b8",
-                    textAlign: "center",
-                  }}
-                >
+                <div className="approve-enrollment-panel__empty">
                   No payment proof image found.
                 </div>
               )}
             </div>
 
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+            <div className="approve-enrollment-panel__field">
+              <label className="approve-enrollment-panel__label">
                 Payment Amount
               </label>
               <input
@@ -2647,29 +2427,17 @@ const openIdGenerator = (row) => {
                 value={approveAmount}
                 onChange={(e) => setApproveAmount(e.target.value)}
                 placeholder="Enter approved payment amount"
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #cbd5e1",
-                  fontSize: 14,
-                }}
+                className="approve-enrollment-panel__input"
               />
             </div>
-              <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+              <div className="approve-enrollment-panel__field">
+              <label className="approve-enrollment-panel__label">
                 Payment Method
               </label>
               <select
                 value={approvePaymentMethod}
                 onChange={(e) => setApprovePaymentMethod(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #cbd5e1",
-                  fontSize: 14,
-                }}
+                className="approve-enrollment-panel__select"
               >
                 <option value="CASH">Cash</option>
                 <option value="GCASH">GCash</option>
@@ -2677,8 +2445,8 @@ const openIdGenerator = (row) => {
                 <option value="OTHER">Other</option>
               </select>
             </div>
-            <div style={{ marginBottom: 22 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+            <div className="approve-enrollment-panel__field">
+              <label className="approve-enrollment-panel__label">
                 Admin Remarks
               </label>
               <textarea
@@ -2686,42 +2454,21 @@ const openIdGenerator = (row) => {
                 value={approveRemarks}
                 onChange={(e) => setApproveRemarks(e.target.value)}
                 placeholder="Optional remarks..."
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #cbd5e1",
-                  fontSize: 14,
-                  resize: "vertical",
-                }}
+                className="approve-enrollment-panel__textarea"
               />
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <div className="approve-enrollment-panel__actions">
               <button
                 onClick={closeApproveDialog}
-                style={{
-                  padding: "10px 16px",
-                  borderRadius: 8,
-                  border: "1px solid #cbd5e1",
-                  background: "#fff",
-                  cursor: "pointer",
-                }}
+                className="approve-enrollment-panel__cancel"
               >
                 Cancel
               </button>
               <button
                 onClick={handleApproveConfirm}
                 disabled={approveSubmitting}
-                style={{
-                  padding: "10px 16px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: "#16a34a",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                }}
+                className="approve-enrollment-panel__submit"
               >
                 {approveSubmitting ? "Approving..." : "Approve Enrollment"}
               </button>

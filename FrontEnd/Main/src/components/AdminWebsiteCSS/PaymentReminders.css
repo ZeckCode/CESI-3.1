@@ -66,8 +66,7 @@
 @media (max-width: 480px) {
   .pr-stat-card {
     padding: 1rem;
-    border-radius: 0.75rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    border-radius: 0.625rem;
   }
 }
 
@@ -98,29 +97,20 @@
   margin-bottom: 0.75rem;
 }
 
-@media (max-width: 480px) {
-  .pr-stat-header {
-    margin-bottom: 0.6rem;
-  }
-}
-
 .pr-stat-label {
   font-size: 0.875rem;
   color: #64748b;
   font-weight: 500;
-  line-height: 1.3;
 }
 
 @media (max-width: 480px) {
   .pr-stat-label {
-    font-size: 0.8rem;
-    line-height: 1.3;
+    font-size: 0.75rem;
   }
 }
 
 .pr-stat-icon {
   color: #94a3b8;
-  flex-shrink: 0;
 }
 
 .pr-stat-value {
@@ -128,7 +118,6 @@
   font-weight: bold;
   color: #1e293b;
   margin-bottom: 0.5rem;
-  line-height: 1.2;
 }
 
 @media (max-width: 768px) {
@@ -139,15 +128,13 @@
 
 @media (max-width: 480px) {
   .pr-stat-value {
-    font-size: 1.375rem;
-    margin-bottom: 0.4rem;
+    font-size: 1.25rem;
   }
 }
 
 .pr-stat-change {
   font-size: 0.875rem;
   color: #64748b;
-  line-height: 1.3;
 }
 
 @media (max-width: 480px) {
@@ -210,14 +197,6 @@
   align-items: center;
 }
 
-@media (max-width: 480px) {
-  .pr-header-actions {
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    width: 100%;
-  }
-}
-
 /* Buttons */
 .pr-btn-success {
   background: linear-gradient(135deg, #10b981, #059669);
@@ -232,15 +211,6 @@
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
-  font-size: 0.95rem;
-}
-
-@media (max-width: 480px) {
-  .pr-btn-success {
-    padding: 0.6rem 1.2rem;
-    font-size: 0.85rem;
-    gap: 0.4rem;
-  }
 }
 
 .pr-btn-success:hover {
@@ -262,13 +232,6 @@
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
-}
-
-@media (max-width: 480px) {
-  .pr-btn-send {
-    padding: 0.45rem 0.8rem;
-    font-size: 0.75rem;
-  }
 }
 
 .pr-btn-send:hover {
@@ -539,207 +502,4 @@
 .pr-transaction-id {
   font-size: 0.85rem;
   color: #64748b;
-}
-
-/* ════════════════════════════════════════╗
-   PAGINATION STYLES
-   ════════════════════════════════════════╝ */
-
-.pr-pagination-container {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 1.5rem;
-  margin-top: 1.5rem;
-  padding: 1rem 1.5rem;
-  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-  border-radius: 0.75rem;
-  border: 1px solid #e5e7eb;
-}
-
-@media (max-width: 1024px) {
-  .pr-pagination-container {
-    gap: 1rem;
-    padding: 1rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .pr-pagination-container {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-    margin-top: 1rem;
-    padding: 0.75rem;
-  }
-}
-
-.pr-pagination-info {
-  font-size: 0.875rem;
-  color: #6b7280;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-@media (max-width: 768px) {
-  .pr-pagination-info {
-    text-align: center;
-    order: 1;
-    grid-column: 1 / -1;
-    font-size: 0.8rem;
-  }
-}
-
-.pr-pagination-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-@media (max-width: 768px) {
-  .pr-pagination-controls {
-    order: 2;
-    grid-column: 1 / -1;
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-.pr-pagination-btn {
-  padding: 0.5rem 1rem;
-  background: #fff;
-  color: #2563eb;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  min-width: fit-content;
-}
-
-@media (max-width: 768px) {
-  .pr-pagination-btn {
-    padding: 0.4rem 0.75rem;
-    font-size: 0.8rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .pr-pagination-btn {
-    padding: 0.35rem 0.6rem;
-    font-size: 0.75rem;
-  }
-}
-
-.pr-pagination-btn:hover:not(:disabled) {
-  background: #2563eb;
-  color: #fff;
-  border-color: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
-}
-
-.pr-pagination-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: #f3f4f6;
-}
-
-.pr-pagination-numbers {
-  display: flex;
-  gap: 0.3rem;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.pr-pagination-ellipsis {
-  color: #6b7280;
-  font-weight: 600;
-  padding: 0.4rem 0.3rem;
-  font-size: 0.875rem;
-}
-
-@media (max-width: 480px) {
-  .pr-pagination-ellipsis {
-    font-size: 0.8rem;
-  }
-}
-
-.pr-pagination-number {
-  min-width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
-  background: #fff;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-@media (max-width: 768px) {
-  .pr-pagination-number {
-    min-width: 2rem;
-    height: 2rem;
-    font-size: 0.8rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .pr-pagination-number {
-    min-width: 1.75rem;
-    height: 1.75rem;
-    font-size: 0.75rem;
-    border-radius: 0.375rem;
-  }
-}
-
-.pr-pagination-number:hover:not(.pr-pagination-active) {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-  color: #1f2937;
-}
-
-.pr-pagination-active {
-  background: #2563eb;
-  color: #fff;
-  border-color: #2563eb;
-  font-weight: 700;
-}
-
-.pr-pagination-active:hover {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
-}
-
-.pr-pagination-page-indicator {
-  font-size: 0.8rem;
-  color: #6b7280;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-@media (max-width: 1024px) {
-  .pr-pagination-page-indicator {
-    font-size: 0.75rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .pr-pagination-page-indicator {
-    order: 3;
-    grid-column: 1 / -1;
-    text-align: center;
-  }
 }

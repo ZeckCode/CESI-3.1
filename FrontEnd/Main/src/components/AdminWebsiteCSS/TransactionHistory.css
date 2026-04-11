@@ -172,8 +172,7 @@
 @media (max-width: 480px) {
   .th-stat-card {
     padding: 1rem;
-    border-radius: 0.75rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    border-radius: 0.625rem;
   }
 }
 
@@ -204,29 +203,20 @@
   margin-bottom: 0.75rem;
 }
 
-@media (max-width: 480px) {
-  .th-stat-header {
-    margin-bottom: 0.6rem;
-  }
-}
-
 .th-stat-label {
   font-size: 0.875rem;
   color: #64748b;
   font-weight: 500;
-  line-height: 1.3;
 }
 
 @media (max-width: 480px) {
   .th-stat-label {
-    font-size: 0.8rem;
-    line-height: 1.3;
+    font-size: 0.75rem;
   }
 }
 
 .th-stat-icon {
   color: #94a3b8;
-  flex-shrink: 0;
 }
 
 .th-stat-value {
@@ -234,7 +224,6 @@
   font-weight: bold;
   color: #1e293b;
   margin-bottom: 0.5rem;
-  line-height: 1.2;
 }
 
 @media (max-width: 768px) {
@@ -245,20 +234,18 @@
 
 @media (max-width: 480px) {
   .th-stat-value {
-    font-size: 1.375rem;
-    margin-bottom: 0.4rem;
+    font-size: 1.25rem;
   }
 }
 
 .th-stat-change {
   font-size: 0.875rem;
   color: #64748b;
-  line-height: 1.3;
 }
 
 @media (max-width: 480px) {
   .th-stat-change {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
 }
 
@@ -946,26 +933,10 @@
   align-items: center;
 }
 
-@media (max-width: 480px) {
-  .th-header-actions {
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    width: 100%;
-  }
-}
-
 .th-header-actions button {
   padding: 8px 16px;
   font-size: 13px;
   height: 38px;
-}
-
-@media (max-width: 480px) {
-  .th-header-actions button {
-    padding: 6px 12px;
-    font-size: 11px;
-    height: 34px;
-  }
 }
 
 /* Success (green) button */

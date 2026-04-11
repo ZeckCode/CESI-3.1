@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { MoreVertical, Eye, Edit2, Trash2, Upload, ArrowUpCircle, CreditCard } from "lucide-react";
 
 export default function TableActionMenu({
@@ -13,13 +14,41 @@ export default function TableActionMenu({
   onGenerateId,
 }) {
   const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState(null);
   const menuRef = useRef(null);
+  const toggleRef = useRef(null);
+  const dropdownRef = useRef(null);
+
+  const closeMenu = () => {
+    setOpen(false);
+    setMenuPosition(null);
+  };
+
+  const updateMenuPosition = () => {
+    const toggleEl = toggleRef.current;
+    if (!toggleEl) return;
+
+    const rect = toggleEl.getBoundingClientRect();
+    const dropdownWidth = 220;
+    const top = rect.bottom + 8;
+    const left = Math.min(rect.right - dropdownWidth, window.innerWidth - dropdownWidth - 12);
+
+    setMenuPosition({
+      top: Math.max(8, top),
+      left: Math.max(12, left),
+    });
+  };
 
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setOpen(false);
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target)
+      ) {
+        closeMenu();
       }
     };
 
@@ -27,35 +56,50 @@ export default function TableActionMenu({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+
+    updateMenuPosition();
+
+    const handleWindowChange = () => closeMenu();
+    window.addEventListener("resize", handleWindowChange);
+    window.addEventListener("scroll", handleWindowChange, true);
+
+    return () => {
+      window.removeEventListener("resize", handleWindowChange);
+      window.removeEventListener("scroll", handleWindowChange, true);
+    };
+  }, [open]);
+
   const handleView = () => {
     onView();
-    setOpen(false);
+    closeMenu();
   };
 
   const handleEdit = () => {
     onEdit();
-    setOpen(false);
+    closeMenu();
   };
 
   const handleDelete = () => {
     onDelete();
-    setOpen(false);
+    closeMenu();
   };
 
   const handleIdUpload = () => {
     onIdUpload();
-    setOpen(false);
+    closeMenu();
   };
 
   const handlePromote = () => {
     onPromote();
-    setOpen(false);
+    closeMenu();
   };
 
   const handleGenerateId = () => {
     if (onGenerateId) {
       onGenerateId();
-      setOpen(false);
+      closeMenu();
     }
   };
 
@@ -65,7 +109,6 @@ export default function TableActionMenu({
   return (
     <div
       ref={menuRef}
-      style={{ position: "relative", display: "inline-flex", gap: "6px", alignItems: "center" }}
       className="action-menu-container"
     >
       {/* View Button - Outside */}
@@ -80,76 +123,84 @@ export default function TableActionMenu({
 
       {/* Dropdown Menu Toggle */}
       <button
+        ref={toggleRef}
         className={`action-menu-toggle ${open ? "active" : ""}`}
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          if (open) {
+            closeMenu();
+          } else {
+            setOpen(true);
+          }
+        }}
         title="More options"
         aria-label="More actions"
       >
         <MoreVertical size={16} />
       </button>
 
-      {/* Dropdown Menu */}
-      <div className={`action-menu-dropdown ${open ? "show" : ""}`}>
-        {/* Edit */}
-        <button
-          className="action-menu-item"
-          onClick={handleEdit}
-          title="Edit enrollment"
+      {open && menuPosition && ReactDOM.createPortal(
+        <div
+          ref={dropdownRef}
+          className="action-menu-dropdown action-menu-dropdown--portal show"
+          style={{ top: menuPosition.top, left: menuPosition.left }}
         >
-          <Edit2 size={14} />
-          <span>Edit</span>
-        </button>
-
-        {/* Delete */}
-        <button
-          className="action-menu-item action-menu-item--danger"
-          onClick={handleDelete}
-          title="Delete enrollment"
-        >
-          <Trash2 size={14} />
-          <span>Delete</span>
-        </button>
-
-        {/* Upload ID */}
-        {row.statusCode === "ACTIVE" && (
           <button
             className="action-menu-item"
-            onClick={handleIdUpload}
-            title="Upload ID image"
+            onClick={handleEdit}
+            title="Edit enrollment"
           >
-            <Upload size={14} />
-            <span>Upload ID</span>
+            <Edit2 size={14} />
+            <span>Edit</span>
           </button>
-        )}
 
-        {/* Generate ID Card */}
-        {row.statusCode === "ACTIVE" && onGenerateId && (
           <button
-            className="action-menu-item"
-            onClick={handleGenerateId}
-            title="Generate student ID card"
+            className="action-menu-item action-menu-item--danger"
+            onClick={handleDelete}
+            title="Delete enrollment"
           >
-            <CreditCard size={14} />
-            <span>Generate ID Card</span>
+            <Trash2 size={14} />
+            <span>Delete</span>
           </button>
-        )}
 
-        {/* Promote */}
-        {hasPromote && (
-          <button
-            className="action-menu-item"
-            onClick={handlePromote}
-            title={`Promote to ${gradeLabel(
-              getNextGrade(row.raw.grade_level).next
-            )}`}
-          >
-            <ArrowUpCircle size={14} />
-            <span>
-              Promote {gradeLabel(getNextGrade(row.raw.grade_level).next)}
-            </span>
-          </button>
-        )}
-      </div>
+          {row.statusCode === "ACTIVE" && (
+            <button
+              className="action-menu-item"
+              onClick={handleIdUpload}
+              title="Upload ID image"
+            >
+              <Upload size={14} />
+              <span>Upload ID</span>
+            </button>
+          )}
+
+          {row.statusCode === "ACTIVE" && onGenerateId && (
+            <button
+              className="action-menu-item"
+              onClick={handleGenerateId}
+              title="Generate student ID card"
+            >
+              <CreditCard size={14} />
+              <span>Generate ID Card</span>
+            </button>
+          )}
+
+          {hasPromote && (
+            <button
+              className="action-menu-item"
+              onClick={handlePromote}
+              title={`Promote to ${gradeLabel(
+                getNextGrade(row.raw.grade_level).next
+              )}`}
+            >
+              <ArrowUpCircle size={14} />
+              <span>
+                Promote {gradeLabel(getNextGrade(row.raw.grade_level).next)}
+              </span>
+            </button>
+          )}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
