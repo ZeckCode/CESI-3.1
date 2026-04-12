@@ -769,28 +769,12 @@ def admin_grade_records_monitoring(request):
     section_filter = request.query_params.get("section")
     normalized_grade_filter = normalize_grade_level(grade_level_filter) if grade_level_filter else None
 
-    subjects = list(Subject.objects.all().order_by("name"))
-    subject_ids = [subject.id for subject in subjects]
-    default_weights = {
-        "activity": 40,
-        "quiz": 20,
-        "exam": 20,
-        "class_standing": 20,
-    }
-    weights_by_subject = {
-        subject.id: default_weights.copy()
-        for subject in subjects
-    }
-    for weight in GradeWeight.objects.filter(subject_id__in=subject_ids):
-        weights_by_subject[weight.subject_id] = {
-            "activity": weight.activity_weight,
-            "quiz": weight.quiz_weight,
-            "exam": weight.exam_weight,
-            "class_standing": weight.class_standing_weight,
-        }
+    active_school_year = get_active_school_year_obj()
+    if not active_school_year:
+        return Response({"detail": "No active school year"}, status=404)
 
     enrollments = (
-        Enrollment.objects.filter(status="ACTIVE")
+        Enrollment.objects.filter(status="ACTIVE", section__school_year=active_school_year)
         .select_related("student", "student__profile", "section")
         .order_by("grade_level", "section__name", "last_name", "first_name")
     )
@@ -812,6 +796,59 @@ def admin_grade_records_monitoring(request):
             continue
 
         filtered_enrollments.append((enrollment, student, normalized_grade))
+
+    section_ids = {
+        enrollment.section_id
+        for enrollment, _, _ in filtered_enrollments
+        if enrollment.section_id
+    }
+
+    schedule_subject_ids_by_section = {}
+    subject_ids = set()
+    if section_ids:
+        schedule_pairs = (
+            Schedule.objects.filter(
+                section_id__in=section_ids,
+                subject__isnull=False,
+                school_year=active_school_year,
+            )
+            .values_list("section_id", "subject_id")
+            .distinct()
+        )
+        for section_id, subject_id in schedule_pairs:
+            if not subject_id:
+                continue
+            subject_ids.add(subject_id)
+            schedule_subject_ids_by_section.setdefault(section_id, set()).add(subject_id)
+
+    subjects = list(Subject.objects.filter(id__in=subject_ids).order_by("name"))
+    subject_map = {subject.id: subject for subject in subjects}
+    subjects_by_section = {
+        section_id: sorted(
+            (subject_map[sid] for sid in subject_id_set if sid in subject_map),
+            key=lambda subj: (subj.name or "").lower(),
+        )
+        for section_id, subject_id_set in schedule_subject_ids_by_section.items()
+    }
+
+    default_weights = {
+        "activity": 40,
+        "quiz": 20,
+        "exam": 20,
+        "class_standing": 20,
+    }
+    subject_ids = list(subject_map.keys())
+    weights_by_subject = {
+        subject_id: default_weights.copy()
+        for subject_id in subject_ids
+    }
+    for weight in GradeWeight.objects.filter(subject_id__in=subject_ids):
+        weights_by_subject[weight.subject_id] = {
+            "activity": weight.activity_weight,
+            "quiz": weight.quiz_weight,
+            "exam": weight.exam_weight,
+            "class_standing": weight.class_standing_weight,
+        }
 
     student_ids = [student.id for _, student, _ in filtered_enrollments]
 
@@ -883,7 +920,8 @@ def admin_grade_records_monitoring(request):
         subject_breakdown = []
         graded_values = []
 
-        for subject in subjects:
+        section_subjects = subjects_by_section.get(enrollment.section_id, [])
+        for subject in section_subjects:
             weights = weights_by_subject.get(subject.id, default_weights)
             act_avg = get_category_avg(student.id, subject.id, "ACTIVITY")
             quiz_avg = get_category_avg(student.id, subject.id, "QUIZ")
@@ -930,7 +968,7 @@ def admin_grade_records_monitoring(request):
             })
 
         average_grade = round(sum(graded_values) / len(graded_values), 2) if graded_values else None
-        total_subjects = len(subjects)
+        total_subjects = len(section_subjects)
         graded_subjects = len(graded_values)
 
         if total_subjects > 0 and graded_subjects == total_subjects:
