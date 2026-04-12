@@ -307,7 +307,7 @@ const PreviewModal = ({
                         columns.map((col, colIdx) => (
                           <th 
                             key={col.key}
-                            className={colIdx === 0 ? 'left-align' : 'center-align'}
+                            className={col.align ? col.align === 'left' ? 'left-align' : col.align === 'center' ? 'center-align' : 'left-align' : colIdx === 0 ? 'left-align' : 'center-align'}
                           >
                             {col.label || col.key}
                           </th>
@@ -331,7 +331,7 @@ const PreviewModal = ({
                           columns.map((col, colIdx) => (
                             <td 
                               key={col.key}
-                              className={colIdx === 0 ? 'left-align' : 'center-align'}
+                              className={col.align ? col.align === 'left' ? 'left-align' : col.align === 'center' ? 'center-align' : 'left-align' : colIdx === 0 ? 'left-align' : 'center-align'}
                             >
                               {row[col.key] !== undefined
                                 ? String(row[col.key])

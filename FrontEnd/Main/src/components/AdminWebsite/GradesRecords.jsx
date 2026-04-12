@@ -1602,6 +1602,40 @@ const GradesRecords = () => {
         onClose={() => setShowPreview(false)}
         title={`Grades Records - ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
         data={previewData}
+        columns={
+          activeTab === 'grades' ? [
+            { key: 'Student Number', label: 'STUDENT NUMBER', align: 'left' },
+            { key: 'Student Name', label: 'STUDENT NAME', align: 'left' },
+            { key: 'Grade Level', label: 'GRADE LEVEL', align: 'center' },
+            { key: 'Section', label: 'SECTION', align: 'center' },
+            { key: 'Graded Subjects', label: 'GRADED SUBJECTS', align: 'center' },
+            { key: 'Average Grade', label: 'AVERAGE GRADE', align: 'center' },
+            { key: 'Status', label: 'STATUS', align: 'center' },
+            { key: 'History Count', label: 'HISTORY COUNT', align: 'center' },
+          ] : activeTab === 'history' ? [
+            { key: 'School Year', label: 'SCHOOL YEAR', align: 'left' },
+            { key: 'Student Name', label: 'STUDENT NAME', align: 'left' },
+            { key: 'Student Number', label: 'STUDENT NUMBER', align: 'left' },
+            { key: 'Grade Level', label: 'GRADE LEVEL', align: 'center' },
+            { key: 'Section', label: 'SECTION', align: 'center' },
+            { key: 'Subject', label: 'SUBJECT', align: 'center' },
+            { key: 'Subject Code', label: 'SUBJECT CODE', align: 'center' },
+            { key: 'Final Grade', label: 'FINAL GRADE', align: 'center' },
+            { key: 'Remarks', label: 'REMARKS', align: 'center' },
+            { key: 'Teacher', label: 'TEACHER', align: 'center' },
+          ] : [
+            { key: 'Date', label: 'DATE', align: 'left' },
+            { key: 'Student Number', label: 'STUDENT NUMBER', align: 'left' },
+            { key: 'Student Name', label: 'STUDENT NAME', align: 'left' },
+            { key: 'Grade Level', label: 'GRADE LEVEL', align: 'center' },
+            { key: 'Section', label: 'SECTION', align: 'center' },
+            { key: 'Overall Status', label: 'OVERALL STATUS', align: 'center' },
+            { key: 'Present', label: 'PRESENT', align: 'center' },
+            { key: 'Late', label: 'LATE', align: 'center' },
+            { key: 'Excused', label: 'EXCUSED', align: 'center' },
+            { key: 'Absent', label: 'ABSENT', align: 'center' },
+          ]
+        }
         filename={`GradesRecords_${activeTab}`}
       />
     </main>
