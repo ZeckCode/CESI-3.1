@@ -9,6 +9,7 @@ import '../AdminWebsiteCSS/TuitionManagement.css';
 import { apiFetchData } from '../api/apiFetch';
 import Toast from '../Global/Toast';
 import PreviewModal from '../PreviewModal';
+import { TUITION_FEES } from '../../config/tuitionConfig';
 
 const API = '';
 const TUITION_SKELETON_ROWS = 6;
@@ -25,6 +26,23 @@ const GRADE_OPTIONS = [
 ];
 
 const gradeLabelMap = Object.fromEntries(GRADE_OPTIONS.map((g) => [g.value, g.label]));
+
+const REFERENCE_GRADE_KEY_MAP = {
+  prek: 'prek',
+  kinder: 'kinder',
+  grade1: 'grade1-3',
+  grade2: 'grade1-3',
+  grade3: 'grade1-3',
+  grade4: 'grade4-5',
+  grade5: 'grade4-5',
+  grade6: 'grade6',
+};
+
+const getReferenceBreakdownByGrade = (gradeKey) => {
+  const referenceKey = REFERENCE_GRADE_KEY_MAP[gradeKey];
+  if (!referenceKey) return null;
+  return TUITION_FEES[referenceKey] || null;
+};
 
 const formatCurrency = (value) => {
   const num = Number(value || 0);
@@ -138,7 +156,7 @@ const TuitionManagement = () => {
     setSelectedFee(null);
   };
 
-  const loadStudents = async () => {
+  const loadStudents = useCallback(async () => {
     try {
       setLoadingStudents(true);
 
@@ -172,9 +190,9 @@ const TuitionManagement = () => {
     } finally {
       setLoadingStudents(false);
     }
-  };
+  }, [addToast]);
 
-  const loadTuitionConfigs = async () => {
+  const loadTuitionConfigs = useCallback(async () => {
     try {
       setLoadingFees(true);
 
@@ -191,9 +209,9 @@ const TuitionManagement = () => {
     } finally {
       setLoadingFees(false);
     }
-  };
+  }, [addToast]);
 
-  const loadTuitionStats = async () => {
+  const loadTuitionStats = useCallback(async () => {
     try {
       const data = await apiFetchData(`${API}/api/finance/tuition-configs/stats/`, {
         method: 'GET',
@@ -212,9 +230,9 @@ const TuitionManagement = () => {
         avg_total_cash: 0,
       });
     }
-  };
+  }, []);
 
-  const refreshAll = async () => {
+  const refreshAll = useCallback(async () => {
     setIsInitialLoading(true);
     try {
       await Promise.all([
@@ -225,11 +243,11 @@ const TuitionManagement = () => {
     } finally {
       setIsInitialLoading(false);
     }
-  };
+  }, [loadStudents, loadTuitionConfigs, loadTuitionStats]);
 
   useEffect(() => {
     refreshAll();
-  }, []);
+  }, [refreshAll]);
 
   useEffect(() => {
     setTmPage(1);
@@ -341,6 +359,7 @@ const TuitionManagement = () => {
       setSaving(true);
 
       const cash = Number(formData.cash || 0);
+      const installment = Number(formData.installment || 0);
       const initial = Number(formData.initial || 0);
       const monthly = Number(formData.monthly || 0);
       const reservation_fee = Number(formData.reservation_fee || 0);
@@ -348,13 +367,11 @@ const TuitionManagement = () => {
       const misc_nov = Number(formData.misc_nov || 0);
       const assessment = Number(formData.assessment || 0);
 
-      const computedInstallment = initial + (monthly * 10);
-
       const payload = {
         grade_key: formData.grade_key,
         grade_label: formData.grade_label,
         cash,
-        installment: computedInstallment,
+        installment,
         initial,
         monthly,
         reservation_fee,
@@ -446,7 +463,7 @@ const TuitionManagement = () => {
     setShowPreview(true);
   };
 
-  const handleExportData = () => {
+  const _handleExportData = () => {
     const data = getFilteredData();
 
     if (data.length === 0) {
@@ -517,10 +534,22 @@ const TuitionManagement = () => {
     const { name, value, type, checked } = e.target;
 
     if (name === 'grade_key') {
+      const reference = getReferenceBreakdownByGrade(value);
       setFormData((prev) => ({
         ...prev,
         grade_key: value,
         grade_label: gradeLabelMap[value] || '',
+        ...(reference
+          ? {
+              cash: reference.cash ?? '',
+              installment: reference.installment ?? '',
+              initial: reference.initial ?? '',
+              monthly: reference.monthly ?? '',
+              misc_aug: reference.misc_aug ?? '',
+              misc_nov: reference.misc_nov ?? '',
+              assessment: reference.assessment ?? '300',
+            }
+          : {}),
       }));
       return;
     }
@@ -913,9 +942,9 @@ const TuitionManagement = () => {
                 <input
                   type="number"
                   name="installment"
-                  value={Number(formData.initial || 0) + (Number(formData.monthly || 0) * 10)}
+                  value={formData.installment}
+                  onChange={handleInputChange}
                   className="tm-form-input"
-                  readOnly
                 />
               </div>
 

@@ -269,7 +269,9 @@ class ReminderListCreateView(generics.ListCreateAPIView):
                 queryset = queryset.filter(is_read=False)
 
         if is_admin(self.request.user):
-            return queryset
+            # Admin actions can still trigger reminders for recipients,
+            # but reminder inbox viewing is restricted to non-admin users.
+            return queryset.none()
 
         role = getattr(self.request.user, "role", "").upper()
 
@@ -296,7 +298,7 @@ class ReminderDetailView(generics.RetrieveUpdateDestroyAPIView):
         ).all()
 
         if is_admin(self.request.user):
-            return queryset
+            return queryset.none()
 
         return queryset.filter(recipient=self.request.user)
 

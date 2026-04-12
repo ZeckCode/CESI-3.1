@@ -16,12 +16,9 @@ import {
   Plus, X, ChevronDown, ChevronUp, Edit2, Trash2,
   Bell, Wallet, RotateCcw, CreditCard
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import '../AdminWebsiteCSS/TransactionHistory.css';
 import Pagination from './Pagination';
 import { apiFetch } from '../api/apiFetch';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import PreviewModal from '../PreviewModal';
 import Toast from '../Global/Toast';
 
@@ -123,14 +120,6 @@ const buildLedgerGroupTitle = (group) => {
     formatStudentType(group.student_type),
     formatPaymentMode(group.payment_mode),
   ].join(' • ');
-};
-
-const statusPriority = {
-  OVERDUE: 1,
-  PARTIAL: 2,
-  PENDING: 3,
-  POSTED: 4,
-  PAID: 5,
 };
 
 const isDueForReminder = (dueDate) => {
@@ -543,100 +532,6 @@ const TransactionHistory = () => {
     }
   };
 
-  const exportToPDF = (groupedTransactions, stats) => {
-    const doc = new jsPDF('landscape');
-
-    doc.setFontSize(18);
-    doc.setTextColor(33, 37, 41);
-    doc.text('Transaction History Report', 14, 15);
-
-    doc.setFontSize(10);
-    doc.setTextColor(108, 117, 125);
-    const currentDate = new Date().toLocaleDateString('en-PH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    doc.text(`Generated: ${currentDate}`, 14, 22);
-
-    doc.setFontSize(12);
-    doc.setTextColor(33, 37, 41);
-    doc.text('Summary Statistics', 14, 35);
-
-    const statsData = [
-      ['Total Billed', `₱${Number(stats.total_billed || 0).toLocaleString()}`],
-      ['Total Collected', `₱${Number(stats.total_collected || 0).toLocaleString()}`],
-      ['Outstanding Balance', `₱${Number(stats.outstanding_balance || 0).toLocaleString()}`],
-      ['Collection Rate', stats.total_billed > 0
-        ? `${Math.round((stats.total_collected / stats.total_billed) * 100)}%`
-        : '—'],
-    ];
-
-    autoTable(doc, {
-      startY: 40,
-      head: [['Metric', 'Value']],
-      body: statsData,
-      theme: 'grid',
-      headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
-      bodyStyles: { fontSize: 9 },
-      margin: { left: 14, right: 14 },
-      columnStyles: {
-        0: { cellWidth: 80 },
-        1: { cellWidth: 60 }
-      }
-    });
-
-    const finalY = doc.lastAutoTable.finalY + 10;
-    doc.setFontSize(12);
-    doc.setTextColor(33, 37, 41);
-    doc.text('Transaction Summary (By Student)', 14, finalY);
-
-    const summaryData = groupedTransactions.map(group => [
-      group.student_number,
-      group.student_name,
-      group.grade_level || '—',
-      group.payment_mode || '—',
-      `₱${Number(group.total_debit || 0).toLocaleString()}`,
-      `₱${Number(group.total_credit || 0).toLocaleString()}`,
-      `₱${Number(group.balance || 0).toLocaleString()}`,
-      group.account_status
-    ]);
-
-    autoTable(doc, {
-      startY: finalY + 5,
-      head: [['Student No.', 'Student Name', 'Grade', 'Payment Mode', 'Total Debit', 'Total Credit', 'Balance', 'Status']],
-      body: summaryData,
-      theme: 'grid',
-      headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8, cellPadding: 3 },
-      bodyStyles: { fontSize: 7, cellPadding: 3 },
-      margin: { left: 14, right: 14 },
-      columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 35 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 22 },
-        5: { cellWidth: 22 },
-        6: { cellWidth: 22 },
-        7: { cellWidth: 20 }
-      }
-    });
-
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(108, 117, 125);
-      doc.text(
-        `Page ${i} of ${pageCount}`,
-        doc.internal.pageSize.width - 20,
-        doc.internal.pageSize.height - 10
-      );
-    }
-
-    doc.save(`transaction_report_${new Date().toISOString().split('T')[0]}.pdf`);
-  };
-
   const handleOpenPreview = () => {
     try {
       const summaryData = groupedTransactions.map((group) => ({
@@ -660,87 +555,6 @@ const TransactionHistory = () => {
     } catch (err) {
       console.error('Error opening preview:', err);
       addToast('Error', 'Failed to open preview. Please try again.', 'error');
-    }
-  };
-
-  const handleExportData = () => {
-    try {
-      const summaryData = groupedTransactions.map((group) => ({
-        'Date': group.latest_date || '—',
-        'Enrollment ID': group.enrollment_id || '—',
-        'Student Number': group.student_number,
-        'Student Name': group.student_name,
-        'School Year': group.school_year || '—',
-        'Grade Level': group.grade_level || '—',
-        'Student Type': formatStudentType(group.student_type),
-        'Payment Mode': formatPaymentMode(group.payment_mode),
-        'Total Debit': Number(group.total_debit || 0),
-        'Total Credit': Number(group.total_credit || 0),
-        'Balance': Number(group.balance || 0),
-        'Status': group.account_status,
-      }));
-
-      const detailData = [];
-      groupedTransactions.forEach((group) => {
-        group.rows.forEach((tx) => {
-          detailData.push({
-            'Enrollment ID': group.enrollment_id || '—',
-            'Ledger Group': buildLedgerGroupTitle(group),
-            'Student Number': group.student_number,
-            'Student Name': group.student_name,
-            'Date': tx.transaction_date || '—',
-            'Reference': tx.reference_number || '—',
-            'Entry Type': entryLabel(tx.entry_type),
-            'Item': itemLabel(tx.item),
-            'Debit': Number(tx.debit || 0),
-            'Credit': Number(tx.credit || 0),
-            'Balance': Number(tx._runningBalance || 0),
-            'Status': tx.status,
-            'Description': tx.description || '',
-          });
-        });
-      });
-
-      const wb = XLSX.utils.book_new();
-
-      const summarySheet = XLSX.utils.json_to_sheet(summaryData);
-      summarySheet['!cols'] = [
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 20 },
-        { wch: 12 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 12 },
-      ];
-      XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
-
-      const detailSheet = XLSX.utils.json_to_sheet(detailData);
-      detailSheet['!cols'] = [
-        { wch: 15 },
-        { wch: 20 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 12 },
-        { wch: 12 },
-        { wch: 12 },
-        { wch: 12 },
-        { wch: 25 },
-      ];
-      XLSX.utils.book_append_sheet(wb, detailSheet, 'Ledger Details');
-
-      const timestamp = new Date().toISOString().slice(0, 10);
-      const filename = `Transaction_History_${timestamp}.xlsx`;
-
-      XLSX.writeFile(wb, filename);
-      addToast('Success', `Export successful! File: ${filename}`, 'success');
-    } catch (err) {
-      console.error('Error exporting data:', err);
-      addToast('Error', 'Failed to export data. Please try again.', 'error');
     }
   };
 
@@ -856,32 +670,32 @@ const TransactionHistory = () => {
     Number(group.balance || 0) > 0 &&
     (group.rows || []).some((tx) => canSendReminderForTransaction(tx));
 
-  const getAdvanceCredit = (group) =>
+  const getAdvanceCredit = useCallback((group) =>
     (group?.rows || []).reduce((sum, tx) => {
       if (tx.entry_type === 'CREDIT' && tx.item === 'ADVANCE') {
         return sum + Number(tx.credit || tx.amount || 0);
       }
       return sum;
-    }, 0);
+    }, 0), []);
 
-  const getRefundedAdvance = (group) =>
+  const getRefundedAdvance = useCallback((group) =>
     (group?.rows || []).reduce((sum, tx) => {
       if (tx.entry_type === 'DEBIT' && tx.item === 'REFUND') {
         return sum + Number(tx.debit || tx.amount || 0);
       }
       return sum;
-    }, 0);
+    }, 0), []);
 
-      const getRefundableAmount = (group) => {
-        if (!group) return 0;
+  const getRefundableAmount = useCallback((group) => {
+    if (!group) return 0;
 
-        if (Number(group.refundableExcess || 0) > 0) {
-          return Number(group.refundableExcess || 0);
-        }
+    if (Number(group.refundableExcess || 0) > 0) {
+      return Number(group.refundableExcess || 0);
+    }
 
-        const refundable = getAdvanceCredit(group) - getRefundedAdvance(group);
-        return refundable > 0 ? refundable : 0;
-      };
+    const refundable = getAdvanceCredit(group) - getRefundedAdvance(group);
+    return refundable > 0 ? refundable : 0;
+  }, [getAdvanceCredit, getRefundedAdvance]);
 
   const openPayModal = (group) => {
     const balance = Number(group.balance || 0);
@@ -1186,6 +1000,7 @@ const TransactionHistory = () => {
     stats.outstanding_balance,
     groupedTransactions,
     advanceRequests,
+    getRefundableAmount,
   ]);
 
   const renderSkeletonRows = (columnCount) =>

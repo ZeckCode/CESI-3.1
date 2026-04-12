@@ -232,6 +232,7 @@ def generate_transaction_reference():
 def build_installment_schedule(tuition):
     items = []
 
+    installment = Decimal(str(tuition.installment or 0))
     initial = Decimal(str(tuition.initial or 0))
     monthly = Decimal(str(tuition.monthly or 0))
     misc_aug = Decimal(str(tuition.misc_aug or 0))
@@ -272,6 +273,19 @@ def build_installment_schedule(tuition):
                 'amount': monthly,
                 'due_date': due,
             })
+
+    scheduled_installment = initial + (monthly * Decimal('10'))
+    installment_adjustment = installment - scheduled_installment
+    if installment_adjustment != 0:
+        # Keep schedule totals aligned with configured installment even when
+        # reference grade breakdown does not strictly match initial + 10 monthly.
+        items.append({
+            'type': 'Installment Adjustment',
+            'item': 'ADJUSTMENT',
+            'month': 'March',
+            'amount': installment_adjustment,
+            'due_date': date(current_year + 1, 3, 31),
+        })
 
     if misc_aug > 0:
         items.append({

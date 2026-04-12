@@ -445,15 +445,6 @@ class TuitionConfigCreateSerializer(serializers.ModelSerializer):
         if cash < 0 or installment < 0 or initial < 0 or monthly < 0 or misc_aug < 0 or misc_nov < 0:
             raise serializers.ValidationError("Tuition amounts cannot be negative.")
 
-        expected_installment = initial + (monthly * Decimal('10'))
-        if installment != expected_installment:
-            raise serializers.ValidationError({
-                'installment': (
-                    f'Installment must equal initial + (monthly × 10). '
-                    f'Expected: {expected_installment}.'
-                )
-            })
-
         return attrs
 
 

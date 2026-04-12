@@ -924,43 +924,20 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         raw_first = (enrollment.first_name or "").strip().lower()
         safe_last = slugify(raw_last).replace("-", "")
         safe_first = slugify(raw_first).replace("-", "")
-        base_local = f"{safe_last}{safe_first}".strip() or "student"
+        base_username = "_".join(part for part in [safe_last, safe_first] if part).strip("_") or "student_user"
+        username_max_len = User._meta.get_field("username").max_length
+        base_username = base_username[:username_max_len]
 
         def _create_dedicated_portal_user():
-            # Try to use student number as primary identifier in username for max uniqueness
-            # Format: studentnumber@cesi.edu.ph or lastname_firstname_studentnumber@cesi.edu.ph
             student_num = str(enrollment.student_number).strip() if enrollment.student_number else None
-            
-            if student_num:
-                # First try: just student number
-                base_username_options = [
-                    f"student{student_num}@cesi.edu.ph",
-                ]
-            else:
-                # Fallback: name-based if no student number
-                base_username_options = [
-                    f"{base_local}@cesi.edu.ph",
-                ]
-            
-            username = None
-            for candidate in base_username_options:
-                if not User.objects.filter(username=candidate).exists():
-                    username = candidate
-                    break
-            
-            # If the preferred options are taken, append counter
-            if not username:
-                base_attempt = base_username_options[0]  # Use first option as base
-                i = 1
-                while True:
-                    if base_attempt.endswith("@cesi.edu.ph"):
-                        candidate = base_attempt.replace("@cesi.edu.ph", f"{i}@cesi.edu.ph")
-                    else:
-                        candidate = base_attempt.replace("@", f"{i}@")
-                    if not User.objects.filter(username=candidate).exists():
-                        username = candidate
-                        break
-                    i += 1
+
+            username = base_username
+            i = 1
+            while User.objects.filter(username__iexact=username).exists():
+                suffix = str(i)
+                trimmed_base = base_username[: username_max_len - len(suffix)]
+                username = f"{trimmed_base}{suffix}"
+                i += 1
 
             new_user = User.objects.create(
                 username=username,

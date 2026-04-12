@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import Dashboard from "./Dashboard";
@@ -17,9 +17,7 @@ import TuitionManagement from "./TuitionManagement";
 import AdminPasswordResetRequests from "./AdminPasswordResetRequests";
 import Messages from "./Messages";
 import OrganizationalChart from "./OrganizationalChart";
-import NotificationList from "./NotificationList";
 import AdminProfile from "./AdminProfile";
-import { apiFetch } from "../api/apiFetch";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 import "../AdminWebsiteCSS/ResponsiveUtils.css";
 
@@ -27,54 +25,12 @@ function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarHoverExpanded, setSidebarHoverExpanded] = useState(false);
-  const [unreadReminders, setUnreadReminders] = useState(0);
-  const [showNotificationList, setShowNotificationList] = useState(false);
 
   const handleMenuClick = (menuId) => setActiveMenu(menuId);
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
   const handleSidebarHoverChange = (isHoverExpanded) => setSidebarHoverExpanded(isHoverExpanded);
   const isSidebarExpandedByHover = sidebarCollapsed && sidebarHoverExpanded;
   const isSidebarVisuallyCollapsed = sidebarCollapsed && !sidebarHoverExpanded;
-
-  useEffect(() => {
-    let isMounted = true;
-    let pollInterval = null;
-
-    const loadUnreadReminders = async () => {
-      try {
-        const res = await apiFetch("/api/reminders/?type=PAYMENT");
-
-        if (!res.ok) throw new Error("Failed to load reminders");
-
-        const data = await res.json();
-        const reminders = Array.isArray(data) ? data : [];
-        
-        // Only update state if component is still mounted to prevent duplication
-        if (isMounted) {
-          setUnreadReminders(reminders.filter((r) => !r.is_read).length);
-        }
-      } catch (err) {
-        console.error("Error loading unread payment reminders:", err);
-        if (isMounted) {
-          setUnreadReminders(0);
-        }
-      }
-    };
-
-    // Load reminders immediately on mount
-    loadUnreadReminders();
-
-    // Then poll for updates every 30 seconds
-    pollInterval = setInterval(loadUnreadReminders, 30000);
-
-    // Cleanup function to prevent memory leaks and duplicate listeners
-    return () => {
-      isMounted = false;
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-    };
-  }, []);
 
   const renderContent = () => {
     switch (activeMenu) {
@@ -185,24 +141,12 @@ function AdminDashboard() {
           subtitle={getPageSubtitle()}
           onToggleCollapse={handleToggleSidebar}
           sidebarCollapsed={isSidebarExpandedByHover ? false : sidebarCollapsed}
-          showRemindersBell={true}
-          onOpenReminders={() => setShowNotificationList(prev => !prev)}
-          unreadReminders={unreadReminders}
+          showRemindersBell={false}
+          unreadReminders={0}
         />
 
         {renderContent()}
       </main>
-
-      {showNotificationList && (
-        <NotificationList
-          onClose={() => setShowNotificationList(false)}
-          unreadCount={unreadReminders}
-          onNavigate={(menu) => {
-            setActiveMenu(menu);
-            setShowNotificationList(false);
-          }}
-        />
-      )}
     </div>
   );
 }
