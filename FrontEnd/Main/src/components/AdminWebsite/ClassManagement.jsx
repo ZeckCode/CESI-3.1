@@ -229,6 +229,8 @@ const normalizeTimeKey = (t) => {
 
 /* ═══════════════════════ MAIN COMPONENT ═══════════════════════ */
 const ClassManagement = () => {
+  const CM_SKELETON_TABS = 5;
+  const CM_SKELETON_CLASS_CARDS = 3;
   const [activeTab, setActiveTab] = useState('classes');
   const [loading, setLoading] = useState(true);
   const [classPreviewOpen, setClassPreviewOpen] = useState(false);
@@ -400,9 +402,61 @@ const ClassManagement = () => {
   if (loading) {
     return (
       <div className="admin-class-management">
-        <div className="admin-loading-spinner">
-          <div className="spinner"></div>
-          <p>Loading class management data...</p>
+        <div className="cm-stats-section cm-skeleton-panel">
+          <div className="cm-stats-header cm-skeleton-header">
+            <div className="cm-skeleton-line cm-skeleton-title" />
+            <div className="cm-skeleton-actions">
+              <div className="cm-skeleton-line cm-skeleton-icon-btn" />
+              <div className="cm-skeleton-line cm-skeleton-icon-btn" />
+            </div>
+          </div>
+          <StatsGrid>
+            <div className="unified-stat-card cm-skeleton-stat-card">
+              <div className="cm-skeleton-line w-md" />
+              <div className="cm-skeleton-line w-sm" />
+            </div>
+            <div className="unified-stat-card cm-skeleton-stat-card">
+              <div className="cm-skeleton-line w-md" />
+              <div className="cm-skeleton-line w-sm" />
+            </div>
+            <div className="unified-stat-card cm-skeleton-stat-card">
+              <div className="cm-skeleton-line w-md" />
+              <div className="cm-skeleton-line w-sm" />
+            </div>
+            <div className="unified-stat-card cm-skeleton-stat-card">
+              <div className="cm-skeleton-line w-md" />
+              <div className="cm-skeleton-line w-sm" />
+            </div>
+          </StatsGrid>
+        </div>
+
+        <div className="admin-tabs-container cm-skeleton-tabs">
+          {Array.from({ length: CM_SKELETON_TABS }).map((_, idx) => (
+            <div key={`cm-skeleton-tab-${idx}`} className="cm-skeleton-line cm-skeleton-tab" />
+          ))}
+        </div>
+
+        <div className="admin-section-header cm-skeleton-section-head" style={{ marginBottom: 16 }}>
+          <div className="cm-skeleton-line cm-skeleton-section-title" />
+          <div className="cm-skeleton-line cm-skeleton-btn" />
+        </div>
+
+        <div className="admin-classes-grid cm-skeleton-grid">
+          {Array.from({ length: CM_SKELETON_CLASS_CARDS }).map((_, idx) => (
+            <div key={`cm-skeleton-card-${idx}`} className="admin-class-card cm-skeleton-card" aria-hidden="true">
+              <div className="admin-class-card-header cm-skeleton-card-header">
+                <div>
+                  <div className="cm-skeleton-line w-md" />
+                  <div className="cm-skeleton-line w-sm" style={{ marginTop: 8 }} />
+                </div>
+              </div>
+              <div className="admin-class-card-body">
+                <div className="cm-skeleton-line w-lg" style={{ marginBottom: 10 }} />
+                <div className="cm-skeleton-line w-md" style={{ marginBottom: 10 }} />
+                <div className="cm-skeleton-line w-sm" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );

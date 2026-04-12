@@ -45,6 +45,8 @@ const billTypeLabel = (value) => {
 };
 
 export default function AdminProofOfPayment() {
+  const SKELETON_ROWS = 6;
+  const SKELETON_COLS = 8;
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -191,6 +193,21 @@ export default function AdminProofOfPayment() {
     setImageOverlay(null);
   };
 
+  const renderSkeletonRows = () =>
+    Array.from({ length: SKELETON_ROWS }).map((_, rowIdx) => (
+      <tr key={`payment-skeleton-row-${rowIdx}`}>
+        {Array.from({ length: SKELETON_COLS }).map((__, colIdx) => (
+          <td key={`payment-skeleton-cell-${rowIdx}-${colIdx}`}>
+            <div
+              className={`admin-proof-skeleton-line ${
+                colIdx === 0 ? "w-lg" : colIdx === SKELETON_COLS - 1 ? "w-sm" : "w-md"
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ));
+
   return (
     <div className="admin-proof-wrapper">
       <div className="admin-proof-content">
@@ -198,7 +215,23 @@ export default function AdminProofOfPayment() {
         {success && <div className="admin-proof-success">{success}</div>}
 
         {loading ? (
-          <div className="admin-proof-loading">Loading submissions...</div>
+          <div className="admin-proof-table-wrapper">
+            <div className="admin-proof-table-container admin-proof-table-container--skeleton">
+              <div className="admin-proof-table-scroll-hint">Loading submissions...</div>
+              <table className="admin-proof-table admin-proof-table--skeleton" aria-hidden="true">
+                <thead>
+                  <tr>
+                    {Array.from({ length: SKELETON_COLS }).map((_, idx) => (
+                      <th key={`payment-skeleton-head-${idx}`}>
+                        <div className="admin-proof-skeleton-line admin-proof-skeleton-head" />
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>{renderSkeletonRows()}</tbody>
+              </table>
+            </div>
+          </div>
         ) : payments.length === 0 ? (
           <div className="admin-proof-empty">
             <p>No proof of payment submissions found.</p>

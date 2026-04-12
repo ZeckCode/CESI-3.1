@@ -28,7 +28,7 @@ from rest_framework import generics, status as http_status
 from rest_framework.authtoken.models import Token
 
 
-from .models import User, Subject, Section, TeacherProfile, PasswordResetRequest, UserProfile
+from .models import User, Subject, Section, TeacherProfile, PasswordResetRequest, UserProfile, AdminProfile
 
 from .serializers import (
     CreateUserSerializer,
@@ -39,6 +39,7 @@ from .serializers import (
     StudentProfileUpdateSerializer,
     StudentTransferDecisionSerializer,
     StudentTransferRequestSerializer,
+    AdminProfileUpdateSerializer,
     PasswordResetRequestCreateSerializer,
     PasswordResetRequestSerializer,
 )
@@ -163,6 +164,7 @@ def me_detail(request):
     user = (
         User.objects
         .select_related(
+            "admin_profile",
             "profile",
             "profile__section",
             "profile__section__adviser",
@@ -245,10 +247,72 @@ class UpdateProfileView(APIView):
 
             profile.save()
 
+        elif user.role == "ADMIN":
+            profile, _ = AdminProfile.objects.get_or_create(user=user)
+
+            serializer = AdminProfileUpdateSerializer(data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+
+            if "username" in data:
+                username = data["username"].strip()
+                if not username:
+                    return Response(
+                        {"detail": "Username cannot be empty."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                exists = User.objects.filter(username__iexact=username).exclude(pk=user.pk).exists()
+                if exists:
+                    return Response(
+                        {"detail": "Username is already taken."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                user.username = username
+
+            if "first_name" in data:
+                user.first_name = data["first_name"].strip()
+
+            if "last_name" in data:
+                user.last_name = data["last_name"].strip()
+
+            if "email" in data:
+                email = (data["email"] or "").strip().lower()
+                if not email:
+                    return Response(
+                        {"detail": "Email cannot be empty."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                exists = User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists()
+                if exists:
+                    return Response(
+                        {"detail": "Email is already in use."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                user.email = email
+
+            current_password = (data.get("current_password") or "").strip()
+            new_password = (data.get("new_password") or "").strip()
+            confirm_password = (data.get("confirm_password") or "").strip()
+
+            if current_password or new_password or confirm_password:
+                if not user.check_password(current_password):
+                    return Response(
+                        {"current_password": "Current password is incorrect."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                user.set_password(new_password)
+
+            user.save()
+            profile.save()
+
         user.refresh_from_db()
         user = (
             User.objects
             .select_related(
+                "admin_profile",
                 "profile",
                 "profile__section",
                 "profile__section__adviser",
@@ -708,7 +772,8 @@ def transfer_student(request, user_id):
     profile.transfer_notes = data.get("transfer_notes", "")
     profile.allow_transfer_with_balance = allow_with_balance
     profile.outstanding_balance_snapshot = outstanding_balance
-    profile.transfer_requested_at = timezone.now()
+    if not profile.transfer_requested_at:
+        profile.transfer_requested_at = timezone.now()
 
     if data.get("transfer_date"):
         profile.transfer_date = data["transfer_date"]

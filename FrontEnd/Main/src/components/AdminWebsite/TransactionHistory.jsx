@@ -85,6 +85,8 @@ const EMPTY_FORM = {
   status: 'PAID',
 };
 
+const TXN_SKELETON_ROWS = 6;
+
 const formatCurrency = (value) => `₱${Number(value || 0).toLocaleString()}`;
 
 const formatStudentType = (value) => {
@@ -154,6 +156,7 @@ const canSendReminderForTransaction = (tx) => {
 };
 
 const TransactionHistory = () => {
+  const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState([]);
   const [stats, setStats] = useState({
     total_billed: 0,
@@ -292,9 +295,14 @@ const TransactionHistory = () => {
   }, []);
 
  useEffect(() => {
-    fetchTransactions();
-    fetchStats();
-    fetchAdvanceRequests();
+    (async () => {
+      setLoading(true);
+      try {
+        await Promise.all([fetchTransactions(), fetchStats(), fetchAdvanceRequests()]);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [fetchTransactions, fetchStats, fetchAdvanceRequests]);
 
   useEffect(() => {
@@ -1180,61 +1188,112 @@ const TransactionHistory = () => {
     advanceRequests,
   ]);
 
+  const renderSkeletonRows = (columnCount) =>
+    Array.from({ length: TXN_SKELETON_ROWS }).map((_, rowIdx) => (
+      <tr key={`th-skeleton-row-${rowIdx}`}>
+        {Array.from({ length: columnCount }).map((__, colIdx) => (
+          <td key={`th-skeleton-cell-${rowIdx}-${colIdx}`}>
+            <div
+              className={`th-skeleton-line ${
+                colIdx === 0 ? 'w-md' : colIdx === columnCount - 1 ? 'w-sm' : 'w-lg'
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ));
+
   return (
     <main className="transaction-history-main">
       <section className="th-section">
-        <div className="th-stats-grid">
-          <div className="th-stat-card th-stat-blue">
-            <div className="th-stat-header">
-              <span className="th-stat-label">Total Billed</span>
-              <Wallet size={24} className="th-stat-icon" />
+        {loading ? (
+          <div className="th-stats-grid">
+            <div className="th-stat-card th-skeleton-stat-card">
+              <div className="th-skeleton-line w-md" />
+              <div className="th-skeleton-line w-sm" />
             </div>
-            <div className="th-stat-value">{formatCurrency(stats.total_billed)}</div>
-            <div className="th-stat-change positive">Ledger debits</div>
+            <div className="th-stat-card th-skeleton-stat-card">
+              <div className="th-skeleton-line w-md" />
+              <div className="th-skeleton-line w-sm" />
+            </div>
+            <div className="th-stat-card th-skeleton-stat-card">
+              <div className="th-skeleton-line w-md" />
+              <div className="th-skeleton-line w-sm" />
+            </div>
           </div>
+        ) : (
+          <div className="th-stats-grid">
+            <div className="th-stat-card th-stat-blue">
+              <div className="th-stat-header">
+                <span className="th-stat-label">Total Billed</span>
+                <Wallet size={24} className="th-stat-icon" />
+              </div>
+              <div className="th-stat-value">{formatCurrency(stats.total_billed)}</div>
+              <div className="th-stat-change positive">Ledger debits</div>
+            </div>
 
-          <div className="th-stat-card th-stat-green">
-            <div className="th-stat-header">
-              <span className="th-stat-label">Total Collected</span>
-              <CheckCircle size={24} className="th-stat-icon" />
+            <div className="th-stat-card th-stat-green">
+              <div className="th-stat-header">
+                <span className="th-stat-label">Total Collected</span>
+                <CheckCircle size={24} className="th-stat-icon" />
+              </div>
+              <div className="th-stat-value">{formatCurrency(stats.total_collected)}</div>
+              <div className="th-stat-change positive">
+                {stats.total_billed > 0
+                  ? `${Math.round((stats.total_collected / stats.total_billed) * 100)}% collection rate`
+                  : '—'}
+              </div>
             </div>
-            <div className="th-stat-value">{formatCurrency(stats.total_collected)}</div>
-            <div className="th-stat-change positive">
-              {stats.total_billed > 0
-                ? `${Math.round((stats.total_collected / stats.total_billed) * 100)}% collection rate`
-                : '—'}
-            </div>
-          </div>
 
-          <div className="th-stat-card th-stat-yellow">
-            <div className="th-stat-header">
-              <span className="th-stat-label">Outstanding Balance</span>
-              <Clock size={24} className="th-stat-icon" />
+            <div className="th-stat-card th-stat-yellow">
+              <div className="th-stat-header">
+                <span className="th-stat-label">Outstanding Balance</span>
+                <Clock size={24} className="th-stat-icon" />
+              </div>
+              <div className="th-stat-value">{formatCurrency(stats.outstanding_balance)}</div>
+              <div className="th-stat-change">Unpaid balance</div>
             </div>
-            <div className="th-stat-value">{formatCurrency(stats.outstanding_balance)}</div>
-            <div className="th-stat-change">Unpaid balance</div>
           </div>
-        </div>
+        )}
       </section>
 
       <section className="th-section">
-        <div className="th-insights-panel">
-          <div className="th-insights-header">
-            <h3 className="th-insights-title">Descriptive Financial Analysis</h3>
-            <p className="th-insights-subtitle">
-              Interpreted finance signals from ledger, collection, and request activity.
-            </p>
-          </div>
+        {loading ? (
+          <div className="th-insights-panel th-skeleton-panel">
+            <div className="th-insights-header">
+              <div className="th-skeleton-line th-skeleton-title" />
+              <div className="th-skeleton-line th-skeleton-subtitle" />
+            </div>
 
-          <div className="th-insights-grid">
-            {financialInsights.map((insight) => (
-              <article key={insight.title} className="th-insight-card">
-                <h4 className="th-insight-card-title">{insight.title}</h4>
-                <p className="th-insight-card-text">{insight.body}</p>
-              </article>
-            ))}
+            <div className="th-insights-grid">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <article key={`th-skeleton-insight-${idx}`} className="th-insight-card">
+                  <div className="th-skeleton-line w-md" style={{ marginBottom: 8 }} />
+                  <div className="th-skeleton-line w-lg" style={{ marginBottom: 6 }} />
+                  <div className="th-skeleton-line w-sm" />
+                </article>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="th-insights-panel">
+            <div className="th-insights-header">
+              <h3 className="th-insights-title">Descriptive Financial Analysis</h3>
+              <p className="th-insights-subtitle">
+                Interpreted finance signals from ledger, collection, and request activity.
+              </p>
+            </div>
+
+            <div className="th-insights-grid">
+              {financialInsights.map((insight) => (
+                <article key={insight.title} className="th-insight-card">
+                  <h4 className="th-insight-card-title">{insight.title}</h4>
+                  <p className="th-insight-card-text">{insight.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="th-section">
@@ -1277,6 +1336,19 @@ const TransactionHistory = () => {
 
         {activeTab === 'transactions' && (
         <div>
+        {loading ? (
+          <div className="th-section-header th-section-header-skeleton">
+            <div>
+              <div className="th-skeleton-line th-skeleton-section-title" />
+              <div className="th-skeleton-line th-skeleton-section-subtitle" />
+            </div>
+            <div className="th-header-actions">
+              <div className="th-skeleton-line th-skeleton-control" />
+              <div className="th-skeleton-line th-skeleton-control" />
+              <div className="th-skeleton-line th-skeleton-control" />
+            </div>
+          </div>
+        ) : (
         <div className="th-section-header">
           <div>
             <h2 className="th-section-title">Transaction History</h2>
@@ -1301,7 +1373,16 @@ const TransactionHistory = () => {
             </button>
           </div>
         </div>
+        )}
 
+        {loading ? (
+          <div className="th-filters-container th-filters-skeleton" style={{ gap: '12px', flexWrap: 'wrap' }}>
+            <div className="th-skeleton-line th-skeleton-search" />
+            <div className="th-skeleton-line th-skeleton-filter" />
+            <div className="th-skeleton-line th-skeleton-filter" />
+            <div className="th-skeleton-line th-skeleton-filter" />
+          </div>
+        ) : (
         <div className="th-filters-container" style={{ gap: '12px', flexWrap: 'wrap' }}>
           <div className="th-search-box">
             <Search size={20} className="th-search-icon" />
@@ -1368,10 +1449,25 @@ const TransactionHistory = () => {
             </div>
           </div>
         </div>
+        )}
 
         <div className="th-table-wrapper">
           <div className="th-table-scroll-hint">← Swipe to scroll →</div>
           <div className="th-table-container">
+            {loading ? (
+              <table className="th-table th-table-skeleton" aria-hidden="true">
+                <thead>
+                  <tr>
+                    {Array.from({ length: 10 }).map((_, idx) => (
+                      <th key={`th-skel-head-tx-${idx}`}>
+                        <div className="th-skeleton-line th-skeleton-head" />
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>{renderSkeletonRows(10)}</tbody>
+              </table>
+            ) : (
             <table className="th-table">
               <thead>
                 <tr>
@@ -1574,27 +1670,39 @@ const TransactionHistory = () => {
               )}
             </tbody>
           </table>
+          )}
           </div>
         </div>
 
-        <Pagination
-          currentPage={txnPage}
-          totalPages={txnTotalPages}
-          onPageChange={setTxnPage}
-          totalItems={groupedTransactions.length}
-          itemsPerPage={ITEMS_PER_PAGE}
-        />
+        {!loading && (
+          <Pagination
+            currentPage={txnPage}
+            totalPages={txnTotalPages}
+            onPageChange={setTxnPage}
+            totalItems={groupedTransactions.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
+        )}
       </div>
       )}
 
       {activeTab === 'advance-refund' && (
       <div>
-        <div className="th-section-header">
-          <div>
-            <h2 className="th-section-title">Advance / Refund Requests</h2>
-            <p className="th-section-subtitle">Review and process student-submitted requests</p>
+        {loading ? (
+          <div className="th-section-header th-section-header-skeleton">
+            <div>
+              <div className="th-skeleton-line th-skeleton-section-title" />
+              <div className="th-skeleton-line th-skeleton-section-subtitle" />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="th-section-header">
+            <div>
+              <h2 className="th-section-title">Advance / Refund Requests</h2>
+              <p className="th-section-subtitle">Review and process student-submitted requests</p>
+            </div>
+          </div>
+        )}
 
         <div className="th-table-wrapper">
           <div className="th-table-scroll-hint">← Swipe to scroll →</div>
@@ -1616,7 +1724,9 @@ const TransactionHistory = () => {
             </thead>
 
             <tbody>
-              {requestLoading ? (
+              {loading ? (
+                renderSkeletonRows(10)
+              ) : requestLoading ? (
                 <tr>
                   <td colSpan="10" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                     Loading requests...

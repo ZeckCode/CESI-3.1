@@ -112,7 +112,13 @@ class SectionSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email", "role", "status", "created_at"]
+        fields = ["id", "username", "first_name", "last_name", "email", "role", "status", "created_at"]
+
+
+class AdminProfileReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdminProfile
+        fields = ["id", "permissions_level"]
 
 
 class TeacherProfileReadSerializer(serializers.ModelSerializer):
@@ -190,6 +196,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
     """
     teacher_profile = TeacherProfileReadSerializer(read_only=True)
     profile = UserProfileReadSerializer(read_only=True)
+    admin_profile = AdminProfileReadSerializer(read_only=True)
     enrollment = serializers.SerializerMethodField()
 
     class Meta:
@@ -197,12 +204,15 @@ class UserDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "username",
+            "first_name",
+            "last_name",
             "email",
             "role",
             "status",
             "created_at",
             "teacher_profile",
             "profile",
+            "admin_profile",
             "enrollment",
         ]
 
@@ -269,6 +279,34 @@ class TeacherAssignmentSerializer(serializers.Serializer):
         if value is not None and not Section.objects.filter(id=value).exists():
             raise serializers.ValidationError("Section not found")
         return value
+
+
+class AdminProfileUpdateSerializer(serializers.Serializer):
+    """Update an admin account's editable fields."""
+    username = serializers.CharField(max_length=50, required=False)
+    first_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False)
+    current_password = serializers.CharField(required=False, allow_blank=True)
+    new_password = serializers.CharField(required=False, allow_blank=True, min_length=8)
+    confirm_password = serializers.CharField(required=False, allow_blank=True, min_length=8)
+
+    def validate(self, attrs):
+        new_password = (attrs.get("new_password") or "").strip()
+        confirm_password = (attrs.get("confirm_password") or "").strip()
+        current_password = (attrs.get("current_password") or "").strip()
+
+        if new_password or confirm_password or current_password:
+            if not current_password:
+                raise serializers.ValidationError({"current_password": "Current password is required."})
+            if not new_password:
+                raise serializers.ValidationError({"new_password": "New password is required."})
+            if not confirm_password:
+                raise serializers.ValidationError({"confirm_password": "Please confirm the new password."})
+            if new_password != confirm_password:
+                raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
+
+        return attrs
 
 
 class StudentProfileUpdateSerializer(serializers.Serializer):

@@ -384,6 +384,113 @@
   border-radius: 0.75rem;
 }
 
+/* Skeleton Loading */
+.gr-skeleton-line {
+  height: 11px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e2e8f0 20%, #f1f5f9 50%, #e2e8f0 80%);
+  background-size: 220% 100%;
+  animation: gr-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes gr-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
+}
+
+.gr-skeleton-line.w-sm { width: 56%; }
+.gr-skeleton-line.w-md { width: 72%; }
+.gr-skeleton-line.w-lg { width: 88%; }
+
+.gr-skeleton-title {
+  width: 300px;
+  height: 20px;
+}
+
+.gr-skeleton-subtitle {
+  width: 420px;
+  margin-top: 8px;
+}
+
+.gr-skeleton-pill {
+  width: 150px;
+  height: 32px;
+}
+
+.gr-skeleton-stat-card {
+  min-height: 136px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+.gr-skeleton-insight-title {
+  width: 180px;
+  height: 16px;
+}
+
+.gr-skeleton-insight-subtitle {
+  width: 320px;
+  margin-top: 7px;
+}
+
+.gr-tabs-skeleton {
+  align-items: center;
+}
+
+.gr-skeleton-tab {
+  height: 44px;
+  border-radius: 10px;
+}
+
+.gr-section-header-skeleton {
+  align-items: center;
+}
+
+.gr-skeleton-section-title {
+  width: 260px;
+  height: 18px;
+}
+
+.gr-skeleton-section-subtitle {
+  width: 360px;
+  margin-top: 8px;
+}
+
+.gr-skeleton-control {
+  width: 160px;
+  height: 40px;
+}
+
+.gr-filters-skeleton {
+  align-items: center;
+}
+
+.gr-skeleton-search {
+  flex: 1;
+  min-width: 200px;
+  height: 46px;
+}
+
+.gr-skeleton-filter {
+  width: 170px;
+  height: 46px;
+}
+
+.gr-table-skeleton tbody tr:hover {
+  background: transparent;
+}
+
+.gr-skeleton-head {
+  width: 100%;
+  height: 10px;
+}
+
 .gr-insights-panel {
   background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%);
   border: 1px solid #dbe8ff;

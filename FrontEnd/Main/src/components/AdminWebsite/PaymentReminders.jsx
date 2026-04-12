@@ -13,6 +13,8 @@ import { apiFetch } from "../api/apiFetch";
 import Toast from "../Global/Toast";
 import "../AdminWebsiteCSS/PaymentReminders.css";
 
+const REMINDER_SKELETON_ROWS = 6;
+
 const PaymentReminders = () => {
   const [hoveredRow, setHoveredRow] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -80,6 +82,21 @@ const PaymentReminders = () => {
   const pendingCount = reminders.filter((r) => !r.is_read).length;
   const remindedCount = reminders.filter((r) => r.is_read).length;
 
+  const renderSkeletonRows = (columnCount) =>
+    Array.from({ length: REMINDER_SKELETON_ROWS }).map((_, rowIdx) => (
+      <tr key={`pr-skeleton-row-${rowIdx}`}>
+        {Array.from({ length: columnCount }).map((__, colIdx) => (
+          <td key={`pr-skeleton-cell-${rowIdx}-${colIdx}`}>
+            <div
+              className={`pr-skeleton-line ${
+                colIdx === 0 ? 'w-lg' : colIdx === columnCount - 1 ? 'w-sm' : 'w-md'
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ));
+
   const sendReminder = async (transactionId) => {
     if (!transactionId) {
       addToast("Error", "This reminder has no linked transaction.", "error");
@@ -134,81 +151,117 @@ const PaymentReminders = () => {
   return (
     <main className="pr-main">
       <section className="pr-section">
-        <div className="pr-stats-grid">
-          <div className="pr-stat-card pr-stat-blue">
-            <div className="pr-stat-header">
-              <span className="pr-stat-label">Total Outstanding</span>
-              <Wallet size={24} className="pr-stat-icon" />
+        {loading ? (
+          <div className="pr-stats-grid">
+            <div className="pr-stat-card pr-skeleton-stat-card">
+              <div className="pr-skeleton-line w-md" />
+              <div className="pr-skeleton-line w-sm" />
             </div>
-            <div className="pr-stat-value">₱{totalOutstanding.toLocaleString()}</div>
-            <div className="pr-stat-change">Based on reminder-linked transactions</div>
+            <div className="pr-stat-card pr-skeleton-stat-card">
+              <div className="pr-skeleton-line w-md" />
+              <div className="pr-skeleton-line w-sm" />
+            </div>
+            <div className="pr-stat-card pr-skeleton-stat-card">
+              <div className="pr-skeleton-line w-md" />
+              <div className="pr-skeleton-line w-sm" />
+            </div>
           </div>
+        ) : (
+          <div className="pr-stats-grid">
+            <div className="pr-stat-card pr-stat-blue">
+              <div className="pr-stat-header">
+                <span className="pr-stat-label">Total Outstanding</span>
+                <Wallet size={24} className="pr-stat-icon" />
+              </div>
+              <div className="pr-stat-value">₱{totalOutstanding.toLocaleString()}</div>
+              <div className="pr-stat-change">Based on reminder-linked transactions</div>
+            </div>
 
-          <div className="pr-stat-card pr-stat-yellow">
-            <div className="pr-stat-header">
-              <span className="pr-stat-label">Pending Reminders</span>
-              <Clock size={24} className="pr-stat-icon" />
+            <div className="pr-stat-card pr-stat-yellow">
+              <div className="pr-stat-header">
+                <span className="pr-stat-label">Pending Reminders</span>
+                <Clock size={24} className="pr-stat-icon" />
+              </div>
+              <div className="pr-stat-value">{pendingCount}</div>
+              <div className="pr-stat-change">Unread reminders</div>
             </div>
-            <div className="pr-stat-value">{pendingCount}</div>
-            <div className="pr-stat-change">Unread reminders</div>
-          </div>
 
-          <div className="pr-stat-card pr-stat-green">
-            <div className="pr-stat-header">
-              <span className="pr-stat-label">Reminders Sent</span>
-              <CheckCircle size={24} className="pr-stat-icon" />
+            <div className="pr-stat-card pr-stat-green">
+              <div className="pr-stat-header">
+                <span className="pr-stat-label">Reminders Sent</span>
+                <CheckCircle size={24} className="pr-stat-icon" />
+              </div>
+              <div className="pr-stat-value">{remindedCount}</div>
+              <div className="pr-stat-change">Read reminders</div>
             </div>
-            <div className="pr-stat-value">{remindedCount}</div>
-            <div className="pr-stat-change">Read reminders</div>
           </div>
-        </div>
+        )}
       </section>
 
       <section className="pr-section">
-        <div className="pr-section-header">
-          <div>
-            <h2 className="pr-section-title">Payment Reminders</h2>
-            <p className="pr-section-subtitle">
-              Manage payment reminders already saved in the system
-            </p>
+        {loading ? (
+          <div className="pr-section-header pr-section-header-skeleton">
+            <div>
+              <div className="pr-skeleton-line pr-skeleton-title" />
+              <div className="pr-skeleton-line pr-skeleton-subtitle" />
+            </div>
+            <div className="pr-header-actions">
+              <div className="pr-skeleton-line pr-skeleton-control" />
+            </div>
           </div>
+        ) : (
+          <div className="pr-section-header">
+            <div>
+              <h2 className="pr-section-title">Payment Reminders</h2>
+              <p className="pr-section-subtitle">
+                Manage payment reminders already saved in the system
+              </p>
+            </div>
 
-          <div className="pr-header-actions">
-            <button
-              className="pr-btn-success"
-              onClick={sendBulkReminders}
-              disabled={sendingBulk}
-            >
-              <Bell size={18} /> {sendingBulk ? "Sending..." : "Send Bulk Reminders"}
-            </button>
+            <div className="pr-header-actions">
+              <button
+                className="pr-btn-success"
+                onClick={sendBulkReminders}
+                disabled={sendingBulk}
+              >
+                <Bell size={18} /> {sendingBulk ? "Sending..." : "Send Bulk Reminders"}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="pr-filters-container">
-          <div className="pr-search-box">
-            <Search size={20} className="pr-search-icon" />
-            <input
-              type="text"
-              placeholder="Search by reference, recipient, or title..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pr-search-input"
-            />
+        {loading ? (
+          <div className="pr-filters-container pr-filters-skeleton">
+            <div className="pr-skeleton-line pr-skeleton-search" />
+            <div className="pr-skeleton-line pr-skeleton-filter" />
           </div>
+        ) : (
+          <div className="pr-filters-container">
+            <div className="pr-search-box">
+              <Search size={20} className="pr-search-icon" />
+              <input
+                type="text"
+                placeholder="Search by reference, recipient, or title..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pr-search-input"
+              />
+            </div>
 
-          <div className="pr-filter-group">
-            <Filter size={20} />
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="pr-filter-select"
-            >
-              <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="reminded">Reminded</option>
-            </select>
+            <div className="pr-filter-group">
+              <Filter size={20} />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="pr-filter-select"
+              >
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="reminded">Reminded</option>
+              </select>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="pr-table-container">
           <div className="pr-table-scroll-hint">← Swipe to scroll →</div>
@@ -227,11 +280,7 @@ const PaymentReminders = () => {
 
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan="7" className="pr-no-data">
-                    <p>Loading reminders...</p>
-                  </td>
-                </tr>
+                renderSkeletonRows(7)
               ) : filteredReminders.length > 0 ? (
                 filteredReminders.map((r) => (
                   <tr

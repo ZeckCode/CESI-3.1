@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   UserPlus,
@@ -15,11 +14,11 @@ import {
   X,
   FileBarChart,
   MessageSquare,
+  UserCircle2,
 } from "lucide-react";
 import "../AdminWebsiteCSS/Sidebar.css";
 import { apiFetch } from "../api/apiFetch";
 import { useAuth } from "../Auth/useAuth";
-import { getToken } from "../Auth/auth";
 import { getDisplayName } from "../../utils/userDisplayName";
 
 
@@ -31,7 +30,6 @@ function getAvatarLetter(username = "User") {
 }
 
 export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggleCollapse }) {
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [currentUser, setCurrentUser] = useState(user || null);
 
@@ -105,6 +103,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
       {
         label: "SYSTEM",
         items: [
+          { id: "admin-profile", label: "Admin Profile", icon: UserCircle2 },
           { id: "cms", label: "CMS Module", icon: Globe },
           { id: "reports", label: "Reports", icon: FileBarChart },
           { id: "password-reset-requests", label: "Password Reset Requests", icon: UsersRound },
@@ -204,7 +203,10 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
 
   const visible = !isMobile || drawerOpen;
   const showLabels = !isCollapsed || isMobile;
-  const displayName = getDisplayName(currentUser);
+  const displayName =
+    String(currentUser?.role || "").toUpperCase() === "ADMIN"
+      ? (currentUser?.username || getDisplayName(currentUser))
+      : getDisplayName(currentUser);
   const avatarLetter = getAvatarLetter(displayName);
 
   return (

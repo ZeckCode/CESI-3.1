@@ -39,6 +39,7 @@ const UserManagement = () => {
   const [teacherPage, setTeacherPage] = useState(1);
   const [transferPage, setTransferPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  const SKELETON_ROW_COUNT = 6;
 
   // create teacher modal
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -255,23 +256,16 @@ const UserManagement = () => {
 
   const activeEnrollmentMaps = useMemo(() => {
     const byParentUser = new Map();
-    const byEmail = new Map();
 
     activeEnrollments.forEach((e) => {
       if (e.parent_user) byParentUser.set(e.parent_user, e);
-      const email = String(e.email || '').trim().toLowerCase();
-      if (email) byEmail.set(email, e);
     });
 
-    return { byParentUser, byEmail };
+    return { byParentUser };
   }, [activeEnrollments]);
 
   const enrollmentForUser = (u) => {
-    const byParent = activeEnrollmentMaps.byParentUser.get(u.id);
-    if (byParent) return byParent;
-    const email = String(u.email || '').trim().toLowerCase();
-    if (!email) return null;
-    return activeEnrollmentMaps.byEmail.get(email) || null;
+    return activeEnrollmentMaps.byParentUser.get(u.id) || null;
   };
 
   const sectionById = useMemo(() => {
@@ -570,18 +564,21 @@ const UserManagement = () => {
   };
 
   const openTransferModal = (u) => {
+    const p = u?.profile || {};
+    const status = normalizedTransferStatus(p.transfer_status);
+    const normalizedDecision = ["PENDING", "APPROVED", "REJECTED"].includes(status) ? status : "PENDING";
     setTransferStudent(u);
     setTransferError('');
     setTransferForm({
-      decision: 'PENDING',
-      transfer_date: '',
-      transfer_reason: '',
-      destination_school_name: '',
-      destination_school_address: '',
-      destination_school_contact: '',
-      transfer_reference_number: '',
-      transfer_notes: '',
-      allow_transfer_with_balance: false,
+      decision: normalizedDecision,
+      transfer_date: p.transfer_date || '',
+      transfer_reason: p.transfer_reason || '',
+      destination_school_name: p.destination_school_name || '',
+      destination_school_address: p.destination_school_address || '',
+      destination_school_contact: p.destination_school_contact || '',
+      transfer_reference_number: p.transfer_reference_number || '',
+      transfer_notes: p.transfer_notes || '',
+      allow_transfer_with_balance: Boolean(p.allow_transfer_with_balance),
       transfer_clearance: null,
     });
     setShowTransferForm(true);
@@ -865,10 +862,72 @@ const UserManagement = () => {
     rejected: transferRequests.filter((s) => normalizedTransferStatus(s.profile?.transfer_status) === 'REJECTED').length,
   };
 
+  const skeletonColumnCount = activeTab === 'teachers' ? 7 : 9;
+
+  const renderSkeletonRows = (columnCount) => (
+    Array.from({ length: SKELETON_ROW_COUNT }).map((_, rowIdx) => (
+      <tr key={`skeleton-row-${rowIdx}`}>
+        {Array.from({ length: columnCount }).map((__, colIdx) => (
+          <td key={`skeleton-cell-${rowIdx}-${colIdx}`}>
+            <div
+              className={`skeleton-line ${
+                colIdx === 0 ? 'w-lg' : colIdx === columnCount - 1 ? 'w-sm' : 'w-md'
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ))
+  );
+
   if (loading) {
     return (
       <div className="user-management">
-        <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>Loading users…</div>
+        <div className="user-header skeleton-header-row">
+          <div className="skeleton-line w-xl" />
+          <div className="skeleton-header-actions">
+            <div className="skeleton-line w-md" />
+            <div className="skeleton-line w-sm" />
+          </div>
+        </div>
+
+        <StatsGrid>
+          <div className="stat-card skeleton-stat-card">
+            <div className="skeleton-line w-sm" />
+            <div className="skeleton-line w-xs" />
+          </div>
+          <div className="stat-card skeleton-stat-card">
+            <div className="skeleton-line w-sm" />
+            <div className="skeleton-line w-xs" />
+          </div>
+          <div className="stat-card skeleton-stat-card">
+            <div className="skeleton-line w-sm" />
+            <div className="skeleton-line w-xs" />
+          </div>
+        </StatsGrid>
+
+        <div className="user-controls skeleton-controls">
+          <div className="skeleton-line w-full" />
+          <div className="skeleton-line w-full" />
+        </div>
+
+        <div className="users-container skeleton-container">
+          <div className="users-table-scroll-hint">Loading user table...</div>
+          <table className="users-table users-table-skeleton" aria-hidden="true">
+            <thead>
+              <tr>
+                {Array.from({ length: skeletonColumnCount }).map((_, idx) => (
+                  <th key={`skeleton-head-${idx}`}>
+                    <div className="skeleton-line skeleton-header-line" />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {renderSkeletonRows(skeletonColumnCount)}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }
@@ -880,42 +939,49 @@ const UserManagement = () => {
         <div className="tabs-container">
           <button
             className={`tab-btn ${activeTab === 'students' ? 'active' : ''}`}
+            aria-label="Students"
             onClick={() => { setActiveTab('students'); setSearchTerm(''); setFilterStatus('All'); }}
           >
-            <GraduationCap size={18} /> Students ({studentStats.total})
+            <GraduationCap size={18} /> <span className="tab-btn-text">Students ({studentStats.total})</span>
           </button>
           <button
             className={`tab-btn ${activeTab === 'teachers' ? 'active' : ''}`}
+            aria-label="Teachers"
             onClick={() => { setActiveTab('teachers'); setSearchTerm(''); setFilterStatus('All'); }}
           >
-            <BookOpen size={18} /> Teachers ({teacherStats.total})
+            <BookOpen size={18} /> <span className="tab-btn-text">Teachers ({teacherStats.total})</span>
           </button>
           <button
             className={`tab-btn ${activeTab === 'transfers' ? 'active' : ''}`}
+            aria-label="Transfer Requests"
             onClick={() => { setActiveTab('transfers'); setSearchTerm(''); setTransferDecisionFilter('All'); }}
           >
-            <ArrowRightLeft size={18} /> Transfer Requests ({transferStats.total})
+            <ArrowRightLeft size={18} /> <span className="tab-btn-text">Transfer Requests ({transferStats.total})</span>
           </button>
         </div>
         {activeTab === 'teachers' && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button className="btn-secondary" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest data from database">
-              <RefreshCw size={16} /> {refreshing ? 'Refreshing…' : 'Refresh'}
+          <div className="user-header-actions">
+            <button className="btn-primary header-btn btn-add-teacher" onClick={() => setShowCreateForm(true)} aria-label="Add new teacher">
+              <Plus size={18} /> <span className="header-btn-text">Add New Teacher</span>
             </button>
-            <button className="btn-primary" onClick={() => setShowCreateForm(true)}>
-              <Plus size={18} /> Add New Teacher
+            <button className="btn-secondary header-btn btn-refresh" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest data from database" aria-label={refreshing ? 'Refreshing data' : 'Refresh data'}>
+              <RefreshCw size={16} /> <span className="header-btn-text">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
             </button>
           </div>
         )}
         {activeTab === 'students' && (
-          <button className="btn-secondary" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest data from database">
-            <RefreshCw size={16} /> {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
+          <div className="user-header-actions single-action">
+            <button className="btn-secondary header-btn btn-refresh" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest data from database" aria-label={refreshing ? 'Refreshing data' : 'Refresh data'}>
+              <RefreshCw size={16} /> <span className="header-btn-text">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+            </button>
+          </div>
         )}
         {activeTab === 'transfers' && (
-          <button className="btn-secondary" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest transfer requests from database">
-            <RefreshCw size={16} /> {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
+          <div className="user-header-actions single-action">
+            <button className="btn-secondary header-btn btn-refresh" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest transfer requests from database" aria-label={refreshing ? 'Refreshing data' : 'Refresh data'}>
+              <RefreshCw size={16} /> <span className="header-btn-text">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+            </button>
+          </div>
         )}
       </div>
       {lastUpdated && (

@@ -18,6 +18,7 @@ import AdminPasswordResetRequests from "./AdminPasswordResetRequests";
 import Messages from "./Messages";
 import OrganizationalChart from "./OrganizationalChart";
 import NotificationList from "./NotificationList";
+import AdminProfile from "./AdminProfile";
 import { apiFetch } from "../api/apiFetch";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 import "../AdminWebsiteCSS/ResponsiveUtils.css";
@@ -107,6 +108,8 @@ function AdminDashboard() {
         return <AdminPasswordResetRequests />;
       case "messages":
         return <Messages />;
+      case "admin-profile":
+        return <AdminProfile />;
       default:
         return <Dashboard />;
     }
@@ -133,6 +136,7 @@ function AdminDashboard() {
       notifications: "SMS & Email",
       "password-reset-requests": "Password Reset Requests",
       messages: "Message Moderation",
+      "admin-profile": "Admin Profile",
     };
     return titles[activeMenu] || "Dashboard";
   };
@@ -155,6 +159,7 @@ function AdminDashboard() {
       reports: "Generate and view system reports.",
       "password-reset-requests": "Review password reset requests and send reset links.",
       messages: "Manage profanity filters, flagged messages, chat requests, and message reports.",
+      "admin-profile": "Update your admin account details and permissions label.",
     };
     return subtitles[activeMenu] || "Welcome back! Here's what's happening today.";
   };

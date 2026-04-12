@@ -11,6 +11,7 @@ import Toast from '../Global/Toast';
 import PreviewModal from '../PreviewModal';
 
 const API = '';
+const TUITION_SKELETON_ROWS = 6;
 
 const GRADE_OPTIONS = [
   { value: 'prek', label: 'Pre-Kinder' },
@@ -78,6 +79,7 @@ const TuitionManagement = () => {
 
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [loadingFees, setLoadingFees] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [toasts, setToasts] = useState([]);
@@ -213,11 +215,16 @@ const TuitionManagement = () => {
   };
 
   const refreshAll = async () => {
-    await Promise.all([
-      loadStudents(),
-      loadTuitionConfigs(),
-      loadTuitionStats(),
-    ]);
+    setIsInitialLoading(true);
+    try {
+      await Promise.all([
+        loadStudents(),
+        loadTuitionConfigs(),
+        loadTuitionStats(),
+      ]);
+    } finally {
+      setIsInitialLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -531,129 +538,183 @@ const TuitionManagement = () => {
     tmPage * ITEMS_PER_PAGE
   );
   const stats = getPaymentStats();
+  const tableColumns = viewMode === 'student' ? 8 : 11;
+
+  const renderSkeletonRows = (columns) =>
+    Array.from({ length: TUITION_SKELETON_ROWS }).map((_, rowIdx) => (
+      <tr key={`tm-skeleton-row-${rowIdx}`}>
+        {Array.from({ length: columns }).map((__, colIdx) => (
+          <td key={`tm-skeleton-cell-${rowIdx}-${colIdx}`} className="tm-table-cell">
+            <div
+              className={`tm-skeleton-line ${
+                colIdx === 0 ? 'w-lg' : colIdx === columns - 1 ? 'w-sm' : 'w-md'
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ));
 
   return (
     <main className="tuition-management-main">
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
       <section className="tm-section">
-        <div className="tm-stats-grid">
-          <div className="tm-stat-card tm-stat-blue">
-            <div className="tm-stat-header">
-              <span className="tm-stat-label">
-                {viewMode === 'student' ? 'Total Students' : 'Grade Levels'}
-              </span>
-              <Users size={24} className="tm-stat-icon" />
+        {isInitialLoading ? (
+          <div className="tm-stats-grid">
+            <div className="tm-stat-card tm-skeleton-stat-card">
+              <div className="tm-skeleton-line w-md" />
+              <div className="tm-skeleton-line w-sm" />
             </div>
-            <div className="tm-stat-value">
-              {viewMode === 'student' ? stats.totalStudents : stats.totalConfigs}
+            <div className="tm-stat-card tm-skeleton-stat-card">
+              <div className="tm-skeleton-line w-md" />
+              <div className="tm-skeleton-line w-sm" />
             </div>
-            <div className="tm-stat-change">
-              {viewMode === 'student' ? 'Student tuition profiles' : 'Fee structures configured'}
+            <div className="tm-stat-card tm-skeleton-stat-card">
+              <div className="tm-skeleton-line w-md" />
+              <div className="tm-skeleton-line w-sm" />
             </div>
           </div>
+        ) : (
+          <div className="tm-stats-grid">
+            <div className="tm-stat-card tm-stat-blue">
+              <div className="tm-stat-header">
+                <span className="tm-stat-label">
+                  {viewMode === 'student' ? 'Total Students' : 'Grade Levels'}
+                </span>
+                <Users size={24} className="tm-stat-icon" />
+              </div>
+              <div className="tm-stat-value">
+                {viewMode === 'student' ? stats.totalStudents : stats.totalConfigs}
+              </div>
+              <div className="tm-stat-change">
+                {viewMode === 'student' ? 'Student tuition profiles' : 'Fee structures configured'}
+              </div>
+            </div>
 
-          <div className="tm-stat-card tm-stat-green">
-            <div className="tm-stat-header">
-              <span className="tm-stat-label">
-                {viewMode === 'student' ? 'Cash Mode' : 'Active Fees'}
-              </span>
-              <CheckCircle size={24} className="tm-stat-icon" />
+            <div className="tm-stat-card tm-stat-green">
+              <div className="tm-stat-header">
+                <span className="tm-stat-label">
+                  {viewMode === 'student' ? 'Cash Mode' : 'Active Fees'}
+                </span>
+                <CheckCircle size={24} className="tm-stat-icon" />
+              </div>
+              <div className="tm-stat-value">
+                {viewMode === 'student' ? stats.cashCount : stats.activeConfigs}
+              </div>
+              <div className="tm-stat-change">
+                {viewMode === 'student' ? 'Students on cash plan' : 'Active tuition configurations'}
+              </div>
             </div>
-            <div className="tm-stat-value">
-              {viewMode === 'student' ? stats.cashCount : stats.activeConfigs}
-            </div>
-            <div className="tm-stat-change">
-              {viewMode === 'student' ? 'Students on cash plan' : 'Active tuition configurations'}
-            </div>
-          </div>
 
-          <div className="tm-stat-card tm-stat-purple">
-            <div className="tm-stat-header">
-              <span className="tm-stat-label">
-                {viewMode === 'student' ? 'Installment Mode' : 'Avg Total Cash'}
-              </span>
-              <Split size={24} className="tm-stat-icon" />
-            </div>
-            <div className="tm-stat-value">
-              {viewMode === 'student' ? stats.installmentCount : formatCurrency(stats.avgTotalCash)}
-            </div>
-            <div className="tm-stat-change">
-              {viewMode === 'student' ? 'Students on installment plan' : 'Average configured cash total'}
+            <div className="tm-stat-card tm-stat-purple">
+              <div className="tm-stat-header">
+                <span className="tm-stat-label">
+                  {viewMode === 'student' ? 'Installment Mode' : 'Avg Total Cash'}
+                </span>
+                <Split size={24} className="tm-stat-icon" />
+              </div>
+              <div className="tm-stat-value">
+                {viewMode === 'student' ? stats.installmentCount : formatCurrency(stats.avgTotalCash)}
+              </div>
+              <div className="tm-stat-change">
+                {viewMode === 'student' ? 'Students on installment plan' : 'Average configured cash total'}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </section>
 
       <section className="tm-section">
-        <div className="tm-section-header">
-          <div>
-            <h2 className="tm-section-title">
-              {viewMode === 'student' ? 'Student Tuition Profiles' : 'Tuition Fee Structure'}
-            </h2>
-            <p className="tm-section-subtitle">
-              {viewMode === 'student'
-                ? 'View student payment plan information'
-                : 'Manage tuition configuration by grade'}
-            </p>
+        {isInitialLoading ? (
+          <div className="tm-section-header tm-section-header-skeleton">
+            <div>
+              <div className="tm-skeleton-line tm-skeleton-title" />
+              <div className="tm-skeleton-line tm-skeleton-subtitle" />
+            </div>
+            <div className="tm-button-group">
+              <div className="tm-skeleton-line tm-skeleton-control" />
+              <div className="tm-skeleton-line tm-skeleton-control" />
+            </div>
           </div>
+        ) : (
+          <div className="tm-section-header">
+            <div>
+              <h2 className="tm-section-title">
+                {viewMode === 'student' ? 'Student Tuition Profiles' : 'Tuition Fee Structure'}
+              </h2>
+              <p className="tm-section-subtitle">
+                {viewMode === 'student'
+                  ? 'View student payment plan information'
+                  : 'Manage tuition configuration by grade'}
+              </p>
+            </div>
 
-          <div className="tm-button-group">
-            <button
-              className={`tm-view-toggle ${viewMode === 'student' ? 'active' : ''}`}
-              onClick={() => setViewMode(viewMode === 'student' ? 'grade' : 'student')}
-              title={`Switch to ${viewMode === 'student' ? 'Grade' : 'Student'} View`}
-            >
-              {viewMode === 'student' ? <ToggleLeft size={18} /> : <ToggleRight size={18} />}
-              {viewMode === 'student' ? 'Student View' : 'Grade View'}
+            <div className="tm-button-group">
+              <button
+                className={`tm-view-toggle ${viewMode === 'student' ? 'active' : ''}`}
+                onClick={() => setViewMode(viewMode === 'student' ? 'grade' : 'student')}
+                title={`Switch to ${viewMode === 'student' ? 'Grade' : 'Student'} View`}
+              >
+                {viewMode === 'student' ? <ToggleLeft size={18} /> : <ToggleRight size={18} />}
+                {viewMode === 'student' ? 'Student View' : 'Grade View'}
+              </button>
+
+              {viewMode === 'grade' && (
+                <button className="tm-btn-primary" onClick={handleAddNew}>
+                  <Plus size={18} />
+                  Add New Fee
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {isInitialLoading ? (
+          <div className="tm-filters-container tm-filters-skeleton">
+            <div className="tm-skeleton-line tm-skeleton-search" />
+            <div className="tm-skeleton-line tm-skeleton-export" />
+            <div className="tm-skeleton-line tm-skeleton-filter" />
+          </div>
+        ) : (
+          <div className="tm-filters-container">
+            <div className="tm-search-box">
+              <Search size={20} className="tm-search-icon" />
+              <input
+                type="text"
+                placeholder={
+                  viewMode === 'student'
+                    ? 'Search by student, parent, student no., contact, or username...'
+                    : 'Search by grade level or description...'
+                }
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="tm-search-input"
+              />
+            </div>
+
+            <button className="tm-btn-export" onClick={handleOpenPreview}>
+              <Download size={18} />
+              View & Export
             </button>
 
-            {viewMode === 'grade' && (
-              <button className="tm-btn-primary" onClick={handleAddNew}>
-                <Plus size={18} />
-                Add New Fee
-              </button>
-            )}
+            <div className="tm-filter-group">
+              <Filter size={20} />
+              <select
+                value={filterGrade}
+                onChange={(e) => setFilterGrade(e.target.value)}
+                className="tm-filter-select"
+              >
+                <option value="all">All Grades</option>
+                {grades.filter((g) => g !== 'all').map((grade) => (
+                  <option key={grade} value={grade}>
+                    {gradeLabelMap[grade] || grade}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
-
-        <div className="tm-filters-container">
-          <div className="tm-search-box">
-            <Search size={20} className="tm-search-icon" />
-            <input
-              type="text"
-              placeholder={
-                viewMode === 'student'
-                  ? 'Search by student, parent, student no., contact, or username...'
-                  : 'Search by grade level or description...'
-              }
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="tm-search-input"
-            />
-          </div>
-
-          <button className="tm-btn-export" onClick={handleOpenPreview}>
-            <Download size={18} />
-            View & Export
-          </button>
-
-          <div className="tm-filter-group">
-            <Filter size={20} />
-            <select
-              value={filterGrade}
-              onChange={(e) => setFilterGrade(e.target.value)}
-              className="tm-filter-select"
-            >
-              <option value="all">All Grades</option>
-              {grades.filter((g) => g !== 'all').map((grade) => (
-                <option key={grade} value={grade}>
-                  {gradeLabelMap[grade] || grade}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        )}
 
         <div className="tm-table-container">
           <table className="tm-table">
@@ -689,9 +750,11 @@ const TuitionManagement = () => {
             </thead>
 
             <tbody>
-              {(viewMode === 'student' ? loadingStudents : loadingFees) ? (
+              {isInitialLoading ? (
+                renderSkeletonRows(tableColumns)
+              ) : (viewMode === 'student' ? loadingStudents : loadingFees) ? (
                 <tr>
-                  <td colSpan={viewMode === 'student' ? 8 : 11} className="tm-no-data">
+                  <td colSpan={tableColumns} className="tm-no-data">
                     <p>Loading...</p>
                   </td>
                 </tr>
@@ -772,7 +835,7 @@ const TuitionManagement = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={viewMode === 'student' ? 8 : 11} className="tm-no-data">
+                  <td colSpan={tableColumns} className="tm-no-data">
                     <AlertCircle size={24} />
                     <p>No records found</p>
                   </td>
@@ -782,13 +845,15 @@ const TuitionManagement = () => {
           </table>
         </div>
 
-        <Pagination
-          currentPage={tmPage}
-          totalPages={tmTotalPages}
-          onPageChange={setTmPage}
-          totalItems={filteredData.length}
-          itemsPerPage={ITEMS_PER_PAGE}
-        />
+        {!isInitialLoading && (
+          <Pagination
+            currentPage={tmPage}
+            totalPages={tmTotalPages}
+            onPageChange={setTmPage}
+            totalItems={filteredData.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
+        )}
       </section>
 
       {showModal && (

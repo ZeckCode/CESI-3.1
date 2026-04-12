@@ -69,6 +69,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     username = models.CharField(max_length=50, unique=True)
     email = models.EmailField(null=True, blank=True)
+    first_name = models.CharField(max_length=50, blank=True, default="")
+    last_name = models.CharField(max_length=50, blank=True, default="")
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="PARENT_STUDENT")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")

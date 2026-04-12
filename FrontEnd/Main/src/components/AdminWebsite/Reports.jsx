@@ -125,6 +125,8 @@ const pdfTableStyles = {
   fontStyle: 'normal',
 };
 
+const REPORT_SKELETON_ROWS = 6;
+
 const Reports = () => {
   const [reportType, setReportType] = useState('all');
   const [dateRange, setDateRange] = useState('all');
@@ -848,13 +850,89 @@ const Reports = () => {
   });
   
   const totalReports = filteredReports.length;
+
+  const renderSkeletonRows = (columnCount) =>
+    Array.from({ length: REPORT_SKELETON_ROWS }).map((_, rowIdx) => (
+      <tr key={`report-skeleton-row-${rowIdx}`}>
+        {Array.from({ length: columnCount }).map((__, colIdx) => (
+          <td key={`report-skeleton-cell-${rowIdx}-${colIdx}`}>
+            <div
+              className={`report-skeleton-line ${
+                colIdx === 0 ? 'w-lg' : colIdx === columnCount - 1 ? 'w-sm' : 'w-md'
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ));
   
   if (loading) {
     return (
       <div className="class-management">
-        <div style={{ textAlign: 'center', padding: '50px' }}>
-          <div className="spinner"></div>
-      <Toast toasts={toasts} dismissToast={dismissToast} />
+        <div className="reports-skeleton-page">
+          <div className="reports-skeleton-controls">
+            <div className="report-skeleton-line report-skeleton-control" />
+            <div className="report-skeleton-line report-skeleton-control" />
+            <div className="report-skeleton-line report-skeleton-button" />
+            <div className="report-skeleton-line report-skeleton-button report-skeleton-icon-button" />
+          </div>
+
+          <StatsGrid>
+            <div className="unified-stat-card blue report-skeleton-stat-card">
+              <div className="unified-stat-header">
+                <div className="report-skeleton-line report-skeleton-stat-label" />
+                <div className="report-skeleton-icon-circle" />
+              </div>
+              <div className="report-skeleton-line report-skeleton-stat-value" />
+              <div className="report-skeleton-line report-skeleton-stat-subtitle" />
+            </div>
+
+            <div className="unified-stat-card green report-skeleton-stat-card">
+              <div className="unified-stat-header">
+                <div className="report-skeleton-line report-skeleton-stat-label" />
+                <div className="report-skeleton-icon-circle" />
+              </div>
+              <div className="report-skeleton-line report-skeleton-stat-value" />
+              <div className="report-skeleton-line report-skeleton-stat-subtitle" />
+            </div>
+
+            <div className="unified-stat-card purple report-skeleton-stat-card">
+              <div className="unified-stat-header">
+                <div className="report-skeleton-line report-skeleton-stat-label" />
+                <div className="report-skeleton-icon-circle" />
+              </div>
+              <div className="report-skeleton-line report-skeleton-stat-value" />
+              <div className="report-skeleton-line report-skeleton-stat-subtitle" />
+            </div>
+
+            <div className="unified-stat-card teal report-skeleton-stat-card">
+              <div className="unified-stat-header">
+                <div className="report-skeleton-line report-skeleton-stat-label" />
+                <div className="report-skeleton-icon-circle" />
+              </div>
+              <div className="report-skeleton-line report-skeleton-stat-value" />
+              <div className="report-skeleton-line report-skeleton-stat-subtitle" />
+            </div>
+          </StatsGrid>
+
+          <div className="classes-container">
+            <div className="teacher-assignment-table">
+              <table className="assignments-table report-skeleton-table">
+                <thead>
+                  <tr>
+                    <th><div className="report-skeleton-line report-skeleton-head" /></th>
+                    <th><div className="report-skeleton-line report-skeleton-head" /></th>
+                    <th><div className="report-skeleton-line report-skeleton-head" /></th>
+                    <th><div className="report-skeleton-line report-skeleton-head" /></th>
+                    <th><div className="report-skeleton-line report-skeleton-head" /></th>
+                  </tr>
+                </thead>
+                <tbody>{renderSkeletonRows(5)}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <Toast toasts={toasts} dismissToast={dismissToast} />
         </div>
       </div>
     );
@@ -1002,6 +1080,115 @@ const Reports = () => {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+
+        @keyframes reportSkeletonShimmer {
+          0% {
+            background-position: 200% 0;
+          }
+          100% {
+            background-position: -200% 0;
+          }
+        }
+
+        .reports-skeleton-page {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        .reports-skeleton-controls {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+          align-items: center;
+        }
+
+        .report-skeleton-line {
+          display: block;
+          border-radius: 10px;
+          background: linear-gradient(90deg, #e2e8f0 20%, #f8fafc 50%, #e2e8f0 80%);
+          background-size: 200% 100%;
+          animation: reportSkeletonShimmer 1.4s ease-in-out infinite;
+        }
+
+        .report-skeleton-line.w-sm {
+          width: 36%;
+        }
+
+        .report-skeleton-line.w-md {
+          width: 58%;
+        }
+
+        .report-skeleton-line.w-lg {
+          width: 84%;
+        }
+
+        .report-skeleton-control {
+          width: 180px;
+          height: 42px;
+        }
+
+        .report-skeleton-button {
+          width: 160px;
+          height: 42px;
+        }
+
+        .report-skeleton-icon-button {
+          width: 44px;
+        }
+
+        .report-skeleton-stat-label {
+          width: 68%;
+          height: 12px;
+        }
+
+        .report-skeleton-stat-value {
+          width: 52%;
+          height: 18px;
+          margin: 8px 0 6px;
+        }
+
+        .report-skeleton-stat-subtitle {
+          width: 78%;
+          height: 12px;
+        }
+
+        .report-skeleton-icon-circle {
+          width: 24px;
+          height: 24px;
+          border-radius: 999px;
+          background: linear-gradient(90deg, #e2e8f0 20%, #f8fafc 50%, #e2e8f0 80%);
+          background-size: 200% 100%;
+          animation: reportSkeletonShimmer 1.4s ease-in-out infinite;
+        }
+
+        .report-skeleton-table th,
+        .report-skeleton-table td {
+          vertical-align: middle;
+        }
+
+        .report-skeleton-head {
+          width: 78%;
+          height: 10px;
+          margin: 0 auto;
+        }
+
+        .report-skeleton-table td {
+          padding-top: 1rem;
+          padding-bottom: 1rem;
+        }
+
+        @media (max-width: 768px) {
+          .report-skeleton-control,
+          .report-skeleton-button {
+            width: 150px;
+            height: 38px;
+          }
+
+          .report-skeleton-icon-button {
+            width: 40px;
+          }
         }
         
         .toast-notification {

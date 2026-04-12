@@ -113,6 +113,8 @@ export default function EnrollmentManagement() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [enrollPage, setEnrollPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  const ENROLLMENT_SKELETON_ROWS = 6;
+  const ENROLLMENT_SKELETON_COLUMNS = 7;
 
   const [sections, setSections] = useState([]);
   const [sectionsLoading, setSectionsLoading] = useState(false);
@@ -1680,92 +1682,148 @@ const openIdGenerator = (row) => {
     setEnrollmentPreviewOpen(true);
   };
 
+  const renderEnrollmentSkeletonRows = () =>
+    Array.from({ length: ENROLLMENT_SKELETON_ROWS }).map((_, rowIdx) => (
+      <tr key={`enrollment-skeleton-row-${rowIdx}`}>
+        {Array.from({ length: ENROLLMENT_SKELETON_COLUMNS }).map((__, colIdx) => (
+          <td key={`enrollment-skeleton-cell-${rowIdx}-${colIdx}`}>
+            <div
+              className={`enrollment-skeleton-line ${
+                colIdx === 0 ? "w-lg" : colIdx === ENROLLMENT_SKELETON_COLUMNS - 1 ? "w-sm" : "w-md"
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ));
+
+  const isInitialLoading = loading && enrollments.length === 0;
+
   return (
     <div className="enrollment-management">
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
       <div className="enrollment-stats-section">
-        <div className="enrollment-stats-header">
-          <div className="enrollment-stats-title">Enrollment Overview</div>
-          <div className="header-actions enrollment-header-actions">
-            <button className="btn-primary enrollment-btn-primary" onClick={openCreateModal}>
-              + Add Enrollee
-            </button>
+        {isInitialLoading ? (
+          <>
+            <div className="enrollment-stats-header enrollment-stats-header--skeleton">
+              <div className="enrollment-skeleton-line enrollment-skeleton-title" />
+              <div className="enrollment-skeleton-actions">
+                <div className="enrollment-skeleton-line enrollment-skeleton-action" />
+                <div className="enrollment-skeleton-line enrollment-skeleton-action" />
+                <div className="enrollment-skeleton-line enrollment-skeleton-action" />
+                <div className="enrollment-skeleton-line enrollment-skeleton-action" />
+              </div>
+            </div>
 
-            <button className="btn-icon enrollment-btn-icon" onClick={fetchEnrollments} title="Refresh">
-              <RefreshCw size={16} />
-            </button>
+            <StatsGrid className="unified-stats-grid">
+              <div className="unified-stat-card enrollment-skeleton-stat-card">
+                <div className="enrollment-skeleton-line w-md" />
+                <div className="enrollment-skeleton-line w-sm" />
+              </div>
+              <div className="unified-stat-card enrollment-skeleton-stat-card">
+                <div className="enrollment-skeleton-line w-md" />
+                <div className="enrollment-skeleton-line w-sm" />
+              </div>
+              <div className="unified-stat-card enrollment-skeleton-stat-card">
+                <div className="enrollment-skeleton-line w-md" />
+                <div className="enrollment-skeleton-line w-sm" />
+              </div>
+              <div className="unified-stat-card enrollment-skeleton-stat-card">
+                <div className="enrollment-skeleton-line w-md" />
+                <div className="enrollment-skeleton-line w-sm" />
+              </div>
+              <div className="unified-stat-card enrollment-skeleton-stat-card">
+                <div className="enrollment-skeleton-line w-md" />
+                <div className="enrollment-skeleton-line w-sm" />
+              </div>
+            </StatsGrid>
+          </>
+        ) : (
+          <>
+            <div className="enrollment-stats-header">
+              <div className="enrollment-stats-title">Enrollment Overview</div>
+              <div className="header-actions enrollment-header-actions">
+                <button className="btn-primary enrollment-btn-primary" onClick={openCreateModal}>
+                  + Add Enrollee
+                </button>
 
-            <button
-              className="btn-icon enrollment-btn-icon"
-              onClick={handleEnrollmentPreview}
-              title="View and Export Enrollment Data"
-            >
-              <FileText size={16} />
-            </button>
+                <button className="btn-icon enrollment-btn-icon" onClick={fetchEnrollments} title="Refresh">
+                  <RefreshCw size={16} />
+                </button>
 
-            <button
-              className={`btn-icon enrollment-btn-icon ${settingsOpen ? "btn-icon--active enrollment-btn-icon--active" : ""}`}
-              onClick={() => setSettingsOpen((v) => !v)}
-              title="School Year Settings"
-            >
-              <Settings size={16} />
-            </button>
-          </div>
-        </div>
+                <button
+                  className="btn-icon enrollment-btn-icon"
+                  onClick={handleEnrollmentPreview}
+                  title="View and Export Enrollment Data"
+                >
+                  <FileText size={16} />
+                </button>
 
-        <StatsGrid className="unified-stats-grid">
-          <StatCard
-            label="Total"
-            value={stats.total}
-            icon={<Users size={20} />}
-            color="blue"
-            subtitle="All enrollees"
-          />
-          <StatCard
-            label="Enrolled"
-            value={stats.active}
-            icon={<UserCheck size={20} />}
-            color="green"
-            subtitle={
-              stats.total
-                ? `${Math.round((stats.active / stats.total) * 100)}% of total`
-                : "—"
-            }
-            subtitleType="positive"
-          />
-          <StatCard
-            label="Pending"
-            value={stats.pending}
-            icon={<Clock size={20} />}
-            color="yellow"
-            subtitle={
-              stats.total
-                ? `${Math.round((stats.pending / stats.total) * 100)}% of total`
-                : "—"
-            }
-          />
-          <StatCard
-            label="Declined"
-            value={stats.dropped}
-            icon={<UserMinus size={20} />}
-            color="red"
-            subtitle={
-              stats.total
-                ? `${Math.round((stats.dropped / stats.total) * 100)}% of total`
-                : "—"
-            }
-            subtitleType="negative"
-          />
-          
-          <StatCard
-            label="Enrollment"
-            value={window_.isOpen ? `Open · ${window_.daysLeft}d left` : "Closed"}
-            icon={<Calendar size={20} />}
-            color={window_.isOpen ? "teal" : "red"}
-            subtitle={window_.isOpen ? "Accepting enrollees" : "Window closed"}
-          />
-        </StatsGrid>
+                <button
+                  className={`btn-icon enrollment-btn-icon ${settingsOpen ? "btn-icon--active enrollment-btn-icon--active" : ""}`}
+                  onClick={() => setSettingsOpen((v) => !v)}
+                  title="School Year Settings"
+                >
+                  <Settings size={16} />
+                </button>
+              </div>
+            </div>
+
+            <StatsGrid className="unified-stats-grid">
+              <StatCard
+                label="Total"
+                value={stats.total}
+                icon={<Users size={20} />}
+                color="blue"
+                subtitle="All enrollees"
+              />
+              <StatCard
+                label="Enrolled"
+                value={stats.active}
+                icon={<UserCheck size={20} />}
+                color="green"
+                subtitle={
+                  stats.total
+                    ? `${Math.round((stats.active / stats.total) * 100)}% of total`
+                    : "—"
+                }
+                subtitleType="positive"
+              />
+              <StatCard
+                label="Pending"
+                value={stats.pending}
+                icon={<Clock size={20} />}
+                color="yellow"
+                subtitle={
+                  stats.total
+                    ? `${Math.round((stats.pending / stats.total) * 100)}% of total`
+                    : "—"
+                }
+              />
+              <StatCard
+                label="Declined"
+                value={stats.dropped}
+                icon={<UserMinus size={20} />}
+                color="red"
+                subtitle={
+                  stats.total
+                    ? `${Math.round((stats.dropped / stats.total) * 100)}% of total`
+                    : "—"
+                }
+                subtitleType="negative"
+              />
+
+              <StatCard
+                label="Enrollment"
+                value={window_.isOpen ? `Open · ${window_.daysLeft}d left` : "Closed"}
+                icon={<Calendar size={20} />}
+                color={window_.isOpen ? "teal" : "red"}
+                subtitle={window_.isOpen ? "Accepting enrollees" : "Window closed"}
+              />
+            </StatsGrid>
+          </>
+        )}
       </div>
 
       {settingsOpen && (
@@ -1911,120 +1969,161 @@ const openIdGenerator = (row) => {
         </div>
       )}
 
-      <div className={`enrollment-controls ${mobileFiltersOpen ? "mobile-filters-open" : ""}`}>
-        <div className="search-box enrollment-search-box">
-          <Search size={16} />
-          <input
-            type="text"
-            placeholder="Search by student, parent name, phone, or section…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+      {isInitialLoading ? (
+        <>
+          <div className="enrollment-controls enrollment-controls--skeleton">
+            <div className="enrollment-skeleton-line w-lg" />
+            <div className="enrollment-skeleton-line w-md" />
+            <div className="enrollment-skeleton-line w-md" />
+            <div className="enrollment-skeleton-line w-sm" />
+          </div>
 
-        <button
-          type="button"
-          className={`mobile-filter-toggle ${mobileFiltersOpen ? "active" : ""}`}
-          onClick={() => setMobileFiltersOpen((prev) => !prev)}
-          aria-expanded={mobileFiltersOpen}
-          aria-label="Toggle filter options"
-        >
-          <Filter size={14} />
-          {mobileFiltersOpen ? "Hide Filters" : "Show Filters"}
-        </button>
+          <div className="enrollment-quick-filters enrollment-quick-filters--skeleton">
+            <div className="enrollment-skeleton-chip-row">
+              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
+              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
+              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
+              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
+            </div>
+            <div className="enrollment-skeleton-chip-row">
+              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
+              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
+              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
+              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className={`enrollment-controls ${mobileFiltersOpen ? "mobile-filters-open" : ""}`}>
+            <div className="search-box enrollment-search-box">
+              <Search size={16} />
+              <input
+                type="text"
+                placeholder="Search by student, parent name, phone, or section…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
 
-        <div className={`enrollment-controls-advanced ${mobileFiltersOpen ? "open" : ""}`}>
-
-        <div className="filter-box enrollment-filter-box">
-          <Filter size={16} />
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            {FILTER_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="filter-box enrollment-filter-box">
-          <Filter size={16} />
-          <select
-            value={filterPromotionStatus}
-            onChange={(e) => setFilterPromotionStatus(e.target.value)}
-          >
-            {PROMOTION_FILTER_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <button
-          type="button"
-          className="filter-reset-btn enrollment-filter-reset-btn"
-          onClick={() => {
-            setSearchTerm("");
-            setFilterStatus("All");
-            setFilterPromotionStatus("All");
-          }}
-          title="Reset all filters"
-        >
-          <XCircle size={14} /> Reset Filters
-        </button>
-        </div>
-      </div>
-
-      <div className={`enrollment-quick-filters ${mobileFiltersOpen ? "open" : ""}`}>
-        <div className="quick-filter-group enrollment-quick-filter-group">
-          <span className="quick-filter-label enrollment-quick-filter-label">Status:</span>
-          <button
-            type="button"
-            className={`quick-filter-chip enrollment-quick-filter-chip ${filterStatus === "All" ? "active" : ""}`}
-            onClick={() => setFilterStatus("All")}
-          >
-            All
-          </button>
-          {quickStatusOptions.map((option) => (
             <button
-              key={option.value}
               type="button"
-              className={`quick-filter-chip enrollment-quick-filter-chip ${filterStatus === option.value ? "active" : ""}`}
-              onClick={() => setFilterStatus(option.value)}
+              className={`mobile-filter-toggle ${mobileFiltersOpen ? "active" : ""}`}
+              onClick={() => setMobileFiltersOpen((prev) => !prev)}
+              aria-expanded={mobileFiltersOpen}
+              aria-label="Toggle filter options"
             >
-              {option.label}
+              <Filter size={14} />
+              {mobileFiltersOpen ? "Hide Filters" : "Show Filters"}
             </button>
-          ))}
-        </div>
 
-        <div className="quick-filter-group enrollment-quick-filter-group">
-          <span className="quick-filter-label enrollment-quick-filter-label">Promotion:</span>
-          <button
-            type="button"
-            className={`quick-filter-chip enrollment-quick-filter-chip ${filterPromotionStatus === "All" ? "active" : ""}`}
-            onClick={() => setFilterPromotionStatus("All")}
-          >
-            All
-          </button>
-          {quickPromotionOptions.map((option) => (
+            <div className={`enrollment-controls-advanced ${mobileFiltersOpen ? "open" : ""}`}>
+
+            <div className="filter-box enrollment-filter-box">
+              <Filter size={16} />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                {FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-box enrollment-filter-box">
+              <Filter size={16} />
+              <select
+                value={filterPromotionStatus}
+                onChange={(e) => setFilterPromotionStatus(e.target.value)}
+              >
+                {PROMOTION_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <button
-              key={option.value}
               type="button"
-              className={`quick-filter-chip enrollment-quick-filter-chip ${filterPromotionStatus === option.value ? "active" : ""}`}
-              onClick={() => setFilterPromotionStatus(option.value)}
+              className="filter-reset-btn enrollment-filter-reset-btn"
+              onClick={() => {
+                setSearchTerm("");
+                setFilterStatus("All");
+                setFilterPromotionStatus("All");
+              }}
+              title="Reset all filters"
             >
-              {option.label}
+              <XCircle size={14} /> Reset Filters
             </button>
-          ))}
-        </div>
-      </div>
+            </div>
+          </div>
+
+          <div className={`enrollment-quick-filters ${mobileFiltersOpen ? "open" : ""}`}>
+            <div className="quick-filter-group enrollment-quick-filter-group">
+              <span className="quick-filter-label enrollment-quick-filter-label">Status:</span>
+              <button
+                type="button"
+                className={`quick-filter-chip enrollment-quick-filter-chip ${filterStatus === "All" ? "active" : ""}`}
+                onClick={() => setFilterStatus("All")}
+              >
+                All
+              </button>
+              {quickStatusOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`quick-filter-chip enrollment-quick-filter-chip ${filterStatus === option.value ? "active" : ""}`}
+                  onClick={() => setFilterStatus(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="quick-filter-group enrollment-quick-filter-group">
+              <span className="quick-filter-label enrollment-quick-filter-label">Promotion:</span>
+              <button
+                type="button"
+                className={`quick-filter-chip enrollment-quick-filter-chip ${filterPromotionStatus === "All" ? "active" : ""}`}
+                onClick={() => setFilterPromotionStatus("All")}
+              >
+                All
+              </button>
+              {quickPromotionOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`quick-filter-chip enrollment-quick-filter-chip ${filterPromotionStatus === option.value ? "active" : ""}`}
+                  onClick={() => setFilterPromotionStatus(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="enrollments-container">
-        {loading ? (
-          <div className="no-results enrollment-no-results">Loading…</div>
+        {isInitialLoading ? (
+          <div className="enrollments-table-scroll enrollments-table-scroll--skeleton">
+            <table className="enrollments-table enrollments-table--skeleton" aria-hidden="true">
+              <thead>
+                <tr>
+                  {Array.from({ length: ENROLLMENT_SKELETON_COLUMNS }).map((_, idx) => (
+                    <th key={`enrollment-skeleton-head-${idx}`}>
+                      <div className="enrollment-skeleton-line enrollment-skeleton-head" />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>{renderEnrollmentSkeletonRows()}</tbody>
+            </table>
+          </div>
         ) : filteredEnrollments.length === 0 ? (
           <div className="no-results enrollment-no-results">
             <div className="enrollment-no-results__title">
@@ -2162,13 +2261,15 @@ const openIdGenerator = (row) => {
           </div>
         )}
 
-        <Pagination
-          currentPage={enrollPage}
-          totalPages={enrollTotalPages}
-          onPageChange={setEnrollPage}
-          totalItems={filteredEnrollments.length}
-          itemsPerPage={ITEMS_PER_PAGE}
-        />
+        {!isInitialLoading && (
+          <Pagination
+            currentPage={enrollPage}
+            totalPages={enrollTotalPages}
+            onPageChange={setEnrollPage}
+            totalItems={filteredEnrollments.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
+        )}
       </div>
 
       <EnrollmentDetailsModal

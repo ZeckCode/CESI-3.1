@@ -22,6 +22,7 @@ import '../AdminWebsiteCSS/GradesRecords.css';
 import PreviewModal from '../PreviewModal';
 
 const ITEMS_PER_PAGE = 10;
+const TABLE_SKELETON_ROWS = 6;
 
 const todayString = () => new Date().toISOString().slice(0, 10);
 
@@ -725,6 +726,23 @@ const GradesRecords = () => {
       ? filteredHistoryGroups
       : filteredAttendanceStudents;
 
+  const skeletonColumns = activeTab === 'grades' ? 9 : activeTab === 'history' ? 6 : 7;
+
+  const renderTableSkeletonRows = () =>
+    Array.from({ length: TABLE_SKELETON_ROWS }).map((_, rowIdx) => (
+      <tr key={`gr-skeleton-row-${rowIdx}`}>
+        {Array.from({ length: skeletonColumns }).map((__, colIdx) => (
+          <td key={`gr-skeleton-cell-${rowIdx}-${colIdx}`}>
+            <div
+              className={`gr-skeleton-line ${
+                colIdx === 0 ? 'w-md' : colIdx === skeletonColumns - 1 ? 'w-sm' : 'w-lg'
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ));
+
   const totalPages = Math.max(1, Math.ceil(activeRows.length / ITEMS_PER_PAGE));
   const paginatedRows = activeRows.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
@@ -1011,21 +1029,34 @@ const GradesRecords = () => {
   return (
     <main className="grades-records-main">
       <section className="gr-section">
-        <div className="gr-monitor-card">
-          <div>
-            <h2 className="gr-monitor-title">Grades and Records Monitoring</h2>
-            <p className="gr-monitor-subtitle">
-              Live admin view for current quarter grades, historical academic records, and attendance entries.
-            </p>
+        {loading ? (
+          <div className="gr-monitor-card gr-skeleton-panel">
+            <div>
+              <div className="gr-skeleton-line gr-skeleton-title" />
+              <div className="gr-skeleton-line gr-skeleton-subtitle" />
+            </div>
+            <div className="gr-monitor-meta">
+              <div className="gr-skeleton-line gr-skeleton-pill" />
+              <div className="gr-skeleton-line gr-skeleton-pill" />
+            </div>
           </div>
-          <div className="gr-monitor-meta">
-            <span className="gr-monitor-pill">Quarter {quarter}</span>
-            <span className="gr-monitor-pill">Attendance Date {selectedDate}</span>
+        ) : (
+          <div className="gr-monitor-card">
+            <div>
+              <h2 className="gr-monitor-title">Grades and Records Monitoring</h2>
+              <p className="gr-monitor-subtitle">
+                Live admin view for current quarter grades, historical academic records, and attendance entries.
+              </p>
+            </div>
+            <div className="gr-monitor-meta">
+              <span className="gr-monitor-pill">Quarter {quarter}</span>
+              <span className="gr-monitor-pill">Attendance Date {selectedDate}</span>
+            </div>
           </div>
-        </div>
+        )}
       </section>
 
-      {error && (
+      {!loading && error && (
         <section className="gr-section">
           <div className="gr-error-box">
             <AlertCircle size={18} />
@@ -1034,211 +1065,283 @@ const GradesRecords = () => {
         </section>
       )}
 
-      <section className="gr-section">{renderStats()}</section>
-
       <section className="gr-section">
-        <div className="gr-insights-panel">
-          <div className="gr-insights-header">
-            <h3 className="gr-insights-title">Descriptive Analysis</h3>
-            <p className="gr-insights-subtitle">
-              Context-aware interpretation of the current {activeTab} view.
-            </p>
-          </div>
-
-          <div className="gr-insights-grid">
-            {descriptiveInsights.map((insight) => (
-              <article key={insight.title} className="gr-insight-card">
-                <h4 className="gr-insight-card-title">{insight.title}</h4>
-                <p className="gr-insight-card-text">{insight.body}</p>
-              </article>
+        {loading ? (
+          <div className="gr-stats-grid">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div key={`gr-skeleton-stat-${idx}`} className="gr-stat-card gr-skeleton-stat-card">
+                <div className="gr-skeleton-line w-md" />
+                <div className="gr-skeleton-line w-sm" />
+              </div>
             ))}
           </div>
-        </div>
+        ) : (
+          renderStats()
+        )}
       </section>
 
-      <div className="gr-tabs-container">
-        <button
-          className={`gr-tab-button ${activeTab === 'grades' ? 'gr-tab-active' : ''}`}
-          onClick={() => setActiveTab('grades')}
-        >
-          <FileText size={18} />
-          Current Grades
-        </button>
-        <button
-          className={`gr-tab-button ${activeTab === 'history' ? 'gr-tab-active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          <History size={18} />
-          Academic Records
-        </button>
-        <button
-          className={`gr-tab-button ${activeTab === 'attendance' ? 'gr-tab-active' : ''}`}
-          onClick={() => setActiveTab('attendance')}
-        >
-          <Calendar size={18} />
-          Attendance
-        </button>
-      </div>
+      <section className="gr-section">
+        {loading ? (
+          <div className="gr-insights-panel gr-skeleton-panel">
+            <div className="gr-insights-header">
+              <div className="gr-skeleton-line gr-skeleton-insight-title" />
+              <div className="gr-skeleton-line gr-skeleton-insight-subtitle" />
+            </div>
+            <div className="gr-insights-grid">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <article key={`gr-skeleton-insight-${idx}`} className="gr-insight-card">
+                  <div className="gr-skeleton-line w-md" style={{ marginBottom: 8 }} />
+                  <div className="gr-skeleton-line w-lg" style={{ marginBottom: 6 }} />
+                  <div className="gr-skeleton-line w-sm" />
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="gr-insights-panel">
+            <div className="gr-insights-header">
+              <h3 className="gr-insights-title">Descriptive Analysis</h3>
+              <p className="gr-insights-subtitle">
+                Context-aware interpretation of the current {activeTab} view.
+              </p>
+            </div>
+
+            <div className="gr-insights-grid">
+              {descriptiveInsights.map((insight) => (
+                <article key={insight.title} className="gr-insight-card">
+                  <h4 className="gr-insight-card-title">{insight.title}</h4>
+                  <p className="gr-insight-card-text">{insight.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {loading ? (
+        <div className="gr-tabs-container gr-tabs-skeleton">
+          <div className="gr-skeleton-line gr-skeleton-tab" />
+          <div className="gr-skeleton-line gr-skeleton-tab" />
+          <div className="gr-skeleton-line gr-skeleton-tab" />
+        </div>
+      ) : (
+        <div className="gr-tabs-container">
+          <button
+            className={`gr-tab-button ${activeTab === 'grades' ? 'gr-tab-active' : ''}`}
+            onClick={() => setActiveTab('grades')}
+          >
+            <FileText size={18} />
+            Current Grades
+          </button>
+          <button
+            className={`gr-tab-button ${activeTab === 'history' ? 'gr-tab-active' : ''}`}
+            onClick={() => setActiveTab('history')}
+          >
+            <History size={18} />
+            Academic Records
+          </button>
+          <button
+            className={`gr-tab-button ${activeTab === 'attendance' ? 'gr-tab-active' : ''}`}
+            onClick={() => setActiveTab('attendance')}
+          >
+            <Calendar size={18} />
+            Attendance
+          </button>
+        </div>
+      )}
 
       <section className="gr-section">
-        <div className="gr-section-header">
-          <div>
-            <h2 className="gr-section-title">
-              {activeTab === 'grades'
-                ? 'Current Quarter Grades'
-                : activeTab === 'history'
-                ? 'Academic History Records'
-                : 'Attendance Records'}
-            </h2>
-            <p className="gr-section-subtitle">
-              {activeTab === 'grades'
-                ? `Student grade completion and quarter ${quarter} subject summaries.`
-                : activeTab === 'history'
-                ? 'Historical academic records for returning students.'
-                : `Per-student attendance summary for ${selectedDate}, with expandable subject-level status.`}
-            </p>
+        {loading ? (
+          <div className="gr-section-header gr-section-header-skeleton">
+            <div>
+              <div className="gr-skeleton-line gr-skeleton-section-title" />
+              <div className="gr-skeleton-line gr-skeleton-section-subtitle" />
+            </div>
+            <div className="gr-header-actions">
+              <div className="gr-skeleton-line gr-skeleton-control" />
+              <div className="gr-skeleton-line gr-skeleton-control" />
+            </div>
           </div>
-
-          <div className="gr-header-actions">
-            {activeTab === 'grades' && (
-              <select
-                value={quarter}
-                onChange={(e) => setQuarter(Number(e.target.value))}
-                className="gr-filter-select gr-inline-select"
-              >
-                <option value={1}>Quarter 1</option>
-                <option value={2}>Quarter 2</option>
-                <option value={3}>Quarter 3</option>
-                <option value={4}>Quarter 4</option>
-              </select>
-            )}
-
-            {activeTab === 'attendance' && (
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="gr-date-input"
-              />
-            )}
-
-            <button className="gr-btn-primary" onClick={handleOpenPreview} disabled={loading}>
-              <Download size={18} />
-              View & Export
-            </button>
-          </div>
-        </div>
-
-        <div className="gr-filters-container">
-          <div className="gr-search-box">
-            <Search size={20} className="gr-search-icon" />
-            <input
-              type="text"
-              placeholder={
-                activeTab === 'grades'
-                  ? 'Search by student name, username, student number, or section...'
+        ) : (
+          <div className="gr-section-header">
+            <div>
+              <h2 className="gr-section-title">
+                {activeTab === 'grades'
+                  ? 'Current Quarter Grades'
                   : activeTab === 'history'
-                  ? 'Search by student, subject, school year, or teacher...'
-                  : 'Search by student, number, section, or subject...'
-              }
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="gr-search-input"
-            />
-          </div>
+                  ? 'Academic History Records'
+                  : 'Attendance Records'}
+              </h2>
+              <p className="gr-section-subtitle">
+                {activeTab === 'grades'
+                  ? `Student grade completion and quarter ${quarter} subject summaries.`
+                  : activeTab === 'history'
+                  ? 'Historical academic records for returning students.'
+                  : `Per-student attendance summary for ${selectedDate}, with expandable subject-level status.`}
+              </p>
+            </div>
 
-          <div className="gr-filter-group">
-            <Filter size={20} />
-            <select
-              value={filterGrade}
-              onChange={(e) => setFilterGrade(e.target.value)}
-              className="gr-filter-select"
-            >
-              <option value="all">All Grade Levels</option>
-              {gradeOptions.map((grade) => (
-                <option key={grade} value={grade}>
-                  {grade}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div className="gr-header-actions">
+              {activeTab === 'grades' && (
+                <select
+                  value={quarter}
+                  onChange={(e) => setQuarter(Number(e.target.value))}
+                  className="gr-filter-select gr-inline-select"
+                >
+                  <option value={1}>Quarter 1</option>
+                  <option value={2}>Quarter 2</option>
+                  <option value={3}>Quarter 3</option>
+                  <option value={4}>Quarter 4</option>
+                </select>
+              )}
 
-          <div className="gr-filter-group">
-            <Filter size={20} />
-            <select
-              value={filterSection}
-              onChange={(e) => setFilterSection(e.target.value)}
-              className="gr-filter-select"
-            >
-              <option value="all">All Sections</option>
-              {sectionOptions.map((section) => (
-                <option key={section.value} value={section.value}>
-                  {section.label}
-                </option>
-              ))}
-            </select>
-          </div>
+              {activeTab === 'attendance' && (
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="gr-date-input"
+                />
+              )}
 
-          {activeTab === 'history' && (
+              <button className="gr-btn-primary" onClick={handleOpenPreview} disabled={loading}>
+                <Download size={18} />
+                View & Export
+              </button>
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="gr-filters-container gr-filters-skeleton">
+            <div className="gr-skeleton-line gr-skeleton-search" />
+            <div className="gr-skeleton-line gr-skeleton-filter" />
+            <div className="gr-skeleton-line gr-skeleton-filter" />
+            <div className="gr-skeleton-line gr-skeleton-filter" />
+          </div>
+        ) : (
+          <div className="gr-filters-container">
+            <div className="gr-search-box">
+              <Search size={20} className="gr-search-icon" />
+              <input
+                type="text"
+                placeholder={
+                  activeTab === 'grades'
+                    ? 'Search by student name, username, student number, or section...'
+                    : activeTab === 'history'
+                    ? 'Search by student, subject, school year, or teacher...'
+                    : 'Search by student, number, section, or subject...'
+                }
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="gr-search-input"
+              />
+            </div>
+
             <div className="gr-filter-group">
               <Filter size={20} />
               <select
-                value={filterSchoolYear}
-                onChange={(e) => setFilterSchoolYear(e.target.value)}
+                value={filterGrade}
+                onChange={(e) => setFilterGrade(e.target.value)}
                 className="gr-filter-select"
               >
-                <option value="all">All School Years</option>
-                {schoolYearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
+                <option value="all">All Grade Levels</option>
+                {gradeOptions.map((grade) => (
+                  <option key={grade} value={grade}>
+                    {grade}
                   </option>
                 ))}
               </select>
             </div>
-          )}
 
-          <div className="gr-filter-group">
-            <Filter size={20} />
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="gr-filter-select"
-            >
-              <option value="all">All Status</option>
+            <div className="gr-filter-group">
+              <Filter size={20} />
+              <select
+                value={filterSection}
+                onChange={(e) => setFilterSection(e.target.value)}
+                className="gr-filter-select"
+              >
+                <option value="all">All Sections</option>
+                {sectionOptions.map((section) => (
+                  <option key={section.value} value={section.value}>
+                    {section.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              {activeTab === 'grades' && (
-                <>
-                  <option value="completed">Completed</option>
-                  <option value="partial">Partial</option>
-                  <option value="pending">Pending</option>
-                </>
-              )}
+            {activeTab === 'history' && (
+              <div className="gr-filter-group">
+                <Filter size={20} />
+                <select
+                  value={filterSchoolYear}
+                  onChange={(e) => setFilterSchoolYear(e.target.value)}
+                  className="gr-filter-select"
+                >
+                  <option value="all">All School Years</option>
+                  {schoolYearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-              {activeTab === 'history' && (
-                <>
-                  <option value="passed">Passed</option>
-                  <option value="failed">Failed</option>
-                  <option value="promoted">Promoted</option>
-                  <option value="retained">Retained</option>
-                  <option value="incomplete">Incomplete</option>
-                </>
-              )}
+            <div className="gr-filter-group">
+              <Filter size={20} />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="gr-filter-select"
+              >
+                <option value="all">All Status</option>
 
-              {activeTab === 'attendance' && (
-                <>
-                  <option value="present">Present</option>
-                  <option value="partial">Partial</option>
-                  <option value="absent">Absent</option>
-                  <option value="excused">Excused</option>
-                </>
-              )}
-            </select>
+                {activeTab === 'grades' && (
+                  <>
+                    <option value="completed">Completed</option>
+                    <option value="partial">Partial</option>
+                    <option value="pending">Pending</option>
+                  </>
+                )}
+
+                {activeTab === 'history' && (
+                  <>
+                    <option value="passed">Passed</option>
+                    <option value="failed">Failed</option>
+                    <option value="promoted">Promoted</option>
+                    <option value="retained">Retained</option>
+                    <option value="incomplete">Incomplete</option>
+                  </>
+                )}
+
+                {activeTab === 'attendance' && (
+                  <>
+                    <option value="present">Present</option>
+                    <option value="partial">Partial</option>
+                    <option value="absent">Absent</option>
+                    <option value="excused">Excused</option>
+                  </>
+                )}
+              </select>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="gr-table-container">
           {loading ? (
-            <div className="gr-empty">Loading monitoring data…</div>
+            <table className="gr-table gr-table-skeleton" aria-hidden="true">
+              <thead>
+                <tr>
+                  {Array.from({ length: skeletonColumns }).map((_, idx) => (
+                    <th key={`gr-skeleton-head-${idx}`}>
+                      <div className="gr-skeleton-line gr-skeleton-head" />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>{renderTableSkeletonRows()}</tbody>
+            </table>
           ) : activeRows.length === 0 ? (
             <div className="gr-empty">No records match the current filters.</div>
           ) : activeTab === 'grades' ? (
@@ -1512,13 +1615,15 @@ const GradesRecords = () => {
             </table>
           )}
 
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            totalItems={activeRows.length}
-            itemsPerPage={ITEMS_PER_PAGE}
-          />
+          {!loading && (
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              totalItems={activeRows.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+            />
+          )}
         </div>
       </section>
 

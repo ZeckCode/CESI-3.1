@@ -1379,6 +1379,106 @@
   font-size: 14px;
 }
 
+/* ========== LOADING SKELETON ========== */
+.enrollment-skeleton-line {
+  height: 11px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e5e8f0 20%, #f1f4fb 50%, #e5e8f0 80%);
+  background-size: 220% 100%;
+  animation: enrollment-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes enrollment-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
+}
+
+.enrollment-skeleton-line.w-sm {
+  width: 56%;
+}
+
+.enrollment-skeleton-line.w-md {
+  width: 74%;
+}
+
+.enrollment-skeleton-line.w-lg {
+  width: 90%;
+}
+
+.enrollment-stats-header--skeleton {
+  align-items: center;
+}
+
+.enrollment-skeleton-title {
+  width: 220px;
+  height: 18px;
+}
+
+.enrollment-skeleton-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.enrollment-skeleton-action {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+
+.enrollment-skeleton-stat-card {
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+.enrollment-controls--skeleton {
+  align-items: center;
+}
+
+.enrollment-quick-filters--skeleton {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.enrollment-skeleton-chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.enrollment-skeleton-chip {
+  width: 74px;
+  height: 26px;
+  border-radius: 999px;
+}
+
+.enrollment-skeleton-head {
+  width: 100%;
+  height: 10px;
+}
+
+.enrollments-table--skeleton tbody tr:hover {
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.enrollments-table-scroll--skeleton {
+  padding-top: 2px;
+}
+
+@media (max-width: 768px) {
+  .enrollment-skeleton-title {
+    width: 170px;
+  }
+}
+
 /* ========== MODAL ========== */
 .modal-overlay {
   position: fixed;
