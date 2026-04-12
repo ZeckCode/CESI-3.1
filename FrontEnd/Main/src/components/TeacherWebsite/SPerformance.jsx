@@ -13,6 +13,7 @@ import { Bar, Doughnut } from "react-chartjs-2";
 import "../TeacherWebsiteCSS/SPerformance.css";
 import { apiFetch } from "../api/apiFetch";
 import { generateTeacherMetricsInsight, getTeacherMetricColor } from "../../utils/roleInsights";
+import Toast from "../Global/Toast";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 ChartJS.defaults.set({ responsive: true, maintainAspectRatio: false });
@@ -147,10 +148,23 @@ const SPerformance = () => {
   const [initLoading, setInitLoading] = useState(true);
   const [sendingReminderId, setSendingReminderId] = useState(null);
   const [sendingStarKey, setSendingStarKey] = useState("");
+  const [toasts, setToasts] = useState([]);
   const [isNarrow, setIsNarrow] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(max-width: 640px)").matches;
   });
+
+  const dismissToast = useCallback((toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  }, []);
+
+  const pushToast = useCallback((toast) => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((prev) => [...prev, { id, ...toast }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((item) => item.id !== id));
+    }, 4500);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -293,13 +307,18 @@ const SPerformance = () => {
         throw new Error(data.detail || "Failed to send star notification.");
       }
 
-      alert(
-        data.detail ||
-          `Star sent successfully to ${student.student_name || "the student"}.`
-      );
+      pushToast({
+        type: "success",
+        title: "Star Sent",
+        message: data.detail || `Star sent successfully to ${student.student_name || "the student"}.`,
+      });
     } catch (e) {
       console.error(e);
-      alert(e.message || "Failed to send star notification.");
+      pushToast({
+        type: "error",
+        title: "Star Failed",
+        message: e.message || "Failed to send star notification.",
+      });
     } finally {
       setSendingStarKey("");
     }
@@ -913,6 +932,7 @@ const SPerformance = () => {
           )}
         </div>
       </section>
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };
