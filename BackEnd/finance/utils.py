@@ -6,6 +6,14 @@ from .models import Transaction
 
 
 WHOLE_PESO = Decimal('1')
+BILLING_DEBIT_ITEMS = {
+    'REGISTRATION',
+    'INITIAL',
+    'MONTHLY',
+    'MISC',
+    'RESERVATION',
+    'ASSESSMENT',
+}
 
 
 def normalize_money(value):
@@ -62,17 +70,22 @@ def recompute_transaction_statuses_for_enrollment(enrollment):
 
     for row in debit_rows:
         debit_amount = normalize_money(row.debit)
+        due_basis = row.due_date or row.transaction_date or today
+        is_billing_debit = (row.item or '').upper() in BILLING_DEBIT_ITEMS
 
         if available_credit <= 0:
-            if row.due_date and row.due_date < today:
-                desired_status = 'OVERDUE'
+            if is_billing_debit:
+                desired_status = 'OVERDUE' if due_basis < today else 'PENDING'
             else:
                 desired_status = row.status or 'POSTED'
         elif available_credit >= debit_amount:
             desired_status = 'PAID'
             available_credit = normalize_money(available_credit - debit_amount)
         else:
-            desired_status = 'PARTIAL'
+            if is_billing_debit and due_basis < today:
+                desired_status = 'OVERDUE'
+            else:
+                desired_status = 'PARTIAL'
             available_credit = Decimal('0.00')
 
         if row.status != desired_status:

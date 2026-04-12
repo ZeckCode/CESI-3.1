@@ -85,6 +85,7 @@ const EMPTY_FORM = {
 };
 
 const TXN_SKELETON_ROWS = 6;
+const BILLING_DEBIT_ITEMS = new Set(['REGISTRATION', 'INITIAL', 'MONTHLY', 'MISC', 'RESERVATION', 'ASSESSMENT']);
 
 const formatCurrency = (value) => `₱${Number(value || 0).toLocaleString()}`;
 
@@ -138,8 +139,8 @@ const isDueForReminder = (dueDate) => {
 const canSendReminderForTransaction = (tx) => {
   if (!tx || tx.entry_type !== 'DEBIT') return false;
 
-  const status = String(tx.status || '').toUpperCase();
-  if (!['PENDING', 'OVERDUE'].includes(status)) return false;
+  const status = String(tx._effectiveStatus || tx.status || '').toUpperCase();
+  if (!['PENDING', 'OVERDUE', 'POSTED', 'PARTIAL'].includes(status)) return false;
 
   if (!isDueForReminder(tx.due_date || tx.transaction_date)) return false;
 
@@ -785,6 +786,7 @@ const TransactionHistory = () => {
   };
 
   const groupedTransactions = useMemo(() => {
+      const todayIso = new Date().toISOString().slice(0, 10);
       const map = new Map();
 
       transactions.forEach((tx) => {
@@ -827,8 +829,8 @@ const TransactionHistory = () => {
         group.total_debit += Number(tx.debit || 0);
         group.total_credit += Number(tx.credit || 0);
 
-        if ((tx.transaction_date || '') > group.latest_date) {
-          group.latest_date = tx.transaction_date || '';
+        if ((tx.date_posted || '') > group.latest_date) {
+          group.latest_date = tx.date_posted || '';
         }
       });
 
@@ -841,15 +843,61 @@ const TransactionHistory = () => {
             return Number(a.id || 0) - Number(b.id || 0);
           });
 
+        let remainingCredit = sortedRows.reduce(
+          (sum, tx) => sum + Number(tx.credit || 0),
+          0
+        );
+
+        const debitStatusMap = new Map();
+        sortedRows
+          .filter((tx) => String(tx.entry_type || '').toUpperCase() === 'DEBIT')
+          .sort((a, b) => {
+            const dateA = String(a.due_date || a.date_posted || a.transaction_date || '');
+            const dateB = String(b.due_date || b.date_posted || b.transaction_date || '');
+            const dateCompare = dateA.localeCompare(dateB);
+            if (dateCompare !== 0) return dateCompare;
+            return Number(a.id || 0) - Number(b.id || 0);
+          })
+          .forEach((tx) => {
+            const debitAmount = Number(tx.debit || 0);
+            const dueBasis = String(tx.due_date || tx.date_posted || tx.transaction_date || '');
+            const isBillingDebit = BILLING_DEBIT_ITEMS.has(String(tx.item || '').toUpperCase());
+
+            if (!isBillingDebit || debitAmount <= 0) {
+              debitStatusMap.set(tx.id, String(tx.status || 'POSTED').toUpperCase());
+              return;
+            }
+
+            if (remainingCredit >= debitAmount) {
+              debitStatusMap.set(tx.id, 'PAID');
+              remainingCredit -= debitAmount;
+              return;
+            }
+
+            if (remainingCredit > 0) {
+              remainingCredit = 0;
+              debitStatusMap.set(tx.id, dueBasis && dueBasis < todayIso ? 'OVERDUE' : 'PARTIAL');
+              return;
+            }
+
+            debitStatusMap.set(tx.id, dueBasis && dueBasis < todayIso ? 'OVERDUE' : 'PENDING');
+          });
+
         let runningBalance = 0;
         const normalizedRows = sortedRows.map((tx) => {
           const debit = Number(tx.debit || 0);
           const credit = Number(tx.credit || 0);
           runningBalance += debit - credit;
 
+          const effectiveStatus =
+            String(tx.entry_type || '').toUpperCase() === 'DEBIT'
+              ? debitStatusMap.get(tx.id) || String(tx.status || 'POSTED').toUpperCase()
+              : String(tx.status || 'PAID').toUpperCase();
+
           return {
             ...tx,
             _runningBalance: runningBalance,
+            _effectiveStatus: effectiveStatus,
           };
         });
 
@@ -857,9 +905,19 @@ const TransactionHistory = () => {
         const payableBalance = rawBalance > 0 ? rawBalance : 0;
         const refundableExcess = rawBalance < 0 ? Math.abs(rawBalance) : 0;
 
+        const hasOverdueDebit = normalizedRows.some((tx) => {
+          if (String(tx.entry_type || '').toUpperCase() !== 'DEBIT') return false;
+
+          return String(tx._effectiveStatus || tx.status || '').toUpperCase() === 'OVERDUE';
+        });
+
         let derivedStatus = 'PAID';
         if (payableBalance > 0) {
-          derivedStatus = group.total_credit > 0 ? 'PARTIAL' : 'POSTED';
+          if (hasOverdueDebit) {
+            derivedStatus = 'OVERDUE';
+          } else {
+            derivedStatus = group.total_credit > 0 ? 'PARTIAL' : 'PENDING';
+          }
         }
 
         return {
@@ -1640,11 +1698,11 @@ const TransactionHistory = () => {
                                   {group.rows
                                     .slice()
                                     .sort((a, b) =>
-                                      String(a.transaction_date || '').localeCompare(String(b.transaction_date || ''))
+                                      String(a.date_posted || a.transaction_date || '').localeCompare(String(b.date_posted || b.transaction_date || ''))
                                     )
                                     .map((tx) => (
                                       <tr key={tx.id}>
-                                        <td>{tx.transaction_date || '—'}</td>
+                                        <td>{tx.date_posted || tx.transaction_date || '—'}</td>
                                         <td>{tx.reference_number || '—'}</td>
                                         <td>{entryLabel(tx.entry_type)}</td>
                                         <td>{itemLabel(tx.item)}</td>
@@ -1656,8 +1714,8 @@ const TransactionHistory = () => {
                                         </td>
                                         <td className="th-amount-cell">{formatCurrency(tx._runningBalance)}</td>
                                         <td>
-                                          <span className={`th-status-badge th-status-${statusClass(tx.status)}`}>
-                                            {tx.status}
+                                          <span className={`th-status-badge th-status-${statusClass(tx._effectiveStatus || tx.status)}`}>
+                                            {tx._effectiveStatus || tx.status}
                                           </span>
                                         </td>
                                         <td className="th-actions-cell">

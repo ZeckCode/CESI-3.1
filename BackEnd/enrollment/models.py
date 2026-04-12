@@ -3,7 +3,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from accounts.models import Section
-from CESI.storage_backends import get_private_storage
+from CESI.storage_backends import get_private_storage, get_public_storage
 import os
 from io import BytesIO
 
@@ -13,6 +13,7 @@ except Exception:
     Image = None
 
 PRIVATE_MEDIA_STORAGE = get_private_storage()
+PUBLIC_MEDIA_STORAGE = get_public_storage()
 
 
 class Enrollment(models.Model):
@@ -116,12 +117,12 @@ class Enrollment(models.Model):
     mobile_number = models.CharField(max_length=20, blank=True, null=True)
     parent_facebook = models.CharField(max_length=100, blank=True, null=True)
 
-    # Image
+    # Image (PUBLIC storage since it's displayed as student avatar)
     id_image = models.ImageField(
         upload_to="enrollment_ids/",
         blank=True,
         null=True,
-        storage=PRIVATE_MEDIA_STORAGE,
+        storage=PUBLIC_MEDIA_STORAGE,
     )
     # Optional DB-backed compressed image
     id_image_data = models.BinaryField(null=True, blank=True, editable=False)

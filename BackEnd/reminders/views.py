@@ -1,6 +1,7 @@
 
 #Reminders views.py
 import logging
+from datetime import timedelta
 
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
@@ -160,6 +161,109 @@ def _send_payment_reminder_email(*, recipient, title, message):
     except Exception:
         logger.exception("Failed to send payment reminder email to %s", recipient_email)
         return False
+
+
+def _build_upcoming_payment_reminder_email_message(*, transaction, due_date, days_before):
+    student_name = getattr(transaction, "student_name", "your child")
+    reference_number = getattr(transaction, "reference_number", "N/A")
+    transaction_type = getattr(transaction, "transaction_type", "Payment")
+    amount_due = Decimal(str(transaction.debit or transaction.amount or 0))
+
+    return "\n".join(
+        [
+            "Greetings!",
+            "",
+            "Dear Parent/Guardian,",
+            "",
+            f"This is a friendly reminder that {student_name}'s {transaction_type.lower()} bill is due in {days_before} day(s).",
+            "Please settle the balance before the due date to avoid being marked overdue.",
+            "",
+            "Please see the account details below:",
+            f"Student Name     : {student_name}",
+            f"Billing Category  : {transaction_type}",
+            f"Reference Number  : {reference_number}",
+            f"Amount Due        : ₱{amount_due}",
+            f"Due Date          : {due_date}",
+            "",
+            "You may review your full ledger and payment history in the Student Portal.",
+            "If payment has already been made, please allow time for posting and disregard this notice once updated.",
+            "",
+            "Sincerely,",
+            "Caloocan Evangelical School Inc.",
+            "Admissions Office",
+        ]
+    ).strip()
+
+
+def send_upcoming_payment_due_reminders(*, days_before=7, sender=None, target_date=None):
+    reminder_date = target_date or (timezone.localdate() + timedelta(days=days_before))
+
+    transactions = Transaction.objects.select_related("parent").filter(
+        entry_type="DEBIT",
+        due_date=reminder_date,
+        transaction_type="TUITION",
+    ).exclude(status="PAID")
+
+    created_count = 0
+    duplicate_count = 0
+    emailed_count = 0
+    missing_email_count = 0
+    email_failed_count = 0
+    skipped_count = 0
+
+    for transaction in transactions:
+        recipient = transaction.parent
+        if not recipient:
+            skipped_count += 1
+            continue
+
+        if getattr(recipient, "role", "").upper() != "PARENT_STUDENT":
+            skipped_count += 1
+            continue
+
+        title = f"Upcoming Payment Due Notice - {getattr(transaction, 'student_name', 'Student')}"
+        message = _build_upcoming_payment_reminder_email_message(
+            transaction=transaction,
+            due_date=reminder_date,
+            days_before=days_before,
+        )
+
+        reminder, created = create_reminder_once(
+            recipient=recipient,
+            sender=sender,
+            title=title,
+            message=message,
+            reminder_type="PAYMENT",
+            event_type="PAYMENT_DUE",
+            transaction=transaction,
+            reference_date=reminder_date,
+        )
+
+        if created:
+            created_count += 1
+            emailed = _send_payment_reminder_email(
+                recipient=recipient,
+                title=title,
+                message=message,
+            )
+            if emailed:
+                emailed_count += 1
+            elif not getattr(recipient, "email", ""):
+                missing_email_count += 1
+            else:
+                email_failed_count += 1
+        else:
+            duplicate_count += 1
+
+    return {
+        "target_date": reminder_date,
+        "created_count": created_count,
+        "emailed_count": emailed_count,
+        "missing_email_count": missing_email_count,
+        "email_failed_count": email_failed_count,
+        "duplicate_count": duplicate_count,
+        "skipped_count": skipped_count,
+    }
 
 
 def _build_payment_reminder_email_message(*, transaction, amount, status_value, due_date, body):
