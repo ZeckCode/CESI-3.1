@@ -392,26 +392,6 @@ const Notebook = ({ onClose, openEnrollment }) => {
               </button>
             ))}
           </div>
-
-          <div className="index-book-sidebar-quicklinks">
-            <h4>🔗 Quick Links</h4>
-            <div className="index-book-sidebar-quick-links-btns">
-              {quickLinks.map((link) => (
-                <a
-                  key={`sidebar-${link.key}`}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="index-book-link-btn"
-                  title={link.label}
-                >
-                  <span className="index-book-link-icon" aria-hidden="true">{link.icon}</span>
-                  <span className="index-book-link-text">{link.label}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-
           <button
             className="index-book-mobile-close-btn"
             onClick={onClose}
@@ -454,7 +434,7 @@ const Notebook = ({ onClose, openEnrollment }) => {
         </div>
       </div>
 
-      <div className="index-book-subbookmarks index-book-subbookmarks-mobile">
+      <div className="index-book-subbookmarks">
         <h4>🔗 Quick Links</h4>
         <div className="index-book-quick-links-btns">
           {quickLinks.map((link) => (

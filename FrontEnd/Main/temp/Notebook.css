@@ -22,7 +22,7 @@
 .index-book-manual-tag {
   color: var(--primary-blue);
   font-size: 0.95rem;
-  font-weight: 500;
+  font-weight: 800;
   letter-spacing: 0.02em;
 }
 
@@ -35,7 +35,7 @@
   color: #fff;
   border: none;
   border-radius: 8px;
-  font-weight: 500;
+  font-weight: 800;
   cursor: pointer;
   transition: transform 0.2s ease, filter 0.2s ease;
 }
@@ -97,7 +97,7 @@
   border: 2px solid rgba(63, 152, 225, 0.9);
   border-radius: 12px 12px 0 0;
   color: var(--primary-blue);
-  font-weight: 500;
+  font-weight: 800;
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: left;
@@ -224,47 +224,12 @@
   word-wrap: break-word;
   overflow-wrap: anywhere;
   word-break: break-word;
-  text-align: left;
+  text-align: justify;
   width: 100%;
   max-width: 100%;
   max-height: 520px;
   overflow-y: auto;
   padding-right: 6px;
-}
-
-.index-book-page-content > * {
-  margin-left: 0;
-  margin-right: 0;
-}
-
-.index-book-page-content > h2 {
-  transform: none;
-  margin-left: auto;
-  margin-right: auto;
-  text-align: left;
-}
-
-.index-book-page-content > :not(h2):not(.announcements-container) {
-  max-width: 620px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.index-book-page-content > h3,
-.index-book-page-content > p,
-.index-book-page-content > div,
-.index-book-page-content > ul {
-  text-align: left;
-}
-
-.index-book-page-content .announcements-container {
-  align-items: center;
-}
-
-.index-book-page-content .ann-card {
-  width: min(100%, 760px);
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .index-book-page-content h2 {
@@ -273,10 +238,9 @@
   padding-bottom: 8px;
   border-bottom: 2px solid var(--primary-yellow);
   font-size: 1.35rem;
-  font-weight: 500;
   position: sticky;
-  top: 22px;
-  background: transparent;
+  top: 0;
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(2px);
   z-index: 2;
 }
@@ -284,7 +248,6 @@
 .index-book-page-content h3 {
   color: var(--blue-dark);
   margin: 18px 0 8px;
-  font-weight: 400;
 }
 
 .index-book-page-content * {
@@ -434,12 +397,12 @@
     display: flex;
     flex-direction: row;
     align-items: stretch;
-    min-height: 620px;
+    min-height: 560px;
   }
 
   .index-book-bookmarks-left {
-    width: 168px;
-    min-width: 168px;
+    width: 190px;
+    min-width: 190px;
     padding: 12px 8px;
     background: #d2def0;
     border-right: 1px dashed #6fa2d5;
@@ -566,7 +529,7 @@
 
   .index-book-pages {
     flex: 1;
-    padding: 0 8px 8px;
+    padding: 0 10px 10px;
     margin-top: -1px;
     align-items: stretch;
   }
@@ -576,7 +539,7 @@
   }
 
   .index-book-page-left {
-    padding: 16px 12px 12px 56px;
+    padding: 20px 16px 16px 56px;
     border-radius: 8px;
     border: 1px solid #abc4df;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
@@ -598,7 +561,7 @@
   .index-book-page-left::before {
     content: "";
     position: absolute;
-    left: 34px;
+    left: 40px;
     right: auto;
     top: 0;
     bottom: 0;
@@ -609,7 +572,7 @@
   .index-book-page-left::after {
     content: "";
     position: absolute;
-    left: 7px;
+    left: 9px;
     right: auto;
     top: 18px;
     bottom: 18px;
@@ -619,22 +582,15 @@
   }
 
   .index-book-page-content {
-    max-height: 470px;
-    padding-left: 12px;
+    max-height: 360px;
     padding-right: 4px;
   }
 
-  .index-book-page-footer {
-    padding-left: 12px;
-  }
-
   .index-book-page-content h2 {
-    background: transparent;
-    margin-top: 22px;
+    background: rgba(255, 255, 255, 0.96);
   }
 
   .index-book-subbookmarks {
-    transform: translateX(10px);
     display: none;
     padding: 0 10px 12px;
     border-top: none;
@@ -810,7 +766,7 @@
     font-size: 1rem;
     position: sticky;
     top: 0;
-    background: transparent;
+    background: #fff;
     z-index: 2;
   }
 
@@ -1004,7 +960,7 @@
 
   .index-book-page-content h2 {
     font-size: 1.05rem;
-    font-weight: 400;
+    font-weight: 500;
     margin: 0 0 10px;
     border-bottom: 2px solid var(--primary-yellow);
     color: var(--primary-blue);

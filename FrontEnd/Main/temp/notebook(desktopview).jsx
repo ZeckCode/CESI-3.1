@@ -40,34 +40,6 @@ const Notebook = ({ onClose, openEnrollment }) => {
     contact: {},
   });
 
-  const tabIcons = {
-    announcements: "📢",
-    "school-info": "🏫",
-    "mission-vision": "🎯",
-    contact: "📞",
-  };
-
-  const quickLinks = [
-    {
-      key: "facebook",
-      href: "https://www.facebook.com/cesicaloocan",
-      icon: "🔔",
-      label: "Facebook",
-    },
-    {
-      key: "calendar",
-      href: "../../../public/CESI-CAL-SY2526.pdf",
-      icon: "📅",
-      label: "School Calendar",
-    },
-    {
-      key: "fees",
-      href: "../../../public/CESI-TF-SY2425.pdf",
-      icon: "📚",
-      label: "Tuition Fees",
-    },
-  ];
-
   useEffect(() => {
     fetch(`${API_BASE}/api/announcements/`)
       .then((res) => res.json())
@@ -367,65 +339,67 @@ const Notebook = ({ onClose, openEnrollment }) => {
       };
 
   return (
-    <div className="index-book-container">
-      <div className="index-book-header">
-        <div className="index-book-manual-tag">CESI Student Manual</div>
-        <button className="index-book-close-btn" onClick={onClose} aria-label="Close Book">
-          <span className="index-book-close-icon">✕</span>
-          <span className="index-book-close-text">Close Book</span>
+    <div className="notebook-container">
+      <div className="notebook-header">
+        <h2>CESI Student Manual</h2>
+        <button className="close-btn" onClick={onClose}>
+          ✕ Close Book
         </button>
       </div>
 
-      <div className="index-book-content">
+      <div className="notebook-content">
         {/* Left Sidebar / Bookmarks + Quick Links */}
-        <div className="index-book-bookmarks-left">
-          <div className="index-book-bookmark-tabs">
-            {Object.keys(content).map((tab) => (
-              <button
-                key={tab}
-                className={`index-book-bookmark-btn ${activeTab === tab ? "active" : ""}`}
-                onClick={() => setActiveTab(tab)}
-                title={content[tab].title}
-              >
-                <span className="index-book-tab-icon" aria-hidden="true">{tabIcons[tab] || "📘"}</span>
-                <span className="index-book-bookmark-tab-label">{content[tab].title}</span>
-              </button>
-            ))}
-          </div>
+        <div className="bookmarks-left">
+          {Object.keys(content).map((tab) => (
+            <button
+              key={tab}
+              className={`bookmark-btn ${activeTab === tab ? "active" : ""}`}
+              onClick={() => setActiveTab(tab)}
+            >
+              {content[tab].title}
+            </button>
+          ))}
 
-          <div className="index-book-sidebar-quicklinks">
+          <hr className="sidebar-divider" />
+
+          <div className="quick-links">
             <h4>🔗 Quick Links</h4>
-            <div className="index-book-sidebar-quick-links-btns">
-              {quickLinks.map((link) => (
-                <a
-                  key={`sidebar-${link.key}`}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="index-book-link-btn"
-                  title={link.label}
-                >
-                  <span className="index-book-link-icon" aria-hidden="true">{link.icon}</span>
-                  <span className="index-book-link-text">{link.label}</span>
-                </a>
-              ))}
+            <div className="quick-links-btns">
+              <a
+                href="https://www.facebook.com/cesicaloocan"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="link-btn"
+                style={{ display: 'block', width: '100%', boxSizing: 'border-box' }}
+              >
+                🔔 Facebook
+              </a>
+              <a
+                href="../../../public/CESI-CAL-SY2526.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="link-btn"
+                style={{ display: 'block', width: '100%', boxSizing: 'border-box' }}
+              >
+                📅 School Calendar
+              </a>
+              <a
+                href="../../../public/CESI-TF-SY2425.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="link-btn"
+                style={{ display: 'block', width: '100%', boxSizing: 'border-box' }}
+              >
+                📚 Tuition Fees
+              </a>
             </div>
           </div>
-
-          <button
-            className="index-book-mobile-close-btn"
-            onClick={onClose}
-            aria-label="Close Book"
-            title="Close Book"
-          >
-            ✕
-          </button>
         </div>
 
         {/* Right Page / Main Content */}
-        <div className="index-book-pages">
-          <div className="index-book-page-left">
-            <div className="index-book-page-content">
+        <div className="notebook-pages">
+          <div className="page-left">
+            <div className="page-content">
               <h2>{content[activeTab].title}</h2>
 
               {activeTab === "enrollment-form" ? (
@@ -446,30 +420,11 @@ const Notebook = ({ onClose, openEnrollment }) => {
               )}
             </div>
               
-            <div className="index-book-page-footer">
-              <div className="index-book-page-number">CESI Elementary</div>
-              <div className="index-book-page-date">Student Edition</div>
+            <div className="page-footer">
+              <div className="page-number">CESI Elementary</div>
+              <div className="page-date">Student Edition</div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="index-book-subbookmarks index-book-subbookmarks-mobile">
-        <h4>🔗 Quick Links</h4>
-        <div className="index-book-quick-links-btns">
-          {quickLinks.map((link) => (
-            <a
-              key={link.key}
-              href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="index-book-link-btn"
-              title={link.label}
-            >
-              <span className="index-book-link-icon" aria-hidden="true">{link.icon}</span>
-              <span className="index-book-link-text">{link.label}</span>
-            </a>
-          ))}
         </div>
       </div>
     </div>

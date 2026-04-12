@@ -46,7 +46,6 @@ function AnnouncementCard({ title, date, image, description, targetRole }) {
 
             <div className="ann-meta">
               <span hidden className="ann-role">{targetRole || "all"}</span>
-              a
               <span>{formattedDate}</span>
             </div>
           </div>
