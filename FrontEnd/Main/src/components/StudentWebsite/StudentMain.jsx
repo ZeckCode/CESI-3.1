@@ -52,7 +52,8 @@ const computeEnrollmentWindow = (settings) => {
 
 export default function StudentMain() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.innerWidth <= 1024);
+  const [sidebarHoverExpanded, setSidebarHoverExpanded] = useState(false);
   const [unreadReminders, setUnreadReminders] = useState(0);
   const [showNotificationList, setShowNotificationList] = useState(false);
 
@@ -68,6 +69,19 @@ export default function StudentMain() {
   };
 
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
+  const handleSidebarHoverChange = (isHoverExpanded) => setSidebarHoverExpanded(isHoverExpanded);
+  const isSidebarExpandedByHover = sidebarCollapsed && sidebarHoverExpanded;
+  const isSidebarVisuallyCollapsed = sidebarCollapsed && !sidebarHoverExpanded;
+
+  useEffect(() => {
+    const syncSidebarCollapsed = () => {
+      setSidebarCollapsed(window.innerWidth <= 1024);
+    };
+
+    syncSidebarCollapsed();
+    window.addEventListener("resize", syncSidebarCollapsed);
+    return () => window.removeEventListener("resize", syncSidebarCollapsed);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -223,15 +237,17 @@ export default function StudentMain() {
         onMenuClick={handleMenuClick}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
+        isHoverExpanded={sidebarHoverExpanded}
+        onHoverChange={handleSidebarHoverChange}
         enrollmentOpen={enrollmentOpen}
       />
 
-      <main className={`admin-main ${sidebarCollapsed ? "collapsed" : ""}`}>
+      <main className={`admin-main ${isSidebarVisuallyCollapsed ? "collapsed" : ""}`}>
         <Header
           title={getPageTitle()}
           subtitle={getPageSubtitle()}
           onToggleCollapse={handleToggleSidebar}
-          sidebarCollapsed={sidebarCollapsed}
+          sidebarCollapsed={isSidebarExpandedByHover ? false : sidebarCollapsed}
           showRemindersBell={true}
           onOpenReminders={() => setShowNotificationList(prev => !prev)}
           unreadReminders={unreadReminders}

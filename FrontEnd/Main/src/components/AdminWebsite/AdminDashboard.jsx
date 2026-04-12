@@ -26,11 +26,15 @@ import "../AdminWebsiteCSS/ResponsiveUtils.css";
 function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarHoverExpanded, setSidebarHoverExpanded] = useState(false);
   const [unreadReminders, setUnreadReminders] = useState(0);
   const [showNotificationList, setShowNotificationList] = useState(false);
 
   const handleMenuClick = (menuId) => setActiveMenu(menuId);
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
+  const handleSidebarHoverChange = (isHoverExpanded) => setSidebarHoverExpanded(isHoverExpanded);
+  const isSidebarExpandedByHover = sidebarCollapsed && sidebarHoverExpanded;
+  const isSidebarVisuallyCollapsed = sidebarCollapsed && !sidebarHoverExpanded;
 
   useEffect(() => {
     let isMounted = true;
@@ -171,14 +175,16 @@ function AdminDashboard() {
         onMenuClick={handleMenuClick}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
+        isHoverExpanded={sidebarHoverExpanded}
+        onHoverChange={handleSidebarHoverChange}
       />
 
-      <main className={`admin-main ${sidebarCollapsed ? "collapsed" : ""}`}>
+      <main className={`admin-main ${isSidebarVisuallyCollapsed ? "collapsed" : ""}`}>
         <Header
           title={getPageTitle()}
           subtitle={getPageSubtitle()}
           onToggleCollapse={handleToggleSidebar}
-          sidebarCollapsed={sidebarCollapsed}
+          sidebarCollapsed={isSidebarExpandedByHover ? false : sidebarCollapsed}
           showRemindersBell={true}
           onOpenReminders={() => setShowNotificationList(prev => !prev)}
           unreadReminders={unreadReminders}
@@ -191,7 +197,7 @@ function AdminDashboard() {
         <NotificationList
           onClose={() => setShowNotificationList(false)}
           unreadCount={unreadReminders}
-          onNavigate={(menu, reminder) => {
+          onNavigate={(menu) => {
             setActiveMenu(menu);
             setShowNotificationList(false);
           }}

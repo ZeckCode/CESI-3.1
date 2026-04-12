@@ -29,7 +29,14 @@ function getAvatarLetter(username = "User") {
   return value ? value.charAt(0).toUpperCase() : "U";
 }
 
-export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggleCollapse }) {
+export default function Sidebar({
+  activeMenu,
+  onMenuClick,
+  isCollapsed,
+  onToggleCollapse,
+  isHoverExpanded = false,
+  onHoverChange,
+}) {
   const { user, logout } = useAuth();
   const [currentUser, setCurrentUser] = useState(user || null);
 
@@ -165,11 +172,21 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
     return false;
   };
 
+  const handleSidebarMouseEnter = () => {
+    if (!isMobile && isCollapsed) {
+      onHoverChange?.(true);
+    }
+  };
+
+  const handleSidebarMouseLeave = () => {
+    onHoverChange?.(false);
+  };
+
   const toggleMenu = (menuId) => setExpandedMenus((p) => ({ ...p, [menuId]: !p[menuId] }));
 
   const handleMenuClick = (menuId, hasSubItems) => {
     // Auto-expand sidebar when clicking in collapsed/icon mode
-    if (isCollapsed && !isMobile) {
+    if (isCollapsed && !isMobile && !isHoverExpanded) {
       onToggleCollapse?.();
     }
     if (hasSubItems) {
@@ -198,9 +215,12 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
   };
 
   const visible = !isMobile || drawerOpen;
-  const showLabels = !isCollapsed || isMobile;
+  const showLabels = !isCollapsed || isMobile || isHoverExpanded;
   const displayName = getDisplayName(currentUser) || currentUser?.username || "Admin";
   const avatarLetter = getAvatarLetter(displayName);
+  const sidebarInlineStyle = !isMobile && isCollapsed
+    ? { width: isHoverExpanded ? "var(--as-wide)" : "var(--as-narrow)" }
+    : undefined;
 
   return (
     <>
@@ -225,10 +245,14 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
 
       <aside
         ref={sidebarRef}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
+        style={sidebarInlineStyle}
         className={[
           "as-sidebar",
           visible ? "as-visible" : "as-hidden",
           !isMobile && isCollapsed ? "as-collapsed" : "",
+          !isMobile && isCollapsed && isHoverExpanded ? "as-hover-expanded" : "",
           isMobile ? "as-mobile" : "as-desktop",
         ].join(" ")}
       >
@@ -250,7 +274,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
           )}
 
           {/* Collapsed user avatar */}
-          {isCollapsed && !isMobile && (
+          {isCollapsed && !isMobile && !isHoverExpanded && (
             <div className="as-usercard-collapsed">
               <div className="as-avatar">{avatarLetter}</div>
             </div>

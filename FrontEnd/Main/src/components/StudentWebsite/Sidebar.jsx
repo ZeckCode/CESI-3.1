@@ -31,6 +31,8 @@ export default function Sidebar({
   onMenuClick,
   isCollapsed,
   onToggleCollapse,
+  isHoverExpanded = false,
+  onHoverChange,
   enrollmentOpen = false,
 }) {
   const navigate = useNavigate();
@@ -135,11 +137,21 @@ export default function Sidebar({
   }, [drawerOpen]);
 
   const handleMenuClick = (menuId) => {
-    if (isCollapsed && !isMobile) {
+    if (isCollapsed && !isMobile && !isHoverExpanded) {
       onToggleCollapse?.();
     }
     onMenuClick?.(menuId);
     if (isMobile) setDrawerOpen(false);
+  };
+
+  const handleSidebarMouseEnter = () => {
+    if (!isMobile && isCollapsed) {
+      onHoverChange?.(true);
+    }
+  };
+
+  const handleSidebarMouseLeave = () => {
+    onHoverChange?.(false);
   };
 
   const handleLogout = async () => {
@@ -152,9 +164,12 @@ export default function Sidebar({
   };
 
   const visible = !isMobile || drawerOpen;
-  const showLabels = !isCollapsed || isMobile;
+  const showLabels = !isCollapsed || isMobile || isHoverExpanded;
   const displayName = getDisplayName(currentUser, { preferStudentProfile: true });
   const avatarLetter = getAvatarLetter(displayName);
+  const sidebarInlineStyle = !isMobile && isCollapsed
+    ? { width: isHoverExpanded ? "var(--as-wide)" : "var(--as-narrow)" }
+    : undefined;
 
   return (
     <>
@@ -179,10 +194,14 @@ export default function Sidebar({
 
       <aside
         ref={sidebarRef}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
+        style={sidebarInlineStyle}
         className={[
           "as-sidebar",
           visible ? "as-visible" : "as-hidden",
           !isMobile && isCollapsed ? "as-collapsed" : "",
+          !isMobile && isCollapsed && isHoverExpanded ? "as-hover-expanded" : "",
           isMobile ? "as-mobile" : "as-desktop",
         ].join(" ")}
       >
@@ -201,7 +220,7 @@ export default function Sidebar({
             </div>
           )}
 
-          {isCollapsed && !isMobile && (
+          {isCollapsed && !isMobile && !isHoverExpanded && (
             <div className="as-usercard-collapsed">
               <div className="as-avatar">{avatarLetter}</div>
             </div>
