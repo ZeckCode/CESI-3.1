@@ -91,14 +91,47 @@ export default function IdCardGenerator({
     if (!root) return;
 
     const images = Array.from(root.querySelectorAll("img"));
+    
     await Promise.all(
-      images.map((img) => {
-        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      images.map((img, idx) => {
+        // Skip if already loaded
+        if (img.complete && img.naturalWidth > 0) {
+          console.log(`Image ${idx} already loaded:`, img.src?.substring(0, 50));
+          return Promise.resolve();
+        }
 
         return new Promise((resolve) => {
-          const done = () => resolve();
-          img.onload = done;
-          img.onerror = done;
+          const timeout = setTimeout(() => {
+            console.warn(`Image ${idx} load timeout after 10s:`, img.src?.substring(0, 50));
+            img.onload = null;
+            img.onerror = null;
+            resolve(); // Don't block on timeout
+          }, 10000);
+
+          const cleanup = () => {
+            clearTimeout(timeout);
+            img.onload = null;
+            img.onerror = null;
+          };
+
+          img.onload = () => {
+            console.log(`Image ${idx} loaded successfully:`, img.src?.substring(0, 50));
+            cleanup();
+            resolve();
+          };
+
+          img.onerror = () => {
+            console.error(`Image ${idx} failed to load (CORS?):`, img.src?.substring(0, 50));
+            cleanup();
+            resolve(); // Continue anyway
+          };
+
+          // Force reload to trigger load handlers
+          if (!img.src) {
+            console.warn(`Image ${idx} has no src`);
+            cleanup();
+            resolve();
+          }
         });
       })
     );
@@ -106,46 +139,65 @@ export default function IdCardGenerator({
     if (document.fonts?.ready) {
       try {
         await document.fonts.ready;
-      } catch {
-        // ignore
+      } catch (err) {
+        console.warn("Font loading failed:", err);
       }
     }
   };
 
   const captureCard = async (node) => {
+    if (!node) throw new Error("Card node is missing");
+    
+    console.log("Waiting for images before canvas capture...");
     await waitForImages(node);
 
+    console.log("Capturing card to canvas...");
     return await html2canvas(node, {
       scale: 3,
       useCORS: true,
+      allowTaint: true,
       backgroundColor: "#ffffff",
-      logging: false,
+      logging: true,
+      imageTimeout: 10000,
     });
   };
 
   const combineFrontBackCanvas = async () => {
-    const frontCanvas = await captureCard(frontExportRef.current);
-    const backCanvas = await captureCard(backExportRef.current);
+    try {
+      console.log("Starting front canvas capture...");
+      const frontCanvas = await captureCard(frontExportRef.current);
+      console.log("Front canvas captured successfully", frontCanvas.width, "x", frontCanvas.height);
 
-    const gap = 60;
-    const padding = 40;
+      console.log("Starting back canvas capture...");
+      const backCanvas = await captureCard(backExportRef.current);
+      console.log("Back canvas captured successfully", backCanvas.width, "x", backCanvas.height);
 
-    const combined = document.createElement("canvas");
-    combined.width = frontCanvas.width + backCanvas.width + gap + padding * 2;
-    combined.height =
-      Math.max(frontCanvas.height, backCanvas.height) + padding * 2;
+      const gap = 60;
+      const padding = 40;
 
-    const ctx = combined.getContext("2d");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, combined.width, combined.height);
+      const combined = document.createElement("canvas");
+      combined.width = frontCanvas.width + backCanvas.width + gap + padding * 2;
+      combined.height =
+        Math.max(frontCanvas.height, backCanvas.height) + padding * 2;
 
-    const frontY = Math.floor((combined.height - frontCanvas.height) / 2);
-    const backY = Math.floor((combined.height - backCanvas.height) / 2);
+      const ctx = combined.getContext("2d");
+      if (!ctx) throw new Error("Failed to get canvas context");
+      
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, combined.width, combined.height);
 
-    ctx.drawImage(frontCanvas, padding, frontY);
-    ctx.drawImage(backCanvas, padding + frontCanvas.width + gap, backY);
+      const frontY = Math.floor((combined.height - frontCanvas.height) / 2);
+      const backY = Math.floor((combined.height - backCanvas.height) / 2);
 
-    return combined;
+      ctx.drawImage(frontCanvas, padding, frontY);
+      ctx.drawImage(backCanvas, padding + frontCanvas.width + gap, backY);
+
+      console.log("Combined canvas created successfully", combined.width, "x", combined.height);
+      return combined;
+    } catch (error) {
+      console.error("Failed to combine canvases:", error);
+      throw error;
+    }
   };
 
   const downloadPDF = async () => {
@@ -163,9 +215,13 @@ export default function IdCardGenerator({
     setIsDownloading(true);
 
     try {
+      console.log("=== Starting PDF Download ===");
       const combinedCanvas = await combineFrontBackCanvas();
+      console.log("Converting canvas to PNG...");
       const imgData = combinedCanvas.toDataURL("image/png");
+      console.log("PNG data URL created", imgData.substring(0, 50) + "...");
 
+      console.log("Creating PDF...");
       const pdf = new jsPDF({
         orientation: "landscape",
         unit: "mm",
@@ -190,14 +246,30 @@ export default function IdCardGenerator({
       const x = (pageWidth - imgWidth) / 2;
       const y = (pageHeight - imgHeight) / 2;
 
+      console.log("Adding image to PDF at position:", { x, y, imgWidth, imgHeight });
       pdf.addImage(imgData, "PNG", x, y, imgWidth, imgHeight);
-      pdf.save(
-        `${studentData.first_name}_${studentData.last_name}_ID_front_back_landscape.pdf`
-      );
+      
+      const fileName = `${studentData.first_name}_${studentData.last_name}_ID_front_back_landscape.pdf`;
+      console.log("Saving PDF as:", fileName);
+      pdf.save(fileName);
+      console.log("=== PDF Download Complete ===");
+      
       addToast("Success", "ID card PDF downloaded successfully!", "success");
     } catch (error) {
-      console.error("PDF download failed:", error);
-      addToast("Error", "Failed to download ID card PDF", "error");
+      console.error("=== PDF Download Failed ===", error);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+      
+      let errorMsg = "Failed to download ID card PDF";
+      if (error.message.includes("canvas")) {
+        errorMsg = "Canvas rendering failed - please check if all images loaded correctly";
+      } else if (error.message.includes("CORS")) {
+        errorMsg = "CORS error loading images - check student photo accessibility";
+      } else if (error.message.includes("tainted")) {
+        errorMsg = "Image loading issue - the student photo may need CORS headers";
+      }
+      
+      addToast("Error", errorMsg, "error");
     } finally {
       setIsDownloading(false);
     }
@@ -218,16 +290,29 @@ export default function IdCardGenerator({
     setIsDownloading(true);
 
     try {
+      console.log("=== Starting Image Download ===");
       const combinedCanvas = await combineFrontBackCanvas();
+      console.log("Canvas ready, creating download link...");
 
       const link = document.createElement("a");
       link.href = combinedCanvas.toDataURL("image/png");
       link.download = `${studentData.first_name}_${studentData.last_name}_ID_front_back.png`;
+      
+      console.log("Triggering download:", link.download);
       link.click();
+      console.log("=== Image Download Complete ===");
+      
       addToast("Success", "ID card image downloaded successfully!", "success");
     } catch (error) {
-      console.error("Image download failed:", error);
-      addToast("Error", "Failed to download ID card image", "error");
+      console.error("=== Image Download Failed ===", error);
+      console.error("Error message:", error.message);
+      
+      let errorMsg = "Failed to download ID card image";
+      if (error.message.includes("canvas")) {
+        errorMsg = "Canvas rendering failed - please check if all images loaded correctly";
+      }
+      
+      addToast("Error", errorMsg, "error");
     } finally {
       setIsDownloading(false);
     }

@@ -540,7 +540,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             if p
         ).strip()
 
-    def _build_installment_schedule(self, tuition):
+    def _build_installment_schedule(self, tuition, posted_date):
         items = []
 
         initial = Decimal(str(tuition.initial or 0))
@@ -558,7 +558,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 "item": "INITIAL",
                 "description": "Initial Tuition Billing",
                 "amount": initial,
-                "transaction_date": initial_due,
+                "transaction_date": posted_date,
                 "due_date": initial_due,
                 "semester": self._semester_from_date(initial_due),
             })
@@ -583,7 +583,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     "item": "MONTHLY",
                     "description": f"{label} Installment",
                     "amount": monthly,
-                    "transaction_date": due,
+                    "transaction_date": posted_date,
                     "due_date": due,
                     "semester": self._semester_from_date(due),
                 })
@@ -595,7 +595,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 "item": "MISC",
                 "description": "Miscellaneous (August)",
                 "amount": misc_aug,
-                "transaction_date": due,
+                "transaction_date": posted_date,
                 "due_date": due,
                 "semester": self._semester_from_date(due),
             })
@@ -606,7 +606,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 "item": "MISC",
                 "description": "Miscellaneous (November)",
                 "amount": misc_nov,
-                "transaction_date": due,
+                "transaction_date": posted_date,
                 "due_date": due,
                 "semester": self._semester_from_date(due),
             })
@@ -794,7 +794,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     amount=misc_aug,
                     description="Miscellaneous (August)",
                     payment_method="CASH",
-                    transaction_date=aug_due,
+                    transaction_date=today,
                     due_date=aug_due,
                     status_value="POSTED",
                     reference_number=self.generate_reference_number(),
@@ -815,7 +815,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     amount=misc_nov,
                     description="Miscellaneous (November)",
                     payment_method="CASH",
-                    transaction_date=nov_due,
+                    transaction_date=today,
                     due_date=nov_due,
                     status_value="POSTED",
                     reference_number=self.generate_reference_number(),
@@ -823,7 +823,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
 
         elif payment_mode == "installment":
-            schedule = self._build_installment_schedule(tuition)
+            schedule = self._build_installment_schedule(tuition, today)
 
             for sched in schedule:
                 debit_status = "POSTED" if sched["item"] == "INITIAL" else "PENDING"
@@ -1254,7 +1254,9 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         if enrollment.parent_user:
             profile = UserProfile.objects.filter(user=enrollment.parent_user).first()
             if profile:
-                profile.avatar = uploaded
+                # Reuse the already-saved image path to avoid a second upload
+                # of the same in-memory file object to S3.
+                profile.avatar = enrollment.id_image.name
                 profile.save(update_fields=["avatar"])
 
         serializer = EnrollmentDetailedSerializer(enrollment, context={"request": request})
