@@ -1,5 +1,6 @@
 # accounts/serializers.py
 from django.db import models
+from django.utils.text import slugify
 from rest_framework import serializers
 from .models import User, UserProfile, TeacherProfile, AdminProfile, Section, Subject, PasswordResetRequest
 
@@ -356,7 +357,7 @@ class LoginSerializer(serializers.Serializer):
 
 
 class CreateUserSerializer(serializers.Serializer):
-    username = serializers.CharField(max_length=50)
+    username = serializers.CharField(max_length=50, required=False, allow_blank=True)
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=6)
     role = serializers.ChoiceField(choices=["ADMIN", "TEACHER", "PARENT_STUDENT"])
@@ -384,6 +385,27 @@ class CreateUserSerializer(serializers.Serializer):
     section_teacher = serializers.IntegerField(required=False)
     employee_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
 
+    @staticmethod
+    def _build_student_username_base(first_name, last_name):
+        safe_last = slugify(str(last_name or "").strip()).replace("-", "")
+        safe_first = slugify(str(first_name or "").strip()).replace("-", "")
+        base = "_".join(part for part in [safe_last, safe_first] if part).strip("_")
+        return base or "student_user"
+
+    @staticmethod
+    def _generate_unique_student_username(first_name, last_name):
+        max_len = User._meta.get_field("username").max_length
+        base = CreateUserSerializer._build_student_username_base(first_name, last_name)[:max_len]
+
+        candidate = base
+        counter = 1
+        while User.objects.filter(username__iexact=candidate).exists():
+            suffix = str(counter)
+            trimmed = base[: max_len - len(suffix)]
+            candidate = f"{trimmed}{suffix}"
+            counter += 1
+        return candidate
+
     def validate(self, attrs):
         role = attrs.get("role")
 
@@ -410,7 +432,17 @@ class CreateUserSerializer(serializers.Serializer):
                 except Section.DoesNotExist:
                     raise serializers.ValidationError({"section": "Section not found"})
 
+            attrs["username"] = self._generate_unique_student_username(
+                attrs.get("student_first_name"),
+                attrs.get("student_last_name"),
+            )
+
         elif role == "TEACHER":
+            username = (attrs.get("username") or "").strip()
+            if not username:
+                raise serializers.ValidationError({"username": "Username is required for teacher accounts."})
+            attrs["username"] = username
+
             subject_id = attrs.get("subject")
             if subject_id:
                 try:
@@ -446,6 +478,12 @@ class CreateUserSerializer(serializers.Serializer):
                     Section.objects.get(id=section_id)
                 except Section.DoesNotExist:
                     raise serializers.ValidationError({"section_teacher": "Section not found"})
+
+        else:
+            username = (attrs.get("username") or "").strip()
+            if not username:
+                raise serializers.ValidationError({"username": "Username is required."})
+            attrs["username"] = username
 
         return attrs
 

@@ -105,6 +105,8 @@ const resolveReligionForPayload = (formData) => {
 };
 
 export default function EnrollmentManagement() {
+  const normalizeLookupKey = useCallback((value) => String(value || "").trim().toLowerCase(), []);
+
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -165,6 +167,8 @@ export default function EnrollmentManagement() {
   // Payment Proof States
   const [proofs, setProofs] = useState([]);
   const [loadingProofs, setLoadingProofs] = useState(false);
+  const [gradeProgressMap, setGradeProgressMap] = useState(new Map());
+  const [balanceMap, setBalanceMap] = useState(new Map());
   const [paymentProofModalOpen, setPaymentProofModalOpen] = useState(false);
   const [selectedProofId, setSelectedProofId] = useState(null);
   const [approvalRemarks, setApprovalRemarks] = useState("");
@@ -273,13 +277,70 @@ export default function EnrollmentManagement() {
     }
   }, [addToast]);
 
+  const fetchGradeProgress = useCallback(async () => {
+    try {
+      const res = await apiFetch("/api/grades/admin-grade-records-monitoring/?quarter=4");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error();
+
+      const students = Array.isArray(data?.students) ? data.students : [];
+      const nextMap = new Map();
+      students.forEach((student) => {
+        const payload = {
+          status: String(student?.status || "").toLowerCase(),
+          gradedSubjects: Number(student?.graded_subjects || 0),
+          totalSubjects: Number(student?.total_subjects || 0),
+        };
+
+        const idKey = normalizeLookupKey(student?.student_id);
+        if (idKey) nextMap.set(idKey, payload);
+
+        const numberKey = normalizeLookupKey(student?.student_number);
+        if (numberKey) nextMap.set(numberKey, payload);
+
+        const usernameKey = normalizeLookupKey(student?.student_username);
+        if (usernameKey) nextMap.set(usernameKey, payload);
+      });
+
+      setGradeProgressMap(nextMap);
+    } catch {
+      setGradeProgressMap(new Map());
+    }
+  }, [normalizeLookupKey]);
+
+  const fetchBalances = useCallback(async () => {
+    try {
+      const res = await apiFetch("/api/finance/student-tuition-overview/");
+      const data = await res.json().catch(() => []);
+      if (!res.ok) throw new Error();
+
+      const rows = Array.isArray(data) ? data : [];
+      const nextMap = new Map();
+
+      rows.forEach((row) => {
+        const remaining = Number(row?.remaining_balance || 0);
+        const studentNumberKey = normalizeLookupKey(row?.student_number);
+        if (studentNumberKey) nextMap.set(studentNumberKey, remaining);
+
+        const usernameKey = normalizeLookupKey(row?.username);
+        if (usernameKey) nextMap.set(usernameKey, remaining);
+      });
+
+      setBalanceMap(nextMap);
+    } catch {
+      setBalanceMap(new Map());
+    }
+  }, [normalizeLookupKey]);
+
   useEffect(() => {
     fetchEnrollments();
     fetchSettings();
     fetchSections();
     fetchProofs();
+    fetchGradeProgress();
+    fetchBalances();
 
-  }, [fetchSettings, fetchSections, fetchProofs, fetchEnrollments]);
+  }, [fetchSettings, fetchSections, fetchProofs, fetchEnrollments, fetchGradeProgress, fetchBalances]);
 
   const callAction = async (id, actionName, payload = null) => {
     const res = await apiFetch(`/api/enrollments/${id}/${actionName}/`, {
@@ -370,10 +431,30 @@ export default function EnrollmentManagement() {
 
   const getPromotionReadiness = useCallback((row) => {
     const e = row?.raw || {};
-    const { next } = getNextGrade(e.grade_level);
+    const normalizedGradeLevel = normalizeSectionGrade(e.grade_level);
+    const { next } = getNextGrade(normalizedGradeLevel);
+
+    // Guard unknown grade values so they do not get misclassified as "completed"
+    if (!normalizedGradeLevel) {
+      return {
+        ready: false,
+        reason: `Unrecognized grade level: ${e.grade_level || "(empty)"}`,
+        status: "ineligible",
+        icon: "clock",
+      };
+    }
 
     // Check if already at highest grade
     if (!next) {
+      if (normalizedGradeLevel !== "grade6") {
+        return {
+          ready: false,
+          reason: `Cannot determine next grade from value: ${e.grade_level}`,
+          status: "ineligible",
+          icon: "clock",
+        };
+      }
+
       return {
         ready: false,
         reason: "Completed Grade 6 - Cannot promote further",
@@ -387,7 +468,7 @@ export default function EnrollmentManagement() {
       return {
         ready: false,
         reason: `Enrollment status: ${row.statusCode} - Payment must be approved before promotion`,
-        status: "pending",
+        status: "ineligible",
         icon: "clock",
       };
     }
@@ -399,20 +480,29 @@ export default function EnrollmentManagement() {
         return {
           ready: false,
           reason: `Payment proof: ${row.paymentProof?.status || "pending"} - Must be approved`,
-          status: "pending",
+          status: "ineligible",
           icon: "clock",
         };
       }
     }
 
-    // Check if student type allows promotion (old students only)
-    const studentType = String(e.student_type || "").toLowerCase();
-    if (studentType !== "old") {
+    // Check if all required grade entries are completed (Q4 monitoring source)
+    if (row.gradeProgress && row.gradeProgress.totalSubjects > 0 && row.gradeProgress.status !== "completed") {
       return {
         ready: false,
-        reason: "Only returning students can be promoted - New students must complete current level first",
+        reason: `Grades are ${row.gradeProgress.status || "pending"} (${row.gradeProgress.gradedSubjects}/${row.gradeProgress.totalSubjects} subjects graded)`,
         status: "ineligible",
-        icon: "x",
+        icon: "clock",
+      };
+    }
+
+    // Check if no remaining tuition balance exists
+    if (typeof row.remainingBalance === "number" && row.remainingBalance > 0) {
+      return {
+        ready: false,
+        reason: `Outstanding balance: Php ${row.remainingBalance.toFixed(2)} - must be zero before promotion`,
+        status: "ineligible",
+        icon: "clock",
       };
     }
 
@@ -429,11 +519,28 @@ export default function EnrollmentManagement() {
     () =>
       enrollments.map((e) => {
         const statusCode = String(e.status || "PENDING").toUpperCase();
+        const studentIdKey = normalizeLookupKey(e.student || e.student_id);
+        const studentNumberKey = normalizeLookupKey(e.student_number);
+        const studentUsernameKey = normalizeLookupKey(e.student_username);
+
+        const gradeProgress =
+          gradeProgressMap.get(studentIdKey) ||
+          gradeProgressMap.get(studentNumberKey) ||
+          gradeProgressMap.get(studentUsernameKey) ||
+          null;
+
+        const remainingBalance =
+          balanceMap.get(studentNumberKey) ??
+          balanceMap.get(studentUsernameKey) ??
+          null;
+
         const tempRow = {
           id: e.id,
           raw: e,
           statusCode,
           paymentProof: proofs.find(p => p.enrollment_id === e.id) || null,
+          gradeProgress,
+          remainingBalance,
         };
         const promotionInfo = getPromotionReadiness(tempRow);
         
@@ -455,6 +562,8 @@ export default function EnrollmentManagement() {
           paymentMode: e.payment_mode || "—",
           paymentMethod: e.payment_method || "—",
           paymentProof: tempRow.paymentProof,
+          gradeProgress: tempRow.gradeProgress,
+          remainingBalance: tempRow.remainingBalance,
           promotionStatus: promotionInfo.status,
           parentName:
           e?.parent_info?.mother_name ||
@@ -469,7 +578,7 @@ export default function EnrollmentManagement() {
           "(not set)",
                 };
       }),
-    [enrollments, sections, proofs, getPromotionReadiness]
+    [enrollments, sections, proofs, getPromotionReadiness, gradeProgressMap, balanceMap, normalizeLookupKey]
   );
 
   const filteredEnrollments = useMemo(() => {
@@ -508,16 +617,6 @@ export default function EnrollmentManagement() {
       dropped: normalized.filter((e) => e.statusCode === "DROPPED").length,
     }),
     [normalized]
-  );
-
-  const quickStatusOptions = useMemo(
-    () => FILTER_OPTIONS.filter((option) => option.value !== "All"),
-    []
-  );
-
-  const quickPromotionOptions = useMemo(
-    () => PROMOTION_FILTER_OPTIONS.filter((option) => option.value !== "All"),
-    []
   );
 
   const gradeOptions = useMemo(() => {
@@ -1224,7 +1323,8 @@ const handleApproveModal = async () => {
       return;
     }
 
-    const { next, nextEdu } = getNextGrade(e.grade_level);
+    const normalizedGradeLevel = normalizeSectionGrade(e.grade_level);
+    const { next, nextEdu } = getNextGrade(normalizedGradeLevel);
 
     if (!next) {
       addToast(
@@ -1978,20 +2078,6 @@ const openIdGenerator = (row) => {
             <div className="enrollment-skeleton-line w-sm" />
           </div>
 
-          <div className="enrollment-quick-filters enrollment-quick-filters--skeleton">
-            <div className="enrollment-skeleton-chip-row">
-              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
-              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
-              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
-              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
-            </div>
-            <div className="enrollment-skeleton-chip-row">
-              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
-              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
-              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
-              <div className="enrollment-skeleton-line enrollment-skeleton-chip" />
-            </div>
-          </div>
         </>
       ) : (
         <>
@@ -2059,50 +2145,6 @@ const openIdGenerator = (row) => {
             >
               <XCircle size={14} /> Reset Filters
             </button>
-            </div>
-          </div>
-
-          <div className={`enrollment-quick-filters ${mobileFiltersOpen ? "open" : ""}`}>
-            <div className="quick-filter-group enrollment-quick-filter-group">
-              <span className="quick-filter-label enrollment-quick-filter-label">Status:</span>
-              <button
-                type="button"
-                className={`quick-filter-chip enrollment-quick-filter-chip ${filterStatus === "All" ? "active" : ""}`}
-                onClick={() => setFilterStatus("All")}
-              >
-                All
-              </button>
-              {quickStatusOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`quick-filter-chip enrollment-quick-filter-chip ${filterStatus === option.value ? "active" : ""}`}
-                  onClick={() => setFilterStatus(option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="quick-filter-group enrollment-quick-filter-group">
-              <span className="quick-filter-label enrollment-quick-filter-label">Promotion:</span>
-              <button
-                type="button"
-                className={`quick-filter-chip enrollment-quick-filter-chip ${filterPromotionStatus === "All" ? "active" : ""}`}
-                onClick={() => setFilterPromotionStatus("All")}
-              >
-                All
-              </button>
-              {quickPromotionOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`quick-filter-chip enrollment-quick-filter-chip ${filterPromotionStatus === option.value ? "active" : ""}`}
-                  onClick={() => setFilterPromotionStatus(option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
             </div>
           </div>
         </>
@@ -2183,7 +2225,6 @@ const openIdGenerator = (row) => {
                               >
                                 {promotion.status === "ready" && "✓ Ready"}
                                 {promotion.status === "completed" && "✓ Completed"}
-                                {promotion.status === "pending" && "⏱ Pending"}
                                 {promotion.status === "ineligible" && "✕ Ineligible"}
                               </div>
                             );

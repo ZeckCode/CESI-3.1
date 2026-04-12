@@ -10,7 +10,6 @@ export const PROMOTION_FILTER_OPTIONS = [
   { value: "All", label: "All Promotion Status" },
   { value: "ready", label: "Eligible - Ready to Promote" },
   { value: "ineligible", label: "Ineligible" },
-  { value: "pending", label: "Pending Requirements" },
   { value: "completed", label: "Completed - Max Grade" },
 ];
 

@@ -184,11 +184,25 @@ class TuitionConfig(models.Model):
         verbose_name_plural = 'Tuition Configurations'
 
     def clean(self):
-        installment_base = (self.initial or Decimal('0')) + ((self.monthly or Decimal('0')) * Decimal('10'))
-        if (self.installment or Decimal('0')) != installment_base:
-            raise ValidationError({
-                'installment': f'Installment must equal initial + (monthly × 10). Expected {installment_base}.'
-            })
+        numeric_fields = [
+            'cash',
+            'installment',
+            'initial',
+            'monthly',
+            'reservation_fee',
+            'misc_aug',
+            'misc_nov',
+            'assessment',
+        ]
+
+        errors = {}
+        for field in numeric_fields:
+            value = getattr(self, field, Decimal('0')) or Decimal('0')
+            if Decimal(str(value)) < 0:
+                errors[field] = 'Amount cannot be negative.'
+
+        if errors:
+            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         self.full_clean()
