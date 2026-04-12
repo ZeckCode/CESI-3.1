@@ -3,6 +3,7 @@ import {
   FileText, Download, BookOpen, Award, TrendingUp, CheckCircle, AlertCircle, Info
 } from 'lucide-react';
 import ExcelJS from "exceljs";
+import jsPDF from "jspdf";
 import "../StudentWebsiteCSS/Grades.css";
 import { apiFetch } from "../api/apiFetch";
 import PreviewModal from "../PreviewModal";
@@ -259,8 +260,8 @@ const Grades = () => {
 
       // Set alignment for all cells in the row
       dataRow.eachCell((cell, colNumber) => {
-        // Left-align Subject (column 1) and Teacher (column 8)
-        if (colNumber === 1 || colNumber === 8) {
+        // Left-align Teacher (column 8) only
+        if (colNumber === 8) {
           cell.alignment = { horizontal: 'left', vertical: 'center' };
         } else {
           cell.alignment = { horizontal: 'center', vertical: 'center' };
@@ -292,6 +293,170 @@ const Grades = () => {
     window.URL.revokeObjectURL(url);
 
     alert('✓ Grade report downloaded successfully!');
+  };
+
+  const handleDownloadGradesPDF = async () => {
+    try {
+      const doc = new jsPDF('l', 'mm', 'a4');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      const usableWidth = pageWidth - 2 * margin;
+
+      // Add title
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Grade Report', margin, 15);
+
+      // Add underline
+      doc.setDrawColor(37, 99, 235);
+      doc.setLineWidth(1);
+      doc.line(margin, 18, pageWidth - margin, 18);
+
+      // Add timestamp
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 24);
+
+      const headers = ['SUBJECT', 'QUARTER 1', 'QUARTER 2', 'QUARTER 3', 'QUARTER 4', 'FINAL', 'REMARKS', 'TEACHER'];
+      const keys = ['Subject', 'Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4', 'Final Grade', 'Remarks', 'Teacher'];
+
+      const exportData = grades.map((g) => {
+        const subjectName = g.subject_name || g.subject;
+        const teacherFromSchedule = getTeacherForSubject(subjectName);
+        return {
+          'Subject': subjectName || '—',
+          'Quarter 1': g.q1 ?? g.q1_grade ?? g.quarter_1 ?? '—',
+          'Quarter 2': g.q2 ?? g.q2_grade ?? g.quarter_2 ?? '—',
+          'Quarter 3': g.q3 ?? g.q3_grade ?? g.quarter_3 ?? '—',
+          'Quarter 4': g.q4 ?? g.q4_grade ?? g.quarter_4 ?? '—',
+          'Final Grade': g.final_grade ?? '—',
+          'Remarks': g.remarks || g.status || '—',
+          'Teacher': teacherFromSchedule || '—',
+        };
+      });
+
+      const rows = exportData.map(row => keys.map(key => row[key]));
+
+      // Column widths
+      const subjectWidth = usableWidth * 0.22;
+      const otherColWidth = (usableWidth - subjectWidth) / 7;
+
+      const getColWidth = (idx) => {
+        return idx === 0 ? subjectWidth : otherColWidth;
+      };
+
+      const headerRowHeight = 10;
+      const rowHeight = 9;
+      let yPos = 30;
+
+      // Draw header
+      let xPos = margin;
+      doc.setFillColor(37, 99, 235);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.3);
+
+      // Fill header cells and draw borders
+      headers.forEach((header, idx) => {
+        const colW = getColWidth(idx);
+        doc.rect(xPos, yPos, colW, headerRowHeight, 'F');
+        doc.rect(xPos, yPos, colW, headerRowHeight);
+        xPos += colW;
+      });
+
+      // Draw header text
+      xPos = margin;
+      doc.setTextColor(255, 255, 255);
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(7.5);
+
+      headers.forEach((header, idx) => {
+        const colW = getColWidth(idx);
+        doc.text(header, xPos + colW / 2, yPos + 6, { align: 'center' });
+        xPos += colW;
+      });
+
+      yPos += headerRowHeight;
+
+      // Draw data rows
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(8.5);
+      doc.setDrawColor(150, 150, 150);
+      doc.setLineWidth(0.2);
+
+      rows.forEach((row, rowIdx) => {
+        if (yPos + rowHeight > pageHeight - 10) {
+          doc.addPage();
+          yPos = margin;
+
+          // Redraw header on new page
+          xPos = margin;
+          doc.setFillColor(37, 99, 235);
+          doc.setLineWidth(0.3);
+          headers.forEach((header, idx) => {
+            const colW = getColWidth(idx);
+            doc.rect(xPos, yPos, colW, headerRowHeight, 'F');
+            doc.rect(xPos, yPos, colW, headerRowHeight);
+            xPos += colW;
+          });
+
+          xPos = margin;
+          doc.setTextColor(255, 255, 255);
+          doc.setFont(undefined, 'bold');
+          doc.setFontSize(7.5);
+          headers.forEach((header, idx) => {
+            const colW = getColWidth(idx);
+            doc.text(header, xPos + colW / 2, yPos + 6, { align: 'center' });
+            xPos += colW;
+          });
+
+          yPos += headerRowHeight;
+          doc.setTextColor(0, 0, 0);
+          doc.setFont(undefined, 'normal');
+          doc.setFontSize(8.5);
+          doc.setDrawColor(150, 150, 150);
+          doc.setLineWidth(0.2);
+        }
+
+        const isEvenRow = rowIdx % 2 === 0;
+        const bgColor = isEvenRow ? [245, 245, 245] : [255, 255, 255];
+
+        xPos = margin;
+
+        row.forEach((cell, colIdx) => {
+          const colW = getColWidth(colIdx);
+          doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+          doc.rect(xPos, yPos, colW, rowHeight, 'F');
+          doc.setDrawColor(150, 150, 150);
+          doc.rect(xPos, yPos, colW, rowHeight);
+          doc.setTextColor(0, 0, 0);
+
+          // Center-align all except Teacher (column 7 = left-align)
+          const align = colIdx === 7 ? 'left' : 'center';
+          const textX = align === 'center' ? xPos + colW / 2 : xPos + 1;
+
+          doc.text(
+            String(cell),
+            textX,
+            yPos + 4.5,
+            { align: align, maxWidth: colW - 2 }
+          );
+          xPos += colW;
+        });
+
+        yPos += rowHeight;
+      });
+
+      doc.save(`Grade-Report_${timestamp}.pdf`);
+      alert('✓ PDF downloaded successfully!');
+    } catch (err) {
+      console.error('Error downloading PDF:', err);
+      alert('Failed to download PDF. Please try again.');
+    }
   };
 
   return (
@@ -531,7 +696,7 @@ const Grades = () => {
         title={`Grade Report - ${studentName}`}
         data={previewData}
         columns={[
-          { key: 'Subject', label: 'SUBJECT' },
+          { key: 'Subject', label: 'SUBJECT', align: 'center' },
           { key: 'Quarter 1', label: 'QUARTER 1' },
           { key: 'Quarter 2', label: 'QUARTER 2' },
           { key: 'Quarter 3', label: 'QUARTER 3' },
@@ -542,6 +707,7 @@ const Grades = () => {
         ]}
         filename="Grades"
         onDownloadExcel={handleDownloadGradesExcel}
+        onDownloadPDF={handleDownloadGradesPDF}
       />
     </main>
   );

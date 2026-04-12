@@ -508,7 +508,7 @@ const TeacherClassSchedule = () => {
       let yPos = 28;
 
       // Table dimensions
-      const timeColWidth = 17;
+      const timeColWidth = 27;
       const dayColWidth = (usableWidth - timeColWidth) / 5;
       const headerRowHeight = 8;
       const dataRowHeight = 18;

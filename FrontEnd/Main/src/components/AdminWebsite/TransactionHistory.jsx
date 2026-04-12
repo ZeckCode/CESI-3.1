@@ -16,6 +16,8 @@ import {
   Plus, X, ChevronDown, ChevronUp, Edit2, Trash2,
   Bell, Wallet, RotateCcw, CreditCard
 } from 'lucide-react';
+import ExcelJS from 'exceljs';
+import jsPDF from 'jspdf';
 import '../AdminWebsiteCSS/TransactionHistory.css';
 import Pagination from './Pagination';
 import { apiFetch } from '../api/apiFetch';
@@ -555,6 +557,222 @@ const TransactionHistory = () => {
     } catch (err) {
       console.error('Error opening preview:', err);
       addToast('Error', 'Failed to open preview. Please try again.', 'error');
+    }
+  };
+
+  const exportPreviewToExcel = async () => {
+    try {
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Transaction History');
+      const timestamp = new Date().toISOString().slice(0, 10);
+
+      const columns = [
+        { header: 'Date', key: 'Date', width: 12 },
+        { header: 'Enrollment ID', key: 'Enrollment ID', width: 10 },
+        { header: 'Student Number', key: 'Student Number', width: 18 },
+        { header: 'Student Name', key: 'Student Name', width: 27 },
+        { header: 'School Year', key: 'School Year', width: 12 },
+        { header: 'Grade Level', key: 'Grade Level', width: 12 },
+        { header: 'Student Type', key: 'Student Type', width: 12 },
+        { header: 'Payment Mode', key: 'Payment Mode', width: 16 },
+        { header: 'Total Debit', key: 'Total Debit', width: 14 },
+        { header: 'Total Credit', key: 'Total Credit', width: 14 },
+        { header: 'Balance', key: 'Balance', width: 14 },
+        { header: 'Status', key: 'Status', width: 12 },
+      ];
+
+      ws.columns = columns;
+
+      // Style header row
+      const headerRow = ws.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+        cell.font = { bold: true, color: { rgb: 'FFFFFFFF' }, size: 11 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { rgb: 'FF667EEA' } };
+        cell.border = {
+          top: { style: 'thin', color: { rgb: 'FF000000' } },
+          left: { style: 'thin', color: { rgb: 'FF000000' } },
+          bottom: { style: 'thin', color: { rgb: 'FF000000' } },
+          right: { style: 'thin', color: { rgb: 'FF000000' } }
+        };
+      });
+
+      // Add data rows
+      previewData.forEach((row) => {
+        const dataRow = ws.addRow(row);
+        dataRow.eachCell((cell, colNumber) => {
+          // Left align Student Name (column 4), center align all others
+          const align = colNumber === 4 ? 'left' : 'center';
+          cell.alignment = { horizontal: align, vertical: 'center' };
+          cell.border = {
+            top: { style: 'thin', color: { rgb: 'FFD3D3D3' } },
+            left: { style: 'thin', color: { rgb: 'FFD3D3D3' } },
+            bottom: { style: 'thin', color: { rgb: 'FFD3D3D3' } },
+            right: { style: 'thin', color: { rgb: 'FFD3D3D3' } }
+          };
+        });
+      });
+
+      // Generate buffer and download
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Transaction_History_${timestamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      alert('✓ Excel file downloaded successfully!');
+    } catch (err) {
+      console.error('Error exporting to Excel:', err);
+      alert('Failed to export to Excel. Please try again.');
+    }
+  };
+
+  const exportPreviewToPDF = async () => {
+    try {
+      const doc = new jsPDF('l', 'mm', 'a4');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      const usableWidth = pageWidth - 2 * margin;
+
+      // Add title
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Transaction History Report', margin, 15);
+
+      // Add underline
+      doc.setDrawColor(0, 123, 255);
+      doc.setLineWidth(1);
+      doc.line(margin, 18, pageWidth - margin, 18);
+
+      // Add timestamp
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 25);
+
+      const headers = ['DATE', 'ENROLLMENT ID', 'STUDENT NUMBER', 'STUDENT NAME', 'SCHOOL YEAR', 'GRADE LEVEL', 'STUDENT TYPE', 'PAYMENT MODE', 'TOTAL DEBIT', 'TOTAL CREDIT', 'BALANCE', 'STATUS'];
+      const keys = ['Date', 'Enrollment ID', 'Student Number', 'Student Name', 'School Year', 'Grade Level', 'Student Type', 'Payment Mode', 'Total Debit', 'Total Credit', 'Balance', 'Status'];
+
+      const rows = previewData.map(row => keys.map(key => row[key]));
+
+      // Column widths: Date narrow, Enrollment ID wider, Student Name wider, others proportional
+      const dateWidth = usableWidth * 0.08;
+      const enrollmentIdWidth = usableWidth * 0.08;
+      const studentNameWidth = usableWidth * 0.18;
+      const remainingWidth = usableWidth - dateWidth - enrollmentIdWidth - studentNameWidth;
+      const otherColWidth = remainingWidth / (headers.length - 3);
+
+      const getColWidth = (idx) => {
+        if (idx === 0) return dateWidth;
+        if (idx === 1) return enrollmentIdWidth;
+        if (idx === 3) return studentNameWidth;
+        return otherColWidth;
+      };
+
+      const headerRowHeight = 10;
+      const rowHeight = 8;
+      let yPos = 32;
+
+      // Draw header row
+      headers.forEach((header, idx) => {
+        let xPos = margin;
+        for (let i = 0; i < idx; i++) {
+          xPos += getColWidth(i);
+        }
+        const colW = getColWidth(idx);
+
+        doc.setFillColor(0, 123, 255);
+        doc.rect(xPos, yPos, colW, headerRowHeight, 'F');
+        doc.setDrawColor(0, 123, 255);
+        doc.setLineWidth(0.5);
+        doc.rect(xPos, yPos, colW, headerRowHeight);
+
+        if (idx < headers.length - 1) {
+          doc.setDrawColor(255, 255, 255);
+          doc.setLineWidth(1.5);
+          doc.line(xPos + colW, yPos, xPos + colW, yPos + headerRowHeight);
+        }
+      });
+
+      // Draw header text
+      doc.setTextColor(255, 255, 255);
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(8);
+      headers.forEach((header, idx) => {
+        let xPos = margin;
+        for (let i = 0; i < idx; i++) {
+          xPos += getColWidth(i);
+        }
+        const colW = getColWidth(idx);
+        const centerX = xPos + colW / 2;
+        doc.text(header, centerX, yPos + 6, { maxWidth: colW - 2, align: 'center' });
+      });
+
+      yPos += headerRowHeight;
+
+      // Draw body rows
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(8);
+
+      rows.forEach((row, rowIdx) => {
+        if (yPos + rowHeight > pageHeight - 20) {
+          doc.addPage();
+          yPos = margin;
+        }
+
+        const isEvenRow = rowIdx % 2 === 0;
+        const bgColor = isEvenRow ? [255, 255, 255] : [245, 245, 245];
+
+        // Draw all cells
+        row.forEach((cell, colIdx) => {
+          let xPos = margin;
+          for (let i = 0; i < colIdx; i++) {
+            xPos += getColWidth(i);
+          }
+          const colW = getColWidth(colIdx);
+
+          doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+          doc.rect(xPos, yPos, colW, rowHeight, 'F');
+
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(0.3);
+          doc.rect(xPos, yPos, colW, rowHeight);
+        });
+
+        // Draw text
+        doc.setTextColor(0, 0, 0);
+        row.forEach((cell, colIdx) => {
+          let xPos = margin;
+          for (let i = 0; i < colIdx; i++) {
+            xPos += getColWidth(i);
+          }
+          const colW = getColWidth(colIdx);
+
+          // Left align Student Name (index 3), center align all others including Date
+          if (colIdx === 3) {
+            doc.text(String(cell), xPos + 2, yPos + 5, { maxWidth: colW - 4 });
+          } else {
+            const centerX = xPos + colW / 2;
+            doc.text(String(cell), centerX, yPos + 5, { maxWidth: colW - 4, align: 'center' });
+          }
+        });
+
+        yPos += rowHeight;
+      });
+
+      doc.save(`Transaction_History_${timestamp}.pdf`);
+      alert('✓ PDF file downloaded successfully!');
+    } catch (err) {
+      console.error('Error exporting PDF:', err);
+      alert('Failed to export PDF. Please try again.');
     }
   };
 
@@ -2123,7 +2341,23 @@ const TransactionHistory = () => {
         onClose={() => setShowPreview(false)}
         title={`Transaction History Report - ${previewType === 'summary' ? 'Summary' : 'Details'}`}
         data={previewData}
+        columns={[
+          { key: 'Date', label: 'DATE', align: 'center' },
+          { key: 'Enrollment ID', label: 'ENROLLMENT ID', align: 'center' },
+          { key: 'Student Number', label: 'STUDENT NUMBER', align: 'center' },
+          { key: 'Student Name', label: 'STUDENT NAME', align: 'center' },
+          { key: 'School Year', label: 'SCHOOL YEAR', align: 'center' },
+          { key: 'Grade Level', label: 'GRADE LEVEL', align: 'center' },
+          { key: 'Student Type', label: 'STUDENT TYPE', align: 'center' },
+          { key: 'Payment Mode', label: 'PAYMENT MODE', align: 'center' },
+          { key: 'Total Debit', label: 'TOTAL DEBIT', align: 'center' },
+          { key: 'Total Credit', label: 'TOTAL CREDIT', align: 'center' },
+          { key: 'Balance', label: 'BALANCE', align: 'center' },
+          { key: 'Status', label: 'STATUS', align: 'center' },
+        ]}
         filename="Transaction_History"
+        onDownloadExcel={exportPreviewToExcel}
+        onDownloadPDF={exportPreviewToPDF}
       />
       
       <Toast toasts={toasts} dismissToast={dismissToast} />
