@@ -35,6 +35,7 @@ const EnrollmentForm = ({ onClose }) => {
   const fieldRefs = useRef({});
 
   const [currentStep, setCurrentStep] = useState(STEP_KEYS.PRIVACY);
+  const [maxReachedStep, setMaxReachedStep] = useState(STEP_KEYS.PRIVACY);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -328,6 +329,32 @@ const EnrollmentForm = ({ onClose }) => {
     setCurrentStep((prev) => Math.max(prev - 1, STEP_KEYS.PRIVACY));
   };
 
+  useEffect(() => {
+    const cappedStep = Math.min(currentStep, STEP_KEYS.PAYMENT);
+    setMaxReachedStep((prev) => Math.max(prev, cappedStep));
+  }, [currentStep]);
+
+  const handleStepClick = (targetStep) => {
+    if (currentStep >= STEP_KEYS.CONFIRMATION) return;
+
+    if (targetStep < 0 || targetStep > STEP_KEYS.PAYMENT) return;
+    if (targetStep > maxReachedStep || targetStep === currentStep) return;
+
+    if (targetStep < currentStep) {
+      setCurrentStep(targetStep);
+      return;
+    }
+
+    if (currentStep === STEP_KEYS.PRIVACY || currentStep === STEP_KEYS.INSTRUCTIONS) {
+      setCurrentStep(targetStep);
+      return;
+    }
+
+    if (validateCurrentStep()) {
+      setCurrentStep(targetStep);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError("");
@@ -524,7 +551,11 @@ const EnrollmentForm = ({ onClose }) => {
 
         {submitError && <div className="submit-error">{submitError}</div>}
 
-        <EnrollmentStepper currentStep={currentStep} />
+        <EnrollmentStepper
+          currentStep={currentStep}
+          maxReachedStep={maxReachedStep}
+          onStepClick={handleStepClick}
+        />
 
         {currentStep === STEP_KEYS.PRIVACY && (
           <StepPrivacy onNext={nextStep} />

@@ -12,23 +12,33 @@ const steps = [
   "Payment",
 ];
 
-const EnrollmentStepper = ({ currentStep }) => {
+const EnrollmentStepper = ({ currentStep, maxReachedStep = STEP_KEYS.PRIVACY, onStepClick }) => {
   return (
     <div className="stepper">
       {steps.map((label, index) => {
         const isActive = currentStep === index;
-        const isDone = currentStep > index;
+        const isDone = index <= maxReachedStep && !isActive;
+        const isClickable =
+          typeof onStepClick === "function" &&
+          index <= maxReachedStep &&
+          !isActive;
 
         return (
-          <div
+          <button
+            type="button"
             key={label}
             className={`stepper__item ${
               isActive ? "is-active" : ""
-            } ${isDone ? "is-done" : ""}`}
+            } ${isDone ? "is-done" : ""} ${isClickable ? "is-clickable" : ""}`}
+            onClick={() => {
+              if (isClickable) onStepClick(index);
+            }}
+            disabled={!isClickable}
+            aria-current={isActive ? "step" : undefined}
           >
             <span className="stepper__circle">{index + 1}</span>
             <small>{label}</small>
-          </div>
+          </button>
         );
       })}
     </div>

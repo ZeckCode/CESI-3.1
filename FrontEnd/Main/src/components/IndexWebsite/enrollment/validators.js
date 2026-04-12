@@ -145,19 +145,16 @@ export const validateFamilyStep = ({
 
   const motherComplete =
     isFilled(motherFirst) &&
-    isFilled(motherMiddle) &&
     isFilled(motherLast) &&
     isFilled(motherContact);
 
   const fatherComplete =
     isFilled(fatherFirst) &&
-    isFilled(fatherMiddle) &&
     isFilled(fatherLast) &&
     isFilled(fatherContact);
 
   const guardianComplete =
     isFilled(guardianFirst) &&
-    isFilled(guardianMiddle) &&
     isFilled(guardianLast) &&
     isFilled(guardianContact);
 
@@ -170,7 +167,6 @@ export const validateFamilyStep = ({
 
   if (motherHasAny && !motherComplete) {
     errors.motherFirst = !isFilled(motherFirst) ? "Mother's first name is required." : "";
-    errors.motherMiddle = !isFilled(motherMiddle) ? "Mother's middle name is required." : "";
     errors.motherLast = !isFilled(motherLast) ? "Mother's last name is required." : "";
     errors.motherContact = !isFilled(motherContact)
       ? "Mother's contact number is required."
@@ -179,7 +175,6 @@ export const validateFamilyStep = ({
 
   if (fatherHasAny && !fatherComplete) {
     errors.fatherFirst = !isFilled(fatherFirst) ? "Father's first name is required." : "";
-    errors.fatherMiddle = !isFilled(fatherMiddle) ? "Father's middle name is required." : "";
     errors.fatherLast = !isFilled(fatherLast) ? "Father's last name is required." : "";
     errors.fatherContact = !isFilled(fatherContact)
       ? "Father's contact number is required."
@@ -188,7 +183,6 @@ export const validateFamilyStep = ({
 
   if (guardianHasAny && !guardianComplete) {
     errors.guardianFirst = !isFilled(guardianFirst) ? "Guardian's first name is required." : "";
-    errors.guardianMiddle = !isFilled(guardianMiddle) ? "Guardian's middle name is required." : "";
     errors.guardianLast = !isFilled(guardianLast) ? "Guardian's last name is required." : "";
     errors.guardianContact = !isFilled(guardianContact)
       ? "Guardian's contact number is required."

@@ -39,10 +39,6 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
   const sidebarRef = useRef(null);
 
   useEffect(() => {
-    if (user) setCurrentUser(user);
-  }, [user]);
-
-  useEffect(() => {
     let mounted = true;
 
     const loadCurrentUser = async () => {
@@ -203,10 +199,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
 
   const visible = !isMobile || drawerOpen;
   const showLabels = !isCollapsed || isMobile;
-  const displayName =
-    String(currentUser?.role || "").toUpperCase() === "ADMIN"
-      ? (currentUser?.username || getDisplayName(currentUser))
-      : getDisplayName(currentUser);
+  const displayName = getDisplayName(currentUser) || currentUser?.username || "Admin";
   const avatarLetter = getAvatarLetter(displayName);
 
   return (

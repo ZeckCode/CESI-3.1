@@ -565,6 +565,16 @@ font-size: 25px;
   color: #64748b;
   font-size: 12px;
   font-weight: 600;
+  font-family: inherit;
+  appearance: none;
+}
+
+.stepper__item.is-clickable {
+  cursor: pointer;
+}
+
+.stepper__item:disabled {
+  cursor: default;
 }
 
 .stepper__circle {

@@ -26,7 +26,7 @@ export default function ParentInfoTab({
             />
           </div>
           <div className="form-group">
-            <label>Middle Name</label>
+            <label>Middle Name (Optional)</label>
             <input
               name="mother_middle"
               value={formData.parent_info.mother_middle}
@@ -86,7 +86,7 @@ export default function ParentInfoTab({
             />
           </div>
           <div className="form-group">
-            <label>Middle Name</label>
+            <label>Middle Name (Optional)</label>
             <input
               name="father_middle"
               value={formData.parent_info.father_middle}
@@ -146,7 +146,7 @@ export default function ParentInfoTab({
             />
           </div>
           <div className="form-group">
-            <label>Middle Name</label>
+            <label>Middle Name (Optional)</label>
             <input
               name="guardian_middle"
               value={formData.parent_info.guardian_middle}

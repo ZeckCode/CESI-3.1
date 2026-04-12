@@ -25,7 +25,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
           <FieldError error={errors.motherFirst} />
         </div>
         <div className="form-group">
-          <label>Middle Name</label>
+          <label>Middle Name (Optional)</label>
           <input
             ref={registerFieldRef("motherMiddle")}
             value={form.motherMiddle}
@@ -80,7 +80,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
           <FieldError error={errors.fatherFirst} />
         </div>
         <div className="form-group">
-          <label>Middle Name</label>
+          <label>Middle Name (Optional)</label>
           <input
             ref={registerFieldRef("fatherMiddle")}
             value={form.fatherMiddle}
@@ -135,7 +135,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
           <FieldError error={errors.guardianFirst} />
         </div>
         <div className="form-group">
-          <label>Middle Name</label>
+          <label>Middle Name (Optional)</label>
           <input
             ref={registerFieldRef("guardianMiddle")}
             value={form.guardianMiddle}
