@@ -1492,11 +1492,23 @@ class AcademicRecordListCreate(generics.ListCreateAPIView):
             return AcademicRecord.objects.none()
         qs = AcademicRecord.objects.select_related("student", "student__profile", "recorded_by").all()
         student_id = self.request.query_params.get("student")
+        grade_level = self.request.query_params.get("grade_level")
+        section_name = self.request.query_params.get("section")
         school_year = self.request.query_params.get("school_year")
+        status_filter = self.request.query_params.get("status")
         if student_id:
             qs = qs.filter(student_id=student_id)
+        if grade_level is not None and grade_level != "":
+            mapped_grade = normalize_grade_level(grade_level)
+            if mapped_grade is None:
+                raise ValidationError({"grade_level": f"Invalid grade_level: {grade_level}"})
+            qs = qs.filter(grade_level=mapped_grade)
+        if section_name:
+            qs = qs.filter(section_name__iexact=section_name)
         if school_year:
             qs = qs.filter(school_year=school_year)
+        if status_filter:
+            qs = qs.filter(remarks__iexact=status_filter)
         return qs
 
     def perform_create(self, serializer):

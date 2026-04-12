@@ -403,14 +403,13 @@ const GradesRecords = () => {
     });
   }, [filterGrade, filterSection, filterStatus, filterSchoolYear, historyRecords, searchTerm]);
 
-  const historyGroupMap = useMemo(() => {
-    const grouped = new Map();
+  const filteredHistoryGroups = useMemo(() => {
+    const groups = new Map();
 
-    historyRecords.forEach((record) => {
+    filteredHistory.forEach((record) => {
       const key = getHistoryGroupKey(record);
-
-      if (!grouped.has(key)) {
-        grouped.set(key, {
+      if (!groups.has(key)) {
+        groups.set(key, {
           key,
           student: record.student,
           student_number: record.student_number,
@@ -422,42 +421,13 @@ const GradesRecords = () => {
           subjects: [],
         });
       }
-
-      grouped.get(key).subjects.push(record);
+      groups.get(key).subjects.push(record);
     });
 
-    grouped.forEach((group) => {
+    groups.forEach((group) => {
       group.subjects.sort((a, b) =>
         String(a.subject_name || '').localeCompare(String(b.subject_name || ''))
       );
-    });
-
-    return grouped;
-  }, [historyRecords]);
-
-  const filteredHistoryGroups = useMemo(() => {
-    const groups = new Map();
-
-    filteredHistory.forEach((record) => {
-      const key = getHistoryGroupKey(record);
-      if (!groups.has(key)) {
-        const group = historyGroupMap.get(key);
-        if (group) {
-          groups.set(key, group);
-        } else {
-          groups.set(key, {
-            key,
-            student: record.student,
-            student_number: record.student_number,
-            student_name: record.student_name,
-            student_username: record.student_username,
-            grade_level: record.grade_level,
-            section_name: record.section_name,
-            school_year: record.school_year,
-            subjects: [record],
-          });
-        }
-      }
     });
 
     return [...groups.values()].sort((a, b) => {
@@ -466,7 +436,7 @@ const GradesRecords = () => {
       if (yearA !== yearB) return yearB.localeCompare(yearA);
       return String(a.student_name || '').localeCompare(String(b.student_name || ''));
     });
-  }, [filteredHistory, historyGroupMap]);
+  }, [filteredHistory]);
 
   const filteredAttendanceRecords = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
