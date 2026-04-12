@@ -16,6 +16,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import jsPDF from 'jspdf';
 import Pagination from './Pagination';
 import { apiFetchData } from '../api/apiFetch';
 import '../AdminWebsiteCSS/GradesRecords.css';
@@ -767,11 +769,55 @@ const GradesRecords = () => {
     }
   };
 
-  const exportCurrentView = () => {
+  const exportCurrentView = async () => {
     try {
-      const wb = XLSX.utils.book_new();
+      const wb = new ExcelJS.Workbook();
       const timestamp = new Date().toISOString().slice(0, 10);
       let filename = '';
+
+      const createStyledWorksheet = (sheetName, columnDefs, data) => {
+        const ws = wb.addWorksheet(sheetName);
+        
+        // Set column widths
+        columnDefs.forEach((colDef, index) => {
+          ws.getColumn(index + 1).width = colDef.width;
+        });
+
+        // Add manual header row
+        const headerRow = ws.addRow(columnDefs.map(col => col.header));
+        
+        // Style header cells
+        headerRow.eachCell((cell) => {
+          cell.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+          cell.font = { bold: true, color: { rgb: 'FFFFFFFF' }, size: 11 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { rgb: 'FF667EEA' } };
+          cell.border = {
+            top: { style: 'thin', color: { rgb: 'FF000000' } },
+            left: { style: 'thin', color: { rgb: 'FF000000' } },
+            bottom: { style: 'thin', color: { rgb: 'FF000000' } },
+            right: { style: 'thin', color: { rgb: 'FF000000' } }
+          };
+        });
+
+        // Add data rows with alignment
+        data.forEach((rowData) => {
+          const dataRow = ws.addRow(columnDefs.map(col => rowData[col.key] || ''));
+          
+          // Style data cells with alignment based on column
+          dataRow.eachCell((cell, colNumber) => {
+            const colDef = columnDefs[colNumber - 1];
+            // Left align Student Name and Teacher columns, center align others
+            const align = colDef && (colDef.key === 'Student Name' || colDef.key === 'Teacher') ? 'left' : 'center';
+            cell.alignment = { horizontal: align, vertical: 'center' };
+            cell.border = {
+              top: { style: 'thin', color: { rgb: 'FFD3D3D3' } },
+              left: { style: 'thin', color: { rgb: 'FFD3D3D3' } },
+              bottom: { style: 'thin', color: { rgb: 'FFD3D3D3' } },
+              right: { style: 'thin', color: { rgb: 'FFD3D3D3' } }
+            };
+          });
+        });
+      };
 
       if (activeTab === 'grades') {
         const gradesData = filteredStudents.map((row) => ({
@@ -785,18 +831,17 @@ const GradesRecords = () => {
           'History Count': row.history_count,
         }));
 
-        const sheet = XLSX.utils.json_to_sheet(gradesData);
-        sheet['!cols'] = [
-          { wch: 15 },
-          { wch: 20 },
-          { wch: 15 },
-          { wch: 15 },
-          { wch: 15 },
-          { wch: 12 },
-          { wch: 12 },
-          { wch: 12 },
-        ];
-        XLSX.utils.book_append_sheet(wb, sheet, 'Current Grades');
+        createStyledWorksheet('Current Grades', [
+          { header: 'Student Number', key: 'Student Number', width: 15 },
+          { header: 'Student Name', key: 'Student Name', width: 20 },
+          { header: 'Grade Level', key: 'Grade Level', width: 15 },
+          { header: 'Section', key: 'Section', width: 15 },
+          { header: 'Graded Subjects', key: 'Graded Subjects', width: 15 },
+          { header: 'Average Grade', key: 'Average Grade', width: 15 },
+          { header: 'Status', key: 'Status', width: 12 },
+          { header: 'History Count', key: 'History Count', width: 15 },
+        ], gradesData);
+
         filename = `admin-current-grades-q${quarter}-${timestamp}.xlsx`;
       } else if (activeTab === 'history') {
         const historyData = filteredHistory.map((row) => ({
@@ -812,20 +857,19 @@ const GradesRecords = () => {
           Teacher: row.teacher_name || '—',
         }));
 
-        const sheet = XLSX.utils.json_to_sheet(historyData);
-        sheet['!cols'] = [
-          { wch: 15 },
-          { wch: 20 },
-          { wch: 15 },
-          { wch: 15 },
-          { wch: 15 },
-          { wch: 20 },
-          { wch: 12 },
-          { wch: 12 },
-          { wch: 15 },
-          { wch: 15 },
-        ];
-        XLSX.utils.book_append_sheet(wb, sheet, 'Academic History');
+        createStyledWorksheet('Academic History', [
+          { header: 'School Year', key: 'School Year', width: 15 },
+          { header: 'Student Name', key: 'Student Name', width: 20 },
+          { header: 'Student Number', key: 'Student Number', width: 15 },
+          { header: 'Grade Level', key: 'Grade Level', width: 15 },
+          { header: 'Section', key: 'Section', width: 15 },
+          { header: 'Subject', key: 'Subject', width: 20 },
+          { header: 'Subject Code', key: 'Subject Code', width: 12 },
+          { header: 'Final Grade', key: 'Final Grade', width: 12 },
+          { header: 'Remarks', key: 'Remarks', width: 15 },
+          { header: 'Teacher', key: 'Teacher', width: 15 },
+        ], historyData);
+
         filename = `admin-academic-history-${timestamp}.xlsx`;
       } else if (activeTab === 'attendance') {
         const attendanceData = filteredAttendanceStudents.map((row) => ({
@@ -842,29 +886,349 @@ const GradesRecords = () => {
           'Subject Details': row.subjects.map((s) => `${s.subject_name} (${s.status})`).join('; '),
         }));
 
-        const sheet = XLSX.utils.json_to_sheet(attendanceData);
-        sheet['!cols'] = [
-          { wch: 15 },
-          { wch: 15 },
-          { wch: 20 },
-          { wch: 15 },
-          { wch: 15 },
-          { wch: 15 },
-          { wch: 10 },
-          { wch: 10 },
-          { wch: 10 },
-          { wch: 10 },
-          { wch: 30 },
-        ];
-        XLSX.utils.book_append_sheet(wb, sheet, 'Attendance');
+        createStyledWorksheet('Attendance', [
+          { header: 'Date', key: 'Date', width: 15 },
+          { header: 'Student Number', key: 'Student Number', width: 15 },
+          { header: 'Student Name', key: 'Student Name', width: 20 },
+          { header: 'Grade Level', key: 'Grade Level', width: 15 },
+          { header: 'Section', key: 'Section', width: 15 },
+          { header: 'Overall Status', key: 'Overall Status', width: 15 },
+          { header: 'Present', key: 'Present', width: 10 },
+          { header: 'Late', key: 'Late', width: 10 },
+          { header: 'Excused', key: 'Excused', width: 10 },
+          { header: 'Absent', key: 'Absent', width: 10 },
+          { header: 'Subject Details', key: 'Subject Details', width: 30 },
+        ], attendanceData);
+
         filename = `admin-attendance-${selectedDate}-${timestamp}.xlsx`;
       }
 
-      XLSX.writeFile(wb, filename);
+      // Generate buffer and download
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
       alert(`✓ Export successful! File: ${filename}`);
     } catch (err) {
       console.error('Error exporting data:', err);
       alert('Failed to export data. Please try again.');
+    }
+  };
+
+  const exportCurrentViewPDF = async () => {
+    try {
+      const doc = new jsPDF('l', 'mm', 'a4');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      const usableWidth = pageWidth - 2 * margin;
+
+      // Add title
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Grades Records - Current Grades (Q${quarter})`, margin, 15);
+
+      // Add underline
+      doc.setDrawColor(0, 123, 255);
+      doc.setLineWidth(1);
+      doc.line(margin, 18, pageWidth - margin, 18);
+
+      // Add timestamp
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 25);
+
+      const gradesData = filteredStudents.map((row) => ({
+        'Student Number': row.student_number || '—',
+        'Student Name': row.student_name,
+        'Grade Level': toGradeLabel(row.grade_level_label || row.grade_level),
+        Section: row.section_name,
+        'Graded Subjects': `${row.graded_subjects}/${row.total_subjects}`,
+        'Average Grade': row.average_grade ?? '—',
+        Status: row.status,
+        'History Count': row.history_count,
+      }));
+
+      const headers = ['STUDENT NUMBER', 'STUDENT NAME', 'GRADE LEVEL', 'SECTION', 'GRADED SUBJECTS', 'AVERAGE GRADE', 'STATUS', 'HISTORY COUNT'];
+      const keys = ['Student Number', 'Student Name', 'Grade Level', 'Section', 'Graded Subjects', 'Average Grade', 'Status', 'History Count'];
+
+      const rows = gradesData.map(row => keys.map(key => row[key]));
+
+      // Column widths: Student Number narrower, Student Name wider, others proportional
+      const studentNumberWidth = usableWidth * 0.15;
+      const studentNameWidth = usableWidth * 0.15;
+      const remainingWidth = usableWidth - studentNumberWidth - studentNameWidth;
+      const otherColWidth = remainingWidth / (headers.length - 2);
+
+      const getColWidth = (idx) => {
+        if (idx === 0) return studentNumberWidth;
+        if (idx === 1) return studentNameWidth;
+        return otherColWidth;
+      };
+
+      const headerRowHeight = 10;
+      const rowHeight = 10;
+      let yPos = 32;
+
+      // Draw header row
+      headers.forEach((header, idx) => {
+        let xPos = margin;
+        for (let i = 0; i < idx; i++) {
+          xPos += getColWidth(i);
+        }
+        const colW = getColWidth(idx);
+
+        doc.setFillColor(0, 123, 255);
+        doc.rect(xPos, yPos, colW, headerRowHeight, 'F');
+        doc.setDrawColor(0, 123, 255);
+        doc.setLineWidth(0.5);
+        doc.rect(xPos, yPos, colW, headerRowHeight);
+
+        if (idx < headers.length - 1) {
+          doc.setDrawColor(255, 255, 255);
+          doc.setLineWidth(1.5);
+          doc.line(xPos + colW, yPos, xPos + colW, yPos + headerRowHeight);
+        }
+      });
+
+      // Draw header text
+      doc.setTextColor(255, 255, 255);
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(8);
+      headers.forEach((header, idx) => {
+        let xPos = margin;
+        for (let i = 0; i < idx; i++) {
+          xPos += getColWidth(i);
+        }
+        const colW = getColWidth(idx);
+        const centerX = xPos + colW / 2;
+        doc.text(header, centerX, yPos + 6, { maxWidth: colW - 2, align: 'center' });
+      });
+
+      yPos += headerRowHeight;
+
+      // Draw body rows
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(8);
+
+      rows.forEach((row, rowIdx) => {
+        if (yPos + rowHeight > pageHeight - 20) {
+          doc.addPage();
+          yPos = margin;
+        }
+
+        const isEvenRow = rowIdx % 2 === 0;
+        const bgColor = isEvenRow ? [255, 255, 255] : [245, 245, 245];
+
+        // Draw all cells
+        row.forEach((cell, colIdx) => {
+          let xPos = margin;
+          for (let i = 0; i < colIdx; i++) {
+            xPos += getColWidth(i);
+          }
+          const colW = getColWidth(colIdx);
+
+          doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+          doc.rect(xPos, yPos, colW, rowHeight, 'F');
+
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(0.3);
+          doc.rect(xPos, yPos, colW, rowHeight);
+        });
+
+        // Draw text
+        doc.setTextColor(0, 0, 0);
+        row.forEach((cell, colIdx) => {
+          let xPos = margin;
+          for (let i = 0; i < colIdx; i++) {
+            xPos += getColWidth(i);
+          }
+          const colW = getColWidth(colIdx);
+
+          // Left align Student Name (index 1), center align everything else
+          if (colIdx === 1) {
+            doc.text(String(cell), xPos + 2, yPos + 5, { maxWidth: colW - 4 });
+          } else {
+            const centerX = xPos + colW / 2;
+            doc.text(String(cell), centerX, yPos + 5, { maxWidth: colW - 4, align: 'center' });
+          }
+        });
+
+        yPos += rowHeight;
+      });
+
+      doc.save(`admin-current-grades-q${quarter}-${timestamp}.pdf`);
+      alert('✓ PDF file downloaded successfully!');
+    } catch (err) {
+      console.error('Error exporting PDF:', err);
+      alert('Failed to export PDF. Please try again.');
+    }
+  };
+
+  const exportCurrentViewHistoryPDF = async () => {
+    try {
+      const doc = new jsPDF('l', 'mm', 'a4');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      const usableWidth = pageWidth - 2 * margin;
+
+      // Add title
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Grades Records - Academic History', margin, 15);
+
+      // Add underline
+      doc.setDrawColor(0, 123, 255);
+      doc.setLineWidth(1);
+      doc.line(margin, 18, pageWidth - margin, 18);
+
+      // Add timestamp
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 25);
+
+      const historyData = filteredHistory.map((row) => ({
+        'School Year': row.school_year,
+        'Student Name': row.student_name,
+        'Student Number': row.student_number || '—',
+        'Grade Level': toGradeLabel(row.grade_level),
+        Section: row.section_name || '—',
+        Subject: row.subject_name,
+        'Subject Code': row.subject_code || '—',
+        'Final Grade': row.final_grade ?? '—',
+        Remarks: row.remarks || '—',
+        Teacher: row.teacher_name || '—',
+      }));
+
+      const headers = ['SCHOOL YEAR', 'STUDENT NAME', 'STUDENT NUMBER', 'GRADE LEVEL', 'SECTION', 'SUBJECT', 'SUBJECT CODE', 'FINAL GRADE', 'REMARKS', 'TEACHER'];
+      const keys = ['School Year', 'Student Name', 'Student Number', 'Grade Level', 'Section', 'Subject', 'Subject Code', 'Final Grade', 'Remarks', 'Teacher'];
+
+      const rows = historyData.map(row => keys.map(key => row[key]));
+
+      // Column widths: School Year narrow, Student Name wider, Teacher normal, others proportional
+      const schoolYearWidth = usableWidth * 0.10;
+      const studentNameWidth = usableWidth * 0.15;
+      const teacherWidth = usableWidth * 0.12;
+      const remainingWidth = usableWidth - schoolYearWidth - studentNameWidth - teacherWidth;
+      const otherColWidth = remainingWidth / (headers.length - 3);
+
+      const getColWidth = (idx) => {
+        if (idx === 0) return schoolYearWidth;
+        if (idx === 1) return studentNameWidth;
+        if (idx === 9) return teacherWidth;
+        return otherColWidth;
+      };
+
+      const headerRowHeight = 10;
+      const rowHeight = 10;
+      let yPos = 32;
+
+      // Draw header row
+      headers.forEach((header, idx) => {
+        let xPos = margin;
+        for (let i = 0; i < idx; i++) {
+          xPos += getColWidth(i);
+        }
+        const colW = getColWidth(idx);
+
+        doc.setFillColor(0, 123, 255);
+        doc.rect(xPos, yPos, colW, headerRowHeight, 'F');
+        doc.setDrawColor(0, 123, 255);
+        doc.setLineWidth(0.5);
+        doc.rect(xPos, yPos, colW, headerRowHeight);
+
+        if (idx < headers.length - 1) {
+          doc.setDrawColor(255, 255, 255);
+          doc.setLineWidth(1.5);
+          doc.line(xPos + colW, yPos, xPos + colW, yPos + headerRowHeight);
+        }
+      });
+
+      // Draw header text
+      doc.setTextColor(255, 255, 255);
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(8);
+      headers.forEach((header, idx) => {
+        let xPos = margin;
+        for (let i = 0; i < idx; i++) {
+          xPos += getColWidth(i);
+        }
+        const colW = getColWidth(idx);
+        const centerX = xPos + colW / 2;
+        doc.text(header, centerX, yPos + 6, { maxWidth: colW - 2, align: 'center' });
+      });
+
+      yPos += headerRowHeight;
+
+      // Draw body rows
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(8);
+
+      rows.forEach((row, rowIdx) => {
+        if (yPos + rowHeight > pageHeight - 20) {
+          doc.addPage();
+          yPos = margin;
+        }
+
+        const isEvenRow = rowIdx % 2 === 0;
+        const bgColor = isEvenRow ? [255, 255, 255] : [245, 245, 245];
+
+        // Draw all cells
+        row.forEach((cell, colIdx) => {
+          let xPos = margin;
+          for (let i = 0; i < colIdx; i++) {
+            xPos += getColWidth(i);
+          }
+          const colW = getColWidth(colIdx);
+
+          doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+          doc.rect(xPos, yPos, colW, rowHeight, 'F');
+
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(0.3);
+          doc.rect(xPos, yPos, colW, rowHeight);
+        });
+
+        // Draw text
+        doc.setTextColor(0, 0, 0);
+        row.forEach((cell, colIdx) => {
+          let xPos = margin;
+          for (let i = 0; i < colIdx; i++) {
+            xPos += getColWidth(i);
+          }
+          const colW = getColWidth(colIdx);
+
+          // Left align Student Name (1) and Teacher (9), center align School Year (0), center align others
+          if (colIdx === 1 || colIdx === 9) {
+            doc.text(String(cell), xPos + 2, yPos + 5, { maxWidth: colW - 4 });
+          } else {
+            const centerX = xPos + colW / 2;
+            doc.text(String(cell), centerX, yPos + 5, { maxWidth: colW - 4, align: 'center' });
+          }
+        });
+
+        yPos += rowHeight;
+      });
+
+      doc.save(`admin-academic-history-${timestamp}.pdf`);
+      alert('✓ PDF file downloaded successfully!');
+    } catch (err) {
+      console.error('Error exporting PDF:', err);
+      alert('Failed to export PDF. Please try again.');
     }
   };
 
@@ -1613,16 +1977,16 @@ const GradesRecords = () => {
             { key: 'Status', label: 'STATUS', align: 'center' },
             { key: 'History Count', label: 'HISTORY COUNT', align: 'center' },
           ] : activeTab === 'history' ? [
-            { key: 'School Year', label: 'SCHOOL YEAR', align: 'left' },
+            { key: 'School Year', label: 'SCHOOL YEAR', align: 'center' },
             { key: 'Student Name', label: 'STUDENT NAME', align: 'left' },
-            { key: 'Student Number', label: 'STUDENT NUMBER', align: 'left' },
+            { key: 'Student Number', label: 'STUDENT NUMBER', align: 'center' },
             { key: 'Grade Level', label: 'GRADE LEVEL', align: 'center' },
             { key: 'Section', label: 'SECTION', align: 'center' },
             { key: 'Subject', label: 'SUBJECT', align: 'center' },
             { key: 'Subject Code', label: 'SUBJECT CODE', align: 'center' },
             { key: 'Final Grade', label: 'FINAL GRADE', align: 'center' },
             { key: 'Remarks', label: 'REMARKS', align: 'center' },
-            { key: 'Teacher', label: 'TEACHER', align: 'center' },
+            { key: 'Teacher', label: 'TEACHER', align: 'left' },
           ] : [
             { key: 'Date', label: 'DATE', align: 'left' },
             { key: 'Student Number', label: 'STUDENT NUMBER', align: 'left' },
@@ -1637,6 +2001,8 @@ const GradesRecords = () => {
           ]
         }
         filename={`GradesRecords_${activeTab}`}
+        onDownloadExcel={exportCurrentView}
+        onDownloadPDF={activeTab === 'grades' ? exportCurrentViewPDF : activeTab === 'history' ? exportCurrentViewHistoryPDF : undefined}
       />
     </main>
   );
