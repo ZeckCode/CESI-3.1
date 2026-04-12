@@ -1021,19 +1021,7 @@ def refund_student_payment(request):
     if not enrollment.parent_user:
         return Response({'detail': 'Enrollment has no linked parent account.'}, status=400)
 
-    advance_total = Transaction.objects.filter(
-        enrollment=enrollment,
-        entry_type='CREDIT',
-        item='ADVANCE'
-    ).aggregate(total=Sum('credit')).get('total') or Decimal('0.00')
-
-    refund_total = Transaction.objects.filter(
-        enrollment=enrollment,
-        entry_type='DEBIT',
-        item='REFUND'
-    ).aggregate(total=Sum('debit')).get('total') or Decimal('0.00')
-
-    refundable = Decimal(str(advance_total)) - Decimal(str(refund_total))
+    refundable = get_available_advance_for_enrollment(enrollment)
 
     if refundable <= 0:
         return Response({'detail': 'No refundable excess payment found.'}, status=400)

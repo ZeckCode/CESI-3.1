@@ -139,8 +139,10 @@ const isDueForReminder = (dueDate) => {
 const canSendReminderForTransaction = (tx) => {
   if (!tx || tx.entry_type !== 'DEBIT') return false;
 
-  const status = String(tx._effectiveStatus || tx.status || '').toUpperCase();
-  if (!['PENDING', 'OVERDUE', 'POSTED', 'PARTIAL'].includes(status)) return false;
+  // Backend reminder endpoint accepts only transactions explicitly marked
+  // as PENDING/OVERDUE.
+  const status = String(tx.status || '').toUpperCase();
+  if (!['PENDING', 'OVERDUE'].includes(status)) return false;
 
   if (!isDueForReminder(tx.due_date || tx.transaction_date)) return false;
 
@@ -205,6 +207,7 @@ const TransactionHistory = () => {
   const [parentLoading, setParentLoading] = useState(false);
   const dropdownRef = useRef(null);
   const debounceRef = useRef(null);
+  const didInitialLoadRef = useRef(false);
 
   const [sendingReminderId, setSendingReminderId] = useState(null);
   const [sendingBulk, setSendingBulk] = useState(false);
@@ -287,15 +290,23 @@ const TransactionHistory = () => {
   }, []);
 
  useEffect(() => {
+    if (didInitialLoadRef.current) return;
+
     (async () => {
       setLoading(true);
       try {
         await Promise.all([fetchTransactions(), fetchStats(), fetchAdvanceRequests()]);
       } finally {
+        didInitialLoadRef.current = true;
         setLoading(false);
       }
     })();
   }, [fetchTransactions, fetchStats, fetchAdvanceRequests]);
+
+  useEffect(() => {
+    if (!didInitialLoadRef.current) return;
+    fetchTransactions();
+  }, [fetchTransactions]);
 
   useEffect(() => {
     setTxnPage(1);
@@ -785,8 +796,21 @@ const TransactionHistory = () => {
     return String(s).toLowerCase();
   };
 
+  const sortLedgerRows = useCallback((a, b) => {
+    const rankA = String(a?.entry_type || '').toUpperCase() === 'CREDIT' ? 1 : 0;
+    const rankB = String(b?.entry_type || '').toUpperCase() === 'CREDIT' ? 1 : 0;
+    const rankCompare = rankA - rankB;
+    if (rankCompare !== 0) return rankCompare;
+
+    const dateA = String(a?.date_posted || a?.transaction_date || '');
+    const dateB = String(b?.date_posted || b?.transaction_date || '');
+    const dateCompare = dateA.localeCompare(dateB);
+    if (dateCompare !== 0) return dateCompare;
+
+    return Number(a.id || 0) - Number(b.id || 0);
+  }, []);
+
   const groupedTransactions = useMemo(() => {
-      const todayIso = new Date().toISOString().slice(0, 10);
       const map = new Map();
 
       transactions.forEach((tx) => {
@@ -813,7 +837,7 @@ const TransactionHistory = () => {
             grade_level: tx.grade_level || '—',
             payment_mode: tx.payment_mode || '—',
             student_type: tx.student_type || '—',
-            latest_date: tx.transaction_date || '',
+            latest_date: tx.date_posted || tx.transaction_date || '',
             total_debit: 0,
             total_credit: 0,
             balance: 0,
@@ -837,11 +861,7 @@ const TransactionHistory = () => {
       const result = Array.from(map.values()).map((group) => {
         const sortedRows = group.rows
           .slice()
-          .sort((a, b) => {
-            const dateCompare = String(a.transaction_date || '').localeCompare(String(b.transaction_date || ''));
-            if (dateCompare !== 0) return dateCompare;
-            return Number(a.id || 0) - Number(b.id || 0);
-          });
+          .sort(sortLedgerRows);
 
         let remainingCredit = sortedRows.reduce(
           (sum, tx) => sum + Number(tx.credit || 0),
@@ -860,7 +880,8 @@ const TransactionHistory = () => {
           })
           .forEach((tx) => {
             const debitAmount = Number(tx.debit || 0);
-            const dueBasis = String(tx.due_date || tx.date_posted || tx.transaction_date || '');
+            const dueBasis = tx.due_date || tx.date_posted || tx.transaction_date || '';
+            const isPastDue = isDueForReminder(dueBasis);
             const isBillingDebit = BILLING_DEBIT_ITEMS.has(String(tx.item || '').toUpperCase());
 
             if (!isBillingDebit || debitAmount <= 0) {
@@ -876,11 +897,11 @@ const TransactionHistory = () => {
 
             if (remainingCredit > 0) {
               remainingCredit = 0;
-              debitStatusMap.set(tx.id, dueBasis && dueBasis < todayIso ? 'OVERDUE' : 'PARTIAL');
+              debitStatusMap.set(tx.id, isPastDue ? 'OVERDUE' : 'PARTIAL');
               return;
             }
 
-            debitStatusMap.set(tx.id, dueBasis && dueBasis < todayIso ? 'OVERDUE' : 'PENDING');
+            debitStatusMap.set(tx.id, isPastDue ? 'OVERDUE' : 'PENDING');
           });
 
         let runningBalance = 0;
@@ -934,7 +955,7 @@ const TransactionHistory = () => {
         const comparison = String(b.latest_date || '').localeCompare(String(a.latest_date || ''));
         return sortOrder === 'latest' ? comparison : -comparison;
       });
-    }, [transactions, sortOrder]);
+    }, [transactions, sortOrder, sortLedgerRows]);
 
   const txnTotalPages = Math.max(1, Math.ceil(groupedTransactions.length / ITEMS_PER_PAGE));
   const paginatedTransactions = useMemo(
@@ -946,6 +967,9 @@ const TransactionHistory = () => {
     Number(group.balance || 0) > 0 &&
     (group.rows || []).some((tx) => canSendReminderForTransaction(tx));
 
+  const getReminderTargetForGroup = (group) =>
+    (group?.rows || []).find((tx) => canSendReminderForTransaction(tx)) || null;
+
   const getAdvanceCredit = useCallback((group) =>
     (group?.rows || []).reduce((sum, tx) => {
       if (tx.entry_type === 'CREDIT' && tx.item === 'ADVANCE') {
@@ -954,9 +978,12 @@ const TransactionHistory = () => {
       return sum;
     }, 0), []);
 
-  const getRefundedAdvance = useCallback((group) =>
+  const getTransferredOrRefundedAdvance = useCallback((group) =>
     (group?.rows || []).reduce((sum, tx) => {
-      if (tx.entry_type === 'DEBIT' && tx.item === 'REFUND') {
+      if (
+        tx.entry_type === 'DEBIT' &&
+        ['REFUND', 'ADVANCE_TRANSFER_OUT'].includes(String(tx.item || '').toUpperCase())
+      ) {
         return sum + Number(tx.debit || tx.amount || 0);
       }
       return sum;
@@ -965,13 +992,9 @@ const TransactionHistory = () => {
   const getRefundableAmount = useCallback((group) => {
     if (!group) return 0;
 
-    if (Number(group.refundableExcess || 0) > 0) {
-      return Number(group.refundableExcess || 0);
-    }
-
-    const refundable = getAdvanceCredit(group) - getRefundedAdvance(group);
+    const refundable = getAdvanceCredit(group) - getTransferredOrRefundedAdvance(group);
     return refundable > 0 ? refundable : 0;
-  }, [getAdvanceCredit, getRefundedAdvance]);
+  }, [getAdvanceCredit, getTransferredOrRefundedAdvance]);
 
   const openPayModal = (group) => {
     const balance = Number(group.balance || 0);
@@ -1583,7 +1606,10 @@ const TransactionHistory = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedTransactions.map((group) => (
+                paginatedTransactions.map((group) => {
+                  const reminderTarget = getReminderTargetForGroup(group);
+
+                  return (
                   <React.Fragment key={group.key}>
                     <tr>
                       <td>{group.latest_date || '—'}</td>
@@ -1646,9 +1672,9 @@ const TransactionHistory = () => {
                           {isReminderEligible(group) && (
                             <button
                               className="th-action-btn th-reminder-btn"
-                              onClick={() => sendReminder(group.rows[0].id)}
+                              onClick={() => reminderTarget && sendReminder(reminderTarget.id)}
                               title="Send Reminder"
-                              disabled={sendingReminderId === group.rows[0].id}
+                              disabled={!reminderTarget || sendingReminderId === reminderTarget.id}
                             >
                               <Bell size={15} />
                             </button>
@@ -1684,6 +1710,7 @@ const TransactionHistory = () => {
                                   <thead>
                                     <tr>
                                       <th>Date</th>
+                                      <th>Due Date</th>
                                       <th>Reference</th>
                                       <th>Entry Type</th>
                                       <th>Item</th>
@@ -1697,12 +1724,16 @@ const TransactionHistory = () => {
                                 <tbody>
                                   {group.rows
                                     .slice()
-                                    .sort((a, b) =>
-                                      String(a.date_posted || a.transaction_date || '').localeCompare(String(b.date_posted || b.transaction_date || ''))
-                                    )
+                                    .sort(sortLedgerRows)
                                     .map((tx) => (
                                       <tr key={tx.id}>
                                         <td>{tx.date_posted || tx.transaction_date || '—'}</td>
+                                        <td>
+                                          {String(tx.entry_type || '').toUpperCase() === 'DEBIT' &&
+                                          BILLING_DEBIT_ITEMS.has(String(tx.item || '').toUpperCase())
+                                            ? (tx.due_date || '—')
+                                            : '—'}
+                                        </td>
                                         <td>{tx.reference_number || '—'}</td>
                                         <td>{entryLabel(tx.entry_type)}</td>
                                         <td>{itemLabel(tx.item)}</td>
@@ -1757,7 +1788,8 @@ const TransactionHistory = () => {
                       </tr>
                     )}
                   </React.Fragment>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
