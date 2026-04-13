@@ -64,6 +64,8 @@ function getPasswordErrors(password, password2) {
 
   if (!password2) {
     errors.push("Please confirm your password.");
+  } else if (password !== password2) {
+    errors.push("Passwords do not match.");
   }
 
   return errors;
@@ -243,18 +245,6 @@ export default function SetPassword() {
                 {showPassword2 ? "👁️" : "👁️‍🗨️"}
               </span>
             </div>
-
-            {touched.password2 && password2 && (
-              <div
-                className={`password-match ${
-                  password === password2 ? "match" : "no-match"
-                }`}
-              >
-                {password === password2
-                  ? "✓ Passwords match"
-                  : "Passwords do not match"}
-              </div>
-            )}
           </div>
 
           {showValidation && passwordErrors.length > 0 && (
