@@ -80,6 +80,7 @@ const getErrorMessage = (error, fallback) => {
 const TuitionManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGrade, setFilterGrade] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [hoveredRow, setHoveredRow] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
@@ -251,7 +252,7 @@ const TuitionManagement = () => {
 
   useEffect(() => {
     setTmPage(1);
-  }, [searchTerm, filterGrade, viewMode]);
+  }, [searchTerm, filterGrade, filterStatus, viewMode]);
 
   const getFilteredData = () => {
     if (viewMode === 'student') {
@@ -270,7 +271,11 @@ const TuitionManagement = () => {
           studentGrade === filterGrade.toLowerCase() ||
           studentGrade === String(gradeLabelMap[filterGrade] || '').toLowerCase();
 
-        return matchesSearch && matchesFilter;
+        const matchesStatus =
+          filterStatus === 'all' ||
+          normalizeStatus(student.accountStatus) === filterStatus;
+
+        return matchesSearch && matchesFilter && matchesStatus;
       });
     }
 
@@ -283,7 +288,10 @@ const TuitionManagement = () => {
 
       const matchesFilter = filterGrade === 'all' || fee.grade_key === filterGrade;
 
-      return matchesSearch && matchesFilter;
+      const feeStatus = normalizeStatus(fee.status || (fee.is_active ? 'active' : 'inactive'));
+      const matchesStatus = filterStatus === 'all' || feeStatus === filterStatus;
+
+      return matchesSearch && matchesFilter && matchesStatus;
     });
   };
 
@@ -740,6 +748,30 @@ const TuitionManagement = () => {
                     {gradeLabelMap[grade] || grade}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div className="tm-filter-group">
+              <Filter size={20} />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="tm-filter-select"
+              >
+                <option value="all">All Status</option>
+                {viewMode === 'student' ? (
+                  <>
+                    <option value="pending">Pending</option>
+                    <option value="partial">Partial</option>
+                    <option value="paid">Paid</option>
+                    <option value="overdue">Overdue</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </>
+                )}
               </select>
             </div>
           </div>
