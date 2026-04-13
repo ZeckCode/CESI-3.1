@@ -1141,14 +1141,7 @@ export default function StudentReenrollment() {
             <button type="submit" disabled={saving || !eligibility.eligible}>
               {saving ? "Submitting..." : "Submit enrollment"}
             </button>
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => navigate("/student")}
-              disabled={saving}
-            >
-              Back to Portal
-            </button>
+            
           </div>
         </div>
       </form>

@@ -895,6 +895,12 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             profile.payment_mode = enrollment.payment_mode
             changed = True
 
+        if enrollment.id_image:
+            enrollment_image_name = enrollment.id_image.name
+            if not profile.avatar or profile.avatar.name != enrollment_image_name:
+                profile.avatar = enrollment_image_name
+                changed = True
+
         if changed:
             profile.save()
 
@@ -1088,6 +1094,10 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             profile.avatar = uploaded_id_image
 
         profile.save()
+
+        proof_qs = ProofOfPayment.objects.filter(enrollment=enrollment)
+        if proof_qs.exists() and proof_qs.exclude(user=portal_user).exists():
+            proof_qs.exclude(user=portal_user).update(user=portal_user)
 
     def _send_student_portal_email(self, enrollment, recipient_email):
         if not enrollment.parent_user:
