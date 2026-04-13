@@ -1,16 +1,81 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Bell, CheckCircle, Clock, AlertCircle } from "lucide-react";
-import { getToken } from "../Auth/auth";
+import { apiFetch } from "../api/apiFetch";
 import "../TeacherWebsiteCSS/TeacherReminders.css";
 
-const API_BASE = "";
+const READ_OVERRIDES_KEY = "reminder-read-overrides:PERFORMANCE";
 
-const authHeaders = (extra = {}) => {
-  const token = getToken();
-  return {
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...extra,
-  };
+const normalizeReminderPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.results)) return payload.results;
+  return [];
+};
+
+const getReadOverrides = () => {
+  try {
+    const raw = localStorage.getItem(READ_OVERRIDES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.map((id) => Number(id)).filter(Number.isFinite) : []);
+  } catch {
+    return new Set();
+  }
+};
+
+const saveReadOverride = (id) => {
+  const overrides = getReadOverrides();
+  overrides.add(Number(id));
+  localStorage.setItem(READ_OVERRIDES_KEY, JSON.stringify(Array.from(overrides)));
+};
+
+const applyReadOverrides = (reminders) => {
+  const overrides = getReadOverrides();
+  if (overrides.size === 0) return reminders;
+  return reminders.map((r) => (overrides.has(Number(r.id)) ? { ...r, is_read: true } : r));
+};
+
+const parseErrorDetail = async (res) => {
+  try {
+    const data = await res.json();
+    return String(data?.detail || data?.message || "").trim();
+  } catch {
+    return "";
+  }
+};
+
+const notifyReminderChanged = () => {
+  window.dispatchEvent(new Event("reminders-changed"));
+};
+
+const markReminderRead = async (id) => {
+  const attempts = [
+    { url: `/api/reminders/mark-read/${id}/`, method: "POST" },
+    { url: `/api/reminders/mark-read/${id}/`, method: "PATCH" },
+    { url: `/api/reminders/${id}/read/`, method: "POST" },
+    { url: `/api/reminders/${id}/read/`, method: "PATCH" },
+  ];
+
+  let lastError = "";
+
+  for (const attempt of attempts) {
+    const res = await apiFetch(attempt.url, { method: attempt.method });
+
+    if (res.ok) return { ok: true, detail: "" };
+
+    const detail = await parseErrorDetail(res);
+    const detailLower = detail.toLowerCase();
+
+    if (detailLower.includes("reminder not found")) {
+      return { ok: true, detail };
+    }
+
+    if (res.status === 404 || res.status === 405) {
+      continue;
+    }
+
+    lastError = detail || `Request failed with status ${res.status}`;
+  }
+
+  return { ok: false, detail: lastError || "Failed to mark as read" };
 };
 
 export default function TeacherReminders() {
@@ -18,6 +83,13 @@ export default function TeacherReminders() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
   const [markingId, setMarkingId] = useState(null);
+  const [errorToast, setErrorToast] = useState("");
+
+  useEffect(() => {
+    if (!errorToast) return undefined;
+    const timeoutId = window.setTimeout(() => setErrorToast(""), 2800);
+    return () => window.clearTimeout(timeoutId);
+  }, [errorToast]);
 
   const loadReminders = async () => {
     setLoading(true);
@@ -27,15 +99,12 @@ export default function TeacherReminders() {
           ? "/api/reminders/?type=PERFORMANCE"
           : `/api/reminders/?type=PERFORMANCE&is_read=${activeFilter === "read" ? "true" : "false"}`;
 
-      const res = await fetch(`${API_BASE}${query}`, {
-        credentials: "include",
-        headers: authHeaders(),
-      });
+      const res = await apiFetch(query);
 
       if (!res.ok) throw new Error("Failed to load reminders");
 
       const data = await res.json();
-      setReminders(Array.isArray(data) ? data : []);
+      setReminders(applyReadOverrides(normalizeReminderPayload(data)));
     } catch (err) {
       console.error("Error loading reminders:", err);
       setReminders([]);
@@ -56,19 +125,21 @@ export default function TeacherReminders() {
   const markAsRead = async (id) => {
     setMarkingId(id);
     try {
-      const res = await fetch(`${API_BASE}/api/reminders/${id}/read/`, {
-        method: "POST",
-        credentials: "include",
-        headers: authHeaders(),
-      });
+      const result = await markReminderRead(id);
 
-      if (!res.ok) throw new Error("Failed to mark as read");
+      if (!result.ok) {
+        throw new Error(result.detail || "Failed to mark as read");
+      }
+
+      saveReadOverride(id);
 
       setReminders((prev) =>
         prev.map((r) => (r.id === id ? { ...r, is_read: true } : r))
       );
+      notifyReminderChanged();
     } catch (err) {
       console.error("Error marking reminder as read:", err);
+      setErrorToast(err?.message || "Could not mark reminder as read. Please try again.");
     } finally {
       setMarkingId(null);
     }
@@ -165,6 +236,13 @@ export default function TeacherReminders() {
           </div>
         )}
       </section>
+
+      {errorToast && (
+        <div className="tr-snackbar" role="alert" aria-live="assertive">
+          <AlertCircle size={16} />
+          <span>{errorToast}</span>
+        </div>
+      )}
     </main>
   );
 }

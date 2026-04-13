@@ -56,9 +56,9 @@
 }
 
 .sr-filter.active {
-  background: #1d4ed8;
+  background: #5ba3c7;
   color: white;
-  border-color: #1d4ed8;
+  border-color: #5ba3c7;
 }
 
 .sr-list {
@@ -151,6 +151,35 @@
   padding: 28px;
   text-align: center;
   color: #64748b;
+}
+
+.sr-snackbar {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1200;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(92vw, 420px);
+  background: #b91c1c;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 12px;
+  box-shadow: 0 12px 26px rgba(127, 29, 29, 0.28);
+  font-weight: 600;
+  animation: sr-snackbar-in 180ms ease-out;
+}
+
+@keyframes sr-snackbar-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ========== RESPONSIVE DESIGN ========== */
@@ -252,6 +281,13 @@
 @media (max-width: 600px) {
   .student-reminders-main {
     padding: 12px;
+  }
+
+  .sr-snackbar {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
   }
 
   .sr-section {

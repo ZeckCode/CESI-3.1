@@ -404,6 +404,14 @@ class ReminderDetailView(generics.RetrieveUpdateDestroyAPIView):
         if is_admin(self.request.user):
             return queryset.none()
 
+        role = getattr(self.request.user, "role", "").upper()
+        if role == "TEACHER":
+            # Teachers can operate on their sender-owned performance reminders.
+            return queryset.filter(
+                Q(recipient=self.request.user)
+                | Q(sender=self.request.user, reminder_type="PERFORMANCE")
+            )
+
         return queryset.filter(recipient=self.request.user)
 
 
@@ -486,9 +494,17 @@ def send_payment_reminder(request, transaction_id):
 @api_view(["POST", "PATCH"])
 @permission_classes([IsAuthenticated])
 def mark_reminder_as_read(request, pk):
-    try:
-        reminder = Reminder.objects.get(pk=pk, recipient=request.user)
-    except Reminder.DoesNotExist:
+    role = getattr(request.user, "role", "").upper()
+
+    reminder_qs = Reminder.objects.filter(pk=pk, recipient=request.user)
+    if role == "TEACHER":
+        reminder_qs = Reminder.objects.filter(pk=pk).filter(
+            Q(recipient=request.user)
+            | Q(sender=request.user, reminder_type="PERFORMANCE")
+        )
+
+    reminder = reminder_qs.first()
+    if not reminder:
         return Response({"detail": "Reminder not found."}, status=404)
 
     reminder.is_read = True

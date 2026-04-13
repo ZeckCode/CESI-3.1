@@ -9,18 +9,26 @@ import TeacherClassSchedule from "./TeacherClassSchedule.jsx";
 import Students from "./Students.jsx";
 import SPerformance from "./SPerformance.jsx";
 import TeacherReminders from "./TeacherReminders.jsx";
-import { getToken } from "../Auth/auth";
+import { apiFetch, authHeaders } from "../api/apiFetch";
 import NotificationList from "../AdminWebsite/NotificationList";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 
-const API_BASE = "";
+const READ_OVERRIDES_KEY = "reminder-read-overrides:PERFORMANCE";
 
-const authHeaders = (extra = {}) => {
-  const token = getToken();
-  return {
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...extra,
-  };
+const normalizeReminderPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.results)) return payload.results;
+  return [];
+};
+
+const getReadOverrides = () => {
+  try {
+    const raw = localStorage.getItem(READ_OVERRIDES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.map((id) => Number(id)).filter(Number.isFinite) : []);
+  } catch {
+    return new Set();
+  }
 };
 
 function TeacherDashboard() {
@@ -52,19 +60,22 @@ function TeacherDashboard() {
 
     const loadUnreadReminders = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/reminders/?type=PERFORMANCE`, {
-          credentials: "include",
+        const res = await apiFetch("/api/reminders/?type=PERFORMANCE", {
           headers: authHeaders(),
         });
 
         if (!res.ok) throw new Error("Failed to load reminders");
 
         const data = await res.json();
-        const reminders = Array.isArray(data) ? data : [];
+        const reminders = normalizeReminderPayload(data);
+        const readOverrides = getReadOverrides();
+        const normalizedReminders = reminders.map((r) =>
+          readOverrides.has(Number(r.id)) ? { ...r, is_read: true } : r
+        );
         
         // Only update state if component is still mounted to prevent duplication
         if (isMounted) {
-          setUnreadReminders(reminders.filter((r) => !r.is_read).length);
+          setUnreadReminders(normalizedReminders.filter((r) => !r.is_read).length);
         }
       } catch (err) {
         console.error("Error loading unread reminders:", err);
@@ -77,12 +88,19 @@ function TeacherDashboard() {
     // Load reminders immediately on mount
     loadUnreadReminders();
 
+    const handleReminderChange = () => {
+      loadUnreadReminders();
+    };
+
+    window.addEventListener("reminders-changed", handleReminderChange);
+
     // Then poll for updates every 30 seconds
     pollInterval = setInterval(loadUnreadReminders, 30000);
 
     // Cleanup function to prevent memory leaks and duplicate listeners
     return () => {
       isMounted = false;
+      window.removeEventListener("reminders-changed", handleReminderChange);
       if (pollInterval) {
         clearInterval(pollInterval);
       }
@@ -169,6 +187,8 @@ function TeacherDashboard() {
             onClose={() => setShowNotificationList(false)}
             unreadCount={unreadReminders}
             reminderType="PERFORMANCE"
+            targetMenuId="reminders"
+            onUnreadCountChange={setUnreadReminders}
             onNavigate={(menu) => {
               setActiveMenu(menu);
               setShowNotificationList(false);

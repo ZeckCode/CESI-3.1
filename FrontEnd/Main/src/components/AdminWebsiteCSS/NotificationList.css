@@ -335,11 +335,20 @@
 }
 
 .notification-item-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
   font-weight: 600;
   color: #1f2937;
   margin: 0 0 4px 0;
   word-break: break-word;
+}
+
+.notification-read-check {
+  color: #16a34a;
+  display: inline-flex;
+  align-items: center;
 }
 
 .notification-item-text {
@@ -376,6 +385,10 @@
   opacity: 1;
 }
 
+.notification-item.unread .notification-item-actions {
+  opacity: 1;
+}
+
 .notification-check-btn,
 .notification-delete-btn {
   background: white;
@@ -400,6 +413,18 @@
   background: #ef4444;
   border-color: #ef4444;
   color: white;
+}
+
+.notification-check-btn.is-read {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #16a34a;
+  cursor: default;
+  opacity: 1;
+}
+
+.notification-check-btn.is-read:disabled {
+  opacity: 1;
 }
 
 /* Footer */

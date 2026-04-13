@@ -19,6 +19,23 @@ import "../AdminWebsiteCSS/AdminDashboard.css";
 import "../StudentWebsiteCSS/StudentPortal.css";
 
 const API_BASE = "";
+const READ_OVERRIDES_KEY = "reminder-read-overrides:PAYMENT";
+
+const normalizeReminderPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.results)) return payload.results;
+  return [];
+};
+
+const getReadOverrides = () => {
+  try {
+    const raw = localStorage.getItem(READ_OVERRIDES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.map((id) => Number(id)).filter(Number.isFinite) : []);
+  } catch {
+    return new Set();
+  }
+};
 
 const computeEnrollmentWindow = (settings) => {
   const autoOpen = () => {
@@ -102,10 +119,14 @@ export default function StudentMain() {
         if (!res.ok) throw new Error("Failed to load reminders");
 
         const data = await res.json();
-        const reminders = Array.isArray(data) ? data : [];
+        const reminders = normalizeReminderPayload(data);
+        const readOverrides = getReadOverrides();
+        const normalizedReminders = reminders.map((r) =>
+          readOverrides.has(Number(r.id)) ? { ...r, is_read: true } : r
+        );
 
         if (isMounted) {
-          setUnreadReminders(reminders.filter((r) => !r.is_read).length);
+          setUnreadReminders(normalizedReminders.filter((r) => !r.is_read).length);
         }
       } catch (err) {
         console.error("Error loading unread reminders:", err);
@@ -116,10 +137,17 @@ export default function StudentMain() {
     };
 
     loadUnreadReminders();
+
+    const handleReminderChange = () => {
+      loadUnreadReminders();
+    };
+
+    window.addEventListener("reminders-changed", handleReminderChange);
     pollInterval = setInterval(loadUnreadReminders, 30000);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("reminders-changed", handleReminderChange);
       if (pollInterval) {
         clearInterval(pollInterval);
       }
@@ -260,6 +288,8 @@ export default function StudentMain() {
             onClose={() => setShowNotificationList(false)}
             unreadCount={unreadReminders}
             reminderType="PAYMENT"
+            targetMenuId="reminders"
+            onUnreadCountChange={setUnreadReminders}
             onNavigate={(menu) => {
               setActiveMenu(menu);
               setShowNotificationList(false);
