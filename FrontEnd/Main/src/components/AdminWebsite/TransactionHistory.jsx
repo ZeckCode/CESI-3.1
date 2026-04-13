@@ -65,7 +65,6 @@ const ITEM_OPTIONS = [
 const STATUS_OPTIONS = [
   { value: 'PAID', label: 'Paid' },
   { value: 'PARTIAL', label: 'Partial' },
-  { value: 'PENDING', label: 'Pending' },
   { value: 'POSTED', label: 'Posted' },
 ];
 
@@ -243,7 +242,6 @@ const TransactionHistory = () => {
     try {
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
-      if (filterStatus !== 'all') params.append('status', filterStatus.toUpperCase());
       if (filterEntryType !== 'all') params.append('entry_type', filterEntryType.toUpperCase());
 
       const res = await apiFetch(`/api/finance/transactions/?${params.toString()}`);
@@ -255,7 +253,7 @@ const TransactionHistory = () => {
       console.error('Error fetching transactions:', err);
       setTransactions([]);
     }
-  }, [searchTerm, filterStatus, filterEntryType]);
+  }, [searchTerm, filterEntryType]);
 
   const fetchAdvanceRequests = useCallback(async () => {
     try {
@@ -560,7 +558,7 @@ const TransactionHistory = () => {
         'Total Debit': Number(group.total_debit || 0),
         'Total Credit': Number(group.total_credit || 0),
         'Balance': Number(group.balance || 0),
-        'Status': group.account_status,
+        'Status': getDisplayGroupStatuses(group).join(' / '),
       }));
 
       setPreviewData(summaryData);
@@ -796,6 +794,23 @@ const TransactionHistory = () => {
     return String(s).toLowerCase();
   };
 
+  const getGroupStatuses = (group) => {
+    if (Array.isArray(group?.account_statuses) && group.account_statuses.length > 0) {
+      return group.account_statuses;
+    }
+
+    return group?.account_status ? [group.account_status] : [];
+  };
+
+  const getDisplayGroupStatuses = (group) => {
+    const statuses = getGroupStatuses(group)
+      .map((status) => String(status || '').toUpperCase())
+      .filter(Boolean)
+      .map((status) => (status === 'PENDING' ? 'PARTIAL' : status));
+
+    return Array.from(new Set(statuses));
+  };
+
   const sortLedgerRows = useCallback((a, b) => {
     const rankA = String(a?.entry_type || '').toUpperCase() === 'CREDIT' ? 1 : 0;
     const rankB = String(b?.entry_type || '').toUpperCase() === 'CREDIT' ? 1 : 0;
@@ -844,6 +859,7 @@ const TransactionHistory = () => {
             rawBalance: 0,
             refundableExcess: 0,
             account_status: 'PAID',
+            account_statuses: ['PAID'],
             rows: [],
           });
         }
@@ -932,13 +948,49 @@ const TransactionHistory = () => {
           return String(tx._effectiveStatus || tx.status || '').toUpperCase() === 'OVERDUE';
         });
 
+        const hasPendingDebit = normalizedRows.some((tx) => {
+          if (String(tx.entry_type || '').toUpperCase() !== 'DEBIT') return false;
+
+          return String(tx._effectiveStatus || tx.status || '').toUpperCase() === 'PENDING';
+        });
+
+        const hasPartialDebit = normalizedRows.some((tx) => {
+          if (String(tx.entry_type || '').toUpperCase() !== 'DEBIT') return false;
+
+          return String(tx._effectiveStatus || tx.status || '').toUpperCase() === 'PARTIAL';
+        });
+
+        const accountStatuses = Array.from(
+          new Set(
+            normalizedRows
+              .filter((tx) => String(tx.entry_type || '').toUpperCase() === 'DEBIT')
+              .map((tx) => String(tx._effectiveStatus || tx.status || '').toUpperCase())
+              .filter(Boolean)
+          )
+        ).filter((status) => status !== '');
+
         let derivedStatus = 'PAID';
+        let derivedStatuses = ['PAID'];
         if (payableBalance > 0) {
           if (hasOverdueDebit) {
             derivedStatus = 'OVERDUE';
+            derivedStatuses = ['OVERDUE'];
+          } else if (hasPartialDebit || group.total_credit > 0) {
+            derivedStatus = 'PARTIAL';
+            derivedStatuses = ['PARTIAL'];
+            if (accountStatuses.includes('PENDING')) {
+              derivedStatuses.push('PENDING');
+            }
+          } else if (hasPendingDebit) {
+            derivedStatus = 'PENDING';
+            derivedStatuses = ['PENDING'];
           } else {
-            derivedStatus = group.total_credit > 0 ? 'PARTIAL' : 'PENDING';
+            derivedStatus = 'PENDING';
+            derivedStatuses = ['PENDING'];
           }
+        } else if (accountStatuses.length > 0) {
+          derivedStatus = accountStatuses[0];
+          derivedStatuses = accountStatuses;
         }
 
         return {
@@ -948,6 +1000,7 @@ const TransactionHistory = () => {
           rawBalance,
           refundableExcess,
           account_status: derivedStatus,
+          account_statuses: derivedStatuses,
         };
       });
 
@@ -957,10 +1010,19 @@ const TransactionHistory = () => {
       });
     }, [transactions, sortOrder, sortLedgerRows]);
 
-  const txnTotalPages = Math.max(1, Math.ceil(groupedTransactions.length / ITEMS_PER_PAGE));
+  const filteredTransactions = useMemo(() => {
+    if (filterStatus === 'all') return groupedTransactions;
+
+    const selectedStatus = String(filterStatus || '').trim().toUpperCase();
+    return groupedTransactions.filter(
+      (group) => getDisplayGroupStatuses(group).includes(selectedStatus)
+    );
+  }, [groupedTransactions, filterStatus]);
+
+  const txnTotalPages = Math.max(1, Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE));
   const paginatedTransactions = useMemo(
-    () => groupedTransactions.slice((txnPage - 1) * ITEMS_PER_PAGE, txnPage * ITEMS_PER_PAGE),
-    [groupedTransactions, txnPage]
+    () => filteredTransactions.slice((txnPage - 1) * ITEMS_PER_PAGE, txnPage * ITEMS_PER_PAGE),
+    [filteredTransactions, txnPage]
   );
 
   const isReminderEligible = (group) =>
@@ -1239,18 +1301,18 @@ const TransactionHistory = () => {
     const exposureRate =
       totalBilled > 0 ? Math.round((outstanding / totalBilled) * 100) : 0;
 
-    const overdueLedgers = groupedTransactions.filter(
-      (group) => group.account_status === 'OVERDUE'
+    const overdueLedgers = groupedTransactions.filter((group) =>
+      getGroupStatuses(group).includes('OVERDUE')
     ).length;
 
-    const partialLedgers = groupedTransactions.filter(
-      (group) => group.account_status === 'PARTIAL'
+    const partialLedgers = groupedTransactions.filter((group) =>
+      getDisplayGroupStatuses(group).includes('PARTIAL')
     ).length;
 
     const reminderQueue = groupedTransactions.filter(
       (group) =>
         Number(group.balance || 0) > 0 &&
-        ['PENDING', 'OVERDUE'].includes(group.account_status)
+        getGroupStatuses(group).some((status) => ['PENDING', 'OVERDUE'].includes(status))
     ).length;
 
     const advancePool = groupedTransactions.reduce(
@@ -1531,9 +1593,7 @@ const TransactionHistory = () => {
                 <option value="all">All Status</option>
                 <option value="paid">Paid</option>
                 <option value="partial">Partial</option>
-                <option value="pending">Pending</option>
                 <option value="overdue">Overdue</option>
-                <option value="posted">Posted</option>
               </select>
             </div>
 
@@ -1599,7 +1659,7 @@ const TransactionHistory = () => {
               </thead>
 
             <tbody>
-              {groupedTransactions.length === 0 ? (
+              {filteredTransactions.length === 0 ? (
                 <tr>
                   <td colSpan="10" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                     No transactions found.
@@ -1626,9 +1686,11 @@ const TransactionHistory = () => {
                       </td>
                       <td>
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <span className={`th-status-badge th-status-${statusClass(group.account_status)}`}>
-                              {group.account_status}
-                            </span>
+                            {getDisplayGroupStatuses(group).map((status) => (
+                              <span key={status} className={`th-status-badge th-status-${statusClass(status)}`}>
+                                {status}
+                              </span>
+                            ))}
 
                             {Number(getRefundableAmount(group)) > 0 && (
                               <span className="th-status-badge th-status-advance">
@@ -1745,8 +1807,8 @@ const TransactionHistory = () => {
                                         </td>
                                         <td className="th-amount-cell">{formatCurrency(tx._runningBalance)}</td>
                                         <td>
-                                          <span className={`th-status-badge th-status-${statusClass(tx._effectiveStatus || tx.status)}`}>
-                                            {tx._effectiveStatus || tx.status}
+                                          <span className={`th-status-badge th-status-${statusClass((tx._effectiveStatus || tx.status) === 'PENDING' ? 'PARTIAL' : tx._effectiveStatus || tx.status)}`}>
+                                            {(tx._effectiveStatus || tx.status) === 'PENDING' ? 'PARTIAL' : tx._effectiveStatus || tx.status}
                                           </span>
                                         </td>
                                         <td className="th-actions-cell">
@@ -1802,7 +1864,7 @@ const TransactionHistory = () => {
             currentPage={txnPage}
             totalPages={txnTotalPages}
             onPageChange={setTxnPage}
-            totalItems={groupedTransactions.length}
+            totalItems={filteredTransactions.length}
             itemsPerPage={ITEMS_PER_PAGE}
           />
         )}
