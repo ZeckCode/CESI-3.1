@@ -1297,6 +1297,12 @@ def my_schedule(request):
     """
     user = request.user
 
+    raw_include_free_period = request.query_params.get("include_free_period", "1")
+    if isinstance(raw_include_free_period, str):
+        include_free_period = raw_include_free_period.strip().lower() not in ("0", "false", "no")
+    else:
+        include_free_period = bool(raw_include_free_period)
+
     active_sy = SchoolYear.objects.filter(is_active=True).first()
 
     if user.role == "TEACHER":
@@ -1345,5 +1351,8 @@ def my_schedule(request):
 
     if active_sy:
         qs = qs.filter(school_year=active_sy)
+
+    if not include_free_period:
+        qs = qs.filter(subject__isnull=False)
 
     return Response(ScheduleReadSerializer(qs.distinct(), many=True).data)

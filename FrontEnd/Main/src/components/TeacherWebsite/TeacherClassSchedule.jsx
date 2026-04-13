@@ -132,7 +132,7 @@ const TeacherClassSchedule = () => {
     (async () => {
       try {
         const [schedRes, secRes, syRes] = await Promise.all([
-          apiFetch(`${API}/api/classmanagement/schedules/my/`),
+          apiFetch(`${API}/api/classmanagement/schedules/my/?include_free_period=0`),
           apiFetch(`${API}/api/attendance/my-sections/`),
           apiFetch(`${API}/api/classmanagement/school-years/active/`),
         ]);

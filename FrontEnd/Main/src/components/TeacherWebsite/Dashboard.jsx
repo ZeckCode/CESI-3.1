@@ -223,7 +223,7 @@ const Dashboard = () => {
         const [meRes, secRes, schRes] = await Promise.all([
           apiFetch("/api/accounts/me/detail/"),
           apiFetch("/api/grades/my-sections/"),
-          apiFetch("/api/classmanagement/schedules/my/"),
+          apiFetch("/api/classmanagement/schedules/my/?include_free_period=0"),
         ]);
         if (meRes.ok) setTeacherInfo(await meRes.json());
         if (secRes.ok) {

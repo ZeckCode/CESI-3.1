@@ -185,7 +185,11 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         # Hide legacy unlinked rows by default. Keep an escape hatch for diagnostics.
         include_unlinked = self.request.query_params.get("include_unlinked") == "1"
         if not include_unlinked:
-            queryset = queryset.filter(Q(subject__isnull=False) | Q(schedule__isnull=False))
+            # Attendance should map to a real subject. Free-period schedules (subject=None)
+            # are excluded unless explicitly requested via include_unlinked=1.
+            queryset = queryset.filter(
+                Q(subject__isnull=False) | Q(schedule__subject__isnull=False)
+            )
 
         return queryset
 
@@ -321,6 +325,11 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
                     {"error": "Selected schedule is invalid for the given section."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            if schedule_obj.subject_id is None:
+                return Response(
+                    {"error": "Attendance cannot be marked for a free-period schedule."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             # Canonical subject comes from schedule when schedule is provided.
             subject_id = schedule_obj.subject_id
 
@@ -420,6 +429,11 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
             if not schedule_obj:
                 return Response(
                     {"error": "Selected schedule is invalid for the given section."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if schedule_obj.subject_id is None:
+                return Response(
+                    {"error": "Attendance cannot be marked for a free-period schedule."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             subject_id = schedule_obj.subject_id
@@ -633,7 +647,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         records = AttendanceRecord.objects.filter(
             section_id=section_id,
         ).filter(
-            Q(subject__isnull=False) | Q(schedule__isnull=False)
+            Q(subject__isnull=False) | Q(schedule__subject__isnull=False)
         ).filter(
             status__in=AttendanceRecord.STATUS_VALUES,
         ).order_by("-date")
@@ -788,7 +802,7 @@ class StudentAttendanceView(APIView):
                 student_id=attendance_user.id,
                 date=date_param,
             ).filter(
-                Q(subject__isnull=False) | Q(schedule__isnull=False)
+                Q(subject__isnull=False) | Q(schedule__subject__isnull=False)
             ).filter(
                 Q(section__school_year=active_sy) | Q(schedule__school_year=active_sy)
             ).filter(
@@ -853,7 +867,7 @@ class StudentAttendanceView(APIView):
         records_qs = AttendanceRecord.objects.filter(
             student=attendance_user,
         ).filter(
-            Q(subject__isnull=False) | Q(schedule__isnull=False)
+            Q(subject__isnull=False) | Q(schedule__subject__isnull=False)
         ).filter(
             Q(section__school_year=active_sy) | Q(schedule__school_year=active_sy)
         ).filter(
@@ -1005,7 +1019,7 @@ class StudentAttendanceStatsView(APIView):
             date__gte=active_sy.start_date,
             date__lte=active_sy.end_date,
         ).filter(
-            Q(subject__isnull=False) | Q(schedule__isnull=False)
+            Q(subject__isnull=False) | Q(schedule__subject__isnull=False)
         ).filter(
             Q(section__school_year=active_sy) | Q(schedule__school_year=active_sy)
         ).filter(

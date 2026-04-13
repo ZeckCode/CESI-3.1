@@ -15,6 +15,19 @@ const getStudentId = (student) =>
 const getStudentNumber = (student) =>
   String(student?.student_number || student?.lrn || "").trim();
 
+const getScheduleSubjectId = (schedule) => {
+  const raw = schedule?.subject?.id ?? schedule?.subject_id ?? schedule?.subject;
+  if (raw === null || raw === undefined || raw === "") return null;
+
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const getScheduleSubjectName = (schedule) => {
+  const name = schedule?.subject?.name || schedule?.subject_name;
+  return String(name || "").trim() || "Unknown Subject";
+};
+
 const formatStudentName = (student) => {
   const name = student?.name || "N/A";
   const parts = name.trim().split(/\s+/);
@@ -158,7 +171,7 @@ const AttendanceMonitoring = () => {
       try {
         const [sectionsRes, schedulesRes] = await Promise.all([
           apiFetch(`${API}/api/attendance/my-sections/`),
-          apiFetch(`${API}/api/classmanagement/schedules/my/`),
+          apiFetch(`${API}/api/classmanagement/schedules/my/?include_free_period=0`),
         ]);
 
         if (sectionsRes.ok) {
@@ -180,15 +193,21 @@ const AttendanceMonitoring = () => {
 
   const filteredSchedules = useMemo(() => {
     if (!selectedSection) return [];
-    return schedules.filter((s) => String(s.section?.id || s.section) === selectedSection);
+    return schedules.filter((s) => {
+      const isSectionMatch = String(s.section?.id || s.section) === selectedSection;
+      const subjectId = getScheduleSubjectId(s);
+      return isSectionMatch && subjectId !== null;
+    });
   }, [schedules, selectedSection]);
 
   const uniqueSchedules = useMemo(() => {
     const subjectMap = new Map();
     filteredSchedules.forEach((sched) => {
-      const subjectName = sched.subject?.name || sched.subject_name || "Unknown";
-      if (!subjectMap.has(subjectName)) {
-        subjectMap.set(subjectName, sched);
+      const subjectId = getScheduleSubjectId(sched);
+      if (subjectId === null) return;
+
+      if (!subjectMap.has(subjectId)) {
+        subjectMap.set(subjectId, sched);
       }
     });
     return Array.from(subjectMap.values());
@@ -1533,7 +1552,7 @@ const AttendanceMonitoring = () => {
                 {" · "}
                 <span className="am__scheduleTag">
                   <BookOpen size={14} style={{ marginRight: 4, verticalAlign: "middle" }} />
-                  {currentSchedule.subject?.name || currentSchedule.subject_name}
+                  {getScheduleSubjectName(currentSchedule)}
                 </span>
                 {" · "}
                 <span className="am__dateTag">
@@ -1599,7 +1618,7 @@ const AttendanceMonitoring = () => {
               <option value="">Select Subject</option>
               {uniqueSchedules.map((sched) => (
                 <option key={sched.id} value={sched.id}>
-                  {sched.subject?.name || sched.subject_name}
+                  {getScheduleSubjectName(sched)}
                 </option>
               ))}
             </select>

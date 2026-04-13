@@ -157,7 +157,7 @@ class AttendanceRecord(models.Model):
             student_id=student_id,
             date=date,
         ).filter(
-            Q(subject__isnull=False) | Q(schedule__isnull=False)
+            Q(subject__isnull=False) | Q(schedule__subject__isnull=False)
         ).filter(
             status__in=cls.STATUS_VALUES,
         ).select_related("subject", "schedule", "schedule__subject", "schedule__teacher")
