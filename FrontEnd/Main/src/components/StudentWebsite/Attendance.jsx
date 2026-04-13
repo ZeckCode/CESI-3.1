@@ -295,6 +295,14 @@ const Attendance = () => {
     return `${hour12}:${m} ${ampm}`;
   };
 
+  const visibleDailyRecords = useMemo(() => {
+    const records = dailyDetail?.records || [];
+    return records.filter((item) => {
+      const status = String(item?.status || "").trim();
+      return status && status.toUpperCase() !== "UNMARKED";
+    });
+  }, [dailyDetail]);
+
   return (
     <main className="student-attendance-main">
       {/* Stats Overview */}
@@ -622,9 +630,9 @@ const Attendance = () => {
             <div className="sa-modal-body">
               {detailLoading ? (
                 <div className="sa-loading">Loading...</div>
-              ) : dailyDetail?.records?.length > 0 ? (
+              ) : visibleDailyRecords.length > 0 ? (
                 <div className="sa-detail-list">
-                  {dailyDetail.records.map((item, idx) => (
+                  {visibleDailyRecords.map((item, idx) => (
                     <div key={idx} className={`sa-detail-item sa-item-${item.status.toLowerCase()}`}>
                       <div className="sa-detail-subject">
                         <span className="sa-subject-name">{item.subject_name || '—'}</span>

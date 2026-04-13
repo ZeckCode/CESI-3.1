@@ -14,6 +14,7 @@ class AttendanceRecord(models.Model):
         ("LATE", "Late"),
         ("EXCUSED", "Excused"),
     ]
+    STATUS_VALUES = [choice[0] for choice in STATUS_CHOICES]
 
     student = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -43,7 +44,13 @@ class AttendanceRecord(models.Model):
         help_text="Canonical subject snapshot for this attendance record",
     )
     date = models.DateField()
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="PRESENT")
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default="PRESENT",
+        null=True,
+        blank=True,
+    )
     marked_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -96,6 +103,8 @@ class AttendanceRecord(models.Model):
         elif schedule_id:
             records = records.filter(schedule_id=schedule_id)
 
+        records = records.filter(status__in=cls.STATUS_VALUES)
+
         total = records.count()
         if total == 0:
             return {"total": 0, "present": 0, "absent": 0, "late": 0, "excused": 0, "percentage": None}
@@ -130,6 +139,8 @@ class AttendanceRecord(models.Model):
             date=date,
         ).filter(
             Q(subject__isnull=False) | Q(schedule__isnull=False)
+        ).filter(
+            status__in=cls.STATUS_VALUES,
         ).select_related("subject", "schedule", "schedule__subject", "schedule__teacher")
         
         summary = []

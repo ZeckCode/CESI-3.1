@@ -242,7 +242,7 @@ const AttendanceMonitoring = () => {
           const idValue = getStudentId(s);
           const studentNumber = getStudentNumber(s);
           if (!key) return;
-          initialAttendance[key] = "PRESENT";
+          initialAttendance[key] = "";
           initialNotes[key] = "";
           if (idValue != null) {
             idToKey.set(String(idValue), key);
@@ -423,6 +423,15 @@ const AttendanceMonitoring = () => {
       return;
     }
 
+    if (counts.unmarked > 0) {
+      setMessage({
+        type: "error",
+        text: `Please mark attendance for all students before saving. (${counts.unmarked} unmarked)`,
+      });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
     if (!isUpdateOnly && existingRecordCount > 0) {
       const proceed = window.confirm(
         "Attendance is already saved for this date. Saving again will overwrite existing statuses. Continue?"
@@ -450,7 +459,7 @@ const AttendanceMonitoring = () => {
 
           const baseRecord = {
             student_key: studentKey,
-            status: attendance[studentKey] || "PRESENT",
+            status: attendance[studentKey],
             notes: notes[studentKey] || "",
           };
 
@@ -504,15 +513,7 @@ const AttendanceMonitoring = () => {
           .filter((record) => recordMap[record.student_key])
           .map(({ student_key, ...payload }) => payload);
 
-        let skippedCount = records.length - updates.length;
-
-        // Matching can fail if key shapes changed (e.g. student_number migration)
-        // while records still exist in backend. In that case, apply a safe upsert
-        // update payload instead of blocking with a false negative.
-        if (updates.length === 0 && existingRecords.length > 0) {
-          updates = records.map(({ student_key, ...payload }) => payload);
-          skippedCount = 0;
-        }
+        const skippedCount = records.length - updates.length;
 
         if (updates.length === 0) {
           setMessage({
@@ -522,7 +523,7 @@ const AttendanceMonitoring = () => {
           return;
         }
 
-        const res = await apiFetch(`${API}/api/attendance/records/bulk_upsert/`, {
+        const res = await apiFetch(`${API}/api/attendance/records/bulk_update/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -533,16 +534,15 @@ const AttendanceMonitoring = () => {
 
         if (res.ok) {
           const result = await res.json();
-          console.debug("bulk_upsert update result", result);
-          const created = Number(result?.created || 0);
+          console.debug("bulk_update result", result);
           const updated = Number(result?.updated || updates.length);
-          const createdNote = created > 0 ? ` (${created} new record${created === 1 ? "" : "s"} added)` : "";
-          const skippedNote = skippedCount > 0 ? `, ${skippedCount} skipped` : "";
+          const skipped = Number(result?.skipped ?? skippedCount);
+          const skippedNote = skipped > 0 ? `, ${skipped} skipped` : "";
           setMessage({
             type: "success",
-            text: `Attendance updated: ${updated} updated${skippedNote}${createdNote}`,
+            text: `Attendance updated: ${updated} updated${skippedNote}`,
           });
-          setExistingRecordCount(created + updated);
+          setExistingRecordCount(existingRecords.length);
           await fetchStudentsAndAttendance();
           if (showHistory) fetchHistory();
         } else {
@@ -602,9 +602,12 @@ const AttendanceMonitoring = () => {
       absent: values.filter((s) => s === "ABSENT").length,
       late: values.filter((s) => s === "LATE").length,
       excused: values.filter((s) => s === "EXCUSED").length,
+      unmarked: values.filter((s) => !s).length,
       total: values.length,
     };
   }, [attendance]);
+
+  const hasUnmarked = counts.unmarked > 0;
 
   const currentSection = sections.find((s) => String(s.id) === selectedSection);
   const currentSchedule = schedules.find((s) => String(s.id) === selectedSchedule);
@@ -1444,7 +1447,9 @@ const AttendanceMonitoring = () => {
               ) : (
                 students.map((student, idx) => {
                   const studentKey = getStudentKey(student);
-                  const statusValue = attendance[studentKey] || "PRESENT";
+                  const statusValue = attendance[studentKey] || "";
+                  const statusLabel = statusValue || "UNMARKED";
+                  const statusClass = statusValue ? statusValue.toLowerCase() : "unmarked";
                   return (
                     <tr className="am__tr" key={studentKey || student.id || idx}>
                       <td className="am__td am__td--left am__td--num">{idx + 1}</td>
@@ -1455,9 +1460,9 @@ const AttendanceMonitoring = () => {
 
                       <td className="am__td">
                         <span
-                          className={`am__badge am__badge--${statusValue?.toLowerCase()}`}
+                          className={`am__badge am__badge--${statusClass}`}
                         >
-                          {statusValue}
+                          {statusLabel}
                         </span>
                       </td>
 
@@ -1530,10 +1535,6 @@ const AttendanceMonitoring = () => {
                   <BookOpen size={14} style={{ marginRight: 4, verticalAlign: "middle" }} />
                   {currentSchedule.subject?.name || currentSchedule.subject_name}
                 </span>
-              </>
-            )}
-            {selectedSection && (
-              <>
                 {" · "}
                 <span className="am__dateTag">
                   Editing: {selectedDate}{isTodaySelected ? " (Today)" : ""}
@@ -1629,7 +1630,8 @@ const AttendanceMonitoring = () => {
             className="am__saveBtn"
             type="button"
             onClick={() => handleSave(false)}
-            disabled={loading || saving || !selectedSection || !selectedSchedule || students.length === 0}
+            disabled={loading || saving || !selectedSection || !selectedSchedule || students.length === 0 || hasUnmarked}
+            title={hasUnmarked ? "Mark all students to enable saving." : ""}
           >
             <Save size={16} />
             {saving ? "Saving..." : "Save Attendance"}
@@ -1754,7 +1756,8 @@ const AttendanceMonitoring = () => {
                   type="button"
                   className="am__saveBtn"
                   onClick={() => handleSave(true)}
-                  disabled={loading || saving || !selectedSection || students.length === 0}
+                  disabled={loading || saving || !selectedSection || students.length === 0 || hasUnmarked}
+                  title={hasUnmarked ? "Mark all students to enable saving." : ""}
                 >
                   <Save size={16} />
                   {saving ? "Saving..." : "Update Attendance"}
