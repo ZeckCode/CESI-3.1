@@ -733,7 +733,9 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             misc_nov = Decimal(str(tuition.misc_nov or 0))
             total_cash = Decimal(str(tuition.total_cash or 0))
 
-            tuition_only = total_cash - reservation_fee - assessment - misc_aug - misc_nov
+            # total_cash is cash + misc fees from TuitionConfig; for new students,
+            # assessment must be added on top as a separate debit (not deducted here).
+            tuition_only = total_cash - reservation_fee - misc_aug - misc_nov
             if tuition_only < 0:
                 tuition_only = cash if cash > 0 else Decimal("0.00")
 
