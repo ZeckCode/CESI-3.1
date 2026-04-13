@@ -266,11 +266,22 @@ def build_installment_schedule(tuition):
 
     if monthly > 0:
         for label, due in months:
+            # Combine misc charges with their corresponding month installment
+            amount = monthly
+            item_type = f'{label} Installment'
+            
+            if label == 'August' and misc_aug > 0:
+                amount += misc_aug
+                item_type = f'{label} Installment + Miscellaneous'
+            elif label == 'November' and misc_nov > 0:
+                amount += misc_nov
+                item_type = f'{label} Installment + Miscellaneous'
+            
             items.append({
-                'type': f'{label} Installment',
+                'type': item_type,
                 'item': 'MONTHLY',
                 'month': label,
-                'amount': monthly,
+                'amount': amount,
                 'due_date': due,
             })
 
@@ -285,24 +296,6 @@ def build_installment_schedule(tuition):
             'month': 'March',
             'amount': installment_adjustment,
             'due_date': date(current_year + 1, 3, 31),
-        })
-
-    if misc_aug > 0:
-        items.append({
-            'type': 'Miscellaneous (August)',
-            'item': 'MISC',
-            'month': 'August',
-            'amount': misc_aug,
-            'due_date': date(current_year, 8, 31),
-        })
-
-    if misc_nov > 0:
-        items.append({
-            'type': 'Miscellaneous (November)',
-            'item': 'MISC',
-            'month': 'November',
-            'amount': misc_nov,
-            'due_date': date(current_year, 11, 30),
         })
 
     return items

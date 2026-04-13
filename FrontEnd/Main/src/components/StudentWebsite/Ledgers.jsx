@@ -253,19 +253,62 @@
           let totalDebit = 0;
           let totalCredit = 0;
 
-          const normalizedRows = sortedRows.map((tx) => {
-            const debit = Number(tx.debit || 0);
-            const credit = Number(tx.credit || 0);
-
-            totalDebit += debit;
-            totalCredit += credit;
-            runningBalance += debit - credit;
-
-            return {
-              ...tx,
-              _runningBalance: runningBalance,
-            };
+          // Sum totals first
+          sortedRows.forEach((tx) => {
+            totalDebit += Number(tx.debit || 0);
+            totalCredit += Number(tx.credit || 0);
           });
+
+          // Determine earliest posted date (fallback to transaction_date) and its reference
+          let earliestPost = null;
+          let earliestTx = null;
+          sortedRows.forEach((tx) => {
+            const post = tx.date_post || tx.date_posted || tx.transaction_date || null;
+            if (!post) return;
+            const d = new Date(`${post}T00:00:00`);
+            if (Number.isNaN(d.getTime())) return;
+            if (earliestPost === null || d < earliestPost) {
+              earliestPost = d;
+              earliestTx = tx;
+            }
+          });
+
+          const aggregatedRows = [];
+
+          if (totalDebit > 0) {
+            runningBalance += totalDebit;
+            aggregatedRows.push({
+              id: `agg-debit-${group.key}`,
+              // use earliest posted date if available, otherwise use latest_date
+              transaction_date: earliestPost ? earliestPost.toISOString().slice(0, 10) : (group.latest_date || "-"),
+              reference_number: earliestTx ? (earliestTx.reference_number || "-") : "-",
+              item: "Charges",
+              transaction_type: "TUITION",
+              entry_type: "DEBIT",
+              debit: totalDebit,
+              credit: 0,
+              description: "Consolidated tuition charges",
+              due_date: earliestPost ? earliestPost.toISOString().slice(0, 10) : undefined,
+              _runningBalance: runningBalance,
+            });
+          }
+
+          if (totalCredit > 0) {
+            runningBalance -= totalCredit;
+            aggregatedRows.push({
+              id: `agg-credit-${group.key}`,
+              transaction_date: earliestPost ? earliestPost.toISOString().slice(0, 10) : (group.latest_date || "-"),
+              reference_number: earliestTx ? (earliestTx.reference_number || "-") : "-",
+              item: "Payments",
+              transaction_type: "PAYMENT",
+              entry_type: "CREDIT",
+              debit: 0,
+              credit: totalCredit,
+              description: "Consolidated payments/credits",
+              due_date: earliestPost ? earliestPost.toISOString().slice(0, 10) : undefined,
+              _runningBalance: runningBalance,
+            });
+          }
 
           const rawBalance = runningBalance;
           const payableBalance = rawBalance > 0 ? rawBalance : 0;
@@ -275,7 +318,7 @@
 
           return {
             ...group,
-            rows: normalizedRows,
+            rows: aggregatedRows,
             totalDebit,
             totalCredit,
             balance: payableBalance,
@@ -383,8 +426,8 @@
             <>
               <div className="ledger-section-header">
                 <div>
-                  <h2 className="ledger-section-title">Account & Financial Records</h2>
-                  <p className="ledger-section-subtitle">Complete financial transaction history</p>
+                  <h2 className="ledger-section-title">Tuition Ledger</h2>
+                  <p className="ledger-section-subtitle">Complete tuition transaction history</p>
                 </div>
                 <div className="ledger-header-actions">
                   <button
@@ -415,7 +458,7 @@
                   }`}
                   onClick={() => setViewMode("installments")}
                 >
-                  Tuition Installments
+                  Current Registration 
                 </button>
               </div>
             </>
@@ -495,10 +538,10 @@
                   color: "#64748b",
                 }}
               >
-                <strong style={{ color: "#1e293b" }}>Ledger Format:</strong> Charges
+                <strong style={{ color: "#1e293b" }}>Tuition History Format:</strong> Charges
                 appear under <strong>Debit</strong>, payments appear under{" "}
                 <strong>Credit</strong>, and the <strong>Balance</strong> column
-                shows the running account balance for each entry.
+                shows the running tuition balance for each entry.
               </div>
 
               {transactions.length === 0 ? (
@@ -641,7 +684,6 @@
                                 <th className="text-center">Debit</th>
                                 <th className="text-center">Credit</th>
                                 <th className="text-right">Balance</th>
-                                <th className="text-center">Status</th>
                               </tr>
                             </thead>
 
@@ -747,17 +789,7 @@
                                       {formatCurrency(tx._runningBalance)}
                                     </td>
 
-                                    <td
-                                      className="text-center"
-                                      data-label="Status"
-                                    >
-                                      <span
-                                        className="status-pill"
-                                        style={statusPillStyle(tx.status)}
-                                      >
-                                        {tx.status}
-                                      </span>
-                                    </td>
+                                    
                                   </tr>
                                 );
                               })}
@@ -869,6 +901,7 @@
                               gap: "0 1.5rem",
                             }}
                           >
+                           
                             <div>Grade:</div>
                             <div>
                               <strong>
@@ -1079,7 +1112,8 @@
                               >
                                 <td style={{ textAlign: "left" }}></td>
                                 <td style={{ textAlign: "left" }}></td>
-                                <td style={{ textAlign: "left" }}>TOTAL:</td>
+                                <td style={{ textAlign: "left" }}></td>
+                                <td style={{ textAlign: "right" }}>TOTAL:</td>
                                 <td style={{ textAlign: "right" }} data-label="Total Due">
                                   {formatCurrency(
                                     (student.installments || []).reduce(
@@ -1092,7 +1126,7 @@
                                   {formatCurrency(
                                     (student.installments || []).reduce(
                                       (sum, item) =>
-                                        sum + (item.is_paid ? Number(item.amount || 0) : 0),
+                                        sum + Number(item.amount_paid || 0),
                                       0
                                     )
                                   )}
@@ -1101,7 +1135,7 @@
                                   {formatCurrency(
                                     (student.installments || []).reduce(
                                       (sum, item) =>
-                                        sum + (item.is_paid ? 0 : Number(item.amount || 0)),
+                                        sum + (Number(item.amount || 0) - Number(item.amount_paid || 0)),
                                       0
                                     )
                                   )}

@@ -20,6 +20,17 @@ const StepStudent = ({
       <h3>👤 Student Information</h3>
 
       <div className="form-grid">
+        
+         <div className="form-group">
+          <label>First Name <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("firstName")}
+            value={form.firstName}
+            onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
+          />
+          <FieldError error={errors.firstName} />
+        </div>
+
         <div className="form-group">
           <label>Last Name <span className="required">*</span></label>
           <input
@@ -30,15 +41,7 @@ const StepStudent = ({
           <FieldError error={errors.lastName} />
         </div>
 
-        <div className="form-group">
-          <label>First Name <span className="required">*</span></label>
-          <input
-            ref={registerFieldRef("firstName")}
-            value={form.firstName}
-            onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
-          />
-          <FieldError error={errors.firstName} />
-        </div>
+       
 
         <div className="form-group">
           <label>Middle Name</label>
