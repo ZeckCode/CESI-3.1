@@ -436,6 +436,10 @@
       () =>
         tuitionInstallments.map((student) => {
           const studentGradeKey = toGradeKey(student?.grade_level);
+          const studentType = String(student?.student_type || "").trim().toLowerCase();
+          const isNewStudent = ["new", "new_student", "new enrollee", "new_enrollee"].includes(
+            studentType
+          );
           const expectedAssessment = assessmentByGrade[studentGradeKey];
           const rawInstallmentRows = Array.isArray(student.installments)
             ? student.installments
@@ -486,7 +490,37 @@
             return rows;
           }, []);
 
-          const normalizedInstallments = installmentRows.map((item) => {
+          const filteredInstallmentRows = isNewStudent
+            ? installmentRows
+            : installmentRows.filter(
+                (row) => String(row.item || "").toUpperCase() !== "ASSESSMENT"
+              );
+
+          // Only new students should carry assessment in current registration
+          const hasAssessmentRow = filteredInstallmentRows.some(
+            (row) => String(row.item || "").toUpperCase() === "ASSESSMENT"
+          );
+          const installmentRowsWithAssessment = hasAssessmentRow
+            ? filteredInstallmentRows
+            : isNewStudent && Number.isFinite(expectedAssessment) && expectedAssessment > 0
+              ? [
+                  ...filteredInstallmentRows,
+                  {
+                    type: "Assessment",
+                    item: "ASSESSMENT",
+                    month: "May",
+                    amount: expectedAssessment,
+                    amount_paid: 0,
+                    balance: expectedAssessment,
+                    due_date: null,
+                    status: "PENDING",
+                    reference_number: null,
+                    reference_numbers: [],
+                  },
+                ]
+              : filteredInstallmentRows;
+
+          const normalizedInstallments = installmentRowsWithAssessment.map((item) => {
             const isAssessment = String(item.item || "").toUpperCase() === "ASSESSMENT";
             const rawAmountDue = Number(item.amount || 0);
             const amountDue =

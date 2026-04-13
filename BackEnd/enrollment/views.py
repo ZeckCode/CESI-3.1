@@ -540,7 +540,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             if p
         ).strip()
 
-    def _build_installment_schedule(self, tuition, posted_date):
+    def _build_installment_schedule(self, tuition, posted_date, include_assessment=False):
         items = []
 
         initial = Decimal(str(tuition.initial or 0))
@@ -558,6 +558,17 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 "item": "INITIAL",
                 "description": "Initial Tuition Billing",
                 "amount": initial,
+                "transaction_date": posted_date,
+                "due_date": initial_due,
+                "semester": self._semester_from_date(initial_due),
+            })
+
+        assessment = Decimal(str(tuition.assessment or 0)) if include_assessment else Decimal("0.00")
+        if assessment > 0:
+            items.append({
+                "item": "ASSESSMENT",
+                "description": "Assessment Fee Billing",
+                "amount": assessment,
                 "transaction_date": posted_date,
                 "due_date": initial_due,
                 "semester": self._semester_from_date(initial_due),
@@ -698,6 +709,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         grade_key = (enrollment.grade_level or "").strip().lower()
         payment_mode = (enrollment.payment_mode or "").strip().lower()
+        is_new_student = (enrollment.student_type or "").strip().lower() == "new"
         school_year = enrollment.academic_year or ""
         student_name = self._student_full_name(enrollment)
 
@@ -716,7 +728,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         if payment_mode == "cash":
             cash = Decimal(str(tuition.cash or 0))
             reservation_fee = Decimal(str(tuition.reservation_fee or 0))
-            assessment = Decimal(str(tuition.assessment or 0))
+            assessment = Decimal(str(tuition.assessment or 0)) if is_new_student else Decimal("0.00")
             misc_aug = Decimal(str(tuition.misc_aug or 0))
             misc_nov = Decimal(str(tuition.misc_nov or 0))
             total_cash = Decimal(str(tuition.total_cash or 0))
@@ -820,10 +832,12 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     status_value="POSTED",
                     reference_number=self.generate_reference_number(),
                 )
-
-
         elif payment_mode == "installment":
-            schedule = self._build_installment_schedule(tuition, today)
+            schedule = self._build_installment_schedule(
+                tuition,
+                today,
+                include_assessment=is_new_student,
+            )
 
             for sched in schedule:
                 debit_status = "POSTED" if sched["item"] == "INITIAL" else "PENDING"
@@ -1507,13 +1521,20 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             status="active",
         ).first()
         minimum_initial_payment = Decimal(str(tuition.initial or 0)) if tuition else Decimal("0")
+        
+        # For new students, include assessment fee in minimum payment requirement
+        is_new_student = (enrollment.student_type or "").strip().lower() == "new"
+        assessment_fee = Decimal(str(tuition.assessment or 0)) if (tuition and is_new_student) else Decimal("0")
+        minimum_total_payment = minimum_initial_payment + assessment_fee
 
-        if minimum_initial_payment > 0 and approved_amount < minimum_initial_payment:
+        if minimum_total_payment > 0 and approved_amount < minimum_total_payment:
             return Response(
                 {
                     "detail": (
                         f"Approved amount (Php {approved_amount:.2f}) is below the required "
-                        f"initial payment for {grade_code} (Php {minimum_initial_payment:.2f})."
+                        f"initial payment for {grade_code} (Php {minimum_initial_payment:.2f})"
+                        + (f" + assessment fee (Php {assessment_fee:.2f})" if assessment_fee > 0 else "")
+                        + f" = Total (Php {minimum_total_payment:.2f})."
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,

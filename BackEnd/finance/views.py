@@ -229,7 +229,7 @@ def generate_transaction_reference():
     return f"CESI-{year}-{seq:05d}"
 
 
-def build_installment_schedule(tuition):
+def build_installment_schedule(tuition, include_assessment=False):
     items = []
 
     installment = Decimal(str(tuition.installment or 0))
@@ -248,6 +248,16 @@ def build_installment_schedule(tuition):
             'item': 'INITIAL',
             'month': 'May',
             'amount': initial,
+            'due_date': initial_due,
+        })
+
+    assessment = Decimal(str(tuition.assessment or 0)) if include_assessment else Decimal('0.00')
+    if assessment > 0:
+        items.append({
+            'type': 'Assessment Fee',
+            'item': 'ASSESSMENT',
+            'month': 'May',
+            'amount': assessment,
             'due_date': initial_due,
         })
 
@@ -363,13 +373,13 @@ def compute_cash_status(total_due, total_paid):
     return 'PENDING'
 
 
-def compute_installment_status(total_due, total_paid, tuition):
+def compute_installment_status(total_due, total_paid, tuition, include_assessment=False):
     today = date.today()
 
     if total_due > 0 and total_paid >= total_due:
         return 'PAID'
 
-    schedule = build_installment_schedule(tuition)
+    schedule = build_installment_schedule(tuition, include_assessment=include_assessment)
 
     if total_paid <= 0:
         has_overdue = any(item['due_date'] < today for item in schedule if item['item'] != 'INITIAL')
@@ -718,6 +728,23 @@ def student_tuition_overview(request):
 
         payment_mode = (profile.payment_mode or '').strip().lower()
         tuition = get_tuition_by_grade_key(tuition_map, profile.grade_level)
+        enrollment = None
+
+        if profile.user_id and profile.student_number:
+            enrollment = Enrollment.objects.filter(
+                parent_user=profile.user,
+                student_number=profile.student_number,
+                status='ACTIVE'
+            ).order_by('-created_at').first()
+
+        if profile.user_id and not enrollment:
+            enrollment = Enrollment.objects.filter(
+                parent_user=profile.user,
+                status='ACTIVE'
+            ).order_by('-created_at').first()
+
+        student_type = (enrollment.student_type or '').strip().lower() if enrollment else ''
+        is_new_student = student_type == 'new'
 
         total_due = Decimal('0.00')
         total_paid = Decimal('0.00')
@@ -726,8 +753,13 @@ def student_tuition_overview(request):
         if tuition:
             if payment_mode == 'cash':
                 total_due = Decimal(str(tuition.total_cash or 0))
+                if is_new_student:
+                    total_due += Decimal(str(tuition.assessment or 0))
             elif payment_mode == 'installment':
-                total_due = sum((item['amount'] for item in build_installment_schedule(tuition)), Decimal('0.00'))
+                total_due = sum(
+                    (item['amount'] for item in build_installment_schedule(tuition, include_assessment=is_new_student)),
+                    Decimal('0.00')
+                )
 
         if profile.user_id:
             total_paid = tuition_paid_for_parent(profile.user)
@@ -739,7 +771,12 @@ def student_tuition_overview(request):
         if payment_mode == 'cash':
             account_status = compute_cash_status(total_due, total_paid)
         elif payment_mode == 'installment' and tuition:
-            account_status = compute_installment_status(total_due, total_paid, tuition)
+            account_status = compute_installment_status(
+                total_due,
+                total_paid,
+                tuition,
+                include_assessment=is_new_student,
+            )
 
         data.append({
             'id': profile.id,
@@ -747,6 +784,7 @@ def student_tuition_overview(request):
             'parent_name': parent_name or '—',
             'grade_level': profile.grade_level or '',
             'payment_mode': profile.payment_mode or '',
+            'student_type': student_type,
             'student_number': profile.student_number or '',
             'lrn': profile.lrn or '',
             'contact_number': profile.contact_number or '',
@@ -798,6 +836,15 @@ def my_tuition_installments(request):
             status='ACTIVE'
         ).order_by('-created_at').first()
 
+        if not enrollment:
+            enrollment = Enrollment.objects.filter(
+                parent_user=request.user,
+                status='ACTIVE'
+            ).order_by('-created_at').first()
+
+        student_type = (enrollment.student_type or '').strip().lower() if enrollment else ''
+        is_new_student = student_type == 'new'
+
        
 
         total_paid = Decimal('0.00')
@@ -825,7 +872,7 @@ def my_tuition_installments(request):
             total_paid = tuition_paid_for_parent(profile.user)
 
         if payment_mode == 'installment':
-            schedule = build_installment_schedule(tuition)
+            schedule = build_installment_schedule(tuition, include_assessment=is_new_student)
 
             # Clone payments so we can consume them sequentially like real allocation
             remaining_payments = [
@@ -841,10 +888,7 @@ def my_tuition_installments(request):
             ]
 
             for item in schedule:
-                if str(item.get('item') or '').upper() == 'ASSESSMENT':
-                    amount_due = Decimal(str(tuition.assessment or 0))
-                else:
-                    amount_due = Decimal(str(item['amount'] or 0))
+                amount_due = Decimal(str(item['amount'] or 0))
                 remaining_due = amount_due
                 refs_used = []
 
@@ -881,10 +925,17 @@ def my_tuition_installments(request):
                 })
 
             total_due = sum((item['amount'] for item in schedule), Decimal('0.00'))
-            overall_status = compute_installment_status(total_due, total_paid, tuition)
+            overall_status = compute_installment_status(
+                total_due,
+                total_paid,
+                tuition,
+                include_assessment=is_new_student,
+            )
 
         else:
             total_due = Decimal(str(tuition.total_cash or 0))
+            if is_new_student:
+                total_due += Decimal(str(tuition.assessment or 0))
             overall_status = compute_cash_status(total_due, total_paid)
 
         remaining_balance = total_due - total_paid
@@ -895,6 +946,7 @@ def my_tuition_installments(request):
             'student_id': profile.id,
             'student_name': student_name or '—',
             'grade_level': profile.grade_level or '',
+            'student_type': student_type,
             'payment_mode': payment_mode,
             'total_due': float(total_due),
             'total_paid': float(total_paid),
