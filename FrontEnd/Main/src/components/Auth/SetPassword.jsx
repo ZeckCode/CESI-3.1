@@ -113,6 +113,11 @@ export default function SetPassword() {
       return;
     }
 
+    if (password !== password2) {
+      setMsg("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
 
     try {
