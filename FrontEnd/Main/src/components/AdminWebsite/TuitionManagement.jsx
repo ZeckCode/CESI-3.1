@@ -80,7 +80,6 @@ const getErrorMessage = (error, fallback) => {
 const TuitionManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGrade, setFilterGrade] = useState('all');
-  const [filterPaymentStatus, setFilterPaymentStatus] = useState('all');
   const [hoveredRow, setHoveredRow] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
@@ -183,15 +182,6 @@ const TuitionManagement = () => {
         accountStatus: item.account_status || 'PENDING',
       }));
 
-      // DEBUG: Show all payment data
-      console.table(mapped.map(m => ({
-        name: m.studentName,
-        totalDue: m.totalDue,
-        totalPaid: m.totalPaid,
-        remaining: m.remainingBalance,
-        status: getPaymentStatus(m)
-      })));
-      
       setStudentTuition(mapped);
     } catch (error) {
       console.error('Failed to load student tuition overview:', error);
@@ -261,34 +251,11 @@ const TuitionManagement = () => {
 
   useEffect(() => {
     setTmPage(1);
-  }, [searchTerm, filterGrade, filterPaymentStatus, viewMode]);
-
-  useEffect(() => {
-    if (viewMode === 'grade') {
-      setFilterPaymentStatus('all');
-    }
-  }, [viewMode]);
-
-  const getPaymentStatus = (student) => {
-    const totalDue = student.totalDue || 0;
-    const totalPaid = student.totalPaid || 0;
-    const remainingBalance = student.remainingBalance || 0;
-
-    let status;
-    if (remainingBalance === 0 || totalPaid >= totalDue) {
-      status = 'paid';
-    } else if (totalPaid === 0) {
-      status = 'pending';
-    } else {
-      status = 'partial';
-    }
-    
-    return status;
-  };
+  }, [searchTerm, filterGrade, viewMode]);
 
   const getFilteredData = () => {
     if (viewMode === 'student') {
-      const result = studentTuition.filter((student) => {
+      return studentTuition.filter((student) => {
         const q = searchTerm.toLowerCase();
         const matchesSearch =
           (student.studentName || '').toLowerCase().includes(q) ||
@@ -298,18 +265,13 @@ const TuitionManagement = () => {
           (student.username || '').toLowerCase().includes(q);
 
         const studentGrade = String(student.gradeLevel || '').toLowerCase();
-        const matchesGradeFilter =
+        const matchesFilter =
           filterGrade === 'all' ||
           studentGrade === filterGrade.toLowerCase() ||
           studentGrade === String(gradeLabelMap[filterGrade] || '').toLowerCase();
 
-        const paymentStatus = getPaymentStatus(student);
-        const matchesPaymentFilter = filterPaymentStatus === 'all' || paymentStatus === filterPaymentStatus;
-
-        return matchesSearch && matchesGradeFilter && matchesPaymentFilter;
+        return matchesSearch && matchesFilter;
       });
-      
-      return result;
     }
 
     return tuitionFees.filter((fee) => {
@@ -780,22 +742,6 @@ const TuitionManagement = () => {
                 ))}
               </select>
             </div>
-
-            {viewMode === 'student' && (
-              <div className="tm-filter-group">
-                <Filter size={20} />
-                <select
-                  value={filterPaymentStatus}
-                  onChange={(e) => setFilterPaymentStatus(e.target.value)}
-                  className="tm-filter-select"
-                >
-                  <option value="all">All Payment Status</option>
-                  <option value="paid">Paid</option>
-                  <option value="pending">Pending</option>
-                  <option value="partial">Partial</option>
-                </select>
-              </div>
-            )}
           </div>
         )}
 
@@ -865,8 +811,8 @@ const TuitionManagement = () => {
                         <td className="tm-table-cell">{formatCurrency(item.totalPaid)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.remainingBalance)}</td>
                         <td className="tm-table-cell">
-                          <span className={`tm-status tm-status-${normalizeStatus(getPaymentStatus(item))}`}>
-                            {String(getPaymentStatus(item) || '').charAt(0).toUpperCase() + String(getPaymentStatus(item) || '').slice(1)}
+                          <span className={`tm-status tm-status-${normalizeStatus(item.accountStatus)}`}>
+                            {item.accountStatus}
                           </span>
                         </td>
                         <td className="tm-table-cell">
@@ -928,15 +874,7 @@ const TuitionManagement = () => {
           </table>
         </div>
 
-        {!isInitialLoading && filteredData.length === 0 && (
-          <div className="tm-empty-state-container">
-            <AlertCircle size={32} className="tm-empty-icon" />
-            <p className="tm-empty-text">No records found</p>
-            <p className="tm-empty-subtext">Try adjusting your filters or search terms</p>
-          </div>
-        )}
-
-        {!isInitialLoading && filteredData.length > 0 && (
+        {!isInitialLoading && (
           <Pagination
             currentPage={tmPage}
             totalPages={tmTotalPages}
