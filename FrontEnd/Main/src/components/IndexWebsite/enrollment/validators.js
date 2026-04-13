@@ -120,6 +120,7 @@ export const validateFamilyStep = ({
   guardianMiddle,
   guardianLast,
   guardianContact,
+  guardianRelationship,
 }) => {
   const errors = {};
 
@@ -141,7 +142,8 @@ export const validateFamilyStep = ({
     isFilled(guardianFirst) ||
     isFilled(guardianMiddle) ||
     isFilled(guardianLast) ||
-    isFilled(guardianContact);
+    isFilled(guardianContact) ||
+    isFilled(guardianRelationship);
 
   const motherComplete =
     isFilled(motherFirst) &&
@@ -156,7 +158,8 @@ export const validateFamilyStep = ({
   const guardianComplete =
     isFilled(guardianFirst) &&
     isFilled(guardianLast) &&
-    isFilled(guardianContact);
+    isFilled(guardianContact) &&
+    isFilled(guardianRelationship);
 
   const hasAtLeastOneComplete = motherComplete || fatherComplete || guardianComplete;
 
@@ -186,6 +189,9 @@ export const validateFamilyStep = ({
     errors.guardianLast = !isFilled(guardianLast) ? "Guardian's last name is required." : "";
     errors.guardianContact = !isFilled(guardianContact)
       ? "Guardian's contact number is required."
+      : "";
+    errors.guardianRelationship = !isFilled(guardianRelationship)
+      ? "Guardian relationship is required."
       : "";
   }
 
