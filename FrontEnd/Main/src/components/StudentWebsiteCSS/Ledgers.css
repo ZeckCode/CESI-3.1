@@ -347,16 +347,26 @@
 
 /* Balance Column Highlight */
 .ledger-table tbody td[data-label="Balance"] {
+  background-color: #f8fafc;
+  font-weight: 700 !important;
+  border-left: 2px solid #cbd5e1;
+}
+
+.ledger-table tbody td[data-label="Balance"].installment-balance-cell.is-owed {
   background-color: #fff5f5;
   color: #dc2626 !important;
-  font-weight: 700 !important;
-  border-left: 2px solid #dc2626;
+  border-left-color: #dc2626;
+}
+
+.ledger-table tbody td[data-label="Balance"].installment-balance-cell.is-clear {
+  background-color: #f0fdf4;
+  color: #16a34a !important;
+  border-left-color: #16a34a;
 }
 
 .ledger-table tfoot td[data-label="Balance"] {
-  background-color: #fff5f5;
-  color: #dc2626 !important;
-  border-left: 2px solid #dc2626;
+  background-color: #f8fafc;
+  border-left: 2px solid #cbd5e1;
 }
 
 /* Ledger Info Box */

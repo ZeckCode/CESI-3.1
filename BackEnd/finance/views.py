@@ -237,6 +237,7 @@ def build_installment_schedule(tuition):
     monthly = Decimal(str(tuition.monthly or 0))
     misc_aug = Decimal(str(tuition.misc_aug or 0))
     misc_nov = Decimal(str(tuition.misc_nov or 0))
+    assessment = Decimal(str(tuition.assessment or 0))
 
     # Calculate year from current date for dynamic scheduling
     current_year = timezone.now().year
@@ -264,45 +265,56 @@ def build_installment_schedule(tuition):
         ('March', date(current_year + 1, 3, 31)),
     ]
 
-    if monthly > 0:
-        for label, due in months:
+    scheduled_installment = initial + (monthly * Decimal('10'))
+    installment_adjustment = installment - scheduled_installment
+
+    # Never emit negative installment deduction rows/effects in schedule.
+    # If configured installment is lower than initial + monthly sum,
+    # treat the delta as assessment to keep billed breakdown intuitive.
+    if installment_adjustment < 0:
+        assessment += abs(installment_adjustment)
+        installment_adjustment = Decimal('0.00')
+
+    misc_by_month = {
+        'August': misc_aug,
+        'November': misc_nov,
+    }
+
+    for label, due in months:
+        if monthly > 0:
+            month_amount = monthly
+            # Keep totals aligned with configured installment by adjusting March
+            # instead of adding a separate adjustment row.
+            if label == 'March':
+                month_amount += installment_adjustment
+            if month_amount != 0:
+                items.append({
+                    'type': f'{label} Installment',
+                    'item': 'MONTHLY',
+                    'month': label,
+                    'amount': month_amount,
+                    'due_date': due,
+                })
+
+        # Place month-specific misc immediately after the same month installment
+        # so payment allocation settles "Installment + Misc" before next month.
+        month_misc = misc_by_month.get(label, Decimal('0.00'))
+        if month_misc > 0:
             items.append({
-                'type': f'{label} Installment',
-                'item': 'MONTHLY',
+                'type': f'Miscellaneous ({label})',
+                'item': 'MISC',
                 'month': label,
-                'amount': monthly,
+                'amount': month_misc,
                 'due_date': due,
             })
 
-    scheduled_installment = initial + (monthly * Decimal('10'))
-    installment_adjustment = installment - scheduled_installment
-    if installment_adjustment != 0:
-        # Keep schedule totals aligned with configured installment even when
-        # reference grade breakdown does not strictly match initial + 10 monthly.
+    if assessment > 0:
         items.append({
-            'type': 'Installment Adjustment',
-            'item': 'ADJUSTMENT',
+            'type': 'Assessment',
+            'item': 'ASSESSMENT',
             'month': 'March',
-            'amount': installment_adjustment,
+            'amount': assessment,
             'due_date': date(current_year + 1, 3, 31),
-        })
-
-    if misc_aug > 0:
-        items.append({
-            'type': 'Miscellaneous (August)',
-            'item': 'MISC',
-            'month': 'August',
-            'amount': misc_aug,
-            'due_date': date(current_year, 8, 31),
-        })
-
-    if misc_nov > 0:
-        items.append({
-            'type': 'Miscellaneous (November)',
-            'item': 'MISC',
-            'month': 'November',
-            'amount': misc_nov,
-            'due_date': date(current_year, 11, 30),
         })
 
     return items

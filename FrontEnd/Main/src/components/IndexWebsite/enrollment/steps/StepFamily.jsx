@@ -172,6 +172,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Relationship to Student</label>
           <input
+            ref={registerFieldRef("guardianRelationship")}
             value={form.guardianRelationship}
             onChange={(e) =>
               setForm((prev) => ({
@@ -180,6 +181,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
               }))
             }
           />
+          <FieldError error={errors.guardianRelationship} />
         </div>
       </div>
 
