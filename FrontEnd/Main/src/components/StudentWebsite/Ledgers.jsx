@@ -86,6 +86,9 @@
     return map[lower] || v;
   };
 
+  const schoolYearLabel = (student) =>
+    student?.school_year || student?.current_school_year || student?.academic_year || "";
+
   const buildLedgerGroupTitle = (group) =>
     [
       group.school_year ? `SY ${group.school_year}` : "",
@@ -293,22 +296,27 @@
             });
           }
 
-          if (totalCredit > 0) {
-            runningBalance -= totalCredit;
+          // Keep credits as separate rows so each payment is visible.
+          const creditRows = sortedRows.filter((tx) => Number(tx.credit || 0) > 0);
+
+          creditRows.forEach((tx, index) => {
+            const credit = Number(tx.credit || 0);
+            runningBalance -= credit;
             aggregatedRows.push({
-              id: `agg-credit-${group.key}`,
-              transaction_date: earliestPost ? earliestPost.toISOString().slice(0, 10) : (group.latest_date || "-"),
-              reference_number: earliestTx ? (earliestTx.reference_number || "-") : "-",
-              item: "Payments",
-              transaction_type: "PAYMENT",
-              entry_type: "CREDIT",
+              id: tx.id || `agg-credit-${group.key}-${index}`,
+              transaction_date: tx.transaction_date || "-",
+              reference_number: tx.reference_number || "-",
+              item: tx.item || "PAYMENT",
+              transaction_type: tx.transaction_type || "PAYMENT",
+              entry_type: tx.entry_type || "CREDIT",
               debit: 0,
-              credit: totalCredit,
-              description: "Consolidated payments/credits",
-              due_date: earliestPost ? earliestPost.toISOString().slice(0, 10) : undefined,
+              credit,
+              description: tx.description || "Payment",
+              due_date: tx.due_date,
+              status: tx.status,
               _runningBalance: runningBalance,
             });
-          }
+          });
 
           const rawBalance = runningBalance;
           const payableBalance = rawBalance > 0 ? rawBalance : 0;
@@ -902,6 +910,10 @@
                             }}
                           >
                            
+                            <div>School Year:</div>
+                            <div>
+                              <strong>{schoolYearLabel(student) || "—"}</strong>
+                            </div>
                             <div>Grade:</div>
                             <div>
                               <strong>
@@ -1030,7 +1042,10 @@
                             style={{
                               fontSize: "1.25rem",
                               fontWeight: "600",
-                              color: "#dc2626",
+                              color:
+                                Number(student.remaining_balance || 0) > 0
+                                  ? "#dc2626"
+                                  : "#16a34a",
                             }}
                           >
                             {formatCurrency(student.remaining_balance)}
@@ -1073,7 +1088,15 @@
                                   <td data-label="Description">{item.type || "Installment"}</td>
                                   <td data-label="Amount Due">{formatCurrency(amount_due)}</td>
                                   <td data-label="Amount Paid">{formatCurrency(amount_paid)}</td>
-                                  <td data-label="Balance">{formatCurrency(balance)}</td>
+                                  <td
+                                    data-label="Balance"
+                                    style={{
+                                      color: balance > 0 ? "#dc2626" : "#16a34a",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {formatCurrency(balance)}
+                                  </td>
                                   <td data-label="Status">
                                     <span
                                       className="status-pill"
@@ -1131,7 +1154,20 @@
                                     )
                                   )}
                                 </td>
-                                <td style={{ textAlign: "right", color: "#dc2626" }} data-label="Total Balance">
+                                <td
+                                  style={{
+                                    textAlign: "right",
+                                    color:
+                                      (student.installments || []).reduce(
+                                        (sum, item) =>
+                                          sum + (Number(item.amount || 0) - Number(item.amount_paid || 0)),
+                                        0
+                                      ) > 0
+                                        ? "#dc2626"
+                                        : "#16a34a",
+                                  }}
+                                  data-label="Total Balance"
+                                >
                                   {formatCurrency(
                                     (student.installments || []).reduce(
                                       (sum, item) =>
