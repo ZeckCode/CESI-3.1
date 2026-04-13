@@ -489,6 +489,35 @@
   margin: 0;
 }
 
+/* Empty State Container */
+.tm-empty-state-container {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #94a3b8;
+  background-color: #f8fafc;
+  border-radius: 0.75rem;
+  margin-top: 1rem;
+}
+
+.tm-empty-icon {
+  margin-bottom: 1rem;
+  opacity: 0.6;
+  color: #64748b;
+}
+
+.tm-empty-text {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #475569;
+  margin: 0.5rem 0 0.25rem 0;
+}
+
+.tm-empty-subtext {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
 /* Modal Overlay */
 .tm-modal-overlay {
   position: fixed;

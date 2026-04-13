@@ -80,6 +80,7 @@ const getErrorMessage = (error, fallback) => {
 const TuitionManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGrade, setFilterGrade] = useState('all');
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState('all');
   const [hoveredRow, setHoveredRow] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
@@ -251,7 +252,27 @@ const TuitionManagement = () => {
 
   useEffect(() => {
     setTmPage(1);
-  }, [searchTerm, filterGrade, viewMode]);
+  }, [searchTerm, filterGrade, filterPaymentStatus, viewMode]);
+
+  useEffect(() => {
+    if (viewMode === 'grade') {
+      setFilterPaymentStatus('all');
+    }
+  }, [viewMode]);
+
+  const getPaymentStatus = (student) => {
+    const totalDue = student.totalDue || 0;
+    const totalPaid = student.totalPaid || 0;
+    const remainingBalance = student.remainingBalance || 0;
+
+    if (remainingBalance === 0 || totalPaid >= totalDue) {
+      return 'paid';
+    }
+    if (totalPaid === 0 || totalPaid < 1) {
+      return 'pending';
+    }
+    return 'partial';
+  };
 
   const getFilteredData = () => {
     if (viewMode === 'student') {
@@ -265,12 +286,15 @@ const TuitionManagement = () => {
           (student.username || '').toLowerCase().includes(q);
 
         const studentGrade = String(student.gradeLevel || '').toLowerCase();
-        const matchesFilter =
+        const matchesGradeFilter =
           filterGrade === 'all' ||
           studentGrade === filterGrade.toLowerCase() ||
           studentGrade === String(gradeLabelMap[filterGrade] || '').toLowerCase();
 
-        return matchesSearch && matchesFilter;
+        const paymentStatus = getPaymentStatus(student);
+        const matchesPaymentFilter = filterPaymentStatus === 'all' || paymentStatus === filterPaymentStatus;
+
+        return matchesSearch && matchesGradeFilter && matchesPaymentFilter;
       });
     }
 
@@ -742,6 +766,22 @@ const TuitionManagement = () => {
                 ))}
               </select>
             </div>
+
+            {viewMode === 'student' && (
+              <div className="tm-filter-group">
+                <Filter size={20} />
+                <select
+                  value={filterPaymentStatus}
+                  onChange={(e) => setFilterPaymentStatus(e.target.value)}
+                  className="tm-filter-select"
+                >
+                  <option value="all">All Payment Status</option>
+                  <option value="paid">Paid</option>
+                  <option value="pending">Pending</option>
+                  <option value="partial">Partial</option>
+                </select>
+              </div>
+            )}
           </div>
         )}
 
@@ -874,7 +914,15 @@ const TuitionManagement = () => {
           </table>
         </div>
 
-        {!isInitialLoading && (
+        {!isInitialLoading && filteredData.length === 0 && (
+          <div className="tm-empty-state-container">
+            <AlertCircle size={32} className="tm-empty-icon" />
+            <p className="tm-empty-text">No records found</p>
+            <p className="tm-empty-subtext">Try adjusting your filters or search terms</p>
+          </div>
+        )}
+
+        {!isInitialLoading && filteredData.length > 0 && (
           <Pagination
             currentPage={tmPage}
             totalPages={tmTotalPages}
