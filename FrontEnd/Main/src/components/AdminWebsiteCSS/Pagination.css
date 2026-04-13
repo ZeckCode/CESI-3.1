@@ -1,8 +1,8 @@
 /* ── Pagination ── */
 .pagination-wrapper {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
   padding: 1rem;
   margin-top: 1rem;
@@ -111,46 +111,119 @@
     gap: 0.75rem;
     padding: 0.75rem;
   }
+
+  .pagination-controls {
+    gap: 0.4rem;
+  }
 }
 
 @media (max-width: 768px) {
   .pagination-wrapper {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.75rem;
     padding: 0.75rem;
   }
+
   .pagination-info {
     font-size: 12px;
     text-align: center;
-    order: 1;
-    grid-column: 1 / -1;
+    width: 100%;
+    flex-basis: 100%;
   }
+
   .pagination-controls {
     order: 2;
-    grid-column: 1 / -1;
     width: 100%;
+    justify-content: center;
+    gap: 0.25rem;
   }
+
+  .pagination-numbers {
+    gap: 0.2rem;
+  }
+
+  .pagination-btn {
+    font-size: 12px;
+    padding: 0.45rem 0.6rem;
+  }
+
+  .pagination-btn.pagination-num {
+    min-width: 32px;
+    width: 32px;
+    height: 32px;
+  }
+
   .pagination-page-indicator {
-    order: 3;
-    grid-column: 1 / -1;
     font-size: 11px;
+    width: 100%;
+    flex-basis: 100%;
   }
 }
 
 @media (max-width: 480px) {
-  .pagination-btn {
-    min-width: 30px;
-    height: 30px;
-    font-size: 12px;
-    padding: 0.4rem 0.6rem;
+  .pagination-wrapper {
+    gap: 0.5rem;
+    padding: 0.6rem;
   }
+
+  .pagination-info {
+    font-size: 11px;
+  }
+
+  .pagination-controls {
+    gap: 0.2rem;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.25rem 0;
+  }
+
+  .pagination-numbers {
+    gap: 0.15rem;
+  }
+
+  .pagination-btn {
+    min-width: auto;
+    font-size: 11px;
+    padding: 0.35rem 0.5rem;
+    border: none;
+    background: #e2e8f0;
+    color: #475569;
+  }
+
+  .pagination-btn:hover:not(:disabled):not(.active) {
+    background: #cbd5e1;
+  }
+
+  .pagination-btn.active {
+    background: #3b82f6;
+    color: #fff;
+  }
+
   .pagination-btn.pagination-num {
     min-width: 28px;
+    width: 28px;
     height: 28px;
+    padding: 0;
   }
+
   .pagination-dots {
-    height: 28px;
     font-size: 12px;
-    min-width: 20px;
+    height: 28px;
+    min-width: 24px;
+  }
+
+  .pagination-arrow {
+    padding: 0 6px;
+  }
+
+  .pagination-arrow svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .pagination-page-indicator {
+    font-size: 10px;
   }
 }

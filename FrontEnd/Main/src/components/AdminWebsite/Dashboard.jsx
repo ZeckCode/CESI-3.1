@@ -151,16 +151,29 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
     return map[raw] || value || "Unknown";
   };
 
+  const gradeDisplayMap = {
+    prek: "Pre-Kinder",
+    kinder: "Kinder",
+    grade1: "1",
+    grade2: "2",
+    grade3: "3",
+    grade4: "4",
+    grade5: "5",
+    grade6: "6",
+  };
+
   const getEnrollmentGrade = (e) => {
-    return (
+    const rawGrade =
       e.grade_level_label ||
       e.grade_level_display ||
       e.grade_level_name ||
       e.grade_level ||
       e.level ||
       e.student_grade_level ||
-      "Unknown"
-    );
+      "Unknown";
+    
+    // Map grade codes to display names
+    return gradeDisplayMap[rawGrade] || rawGrade;
   };
 
   const getTransactionStatus = (t) =>
