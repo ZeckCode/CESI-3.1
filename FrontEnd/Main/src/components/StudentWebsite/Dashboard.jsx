@@ -200,11 +200,16 @@ const Dashboard = () => {
 
   const gradeLevel = profile?.profile?.grade_level;
   const sectionName = profile?.profile?.section?.name;
-  const gradeLabelStr = gradeLevel
-    ? parseInt(gradeLevel) === 0
-      ? "Kinder"
-      : `Grade ${gradeLevel}`
-    : null;
+  
+  const getNormalizedGrade = (level) => {
+    if (!level) return null;
+    const str = String(level).toLowerCase();
+    if (str.includes("kinder")) return "Kinder";
+    const num = parseInt(str.replace(/\D/g, ""), 10);
+    return Number.isFinite(num) ? (num === 0 ? "Kinder" : `Grade ${num}`) : null;
+  };
+  
+  const gradeLabelStr = getNormalizedGrade(gradeLevel);
 
   const attPct =
     attStats?.attendance_percentage !== undefined
