@@ -573,6 +573,8 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
             section_id=section_id,
         ).filter(
             Q(subject__isnull=False) | Q(schedule__isnull=False)
+        ).filter(
+            status__in=AttendanceRecord.STATUS_VALUES,
         ).order_by("-date")
 
         # Optional schedule filter for per-subject history views
@@ -721,6 +723,8 @@ class StudentAttendanceView(APIView):
                 Q(subject__isnull=False) | Q(schedule__isnull=False)
             ).filter(
                 Q(section__school_year=active_sy) | Q(schedule__school_year=active_sy)
+            ).filter(
+                status__in=AttendanceRecord.STATUS_VALUES,
             ).select_related("subject", "schedule", "schedule__subject", "schedule__teacher")
 
             records = []
@@ -776,6 +780,8 @@ class StudentAttendanceView(APIView):
             Q(subject__isnull=False) | Q(schedule__isnull=False)
         ).filter(
             Q(section__school_year=active_sy) | Q(schedule__school_year=active_sy)
+        ).filter(
+            status__in=AttendanceRecord.STATUS_VALUES,
         ).select_related("subject", "schedule", "schedule__subject").order_by("-date")
 
         # Filter by month/year if provided
@@ -898,6 +904,8 @@ class StudentAttendanceStatsView(APIView):
             Q(subject__isnull=False) | Q(schedule__isnull=False)
         ).filter(
             Q(section__school_year=active_sy) | Q(schedule__school_year=active_sy)
+        ).filter(
+            status__in=AttendanceRecord.STATUS_VALUES,
         )
 
         total = records_qs.count()
