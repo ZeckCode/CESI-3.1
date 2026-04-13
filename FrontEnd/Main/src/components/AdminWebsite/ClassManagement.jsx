@@ -113,6 +113,54 @@ const getSectionRoomId = (section) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const getSectionSchoolYearId = (section) => {
+  if (!section) return null;
+  const raw = section.school_year;
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'object') {
+    const nestedId = Number(raw.id);
+    return Number.isFinite(nestedId) ? nestedId : null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getScheduleSectionId = (schedule) => {
+  if (!schedule) return null;
+  const raw = schedule.section;
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'object') {
+    const nestedId = Number(raw.id);
+    return Number.isFinite(nestedId) ? nestedId : null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getScheduleTeacherUserId = (schedule) => {
+  if (!schedule) return null;
+  const raw = schedule.teacher;
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'object') {
+    const nestedId = Number(raw.id);
+    return Number.isFinite(nestedId) ? nestedId : null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getScheduleSchoolYearId = (schedule) => {
+  if (!schedule) return null;
+  const raw = schedule.school_year;
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'object') {
+    const nestedId = Number(raw.id);
+    return Number.isFinite(nestedId) ? nestedId : null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const getSectionCapacityLimit = (section, rooms) => {
   const roomId = getSectionRoomId(section);
   const linkedRoom = roomId
@@ -814,6 +862,43 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
     [teachers]
   );
 
+  const currentEditSection = useMemo(() => {
+    if (!editId) return null;
+    return sections.find((sec) => Number(sec.id) === Number(editId)) || null;
+  }, [sections, editId]);
+
+  const eligibleAdviserUserIds = useMemo(() => {
+    const eligible = new Set();
+    if (!currentEditSection) return eligible;
+
+    const sectionId = Number(currentEditSection.id);
+    const sectionSchoolYearId = getSectionSchoolYearId(currentEditSection);
+
+    schedules.forEach((schedule) => {
+      const scheduleSectionId = getScheduleSectionId(schedule);
+      const teacherUserId = getScheduleTeacherUserId(schedule);
+      const scheduleSchoolYearId = getScheduleSchoolYearId(schedule);
+
+      if (!Number.isFinite(scheduleSectionId) || !Number.isFinite(teacherUserId)) {
+        return;
+      }
+
+      if (scheduleSectionId !== sectionId) {
+        return;
+      }
+
+      if (sectionSchoolYearId !== null) {
+        if (!Number.isFinite(scheduleSchoolYearId) || scheduleSchoolYearId !== sectionSchoolYearId) {
+          return;
+        }
+      }
+
+      eligible.add(teacherUserId);
+    });
+
+    return eligible;
+  }, [currentEditSection, schedules]);
+
   const occupiedAdviserIds = useMemo(() => {
     const occupied = new Set();
     sections.forEach((sec) => {
@@ -831,12 +916,26 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
       teacherProfiles.map((teacher) => {
         const isCurrentSelection = String(form.adviser || '') === String(teacher.profileId);
         const isOccupied = occupiedAdviserIds.has(Number(teacher.profileId)) && !isCurrentSelection;
+        const isEligibleForSection =
+          !!currentEditSection && eligibleAdviserUserIds.has(Number(teacher.userId));
+        const isDisabled = isOccupied || !isEligibleForSection;
+        const reason = isOccupied
+          ? 'Already adviser'
+          : !isEligibleForSection
+          ? currentEditSection
+            ? 'No schedule in this section/year'
+            : 'Assign after schedules exist'
+          : '';
+
         return {
           ...teacher,
           isOccupied,
+          isEligibleForSection,
+          isDisabled,
+          reason,
         };
       }),
-    [teacherProfiles, occupiedAdviserIds, form.adviser]
+    [teacherProfiles, occupiedAdviserIds, form.adviser, currentEditSection, eligibleAdviserUserIds]
   );
 
   const occupiedRoomIds = useMemo(() => {
@@ -897,6 +996,21 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
       const validGradeLevels = GRADE_LEVELS.map((g) => String(g.value));
       if (!validGradeLevels.includes(String(form.grade_level))) {
         setError('Invalid grade level selected. Please choose from the available options.');
+        return;
+      }
+
+      if (form.adviser) {
+        setError('Assign adviser after creating the section and adding schedule entries for that teacher.');
+        return;
+      }
+    }
+
+    if (editId && form.adviser) {
+      const selectedAdviser = adviserOptions.find(
+        (option) => String(option.profileId) === String(form.adviser)
+      );
+      if (selectedAdviser && !selectedAdviser.isEligibleForSection) {
+        setError('Selected adviser must have at least one schedule in this section and school year.');
         return;
       }
     }
@@ -1142,11 +1256,21 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
               >
                 <option value="">— None —</option>
                 {adviserOptions.map((t) => (
-                  <option key={t.profileId} value={t.profileId} disabled={t.isOccupied}>
-                    {t.username}{t.isOccupied ? ' (Already adviser)' : ''}
+                  <option key={t.profileId} value={t.profileId} disabled={t.isDisabled}>
+                    {t.username}{t.reason ? ` (${t.reason})` : ''}
                   </option>
                 ))}
               </select>
+              {!editId && (
+                <small style={{ color: '#64748b' }}>
+                  Adviser assignment is available after schedules are created for this section.
+                </small>
+              )}
+              {editId && adviserOptions.every((option) => !option.isEligibleForSection) && (
+                <small style={{ color: '#64748b' }}>
+                  No eligible advisers yet. Add at least one schedule entry in this section and school year.
+                </small>
+              )}
             </div>
 
             <div className="admin-form-group">
@@ -1242,7 +1366,7 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
 
               <div className="admin-class-card-body">
                 <div className="admin-info-row">
-                  <span className="label">Homeroom:</span>
+                  <span className="label">Adviser:</span>
                   <span className="value">
                     {sec.adviser_name || <em style={{ color: '#94a3b8' }}>Unassigned</em>}
                   </span>

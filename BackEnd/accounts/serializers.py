@@ -3,6 +3,7 @@ from django.db import models
 from django.utils.text import slugify
 from rest_framework import serializers
 from .models import User, UserProfile, TeacherProfile, AdminProfile, Section, Subject, PasswordResetRequest
+from classmanagement.models import Schedule, SchoolYear
 
 # Enrollment
 from enrollment.models import Enrollment
@@ -96,9 +97,45 @@ class SectionSerializer(serializers.ModelSerializer):
         attrs = super().validate(attrs)
 
         current_id = getattr(self.instance, "id", None)
+        adviser_in_payload = "adviser" in attrs
         adviser = attrs.get("adviser", getattr(self.instance, "adviser", None))
         room = attrs.get("room", getattr(self.instance, "room", None))
         school_year = attrs.get("school_year", getattr(self.instance, "school_year", None))
+
+        if adviser_in_payload and adviser is not None:
+            # Strict rule: adviser assignment is only valid if the teacher already
+            # has at least one schedule in this exact section and school year.
+            if self.instance is None:
+                raise serializers.ValidationError(
+                    {
+                        "adviser": (
+                            "Assign adviser after creating the section and adding at least "
+                            "one schedule for that teacher in this section."
+                        )
+                    }
+                )
+
+            schedule_qs = Schedule.objects.filter(
+                teacher_id=adviser.user_id,
+                section_id=self.instance.id,
+            )
+
+            if school_year is not None:
+                schedule_qs = schedule_qs.filter(school_year=school_year)
+            else:
+                active_sy = SchoolYear.objects.filter(is_active=True).first()
+                if active_sy is not None:
+                    schedule_qs = schedule_qs.filter(school_year=active_sy)
+
+            if not schedule_qs.exists():
+                raise serializers.ValidationError(
+                    {
+                        "adviser": (
+                            "This teacher cannot be assigned as adviser yet. "
+                            "They need at least one schedule in this section and school year."
+                        )
+                    }
+                )
 
         if adviser is not None:
             adviser_conflict_qs = Section.objects.filter(adviser=adviser)
