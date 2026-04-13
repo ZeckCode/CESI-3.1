@@ -4,6 +4,7 @@ import {
   listChats,
   getChatDetail,
   updateChat,
+  createIndividualChat,
   createClassChat,
   createProjectChat,
   searchUsers,
@@ -288,16 +289,17 @@ const Messages = () => {
     try {
       let chatData = null;
       if (newChatType === "individual") {
-        await createChatRequest(selectedUserId, initialMessage || "");
+        // Create the individual chat directly
+        chatData = await createIndividualChat(selectedUserId, schoolYear.name);
+        
+        // Send the initial message if provided
+        if (initialMessage?.trim() && chatData?.id) {
+          await sendMessage(chatData.id, initialMessage.trim(), null);
+        }
       } else if (newChatType === "class") {
         chatData = await createClassChat(newChatSection, newChatSubject, schoolYear.name);
       } else {
         chatData = await createProjectChat(newChatName, schoolYear.name);
-      }
-
-      // Send initial message if provided for class/project chats
-      if (chatData?.id && initialMessage?.trim()) {
-        await sendMessage(chatData.id, initialMessage, null);
       }
 
       const refreshedChats = await listChats();
