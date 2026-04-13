@@ -266,22 +266,11 @@ def build_installment_schedule(tuition):
 
     if monthly > 0:
         for label, due in months:
-            # Combine misc charges with their corresponding month installment
-            amount = monthly
-            item_type = f'{label} Installment'
-            
-            if label == 'August' and misc_aug > 0:
-                amount += misc_aug
-                item_type = f'{label} Installment + Miscellaneous'
-            elif label == 'November' and misc_nov > 0:
-                amount += misc_nov
-                item_type = f'{label} Installment + Miscellaneous'
-            
             items.append({
-                'type': item_type,
+                'type': f'{label} Installment',
                 'item': 'MONTHLY',
                 'month': label,
-                'amount': amount,
+                'amount': monthly,
                 'due_date': due,
             })
 
@@ -296,6 +285,24 @@ def build_installment_schedule(tuition):
             'month': 'March',
             'amount': installment_adjustment,
             'due_date': date(current_year + 1, 3, 31),
+        })
+
+    if misc_aug > 0:
+        items.append({
+            'type': 'Miscellaneous (August)',
+            'item': 'MISC',
+            'month': 'August',
+            'amount': misc_aug,
+            'due_date': date(current_year, 8, 31),
+        })
+
+    if misc_nov > 0:
+        items.append({
+            'type': 'Miscellaneous (November)',
+            'item': 'MISC',
+            'month': 'November',
+            'amount': misc_nov,
+            'due_date': date(current_year, 11, 30),
         })
 
     return items
@@ -1310,7 +1317,9 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
         if self.request.user.is_staff or self.request.user.role == 'ADMIN':
             queryset = ProofOfPayment.objects.all().select_related('user', 'enrollment')
         else:
-            queryset = ProofOfPayment.objects.filter(user=self.request.user).select_related('user', 'enrollment')
+            queryset = ProofOfPayment.objects.filter(
+                Q(user=self.request.user) | Q(enrollment__parent_user=self.request.user)
+            ).select_related('user', 'enrollment').distinct()
         
         # Filter by status if provided
         status = self.request.query_params.get('status')

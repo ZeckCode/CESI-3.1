@@ -129,63 +129,6 @@ const getHistoryGroupKey = (record) => {
   return `${base}::${record?.school_year || 'unknown'}`;
 };
 
-const normalizeSearchText = (value) =>
-  String(value || '')
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-
-const matchesSearchQuery = (values, searchTerm) => {
-  const normalizedQuery = normalizeSearchText(searchTerm);
-  if (!normalizedQuery) return true;
-
-  const haystack = normalizeSearchText(values.join(' '));
-  const tokens = normalizedQuery.split(' ').filter(Boolean);
-  return tokens.every((token) => haystack.includes(token));
-};
-
-const parseSectionFilter = (filterValue) => {
-  if (!filterValue || filterValue === 'all') {
-    return { sectionName: '', sectionId: '' };
-  }
-
-  if (!String(filterValue).includes('|')) {
-    return { sectionName: String(filterValue), sectionId: '' };
-  }
-
-  const [_, sectionName = '', sectionId = ''] = String(filterValue).split('|');
-  return {
-    sectionName: String(sectionName || '').trim(),
-    sectionId: String(sectionId || '').trim(),
-  };
-};
-
-const dedupeAttendanceRecords = (records = []) => {
-  const byKey = new Map();
-
-  records.forEach((record) => {
-    const studentId = String(record?.student ?? record?.student_id ?? '').trim();
-    const date = String(record?.date || '').trim();
-    const scheduleId = String(record?.schedule ?? record?.schedule_id ?? '').trim();
-    const subjectId = String(record?.subject ?? record?.subject_id ?? '').trim();
-    const fallbackId = String(record?.id ?? '').trim();
-
-    const dedupeKey =
-      studentId || date || scheduleId || subjectId
-        ? `${studentId}|${date}|${scheduleId || `subject:${subjectId}`}`
-        : `id:${fallbackId}`;
-
-    const existing = byKey.get(dedupeKey);
-    if (!existing || Number(record?.id || 0) > Number(existing?.id || 0)) {
-      byKey.set(dedupeKey, record);
-    }
-  });
-
-  return Array.from(byKey.values());
-};
-
 const GradesRecords = () => {
   const [activeTab, setActiveTab] = useState('grades');
   const [searchTerm, setSearchTerm] = useState('');
@@ -232,7 +175,9 @@ const GradesRecords = () => {
           }
 
           if (filterSection && filterSection !== 'all') {
-            const { sectionName } = parseSectionFilter(filterSection);
+            const sectionName = filterSection.includes('|')
+              ? filterSection.split('|')[1]
+              : filterSection;
             if (sectionName) params.set('section', sectionName);
           }
 
@@ -257,7 +202,9 @@ const GradesRecords = () => {
           if (filterGrade && filterGrade !== 'all') historyParams.set('grade_level', filterGrade);
 
           if (filterSection && filterSection !== 'all') {
-            const { sectionName } = parseSectionFilter(filterSection);
+            const sectionName = filterSection.includes('|')
+              ? filterSection.split('|')[1]
+              : filterSection;
             if (sectionName) historyParams.set('section', sectionName);
           }
 
@@ -290,9 +237,10 @@ const GradesRecords = () => {
           if (filterGrade && filterGrade !== 'all') attendanceParams.set('grade_level', filterGrade);
 
           if (filterSection && filterSection !== 'all') {
-            const { sectionName, sectionId } = parseSectionFilter(filterSection);
-            if (sectionId) attendanceParams.set('section', sectionId);
-            else if (sectionName) attendanceParams.set('section', sectionName);
+            const sectionName = filterSection.includes('|')
+              ? filterSection.split('|')[1]
+              : filterSection;
+            if (sectionName) attendanceParams.set('section', sectionName);
           }
 
           const attendanceData = await apiFetchData(`/api/attendance/records/?${attendanceParams.toString()}`);
@@ -304,7 +252,7 @@ const GradesRecords = () => {
             ? attendanceData.results
             : [];
 
-          setAttendanceRecords(dedupeAttendanceRecords(validAttendanceData));
+          setAttendanceRecords(validAttendanceData);
           setGradeMonitoring({ summary: {}, students: [], quarter });
           setHistoryRecords([]);
         }
@@ -372,14 +320,11 @@ const GradesRecords = () => {
       const rawGrade = row.grade_level_label || row.grade_level || '';
       const gradeLabel = toGradeLabel(rawGrade);
       const sectionName = row.section_name || '';
-      const sectionId = row.section ?? row.section_id ?? '';
 
       if (!sectionName) return;
       if (!gradeMatches(rawGrade)) return;
 
-      const key = sectionId
-        ? `${gradeLabel}|${sectionName}|${String(sectionId).trim()}`
-        : `${gradeLabel}|${sectionName}`;
+      const key = `${gradeLabel}|${sectionName}`;
       items.set(key, { value: key, label: `${gradeLabel} — ${sectionName}` });
     });
 
@@ -395,18 +340,17 @@ const GradesRecords = () => {
   }, [historyRecords]);
 
   const filteredStudents = useMemo(() => {
-    const { sectionName: selectedSectionName } = parseSectionFilter(filterSection);
+    const query = searchTerm.trim().toLowerCase();
 
     return gradeMonitoring.students.filter((student) => {
-      const matchesSearch = matchesSearchQuery(
+      const matchesSearch =
+        !query ||
         [
           student.student_name,
           student.student_username,
           student.student_number,
           student.section_name,
-        ],
-        searchTerm
-      );
+        ].some((value) => String(value || '').toLowerCase().includes(query));
 
       const rowGrade = normalizeGradeLevel(student.grade_level_label || student.grade_level);
       const gradeLabel = toGradeLabel(student.grade_level_label || student.grade_level);
@@ -416,8 +360,11 @@ const GradesRecords = () => {
         (rowGrade !== null && rowGrade === filterGradeValue) ||
         gradeLabel === filterGrade;
 
+      const studentSectionKey = `${gradeLabel}|${student.section_name || ''}`;
       const matchesSection =
-        filterSection === 'all' || (!!selectedSectionName && student.section_name === selectedSectionName);
+        filterSection === 'all' ||
+        student.section_name === filterSection ||
+        studentSectionKey === filterSection;
 
       const matchesStatus = filterStatus === 'all' || student.status === filterStatus;
 
@@ -426,10 +373,11 @@ const GradesRecords = () => {
   }, [filterGrade, filterGradeValue, filterSection, filterStatus, gradeMonitoring.students, searchTerm]);
 
   const filteredHistory = useMemo(() => {
-    const { sectionName: selectedSectionName } = parseSectionFilter(filterSection);
+    const query = searchTerm.trim().toLowerCase();
 
     return historyRecords.filter((record) => {
-      const matchesSearch = matchesSearchQuery(
+      const matchesSearch =
+        !query ||
         [
           record.student_name,
           record.student_username,
@@ -438,15 +386,16 @@ const GradesRecords = () => {
           record.subject_code,
           record.school_year,
           record.teacher_name,
-        ],
-        searchTerm
-      );
+        ].some((value) => String(value || '').toLowerCase().includes(query));
 
       const gradeLabel = toGradeLabel(record.grade_level);
+      const recordSectionKey = `${gradeLabel}|${record.section_name || ''}`;
 
       const matchesGrade = filterGrade === 'all' || gradeLabel === filterGrade;
       const matchesSection =
-        filterSection === 'all' || (!!selectedSectionName && record.section_name === selectedSectionName);
+        filterSection === 'all' ||
+        record.section_name === filterSection ||
+        recordSectionKey === filterSection;
       const matchesSchoolYear =
         filterSchoolYear === 'all' || record.school_year === filterSchoolYear;
       const matchesStatus =
@@ -492,10 +441,11 @@ const GradesRecords = () => {
   }, [filteredHistory]);
 
   const filteredAttendanceRecords = useMemo(() => {
-    const { sectionName: selectedSectionName } = parseSectionFilter(filterSection);
+    const query = searchTerm.trim().toLowerCase();
 
     return attendanceRecords.filter((record) => {
-      const matchesSearch = matchesSearchQuery(
+      const matchesSearch =
+        !query ||
         [
           record.student_name,
           record.student_username,
@@ -504,9 +454,7 @@ const GradesRecords = () => {
           record.subject_name,
           record.subject_code,
           record.marked_by_name,
-        ],
-        searchTerm
-      );
+        ].some((value) => String(value || '').toLowerCase().includes(query));
 
       const rowGrade = normalizeGradeLevel(record.grade_level);
       const gradeLabel = toGradeLabel(record.grade_level);
@@ -516,8 +464,11 @@ const GradesRecords = () => {
         (rowGrade !== null && rowGrade === filterGradeValue) ||
         gradeLabel === filterGrade;
 
+      const recordSectionKey = `${gradeLabel}|${record.section_name || ''}`;
       const matchesSection =
-        filterSection === 'all' || (!!selectedSectionName && record.section_name === selectedSectionName);
+        filterSection === 'all' ||
+        record.section_name === filterSection ||
+        recordSectionKey === filterSection;
 
       return matchesSearch && matchesGrade && matchesSection;
     });
@@ -527,8 +478,7 @@ const GradesRecords = () => {
     const grouped = new Map();
 
     filteredAttendanceRecords.forEach((record) => {
-      const studentId =
-        record.student ?? record.student_id ?? record.student_number ?? record.student_username;
+      const studentId = record.student;
 
       if (!grouped.has(studentId)) {
         grouped.set(studentId, {
@@ -542,7 +492,6 @@ const GradesRecords = () => {
           absent: 0,
           late: 0,
           excused: 0,
-          _subjectKeys: new Set(),
           subjects: [],
         });
       }
@@ -555,33 +504,23 @@ const GradesRecords = () => {
       else if (statusKey === 'LATE') row.late += 1;
       else if (statusKey === 'EXCUSED') row.excused += 1;
 
-      const subjectKey = [
-        record.schedule ?? record.schedule_id ?? 'noschedule',
-        record.subject ?? record.subject_id ?? record.subject_code ?? record.subject_name ?? 'nosubject',
-        statusKey || 'UNKNOWN',
-      ].join('|');
-
-      if (!row._subjectKeys.has(subjectKey)) {
-        row._subjectKeys.add(subjectKey);
-        row.subjects.push({
-          id: record.id,
-          subject_name: record.subject_name || '—',
-          subject_code: record.subject_code || '—',
-          schedule_time: record.schedule_time || '—',
-          status: String(record.status || '').toLowerCase() || 'unknown',
-        });
-      }
+      row.subjects.push({
+        id: record.id,
+        subject_name: record.subject_name || '—',
+        subject_code: record.subject_code || '—',
+        schedule_time: record.schedule_time || '—',
+        status: String(record.status || '').toLowerCase() || 'unknown',
+      });
     });
 
     return [...grouped.values()]
       .map((row) => {
-        const { _subjectKeys, ...rest } = row;
         const overall_status = resolveAttendanceOverallStatus(row);
         return {
-          ...rest,
+          ...row,
           overall_status,
-          total_subjects: rest.subjects.length,
-          subjects: rest.subjects.sort((a, b) => a.subject_name.localeCompare(b.subject_name)),
+          total_subjects: row.subjects.length,
+          subjects: row.subjects.sort((a, b) => a.subject_name.localeCompare(b.subject_name)),
         };
       })
       .filter((row) => filterStatus === 'all' || row.overall_status === filterStatus)
@@ -1768,6 +1707,7 @@ const GradesRecords = () => {
                         <td data-label="Student" className="gr-student-name">
                           <div className="gr-stack">
                             <span>{student.student_name}</span>
+                            <span className="gr-muted">@{student.student_username}</span>
                           </div>
                         </td>
                         <td data-label="Grade Level">
@@ -1867,6 +1807,9 @@ const GradesRecords = () => {
                         <td data-label="Student" className="gr-student-name">
                           <div className="gr-stack">
                             <span>{group.student_name}</span>
+                            <span className="gr-muted">
+                              {group.student_number || '@' + group.student_username}
+                            </span>
                           </div>
                         </td>
                         <td data-label="Grade Level">{toGradeLabel(group.grade_level)}</td>
@@ -1953,6 +1896,7 @@ const GradesRecords = () => {
                         <td data-label="Student" className="gr-student-name">
                           <div className="gr-stack">
                             <span>{record.student_name}</span>
+                            <span className="gr-muted">@{record.student_username || '—'}</span>
                           </div>
                         </td>
                         <td data-label="Grade Level">{toGradeLabel(record.grade_level)}</td>
