@@ -1,6 +1,8 @@
 from rest_framework import serializers
+from django.db.models import Q
 from .models import AttendanceRecord
 from accounts.models import Section
+from enrollment.models import Enrollment
 
 
 class AttendanceRecordSerializer(serializers.ModelSerializer):
@@ -40,16 +42,56 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at", "marked_by"]
 
+    def _get_active_enrollment_snapshot(self, student_id):
+        if not hasattr(self, "_enrollment_cache"):
+            self._enrollment_cache = {}
+
+        if student_id in self._enrollment_cache:
+            return self._enrollment_cache[student_id]
+
+        enrollment = (
+            Enrollment.objects.filter(status="ACTIVE")
+            .filter(Q(parent_user_id=student_id) | Q(student_id=student_id))
+            .only("first_name", "last_name", "student_number", "lrn", "updated_at")
+            .order_by("-updated_at", "-id")
+            .first()
+        )
+
+        self._enrollment_cache[student_id] = enrollment
+        return enrollment
+
     def get_student_name(self, obj):
         if hasattr(obj.student, "profile") and obj.student.profile:
             p = obj.student.profile
             if p.student_first_name and p.student_last_name:
                 return f"{p.student_first_name} {p.student_last_name}"
+
+        enrollment = self._get_active_enrollment_snapshot(obj.student_id)
+        if enrollment:
+            first_name = (enrollment.first_name or "").strip()
+            last_name = (enrollment.last_name or "").strip()
+            full_name = f"{first_name} {last_name}".strip()
+            if full_name:
+                return full_name
+
+        user_first_name = (obj.student.first_name or "").strip()
+        user_last_name = (obj.student.last_name or "").strip()
+        user_full_name = f"{user_first_name} {user_last_name}".strip()
+        if user_full_name:
+            return user_full_name
+
         return obj.student.username
 
     def get_student_number(self, obj):
         if hasattr(obj.student, "profile") and obj.student.profile:
-            return obj.student.profile.student_number or obj.student.profile.lrn or None
+            profile_number = obj.student.profile.student_number or obj.student.profile.lrn
+            if profile_number:
+                return profile_number
+
+        enrollment = self._get_active_enrollment_snapshot(obj.student_id)
+        if enrollment:
+            return enrollment.student_number or enrollment.lrn or None
+
         return None
 
     def get_subject_name(self, obj):

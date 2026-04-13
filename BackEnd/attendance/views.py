@@ -89,6 +89,54 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
     serializer_class = AttendanceRecordSerializer
     permission_classes = [IsAuthenticated]
 
+    @staticmethod
+    def _normalize_grade_level_param(value):
+        if value is None:
+            return None
+
+        raw = str(value).strip().lower()
+        if not raw:
+            return None
+
+        grade_map = {
+            "prek": "prek",
+            "pre-kinder": "prek",
+            "pre kinder": "prek",
+            "kinder": "kinder",
+            "0": "kinder",
+            "grade1": "grade1",
+            "grade 1": "grade1",
+            "1": "grade1",
+            "grade2": "grade2",
+            "grade 2": "grade2",
+            "2": "grade2",
+            "grade3": "grade3",
+            "grade 3": "grade3",
+            "3": "grade3",
+            "grade4": "grade4",
+            "grade 4": "grade4",
+            "4": "grade4",
+            "grade5": "grade5",
+            "grade 5": "grade5",
+            "5": "grade5",
+            "grade6": "grade6",
+            "grade 6": "grade6",
+            "6": "grade6",
+        }
+
+        if raw in grade_map:
+            return grade_map[raw]
+
+        if raw.startswith("grade "):
+            suffix = raw[6:].strip()
+            if suffix.isdigit():
+                return f"grade{suffix}"
+
+        if raw.isdigit():
+            return f"grade{raw}"
+
+        return raw
+
     def get_queryset(self):
         user = self.request.user
         queryset = AttendanceRecord.objects.select_related(
@@ -102,9 +150,19 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         )
 
         # Filter by section if provided
-        section_id = self.request.query_params.get("section")
-        if section_id:
-            queryset = queryset.filter(section_id=section_id)
+        section_param = self.request.query_params.get("section")
+        if section_param:
+            section_raw = str(section_param).strip()
+            if section_raw.isdigit():
+                queryset = queryset.filter(section_id=int(section_raw))
+            else:
+                queryset = queryset.filter(section__name__iexact=section_raw)
+
+        # Optional grade-level filter (used by admin Grades Records attendance tab).
+        grade_level_param = self.request.query_params.get("grade_level")
+        normalized_grade_level = self._normalize_grade_level_param(grade_level_param)
+        if normalized_grade_level:
+            queryset = queryset.filter(section__grade_level=normalized_grade_level)
 
         # Filter by date if provided
         date_param = self.request.query_params.get("date")
@@ -140,14 +198,8 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
     def _resolve_student_id_from_record(self, record_data, section_id=None):
         student_number = str(record_data.get("student_number") or "").strip()
         if student_number:
-            profile = (
-                UserProfile.objects.select_related("user")
-                .filter(Q(student_number=student_number) | Q(lrn=student_number))
-                .first()
-            )
-            if profile and profile.user_id:
-                return int(profile.user_id), None
-
+            # Student number/LRN is canonical in enrollment rows after approval flows.
+            # Resolve enrollment first to avoid accidentally targeting placeholder users.
             enrollment_qs = Enrollment.objects.filter(status="ACTIVE")
             if section_id is not None:
                 enrollment_qs = enrollment_qs.filter(section_id=section_id)
@@ -161,6 +213,15 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
                 resolved_user = enrollment_match.parent_user or enrollment_match.student
                 if resolved_user:
                     return int(resolved_user.id), None
+
+            # Fallback for legacy records where number/LRN only exists on profile.
+            profile = (
+                UserProfile.objects.select_related("user")
+                .filter(Q(student_number=student_number) | Q(lrn=student_number))
+                .first()
+            )
+            if profile and profile.user_id:
+                return int(profile.user_id), None
 
             return None, f"No student found for student_number '{student_number}'."
 
@@ -680,6 +741,21 @@ class StudentAttendanceView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @staticmethod
+    def _resolve_attendance_user(user):
+        # Student portal attendance is always scoped to the authenticated account.
+        return user
+
+    @staticmethod
+    def _dedupe_records(records):
+        latest_by_key = {}
+        for record in records:
+            dedupe_key = (record.date, record.schedule_id, record.subject_id)
+            current = latest_by_key.get(dedupe_key)
+            if current is None or (record.updated_at, record.id) > (current.updated_at, current.id):
+                latest_by_key[dedupe_key] = record
+        return list(latest_by_key.values())
+
     def get(self, request):
         """
         Get the current student's attendance records.
@@ -702,16 +778,8 @@ class StudentAttendanceView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        attendance_user = request.user
-        if not AttendanceRecord.objects.filter(student=attendance_user).exists():
-            linked = (
-                Enrollment.objects.filter(parent_user=attendance_user, status="ACTIVE")
-                .select_related("student")
-                .order_by("-created_at", "-id")
-                .first()
-            )
-            if linked and linked.student:
-                attendance_user = linked.student
+        attendance_user = self._resolve_attendance_user(user)
+        debug = request.query_params.get("debug") == "1"
 
         # Check if requesting daily detail
         date_param = request.query_params.get("date")
@@ -727,8 +795,12 @@ class StudentAttendanceView(APIView):
                 status__in=AttendanceRecord.STATUS_VALUES,
             ).select_related("subject", "schedule", "schedule__subject", "schedule__teacher")
 
+            daily_records = self._dedupe_records(
+                list(daily_records_qs.order_by("date", "schedule__start_time", "-updated_at", "-id"))
+            )
+
             records = []
-            for record in daily_records_qs:
+            for record in daily_records:
                 subject_name = None
                 subject_code = None
 
@@ -762,7 +834,7 @@ class StudentAttendanceView(APIView):
                         "notes": record.notes,
                     })
 
-            return Response({
+            payload = {
                 "records": records,
                 "summary": {
                     "total": len(records),
@@ -771,7 +843,11 @@ class StudentAttendanceView(APIView):
                     "absent": sum(1 for r in records if r["status"] == "ABSENT"),
                     "excused": sum(1 for r in records if r["status"] == "EXCUSED"),
                 },
-            })
+            }
+            if debug:
+                payload["request_user_id"] = user.id
+                payload["resolved_student_id"] = attendance_user.id
+            return Response(payload)
 
         # Otherwise return monthly attendance overview
         records_qs = AttendanceRecord.objects.filter(
@@ -793,7 +869,9 @@ class StudentAttendanceView(APIView):
             records_qs = records_qs.filter(date__year=int(year))
 
         # Evaluate once — used for both the subjects list and calendar aggregation
-        all_records = list(records_qs)
+        all_records = self._dedupe_records(
+            list(records_qs.order_by("date", "schedule_id", "subject_id", "-updated_at", "-id"))
+        )
 
         # Derive distinct subject names (always unfiltered so the dropdown stays populated)
         def resolve_subject_name(record):
@@ -873,10 +951,14 @@ class StudentAttendanceView(APIView):
                 "overall_status": overall,
             })
 
-        return Response({
+        payload = {
             "subjects": subjects,
             "calendar": sorted(calendar_data, key=lambda x: x["date"], reverse=True),
-        })
+        }
+        if debug:
+            payload["request_user_id"] = user.id
+            payload["resolved_student_id"] = attendance_user.id
+        return Response(payload)
 
 
 class StudentAttendanceStatsView(APIView):
@@ -884,6 +966,21 @@ class StudentAttendanceStatsView(APIView):
     Get attendance statistics for the current student.
     """
     permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def _resolve_attendance_user(user):
+        # Student portal attendance is always scoped to the authenticated account.
+        return user
+
+    @staticmethod
+    def _dedupe_records(records):
+        latest_by_key = {}
+        for record in records:
+            dedupe_key = (record.date, record.schedule_id, record.subject_id)
+            current = latest_by_key.get(dedupe_key)
+            if current is None or (record.updated_at, record.id) > (current.updated_at, current.id):
+                latest_by_key[dedupe_key] = record
+        return list(latest_by_key.values())
 
     def get(self, request):
         user = request.user
@@ -900,16 +997,8 @@ class StudentAttendanceStatsView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        attendance_user = user
-        if not AttendanceRecord.objects.filter(student=attendance_user).exists():
-            linked = (
-                Enrollment.objects.filter(parent_user=attendance_user, status="ACTIVE")
-                .select_related("student")
-                .order_by("-created_at", "-id")
-                .first()
-            )
-            if linked and linked.student:
-                attendance_user = linked.student
+        attendance_user = self._resolve_attendance_user(user)
+        debug = request.query_params.get("debug") == "1"
 
         records_qs = AttendanceRecord.objects.filter(
             student_id=attendance_user.id,
@@ -923,15 +1012,22 @@ class StudentAttendanceStatsView(APIView):
             status__in=AttendanceRecord.STATUS_VALUES,
         )
 
-        total = records_qs.count()
-        present = records_qs.filter(status="PRESENT").count()
-        absent = records_qs.filter(status="ABSENT").count()
-        late = records_qs.filter(status="LATE").count()
-        excused = records_qs.filter(status="EXCUSED").count()
+        deduped_records = self._dedupe_records(
+            list(records_qs.only("id", "date", "status", "schedule_id", "subject_id", "updated_at"))
+        )
+        status_counts = Counter(
+            record.status for record in deduped_records if record.status in AttendanceRecord.STATUS_VALUES
+        )
+
+        total = len(deduped_records)
+        present = status_counts.get("PRESENT", 0)
+        absent = status_counts.get("ABSENT", 0)
+        late = status_counts.get("LATE", 0)
+        excused = status_counts.get("EXCUSED", 0)
         attended = present + late + excused
         percentage = round((attended / total) * 100, 2) if total else None
 
-        return Response({
+        payload = {
             "school_year": active_sy.name,
             "total": total,
             "present": present,
@@ -940,4 +1036,8 @@ class StudentAttendanceStatsView(APIView):
             "excused": excused,
             "attended": attended,
             "percentage": percentage,
-        })
+        }
+        if debug:
+            payload["request_user_id"] = user.id
+            payload["resolved_student_id"] = attendance_user.id
+        return Response(payload)
