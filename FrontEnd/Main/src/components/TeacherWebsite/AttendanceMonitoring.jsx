@@ -513,15 +513,7 @@ const AttendanceMonitoring = () => {
           .filter((record) => recordMap[record.student_key])
           .map(({ student_key, ...payload }) => payload);
 
-        let skippedCount = records.length - updates.length;
-
-        // Matching can fail if key shapes changed (e.g. student_number migration)
-        // while records still exist in backend. In that case, apply a safe upsert
-        // update payload instead of blocking with a false negative.
-        if (updates.length === 0 && existingRecords.length > 0) {
-          updates = records.map(({ student_key, ...payload }) => payload);
-          skippedCount = 0;
-        }
+        const skippedCount = records.length - updates.length;
 
         if (updates.length === 0) {
           setMessage({
@@ -531,7 +523,7 @@ const AttendanceMonitoring = () => {
           return;
         }
 
-        const res = await apiFetch(`${API}/api/attendance/records/bulk_upsert/`, {
+        const res = await apiFetch(`${API}/api/attendance/records/bulk_update/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -542,16 +534,15 @@ const AttendanceMonitoring = () => {
 
         if (res.ok) {
           const result = await res.json();
-          console.debug("bulk_upsert update result", result);
-          const created = Number(result?.created || 0);
+          console.debug("bulk_update result", result);
           const updated = Number(result?.updated || updates.length);
-          const createdNote = created > 0 ? ` (${created} new record${created === 1 ? "" : "s"} added)` : "";
-          const skippedNote = skippedCount > 0 ? `, ${skippedCount} skipped` : "";
+          const skipped = Number(result?.skipped ?? skippedCount);
+          const skippedNote = skipped > 0 ? `, ${skipped} skipped` : "";
           setMessage({
             type: "success",
-            text: `Attendance updated: ${updated} updated${skippedNote}${createdNote}`,
+            text: `Attendance updated: ${updated} updated${skippedNote}`,
           });
-          setExistingRecordCount(created + updated);
+          setExistingRecordCount(existingRecords.length);
           await fetchStudentsAndAttendance();
           if (showHistory) fetchHistory();
         } else {
