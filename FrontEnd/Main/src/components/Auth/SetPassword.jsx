@@ -252,7 +252,7 @@ export default function SetPassword() {
             </div>
           </div>
 
-          {showValidation && passwordErrors.length > 0 && (
+          {showValidation && passwordErrors.length > 0 && !msg && (
             <div className="form-message error">
               {passwordErrors.map((error, index) => (
                 <div key={index}>{error}</div>
