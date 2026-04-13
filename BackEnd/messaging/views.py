@@ -994,18 +994,6 @@ class ChatRequestViewSet(viewsets.ModelViewSet):
             chat_request.chat.is_active = True
             chat_request.chat.save(update_fields=['is_active'])
 
-            # Send the initial message if it exists
-            if chat_request.first_message and chat_request.first_message.strip():
-                is_flagged, flagged_words, censored_content = check_profanity(chat_request.first_message)
-                message = Message.objects.create(
-                    chat=chat_request.chat,
-                    sender=chat_request.requester,
-                    encrypted_content=encrypt_message(chat_request.first_message),
-                    is_flagged=is_flagged,
-                    flagged_words=','.join(flagged_words) if flagged_words else '',
-                    school_year=chat_request.chat.school_year,
-                )
-
             return Response(
                 ChatRequestSerializer(chat_request).data,
                 status=status.HTTP_200_OK

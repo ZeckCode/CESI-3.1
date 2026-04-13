@@ -288,7 +288,17 @@ const Messages = () => {
     try {
       let chatData = null;
       if (newChatType === "individual") {
-        await createChatRequest(selectedUserId, initialMessage || "");
+        const chatRequest = await createChatRequest(selectedUserId, initialMessage || "");
+        
+        // Send the initial message immediately if provided and chat was created
+        if (initialMessage?.trim() && chatRequest?.chat?.id) {
+          try {
+            await sendMessage(chatRequest.chat.id, initialMessage.trim(), null);
+          } catch (msgErr) {
+            console.error("Failed to send initial message:", msgErr);
+            // Don't fail the chat creation if message sending fails
+          }
+        }
       } else if (newChatType === "class") {
         chatData = await createClassChat(newChatSection, newChatSubject, schoolYear.name);
       } else {
