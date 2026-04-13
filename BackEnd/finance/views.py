@@ -237,7 +237,6 @@ def build_installment_schedule(tuition):
     monthly = Decimal(str(tuition.monthly or 0))
     misc_aug = Decimal(str(tuition.misc_aug or 0))
     misc_nov = Decimal(str(tuition.misc_nov or 0))
-    assessment = Decimal(str(tuition.assessment or 0))
 
     # Calculate year from current date for dynamic scheduling
     current_year = timezone.now().year
@@ -269,10 +268,9 @@ def build_installment_schedule(tuition):
     installment_adjustment = installment - scheduled_installment
 
     # Never emit negative installment deduction rows/effects in schedule.
-    # If configured installment is lower than initial + monthly sum,
-    # treat the delta as assessment to keep billed breakdown intuitive.
+    # Keep assessment strictly based on tuition config; do not inflate it
+    # from installment mismatches.
     if installment_adjustment < 0:
-        assessment += abs(installment_adjustment)
         installment_adjustment = Decimal('0.00')
 
     misc_by_month = {
@@ -308,16 +306,34 @@ def build_installment_schedule(tuition):
                 'due_date': due,
             })
 
-    if assessment > 0:
-        items.append({
-            'type': 'Assessment',
-            'item': 'ASSESSMENT',
-            'month': 'March',
-            'amount': assessment,
-            'due_date': date(current_year + 1, 3, 31),
-        })
-
     return items
+
+
+def normalize_grade_key(raw_value):
+    raw = str(raw_value or '').strip().lower()
+    if not raw:
+        return ''
+
+    compact = ''.join(raw.split())
+    if compact in {'prek', 'pre-k', 'prekind', 'pre-kinder', 'prekinder'}:
+        return 'prek'
+    if compact in {'kinder', 'kindergarten'}:
+        return 'kinder'
+
+    if compact.startswith('grade'):
+        suffix = compact.replace('grade', '', 1)
+        if suffix in {'1', '2', '3', '4', '5', '6'}:
+            return f'grade{suffix}'
+
+    if compact in {'1', '2', '3', '4', '5', '6'}:
+        return f'grade{compact}'
+
+    return compact
+
+
+def get_tuition_by_grade_key(tuition_map, grade_value):
+    normalized = normalize_grade_key(grade_value)
+    return tuition_map.get(normalized)
 
 
 def ledger_totals_for_parent(parent):
@@ -701,8 +717,7 @@ def student_tuition_overview(request):
         ).strip()
 
         payment_mode = (profile.payment_mode or '').strip().lower()
-        grade_key = (profile.grade_level or '').strip().lower()
-        tuition = tuition_map.get(grade_key)
+        tuition = get_tuition_by_grade_key(tuition_map, profile.grade_level)
 
         total_due = Decimal('0.00')
         total_paid = Decimal('0.00')
@@ -826,7 +841,10 @@ def my_tuition_installments(request):
             ]
 
             for item in schedule:
-                amount_due = Decimal(str(item['amount'] or 0))
+                if str(item.get('item') or '').upper() == 'ASSESSMENT':
+                    amount_due = Decimal(str(tuition.assessment or 0))
+                else:
+                    amount_due = Decimal(str(item['amount'] or 0))
                 remaining_due = amount_due
                 refs_used = []
 

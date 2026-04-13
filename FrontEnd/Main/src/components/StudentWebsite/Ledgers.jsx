@@ -123,140 +123,33 @@
     return "POSTED";
   };
 
-  const toIsoDate = (value) => {
-    const raw = String(value || "").trim();
+  const getInstallmentStatus = ({ amountDue, amountPaid, dueDate, existingStatus }) => {
+    const balance = Math.max(amountDue - amountPaid, 0);
+    if (amountDue <= 0 || balance <= 0) return "PAID";
+    if (amountPaid > 0) return "PARTIAL";
+
+    const normalizedExisting = normalizeStatus(existingStatus);
+    if (normalizedExisting === "overdue") return "OVERDUE";
+
+    if (dueDate) {
+      const due = new Date(`${dueDate}T00:00:00`);
+      if (!Number.isNaN(due.getTime())) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (due < today) return "OVERDUE";
+      }
+    }
+
+    return "PENDING";
+  };
+
+  const toGradeKey = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
     if (!raw) return "";
-    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
-    const parsed = new Date(raw);
-    if (Number.isNaN(parsed.getTime())) return "";
-    return parsed.toISOString().slice(0, 10);
-  };
-
-  const toMonthKey = (isoDate) => {
-    if (!isoDate) return "";
-    return isoDate.slice(0, 7);
-  };
-
-  const toMonthLabel = (isoDate) => {
-    if (!isoDate) return "";
-    const parsed = new Date(`${isoDate}T00:00:00`);
-    if (Number.isNaN(parsed.getTime())) return "";
-    return parsed.toLocaleString("en-US", { month: "long" });
-  };
-
-  const combineInstallmentsByMonth = (rows = []) => {
-    const monthMap = new Map();
-
-    rows.forEach((item, index) => {
-      const isoDueDate = toIsoDate(item?.due_date || item?.date_due || item?.transaction_date);
-      const itemKey = String(item?.item || "").trim().toUpperCase();
-      const baseMonthKey = toMonthKey(isoDueDate) || `single-${item?.id || index}`;
-      // Keep assessment visible as its own row in the same month.
-      const monthKey = (itemKey === "ASSESSMENT" || itemKey === "ADJUSTMENT")
-        ? `${baseMonthKey}|ASSESSMENT`
-        : baseMonthKey;
-
-      if (!monthMap.has(monthKey)) {
-        monthMap.set(monthKey, {
-          id: item?.id || `month-${monthKey}`,
-          due_date: isoDueDate,
-          amount: 0,
-          amount_paid: 0,
-          statusValues: [],
-          reference_values: [],
-          typeValues: [],
-          datePaidValues: [],
-          hasMisc: false,
-        });
-      }
-
-      const bucket = monthMap.get(monthKey);
-      const rawAmount = Number(item?.amount || 0);
-      // Legacy backend may send negative ADJUSTMENT; show it as Assessment due.
-      const amount = itemKey === "ADJUSTMENT" ? Math.abs(rawAmount) : rawAmount;
-      const amountPaidRaw = Number(item?.amount_paid || 0);
-      const amountPaid = itemKey === "ADJUSTMENT" ? Math.max(amountPaidRaw, amount) : amountPaidRaw;
-      bucket.amount += amount;
-      bucket.amount_paid += amountPaid;
-
-      bucket.statusValues.push(normalizeStatus(item?.status));
-
-      if (item?.reference_number) {
-        bucket.reference_values.push(item.reference_number);
-      }
-
-      if (Array.isArray(item?.reference_numbers)) {
-        bucket.reference_values.push(
-          ...item.reference_numbers.filter((value) => Boolean(value))
-        );
-      }
-
-      if (itemKey === "ADJUSTMENT" || itemKey === "ASSESSMENT") {
-        bucket.typeValues.push("Assessment");
-      } else {
-        bucket.typeValues.push(item?.type || "Installment");
-      }
-      if (itemKey === "MISC") {
-        bucket.hasMisc = true;
-      }
-
-      if (item?.date_paid) {
-        bucket.datePaidValues.push(item.date_paid);
-      }
-
-      if (!bucket.due_date && isoDueDate) {
-        bucket.due_date = isoDueDate;
-      }
-    });
-
-    return Array.from(monthMap.values())
-      .map((bucket, index) => {
-        const amount = Number((Number(bucket.amount || 0)).toFixed(2));
-        const amountPaid = Number((Number(bucket.amount_paid || 0)).toFixed(2));
-        const rawBalance = amount - amountPaid;
-        const balance = Number((Math.abs(rawBalance) < 0.005 ? 0 : rawBalance).toFixed(2));
-        const uniqueRefs = Array.from(new Set(bucket.reference_values));
-        const uniqueTypes = Array.from(new Set(bucket.typeValues.filter(Boolean)));
-        const hasOverdue = bucket.statusValues.includes("overdue");
-
-        let status = "PENDING";
-        if (hasOverdue) {
-          status = "OVERDUE";
-        } else if (balance <= 0) {
-          status = "PAID";
-        } else if (amountPaid > 0) {
-          status = "PARTIAL";
-        }
-
-        const monthLabel = toMonthLabel(bucket.due_date);
-        const typeLabel =
-          bucket.hasMisc
-            ? `${monthLabel || "Monthly"} Installment + Misc`
-            : uniqueTypes.find((label) => !/misc/i.test(label)) || uniqueTypes[0] || `${monthLabel || "Monthly"} Installment`;
-
-        return {
-          id: bucket.id || `combined-${index}`,
-          due_date: bucket.due_date || "",
-          amount,
-          amount_paid: amountPaid,
-          balance,
-          status,
-          is_paid: balance <= 0,
-          type: typeLabel,
-          reference_number: uniqueRefs.length === 1 ? uniqueRefs[0] : "",
-          reference_numbers: uniqueRefs,
-          date_paid: bucket.datePaidValues.length
-            ? bucket.datePaidValues[bucket.datePaidValues.length - 1]
-            : "",
-        };
-      })
-      .sort((a, b) => {
-        const aDate = String(a.due_date || "");
-        const bDate = String(b.due_date || "");
-        const dateCompare = aDate.localeCompare(bDate);
-        if (dateCompare !== 0) return dateCompare;
-        return String(a.id || "").localeCompare(String(b.id || ""));
-      });
+    if (/^grade\s*([1-6])$/.test(raw)) {
+      return `grade${raw.match(/^grade\s*([1-6])$/)[1]}`;
+    }
+    return raw.replace(/\s+/g, "");
   };
 
   export default function Ledgers() {
@@ -276,6 +169,7 @@
     const [requestSubmitting, setRequestSubmitting] = useState(false);
     const [requestError, setRequestError] = useState("");
     const [selectedRequestGroup, setSelectedRequestGroup] = useState(null);
+    const [assessmentByGrade, setAssessmentByGrade] = useState({});
     const [requestForm, setRequestForm] = useState({
       request_type: "APPLY_ADVANCE",
       amount: "",
@@ -339,6 +233,53 @@
     useEffect(() => {
       setInstallmentPage(1);
     }, [tuitionInstallments.length]);
+
+    useEffect(() => {
+      const gradeKeys = Array.from(
+        new Set(
+          (tuitionInstallments || [])
+            .map((student) => toGradeKey(student?.grade_level))
+            .filter(Boolean)
+        )
+      );
+
+      if (gradeKeys.length === 0) {
+        setAssessmentByGrade({});
+        return;
+      }
+
+      let cancelled = false;
+
+      (async () => {
+        const entries = await Promise.all(
+          gradeKeys.map(async (gradeKey) => {
+            try {
+              const res = await apiFetch(
+                `${API_BASE}/api/finance/tuition-configs/by-grade/${gradeKey}/`
+              );
+              if (!res.ok) return [gradeKey, null];
+              const data = await res.json();
+              return [gradeKey, Number(data?.assessment || 0)];
+            } catch {
+              return [gradeKey, null];
+            }
+          })
+        );
+
+        if (cancelled) return;
+        const map = {};
+        entries.forEach(([gradeKey, assessment]) => {
+          if (assessment != null && assessment >= 0) {
+            map[gradeKey] = assessment;
+          }
+        });
+        setAssessmentByGrade(map);
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [tuitionInstallments]);
 
     const groupedTransactions = useMemo(() => {
       const map = new Map();
@@ -491,36 +432,129 @@
       [groupedTransactions, txPage]
     );
 
+    const normalizedTuitionInstallments = useMemo(
+      () =>
+        tuitionInstallments.map((student) => {
+          const studentGradeKey = toGradeKey(student?.grade_level);
+          const expectedAssessment = assessmentByGrade[studentGradeKey];
+          const rawInstallmentRows = Array.isArray(student.installments)
+            ? student.installments
+            : [];
+
+          const installmentRows = rawInstallmentRows.reduce((rows, current) => {
+            const prev = rows[rows.length - 1];
+            const isSameMonthPair =
+              prev &&
+              String(prev.item || "").toUpperCase() === "MONTHLY" &&
+              String(current.item || "").toUpperCase() === "MISC" &&
+              String(prev.month || "").toLowerCase() === String(current.month || "").toLowerCase() &&
+              String(prev.due_date || "") === String(current.due_date || "");
+
+            if (!isSameMonthPair) {
+              rows.push({ ...current });
+              return rows;
+            }
+
+            const mergedReferenceNumbers = [
+              ...(Array.isArray(prev.reference_numbers)
+                ? prev.reference_numbers
+                : prev.reference_number
+                  ? [prev.reference_number]
+                  : []),
+              ...(Array.isArray(current.reference_numbers)
+                ? current.reference_numbers
+                : current.reference_number
+                  ? [current.reference_number]
+                  : []),
+            ].filter(Boolean);
+
+            rows[rows.length - 1] = {
+              ...prev,
+              type: `${prev.type || "Installment"} + Miscellaneous`,
+              item: "MONTHLY_MISC",
+              amount: Number(prev.amount || 0) + Number(current.amount || 0),
+              amount_paid:
+                Number(prev.amount_paid || 0) + Number(current.amount_paid || 0),
+              balance: Number(prev.balance || 0) + Number(current.balance || 0),
+              reference_numbers: Array.from(new Set(mergedReferenceNumbers)),
+              reference_number:
+                Array.from(new Set(mergedReferenceNumbers)).length === 1
+                  ? Array.from(new Set(mergedReferenceNumbers))[0]
+                  : null,
+            };
+
+            return rows;
+          }, []);
+
+          const normalizedInstallments = installmentRows.map((item) => {
+            const isAssessment = String(item.item || "").toUpperCase() === "ASSESSMENT";
+            const rawAmountDue = Number(item.amount || 0);
+            const amountDue =
+              isAssessment && Number.isFinite(expectedAssessment)
+                ? Number(expectedAssessment)
+                : rawAmountDue;
+            const existingPaid = Number(item.amount_paid || 0);
+            const amountPaid = Math.min(amountDue, Math.max(existingPaid, 0));
+            const balance = Math.max(amountDue - amountPaid, 0);
+            const status = getInstallmentStatus({
+              amountDue,
+              amountPaid,
+              dueDate: item.due_date,
+              existingStatus: item.status,
+            });
+
+            return {
+              ...item,
+              amount: amountDue,
+              amount_paid: amountPaid,
+              balance,
+              status,
+              is_paid: status === "PAID",
+            };
+          });
+
+          const totalDue = normalizedInstallments.reduce(
+            (sum, item) => sum + Number(item.amount || 0),
+            0
+          );
+          const totalPaid = normalizedInstallments.reduce(
+            (sum, item) => sum + Number(item.amount_paid || 0),
+            0
+          );
+          const remainingBalance = normalizedInstallments.reduce(
+            (sum, item) => sum + Number(item.balance || 0),
+            0
+          );
+
+          return {
+            ...student,
+            installments: normalizedInstallments,
+            total_due: totalDue,
+            total_paid: totalPaid,
+            remaining_balance: remainingBalance,
+            overall_status:
+              remainingBalance <= 0
+                ? "PAID"
+                : totalPaid > 0
+                  ? "PARTIAL"
+                  : "PENDING",
+          };
+        }),
+      [tuitionInstallments, assessmentByGrade]
+    );
+
     const installmentTotalPages = Math.max(
       1,
-      Math.ceil(tuitionInstallments.length / ITEMS_PER_PAGE)
+      Math.ceil(normalizedTuitionInstallments.length / ITEMS_PER_PAGE)
     );
 
     const paginatedInstallments = useMemo(
       () =>
-        tuitionInstallments.slice(
+        normalizedTuitionInstallments.slice(
           (installmentPage - 1) * ITEMS_PER_PAGE,
           installmentPage * ITEMS_PER_PAGE
         ),
-      [tuitionInstallments, installmentPage]
-    );
-
-    const combinedInstallmentStudents = useMemo(
-      () =>
-        tuitionInstallments.map((student) => ({
-          ...student,
-          installments: combineInstallmentsByMonth(student.installments || []),
-        })),
-      [tuitionInstallments]
-    );
-
-    const paginatedInstallmentsCombined = useMemo(
-      () =>
-        paginatedInstallments.map((student) => ({
-          ...student,
-          installments: combineInstallmentsByMonth(student.installments || []),
-        })),
-      [paginatedInstallments]
+      [normalizedTuitionInstallments, installmentPage]
     );
 
     const openRequestModal = (group, requestType) => {
@@ -1009,7 +1043,7 @@
                 Schedule
               </div>
 
-              {tuitionInstallments.length === 0 ? (
+              {normalizedTuitionInstallments.length === 0 ? (
                 <div
                   style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}
                 >
@@ -1017,7 +1051,7 @@
                 </div>
               ) : (
                 <>
-                  {paginatedInstallmentsCombined.map((student, idx) => (
+                  {paginatedInstallments.map((student, idx) => (
                     <div
                       key={student.student_id || `${student.student_name}-${idx}`}
                       style={{ marginBottom: "2.5rem" }}
@@ -1227,8 +1261,7 @@
                             student.installments.map((item, itemIndex) => {
                               const amount_due = Number(item.amount || 0);
                               const amount_paid = Number(item.amount_paid || 0);
-                              const rawBalance = Number(item.balance || 0);
-                              const balance = Math.abs(rawBalance) < 0.005 ? 0 : rawBalance;
+                              const balance = Number(item.balance || 0);
 
                               return (
                                 <tr key={item.id || `${student.student_id}-${itemIndex}`}>
@@ -1245,7 +1278,6 @@
                                   <td data-label="Amount Paid">{formatCurrency(amount_paid)}</td>
                                   <td
                                     data-label="Balance"
-                                    className={`installment-balance-cell ${balance > 0 ? "is-owed" : "is-clear"}`}
                                     style={{
                                       color: balance > 0 ? "#dc2626" : "#16a34a",
                                       fontWeight: 600,
@@ -1345,7 +1377,7 @@
                     currentPage={installmentPage}
                     totalPages={installmentTotalPages}
                     onPageChange={setInstallmentPage}
-                    totalItems={tuitionInstallments.length}
+                    totalItems={normalizedTuitionInstallments.length}
                     itemsPerPage={ITEMS_PER_PAGE}
                   />
                 </>
@@ -1421,7 +1453,7 @@
                 <div className="ledger-print-content">
                   <div className="ledger-print-section">
                     <h3 className="ledger-print-section-title">Tuition Installment Schedule</h3>
-                    {tuitionInstallments.length === 0 ? (
+                    {normalizedTuitionInstallments.length === 0 ? (
                       <p style={{ marginTop: "1rem", color: "#64748b" }}>No installment information available.</p>
                     ) : (
                       <table className="ledger-print-table">
@@ -1435,10 +1467,10 @@
                           </tr>
                         </thead>
                         <tbody>
-                          {combinedInstallmentStudents.flatMap((student) =>
+                          {normalizedTuitionInstallments.flatMap((student) =>
                             (student.installments || []).map((inst, idx) => (
                               <tr key={`${student.student_id}-${idx}`}>
-                                <td>{inst.type || `Installment ${idx + 1}`}</td>
+                                <td>{inst.installment_number ? `Installment ${inst.installment_number}` : `Installment ${idx + 1}`}</td>
                                 <td>{inst.due_date || "—"}</td>
                                 <td style={{ textAlign: "right" }}>{formatCurrency(inst.amount)}</td>
                                 <td>{inst.is_paid ? "Paid" : "Pending"}</td>
@@ -1701,7 +1733,7 @@
                         </tr>
                       </thead>
                       <tbody>
-                        {paginatedInstallmentsCombined.map((student, sidx) =>
+                        {paginatedInstallments.map((student, sidx) =>
                           (student.installments || []).map((inst, iidx) => (
                             <tr
                               key={`${student.student_id || sidx}-${iidx}`}
@@ -1712,7 +1744,7 @@
                             >
                               <td style={{ padding: "0.75rem" }}>{student.student_name || "—"}</td>
                               <td style={{ padding: "0.75rem" }}>
-                                {inst.type || `Installment ${iidx + 1}`}
+                                Installment {inst.installment_number || iidx + 1}
                               </td>
                               <td style={{ padding: "0.75rem" }}>{inst.due_date || "—"}</td>
                               <td style={{ padding: "0.75rem", textAlign: "right", fontWeight: 700 }}>
