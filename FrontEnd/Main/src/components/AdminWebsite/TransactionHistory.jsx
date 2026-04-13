@@ -243,7 +243,6 @@ const TransactionHistory = () => {
     try {
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
-      if (filterStatus !== 'all') params.append('status', filterStatus.toUpperCase());
       if (filterEntryType !== 'all') params.append('entry_type', filterEntryType.toUpperCase());
 
       const res = await apiFetch(`/api/finance/transactions/?${params.toString()}`);
@@ -255,7 +254,7 @@ const TransactionHistory = () => {
       console.error('Error fetching transactions:', err);
       setTransactions([]);
     }
-  }, [searchTerm, filterStatus, filterEntryType]);
+  }, [searchTerm, filterEntryType]);
 
   const fetchAdvanceRequests = useCallback(async () => {
     try {
@@ -957,10 +956,19 @@ const TransactionHistory = () => {
       });
     }, [transactions, sortOrder, sortLedgerRows]);
 
-  const txnTotalPages = Math.max(1, Math.ceil(groupedTransactions.length / ITEMS_PER_PAGE));
+  const filteredTransactions = useMemo(() => {
+    if (filterStatus === 'all') return groupedTransactions;
+
+    const selectedStatus = String(filterStatus || '').trim().toUpperCase();
+    return groupedTransactions.filter(
+      (group) => String(group.account_status || '').toUpperCase() === selectedStatus
+    );
+  }, [groupedTransactions, filterStatus]);
+
+  const txnTotalPages = Math.max(1, Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE));
   const paginatedTransactions = useMemo(
-    () => groupedTransactions.slice((txnPage - 1) * ITEMS_PER_PAGE, txnPage * ITEMS_PER_PAGE),
-    [groupedTransactions, txnPage]
+    () => filteredTransactions.slice((txnPage - 1) * ITEMS_PER_PAGE, txnPage * ITEMS_PER_PAGE),
+    [filteredTransactions, txnPage]
   );
 
   const isReminderEligible = (group) =>
@@ -1599,7 +1607,7 @@ const TransactionHistory = () => {
               </thead>
 
             <tbody>
-              {groupedTransactions.length === 0 ? (
+              {filteredTransactions.length === 0 ? (
                 <tr>
                   <td colSpan="10" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                     No transactions found.
@@ -1802,7 +1810,7 @@ const TransactionHistory = () => {
             currentPage={txnPage}
             totalPages={txnTotalPages}
             onPageChange={setTxnPage}
-            totalItems={groupedTransactions.length}
+            totalItems={filteredTransactions.length}
             itemsPerPage={ITEMS_PER_PAGE}
           />
         )}
