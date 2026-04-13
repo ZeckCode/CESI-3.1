@@ -62,6 +62,12 @@ class SubjectSerializer(serializers.ModelSerializer):
 
 
 class SectionSerializer(serializers.ModelSerializer):
+    adviser = serializers.PrimaryKeyRelatedField(
+        queryset=TeacherProfile.objects.all(),
+        allow_null=True,
+        required=False,
+        validators=[],
+    )
     adviser_name = serializers.SerializerMethodField(read_only=True)
     student_count = serializers.SerializerMethodField()
     is_full = serializers.SerializerMethodField()
@@ -85,6 +91,40 @@ class SectionSerializer(serializers.ModelSerializer):
             "student_count", "is_full",
             "student_ids", "student_names",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        current_id = getattr(self.instance, "id", None)
+        adviser = attrs.get("adviser", getattr(self.instance, "adviser", None))
+        room = attrs.get("room", getattr(self.instance, "room", None))
+        school_year = attrs.get("school_year", getattr(self.instance, "school_year", None))
+
+        if adviser is not None:
+            adviser_conflict_qs = Section.objects.filter(adviser=adviser)
+            if current_id is not None:
+                adviser_conflict_qs = adviser_conflict_qs.exclude(id=current_id)
+            if adviser_conflict_qs.exists():
+                raise serializers.ValidationError(
+                    {"adviser": "This homeroom teacher is already assigned to another section."}
+                )
+
+        if room is not None:
+            room_conflict_qs = Section.objects.filter(room=room)
+            if current_id is not None:
+                room_conflict_qs = room_conflict_qs.exclude(id=current_id)
+
+            if school_year is not None:
+                room_conflict_qs = room_conflict_qs.filter(school_year=school_year)
+            else:
+                room_conflict_qs = room_conflict_qs.filter(school_year__isnull=True)
+
+            if room_conflict_qs.exists():
+                raise serializers.ValidationError(
+                    {"room": "This room is already assigned to another section for the selected school year."}
+                )
+
+        return attrs
 
     def get_adviser_name(self, obj):
         if obj.adviser and obj.adviser.user:
