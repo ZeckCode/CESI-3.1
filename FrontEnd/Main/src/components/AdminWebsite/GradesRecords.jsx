@@ -1707,7 +1707,6 @@ const GradesRecords = () => {
                         <td data-label="Student" className="gr-student-name">
                           <div className="gr-stack">
                             <span>{student.student_name}</span>
-                            <span className="gr-muted">@{student.student_username}</span>
                           </div>
                         </td>
                         <td data-label="Grade Level">
@@ -1807,9 +1806,6 @@ const GradesRecords = () => {
                         <td data-label="Student" className="gr-student-name">
                           <div className="gr-stack">
                             <span>{group.student_name}</span>
-                            <span className="gr-muted">
-                              {group.student_number || '@' + group.student_username}
-                            </span>
                           </div>
                         </td>
                         <td data-label="Grade Level">{toGradeLabel(group.grade_level)}</td>
@@ -1896,7 +1892,6 @@ const GradesRecords = () => {
                         <td data-label="Student" className="gr-student-name">
                           <div className="gr-stack">
                             <span>{record.student_name}</span>
-                            <span className="gr-muted">@{record.student_username || '—'}</span>
                           </div>
                         </td>
                         <td data-label="Grade Level">{toGradeLabel(record.grade_level)}</td>

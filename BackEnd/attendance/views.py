@@ -824,6 +824,8 @@ class StudentAttendanceView(APIView):
         daily_data = defaultdict(lambda: {"present": 0, "absent": 0, "late": 0, "excused": 0, "total": 0})
 
         for record in working_records:
+            if record.status not in AttendanceRecord.STATUS_VALUES:
+                continue
             day = record.date.isoformat()
             daily_data[day]["total"] += 1
             if record.status == "PRESENT":
@@ -840,11 +842,24 @@ class StudentAttendanceView(APIView):
         for day, counts in daily_data.items():
             total = counts["total"]
             if total == 0:
-                overall = "none"
-            elif counts["absent"] > 0:
-                overall = "partial" if counts["present"] + counts["late"] > 0 else "absent"
-            elif counts["late"] > 0:
+                continue
+
+            status_flags = {
+                "absent": counts["absent"] > 0,
+                "late": counts["late"] > 0,
+                "excused": counts["excused"] > 0,
+                "present": counts["present"] > 0,
+            }
+            active_statuses = [key for key, active in status_flags.items() if active]
+
+            if len(active_statuses) > 1:
+                overall = "partial"
+            elif status_flags["absent"]:
+                overall = "absent"
+            elif status_flags["late"]:
                 overall = "late"
+            elif status_flags["excused"]:
+                overall = "excused"
             else:
                 overall = "present"
 
