@@ -253,6 +253,11 @@ const StudentMessage = () => {
         chatData = await createProjectChat(newChatName, schoolYear.name);
       }
 
+      // Send initial message if provided for project chats
+      if (chatData?.id && initialMessage?.trim()) {
+        await sendMessage(chatData.id, initialMessage, null);
+      }
+
       const refreshedChats = await listChats();
       setChats(refreshedChats || []);
       setShowNewChat(false);
