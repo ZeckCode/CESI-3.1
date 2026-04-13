@@ -167,7 +167,10 @@ export default function SetPassword() {
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setMsg("");
+                }}
                 onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
                 placeholder="Enter a strong password"
                 style={{ width: "100%", paddingRight: "40px", boxSizing: "border-box" }}
@@ -229,7 +232,10 @@ export default function SetPassword() {
               <input
                 type={showPassword2 ? "text" : "password"}
                 value={password2}
-                onChange={(e) => setPassword2(e.target.value)}
+                onChange={(e) => {
+                  setPassword2(e.target.value);
+                  setMsg("");
+                }}
                 onBlur={() => setTouched((prev) => ({ ...prev, password2: true }))}
                 placeholder="Re-type password"
                 style={{ width: "100%", paddingRight: "40px", boxSizing: "border-box" }}
