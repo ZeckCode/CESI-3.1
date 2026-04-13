@@ -64,6 +64,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
     documents = EnrollmentDocumentSerializer(many=True, read_only=True)
     id_image_url = serializers.SerializerMethodField()
     payment_proof = serializers.SerializerMethodField()
+    parent_user_has_password = serializers.SerializerMethodField()
 
     class Meta:
         model = Enrollment
@@ -136,6 +137,15 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         
         return None
 
+    def get_parent_user_has_password(self, obj):
+        parent = getattr(obj, "parent_user", None)
+        if not parent:
+            return False
+        try:
+            return bool(parent.has_usable_password())
+        except Exception:
+            return False
+
 
 class EnrollmentDetailedSerializer(serializers.ModelSerializer):
     student = UserSerializer(read_only=True)
@@ -143,6 +153,7 @@ class EnrollmentDetailedSerializer(serializers.ModelSerializer):
     parent_info = ParentInfoSerializer(read_only=True)
     documents = EnrollmentDocumentSerializer(many=True, read_only=True)
     id_image_url = serializers.SerializerMethodField()
+    parent_user_has_password = serializers.SerializerMethodField()
 
     class Meta:
         model = Enrollment
@@ -174,6 +185,15 @@ class EnrollmentDetailedSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(url) if request else url
 
         return None
+
+    def get_parent_user_has_password(self, obj):
+        parent = getattr(obj, "parent_user", None)
+        if not parent:
+            return False
+        try:
+            return bool(parent.has_usable_password())
+        except Exception:
+            return False
 
 
 class OldStudentLookupSerializer(serializers.Serializer):

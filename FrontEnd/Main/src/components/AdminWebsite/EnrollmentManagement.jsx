@@ -181,6 +181,7 @@ export default function EnrollmentManagement() {
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [approveTargetRow, setApproveTargetRow] = useState(null);
   const [approveAmount, setApproveAmount] = useState("");
+  const [approveMinimumAmount, setApproveMinimumAmount] = useState(0);
   const [approveRemarks, setApproveRemarks] = useState("");
   const [approveSubmitting, setApproveSubmitting] = useState(false);
   const [approvePaymentMethod, setApprovePaymentMethod] = useState("CASH");
@@ -433,6 +434,14 @@ export default function EnrollmentManagement() {
     const e = row?.raw || {};
     const normalizedGradeLevel = normalizeSectionGrade(e.grade_level);
     const { next } = getNextGrade(normalizedGradeLevel);
+    const studentType = String(e.student_type || "").trim().toLowerCase();
+    const hasSection = Boolean(
+      e?.section || e?.section_name || e?.section_details?.id || e?.section_details?.name
+    );
+    const totalSubjects = Number(row?.gradeProgress?.totalSubjects || 0);
+    const gradedSubjects = Number(row?.gradeProgress?.gradedSubjects || 0);
+    const hasParentUser = Boolean(e?.parent_user);
+    const hasPortalPassword = e?.parent_user_has_password === true;
 
     // Guard unknown grade values so they do not get misclassified as "completed"
     if (!normalizedGradeLevel) {
@@ -460,6 +469,52 @@ export default function EnrollmentManagement() {
         reason: "Completed Grade 6 - Cannot promote further",
         status: "completed",
         icon: "check",
+      };
+    }
+
+    // Fresh enrollees are never promotion candidates.
+    if (["new", "new_student", "fresh", "fresh_enrollee", "fresh_enrollee_student"].includes(studentType)) {
+      return {
+        ready: false,
+        reason: "Fresh enrollee detected - only returning students can be promoted",
+        status: "ineligible",
+        icon: "clock",
+      };
+    }
+
+    if (!hasSection) {
+      return {
+        ready: false,
+        reason: "No section assigned - set section first before promotion",
+        status: "ineligible",
+        icon: "clock",
+      };
+    }
+
+    if (totalSubjects <= 0) {
+      return {
+        ready: false,
+        reason: "No subjects assigned for this student/section",
+        status: "ineligible",
+        icon: "clock",
+      };
+    }
+
+    if (gradedSubjects <= 0) {
+      return {
+        ready: false,
+        reason: "All subject grades are 0 or not encoded yet",
+        status: "ineligible",
+        icon: "clock",
+      };
+    }
+
+    if (!hasParentUser || !hasPortalPassword) {
+      return {
+        ready: false,
+        reason: "Portal password is not set yet for this account",
+        status: "ineligible",
+        icon: "clock",
       };
     }
 
@@ -500,7 +555,7 @@ export default function EnrollmentManagement() {
     if (typeof row.remainingBalance === "number" && row.remainingBalance > 0) {
       return {
         ready: false,
-        reason: `Outstanding balance: Php ${row.remainingBalance.toFixed(2)} - must be zero before promotion`,
+        reason: `Outstanding/partial balance: Php ${row.remainingBalance.toFixed(2)} - must be fully paid before promotion`,
         status: "ineligible",
         icon: "clock",
       };
@@ -1012,6 +1067,15 @@ export default function EnrollmentManagement() {
     return;
   }
 
+  if (amountNum < Number(approveMinimumAmount || 0)) {
+    addToast(
+      "Minimum Initial Payment Required",
+      `Approved amount must be at least Php ${Number(approveMinimumAmount || 0).toFixed(2)} for this grade level.`,
+      "error"
+    );
+    return;
+  }
+
  setApproveSubmitting(true);
     try {
       const body = {
@@ -1131,12 +1195,24 @@ export default function EnrollmentManagement() {
   const handleDecline = (id) => {
     openDeclineDialog(id);
   };
-    const openApproveDialog = (row) => {
-
-    const proof = row.paymentProof || null;
+    const openApproveDialog = async (row) => {
 
     setApproveTargetRow(row);
     setApproveRemarks("");
+    setApproveMinimumAmount(0);
+
+    const gradeKey = String(row?.raw?.grade_level || "").trim();
+    if (gradeKey) {
+      try {
+        const cfgRes = await apiFetch(`/api/finance/tuition-configs/by-grade/${gradeKey}/`);
+        const cfg = await cfgRes.json().catch(() => ({}));
+        if (cfgRes.ok) {
+          setApproveMinimumAmount(Number(cfg?.initial || 0));
+        }
+      } catch {
+        setApproveMinimumAmount(0);
+      }
+    }
 
     // optional default amount from proof if later available
     setApproveAmount("");
@@ -1147,6 +1223,7 @@ export default function EnrollmentManagement() {
     setApproveDialogOpen(false);
     setApproveTargetRow(null);
     setApproveAmount("");
+    setApproveMinimumAmount(0);
     setApproveRemarks("");
   };
 
@@ -2580,12 +2657,17 @@ const openIdGenerator = (row) => {
               <input
                 type="number"
                 step="0.01"
-                min="0"
+                min={Number(approveMinimumAmount || 0)}
                 value={approveAmount}
                 onChange={(e) => setApproveAmount(e.target.value)}
                 placeholder="Enter approved payment amount"
                 className="approve-enrollment-panel__input"
               />
+              {Number(approveMinimumAmount || 0) > 0 ? (
+                <div className="approve-enrollment-panel__meta-label" style={{ marginTop: 6 }}>
+                  Minimum required initial payment: Php {Number(approveMinimumAmount).toFixed(2)}
+                </div>
+              ) : null}
             </div>
               <div className="approve-enrollment-panel__field">
               <label className="approve-enrollment-panel__label">

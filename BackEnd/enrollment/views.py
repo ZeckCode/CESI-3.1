@@ -1501,6 +1501,24 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        tuition = TuitionConfig.objects.filter(
+            grade_key=grade_code,
+            is_active=True,
+            status="active",
+        ).first()
+        minimum_initial_payment = Decimal(str(tuition.initial or 0)) if tuition else Decimal("0")
+
+        if minimum_initial_payment > 0 and approved_amount < minimum_initial_payment:
+            return Response(
+                {
+                    "detail": (
+                        f"Approved amount (Php {approved_amount:.2f}) is below the required "
+                        f"initial payment for {grade_code} (Php {minimum_initial_payment:.2f})."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         required_missing = []
 
         if not enrollment.first_name:
@@ -1600,10 +1618,11 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             proof_reference = proof.reference_number if proof else ""
             if proof:
                 proof.status = "approved"
+                proof.amount = approved_amount
                 proof.admin_remarks = (
                     approval_remarks or "Approved during enrollment approval."
                 )
-                proof.save(update_fields=["status", "admin_remarks", "updated_at"])      
+                proof.save(update_fields=["status", "amount", "admin_remarks", "updated_at"])      
             payment_description = approval_remarks or "Admin-approved enrollment payment"
             if proof_reference:
                 payment_description = f"{payment_description} | Proof Ref: {proof_reference}"      
