@@ -266,6 +266,12 @@ export default function SetPassword() {
             </div>
           )}
 
+          {touched.password2 && password === password2 && password2 && !msg && (
+            <div className="form-message success">
+              ✓ Passwords match correctly
+            </div>
+          )}
+
           {msg && (
             <div
               className={`form-message ${
