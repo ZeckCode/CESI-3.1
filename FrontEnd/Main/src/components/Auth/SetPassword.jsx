@@ -64,8 +64,6 @@ function getPasswordErrors(password, password2) {
 
   if (!password2) {
     errors.push("Please confirm your password.");
-  } else if (password !== password2) {
-    errors.push("Passwords do not match.");
   }
 
   return errors;
