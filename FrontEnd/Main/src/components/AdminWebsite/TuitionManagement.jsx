@@ -183,6 +183,15 @@ const TuitionManagement = () => {
         accountStatus: item.account_status || 'PENDING',
       }));
 
+      // DEBUG: Show all payment data
+      console.table(mapped.map(m => ({
+        name: m.studentName,
+        totalDue: m.totalDue,
+        totalPaid: m.totalPaid,
+        remaining: m.remainingBalance,
+        status: getPaymentStatus(m)
+      })));
+      
       setStudentTuition(mapped);
     } catch (error) {
       console.error('Failed to load student tuition overview:', error);
@@ -265,18 +274,21 @@ const TuitionManagement = () => {
     const totalPaid = student.totalPaid || 0;
     const remainingBalance = student.remainingBalance || 0;
 
+    let status;
     if (remainingBalance === 0 || totalPaid >= totalDue) {
-      return 'paid';
+      status = 'paid';
+    } else if (totalPaid === 0) {
+      status = 'pending';
+    } else {
+      status = 'partial';
     }
-    if (totalPaid === 0 || totalPaid < 1) {
-      return 'pending';
-    }
-    return 'partial';
+    
+    return status;
   };
 
   const getFilteredData = () => {
     if (viewMode === 'student') {
-      return studentTuition.filter((student) => {
+      const result = studentTuition.filter((student) => {
         const q = searchTerm.toLowerCase();
         const matchesSearch =
           (student.studentName || '').toLowerCase().includes(q) ||
@@ -296,6 +308,8 @@ const TuitionManagement = () => {
 
         return matchesSearch && matchesGradeFilter && matchesPaymentFilter;
       });
+      
+      return result;
     }
 
     return tuitionFees.filter((fee) => {
@@ -851,8 +865,8 @@ const TuitionManagement = () => {
                         <td className="tm-table-cell">{formatCurrency(item.totalPaid)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.remainingBalance)}</td>
                         <td className="tm-table-cell">
-                          <span className={`tm-status tm-status-${normalizeStatus(item.accountStatus)}`}>
-                            {item.accountStatus}
+                          <span className={`tm-status tm-status-${normalizeStatus(getPaymentStatus(item))}`}>
+                            {String(getPaymentStatus(item) || '').charAt(0).toUpperCase() + String(getPaymentStatus(item) || '').slice(1)}
                           </span>
                         </td>
                         <td className="tm-table-cell">
