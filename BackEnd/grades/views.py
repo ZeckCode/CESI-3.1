@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError
 from django.db.models import Count, Max, Q, Sum
 
 from decimal import Decimal
+import logging
 
 from .models import GradeWeight, GradeItem, StudentScore, ClassStanding, AcademicRecord
 from .serializers import (
@@ -22,6 +23,9 @@ from classmanagement.models import Schedule, SchoolYear
 from enrollment.models import Enrollment
 
 from finance.models import Transaction
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_teacher_subjects(tp):
@@ -1337,11 +1341,30 @@ def section_performance(request):
     The teacher's subject is resolved from their profile.
     """
     user = request.user
-    if user.role not in ("TEACHER", "ADMIN"):
-        return Response({"detail": "Forbidden"}, status=403)
-
     section_id = request.query_params.get("section")
     quarter_param = request.query_params.get("quarter")
+    trace_mode = str(request.query_params.get("trace", "")).strip().lower() in ("1", "true", "yes", "on")
+
+    def forbid(reason, **extra):
+        base_context = {
+            "user_id": getattr(user, "id", None),
+            "user_role": getattr(user, "role", None),
+            "section_id": section_id,
+            "quarter": quarter_param,
+        }
+        if extra:
+            base_context.update(extra)
+
+        logger.warning("section_performance forbidden: %s | context=%s", reason, base_context)
+
+        payload = {"detail": "Forbidden"}
+        if trace_mode:
+            payload["trace_reason"] = reason
+            payload["trace"] = base_context
+        return Response(payload, status=403)
+
+    if user.role not in ("TEACHER", "ADMIN"):
+        return forbid("role_not_allowed")
 
     if not section_id or not quarter_param:
         return Response({"detail": "section and quarter are required"}, status=400)
@@ -1385,7 +1408,10 @@ def section_performance(request):
 
         section_subject_ids = list(teacher_schedules_qs.values_list("subject_id", flat=True).distinct())
         if not section_subject_ids:
-            return Response({"detail": "Forbidden"}, status=403)
+            return forbid(
+                "no_teacher_schedules_for_section",
+                school_year_id=getattr(school_year_obj, "id", None),
+            )
         section_subject_id_set = set(section_subject_ids)
 
         raw_subj = request.query_params.get("subject")
@@ -1395,7 +1421,12 @@ def section_performance(request):
             except (ValueError, TypeError):
                 return Response({"detail": "Invalid subject id"}, status=400)
             if subject_id not in section_subject_id_set:
-                return Response({"detail": "Forbidden"}, status=403)
+                return forbid(
+                    "subject_not_assigned_for_section",
+                    requested_subject_id=subject_id,
+                    allowed_subject_ids=section_subject_ids,
+                    school_year_id=getattr(school_year_obj, "id", None),
+                )
         else:
             # Pick a section-linked subject to avoid false 403 when profile.subject points elsewhere.
             profile_subject_id = teacher_profile.subject_id
@@ -1411,7 +1442,12 @@ def section_performance(request):
         teacher_schedules = teacher_schedules_qs.filter(subject_id=subject_id)
         schedule_ids = list(teacher_schedules.values_list("id", flat=True))
         if not schedule_ids:
-            return Response({"detail": "Forbidden"}, status=403)
+            return forbid(
+                "no_teacher_schedules_for_subject",
+                subject_id=subject_id,
+                allowed_subject_ids=section_subject_ids,
+                school_year_id=getattr(school_year_obj, "id", None),
+            )
     else:
         raw_subj = request.query_params.get("subject")
         if not raw_subj:
