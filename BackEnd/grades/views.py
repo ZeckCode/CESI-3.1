@@ -583,16 +583,50 @@ def publish_academic_history(request):
         if not teacher_schedule_qs.exists():
             return Response({"detail": "Forbidden"}, status=403)
 
-    enrollments = Enrollment.objects.filter(section=section_obj, status="ACTIVE").select_related("student")
+    if user.role == "TEACHER":
+        students_response = students_by_section(request, section_obj.id)
+        if students_response.status_code != 200:
+            return students_response
+        section_students = students_response.data if isinstance(students_response.data, list) else []
+    else:
+        section_students = []
+        admin_enrollments = Enrollment.objects.filter(
+            section=section_obj,
+            status="ACTIVE",
+        ).select_related("student", "student__profile")
+        for enrollment in admin_enrollments:
+            student = enrollment.student
+            if not student:
+                continue
+            student_name = (
+                f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip()
+                or resolve_student_display_name(student, school_year)
+            )
+            student_number = (
+                enrollment.student_number
+                or getattr(getattr(student, "profile", None), "student_number", None)
+                or ""
+            )
+            section_students.append({
+                "id": student.id,
+                "username": student.username,
+                "student_name": student_name,
+                "student_number": student_number,
+                "grade_level": enrollment.grade_level,
+            })
 
-    if not enrollments.exists():
-        return Response({"detail": "No active students found for section"}, status=400)
+    if not section_students:
+        return Response({"detail": "No students found for section"}, status=400)
 
     has_incomplete = False
     preview_rows = []
 
-    for enrollment in enrollments:
-        student = enrollment.student
+    for section_student in section_students:
+        student_id = section_student.get("id")
+        if not student_id:
+            continue
+
+        student = User.objects.filter(pk=student_id).first()
         if not student:
             continue
 
@@ -606,10 +640,14 @@ def publish_academic_history(request):
         if not is_complete:
             has_incomplete = True
 
+        student_name = str(section_student.get("student_name") or "").strip() or resolve_student_display_name(student, school_year)
+        student_number = str(section_student.get("student_number") or "").strip()
+
         preview_rows.append({
             "student_id": student.id,
-            "student_name": f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() or student.username,
-            "grade_level": enrollment.grade_level,
+            "student_name": student_name,
+            "student_number": student_number,
+            "grade_level": section_student.get("grade_level"),
             "q1": scores_by_q[0],
             "q2": scores_by_q[1],
             "q3": scores_by_q[2],
@@ -626,6 +664,7 @@ def publish_academic_history(request):
             "subject": subject.name,
             "school_year": school_year,
             "rows": preview_rows,
+            "student_count": len(preview_rows),
             "can_publish": not has_incomplete,
             "incomplete_count": sum(1 for r in preview_rows if not r["complete"]),
         })
@@ -660,8 +699,8 @@ def publish_academic_history(request):
 
         if not enrollment:
             enrollment = Enrollment.objects.filter(
-            student=student,
-            academic_year=school_year,
+                student=student,
+                academic_year=school_year,
             ).order_by("-created_at", "-id").first()
 
         grade_level = normalize_grade_level(row.get("grade_level"))
@@ -675,11 +714,13 @@ def publish_academic_history(request):
         )
 
         student_name = (
-            (f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() if enrollment else "")
+            str(row.get("student_name") or "").strip()
+            or (f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() if enrollment else "")
             or resolve_student_display_name(student, school_year)
         )
         student_number = (
-            (enrollment.student_number if enrollment else None)
+            str(row.get("student_number") or "").strip()
+            or (enrollment.student_number if enrollment else None)
             or getattr(getattr(student, "profile", None), "student_number", None)
             or ""
         )
@@ -718,6 +759,7 @@ def publish_academic_history(request):
         "section": section_obj.name,
         "subject": subject_name,
         "school_year": school_year_key,
+        "student_count": len(preview_rows),
         "published": published,
         "updated": updated,
         "total": len(preview_rows),
@@ -1387,10 +1429,11 @@ def students_by_section(request, section_id):
 
     students_map = {}
 
-    def normalize_student_number(value):
-        return str(value or "").strip().lower()
-
     def build_student_key(student, enrollment=None, profile=None):
+        student_id = getattr(student, "id", None)
+        if student_id is not None:
+            return f"id:{student_id}"
+
         student_number = None
         if enrollment and enrollment.student_number:
             student_number = enrollment.student_number
@@ -1406,39 +1449,21 @@ def students_by_section(request, section_id):
         username = (getattr(student, "username", "") or "").strip()
         if username:
             return f"user:{username.lower()}"
-
-        student_id = getattr(student, "id", None)
-        return f"id:{student_id}" if student_id is not None else ""
+        return ""
 
     enrollments = Enrollment.objects.filter(
         section_id=section_id,
         status="ACTIVE",
     ).select_related("student", "student__profile")
 
-    enrollment_numbers = [
-        enr.student_number for enr in enrollments if enr.student_number
-    ]
-    profile_by_number = {}
-    if enrollment_numbers:
-        profiles = UserProfile.objects.filter(
-            student_number__in=enrollment_numbers,
-            user__role="PARENT_STUDENT",
-            user__status="ACTIVE",
-        ).select_related("user")
-        for p in profiles:
-            num_key = normalize_student_number(p.student_number)
-            if num_key and num_key not in profile_by_number:
-                profile_by_number[num_key] = p
-
     for enr in enrollments:
         stu = enr.student
         if not stu:
             continue
 
-        enrollment_number = enr.student_number or getattr(getattr(stu, "profile", None), "student_number", None)
-        number_key = normalize_student_number(enrollment_number)
-        profile = profile_by_number.get(number_key) if number_key else None
-        student_user = profile.user if profile and profile.user_id else stu
+        profile = getattr(stu, "profile", None)
+        student_user = stu
+        enrollment_number = enr.student_number or getattr(profile, "student_number", None)
 
         full_name = " ".join(
             p for p in [enr.first_name or "", enr.last_name or ""] if p
@@ -1462,6 +1487,7 @@ def students_by_section(request, section_id):
             "username": student_user.username,
             "student_name": full_name,
             "student_number": enrollment_number or getattr(getattr(student_user, "profile", None), "student_number", None),
+            "grade_level": enr.grade_level or getattr(getattr(student_user, "profile", None), "grade_level", None),
         }
 
     legacy_profiles = UserProfile.objects.filter(
@@ -1483,6 +1509,7 @@ def students_by_section(request, section_id):
             "username": stu.username,
             "student_name": full_name,
             "student_number": p.student_number or getattr(getattr(stu, "profile", None), "student_number", None),
+            "grade_level": p.grade_level or getattr(getattr(stu, "profile", None), "grade_level", None),
         }
 
     result = sorted(students_map.values(), key=lambda s: (s["student_name"].lower(), s["id"]))
@@ -1503,22 +1530,63 @@ def my_academic_history(request):
     if user.role != "PARENT_STUDENT":
         return Response({"detail": "Forbidden"}, status=403)
 
-    records = AcademicRecord.objects.select_related("student", "student__profile").filter(student=user).order_by("-school_year", "subject_name")
+    candidate_numbers = set()
+    profile = getattr(user, "profile", None)
+    profile_number = str(getattr(profile, "student_number", "") or "").strip()
+    if profile_number:
+        candidate_numbers.add(profile_number)
+
+    enrollment_numbers = (
+        Enrollment.objects.filter(Q(student=user) | Q(parent_user=user))
+        .exclude(student_number__isnull=True)
+        .exclude(student_number__exact="")
+        .values_list("student_number", flat=True)
+    )
+    for number in enrollment_numbers:
+        normalized_number = str(number or "").strip()
+        if normalized_number:
+            candidate_numbers.add(normalized_number)
+
+    records_qs = AcademicRecord.objects.select_related("student", "student__profile")
+    if candidate_numbers:
+        records_qs = records_qs.filter(Q(student=user) | Q(student_number__in=list(candidate_numbers)))
+    else:
+        records_qs = records_qs.filter(student=user)
+
+    records = records_qs.order_by("-school_year", "grade_level", "section_name", "subject_name")
     serialized = AcademicRecordSerializer(records, many=True).data
 
     grouped = {}
     for rec in serialized:
-        sy = rec["school_year"]
-        if sy not in grouped:
-            grouped[sy] = {
+        sy = rec.get("school_year")
+        grade_level = rec.get("grade_level")
+        section_name = rec.get("section_name") or ""
+        group_key = f"{sy}::{grade_level}::{section_name}"
+        if group_key not in grouped:
+            grouped[group_key] = {
+                "group_key": group_key,
                 "school_year": sy,
                 "grade_level": rec["grade_level"],
-                "section_name": rec["section_name"],
+                "section_name": section_name,
                 "records": [],
             }
-        grouped[sy]["records"].append(rec)
+        grouped[group_key]["records"].append(rec)
 
-    records_by_year = sorted(grouped.values(), key=lambda g: g["school_year"], reverse=True)
+    def history_group_sort_key(group):
+        school_year = str(group.get("school_year") or "")
+        try:
+            year_start = int(school_year.split("-")[0])
+        except (TypeError, ValueError, IndexError):
+            year_start = -1
+
+        grade_value = normalize_grade_level(group.get("grade_level"))
+        return (
+            -year_start,
+            grade_value if grade_value is not None else 999,
+            str(group.get("section_name") or "").lower(),
+        )
+
+    records_by_year = sorted(grouped.values(), key=history_group_sort_key)
 
     return Response({
         "has_history": len(records_by_year) > 0,

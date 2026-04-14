@@ -319,7 +319,10 @@ export default function AcademicHistory() {
         {has_history ? (
           <div className="ah-years-list">
             {records_by_year.map((yearData) => (
-              <YearBlock key={yearData.school_year} yearData={yearData} />
+              <YearBlock
+                key={yearData.group_key || `${yearData.school_year}-${yearData.grade_level}-${yearData.section_name || ''}`}
+                yearData={yearData}
+              />
             ))}
           </div>
         ) : (

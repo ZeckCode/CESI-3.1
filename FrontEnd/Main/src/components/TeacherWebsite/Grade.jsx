@@ -88,14 +88,16 @@ const CATEGORIES = [
 const getStudentKey = (student) => {
   if (!student) return "";
 
+  const idValue = student.id != null ? String(student.id).trim() : "";
+  if (idValue) return `id:${idValue}`;
+
   const studentNumber = String(student.student_number || "").trim();
   if (studentNumber) return `num:${studentNumber.toLowerCase()}`;
 
   const username = String(student.username || "").trim();
   if (username) return `user:${username.toLowerCase()}`;
 
-  const idValue = student.id != null ? String(student.id).trim() : "";
-  return idValue ? `id:${idValue}` : "";
+  return "";
 };
 
 const Grade = () => {
@@ -933,7 +935,9 @@ const Grade = () => {
       if (!res.ok) {
         alert(data?.detail || "Failed to publish academic history. Please check logs and validate all fields.");
       } else {
-        setPublishMessage(`Published: ${data.published || 0}, Updated: ${data.updated || 0}, Total: ${data.total || 0}`);
+        setPublishMessage(
+          `Published: ${data.published || 0}, Updated: ${data.updated || 0}, Total: ${data.total || 0}, Students: ${data.student_count || data.total || 0}`
+        );
       }
     } catch (e) {
       console.error("Publish academic history error:", e);
