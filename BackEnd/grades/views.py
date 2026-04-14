@@ -168,6 +168,26 @@ def grade_level_label(value):
     return str(value or "—")
 
 
+def normalize_school_year_label(value):
+    return str(value or "").strip()
+
+
+def resolve_school_year_label(school_year_obj):
+    if not school_year_obj:
+        return ""
+
+    name = normalize_school_year_label(getattr(school_year_obj, "name", ""))
+    if name:
+        return name
+
+    start_date = getattr(school_year_obj, "start_date", None)
+    end_date = getattr(school_year_obj, "end_date", None)
+    if start_date and end_date:
+        return f"{start_date.year}-{end_date.year}"
+
+    return ""
+
+
 # ══════════════════════════════════════════════════════
 # WEIGHTS  —  get / update per subject
 # ══════════════════════════════════════════════════════
@@ -504,17 +524,23 @@ def publish_academic_history(request):
     if user.role not in ("TEACHER", "ADMIN"):
         return Response({"detail": "Forbidden"}, status=403)
 
-    section_id = request.query_params.get("section_id") if request.method == "GET" else request.data.get("section_id")
+    raw_section_id = request.query_params.get("section_id") if request.method == "GET" else request.data.get("section_id")
     requested_school_year = request.query_params.get("school_year") if request.method == "GET" else request.data.get("school_year")
-    subject_id = request.query_params.get("subject_id") if request.method == "GET" else request.data.get("subject_id")
+    raw_subject_id = request.query_params.get("subject_id") if request.method == "GET" else request.data.get("subject_id")
     active_school_year = get_active_school_year_obj()
+
+    try:
+        section_id = int(raw_section_id)
+        subject_id = int(raw_subject_id)
+    except (TypeError, ValueError):
+        return Response({"detail": "section_id and subject_id must be valid integers"}, status=400)
 
     if user.role == "TEACHER":
         if not active_school_year:
             return Response({"detail": "No active school year"}, status=404)
-        school_year = active_school_year.name
+        school_year = resolve_school_year_label(active_school_year)
     else:
-        school_year = requested_school_year
+        school_year = normalize_school_year_label(requested_school_year)
 
     if not section_id or not school_year or not subject_id:
         return Response({"detail": "section_id, school_year, subject_id are required"}, status=400)
@@ -538,7 +564,7 @@ def publish_academic_history(request):
         if not teacher_subject_ids:
             return Response({"detail": "No subject assigned"}, status=403)
 
-        if int(subject_id) not in teacher_subject_ids:
+        if subject_id not in teacher_subject_ids:
             return Response({"detail": "Teacher subject mismatch"}, status=403)
 
     try:
@@ -614,6 +640,13 @@ def publish_academic_history(request):
     published = 0
     updated = 0
 
+    subject_name = str(subject.name or "").strip()
+    subject_code = str(subject.code or "").strip()
+    school_year_key = normalize_school_year_label(school_year)
+
+    if not subject_name:
+        return Response({"detail": "Subject name is missing. Please update the subject record."}, status=400)
+
     for row in preview_rows:
         student = User.objects.filter(pk=row["student_id"]).first()
         if not student:
@@ -621,10 +654,26 @@ def publish_academic_history(request):
 
         enrollment = Enrollment.objects.filter(
             student=student,
-            academic_year=school_year,
+            section=section_obj,
+            status="ACTIVE",
         ).order_by("-created_at", "-id").first()
 
-        grade_level = normalize_grade_level(section_obj.grade_level if section_obj.grade_level is not None else row.get("grade_level"))
+        if not enrollment:
+            enrollment = Enrollment.objects.filter(
+            student=student,
+            academic_year=school_year,
+            ).order_by("-created_at", "-id").first()
+
+        grade_level = normalize_grade_level(row.get("grade_level"))
+        if grade_level is None:
+            grade_level = normalize_grade_level(section_obj.grade_level)
+
+        resolved_section_name = (
+            getattr(getattr(enrollment, "section", None), "name", None)
+            or section_obj.name
+            or ""
+        )
+
         student_name = (
             (f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() if enrollment else "")
             or resolve_student_display_name(student, school_year)
@@ -638,9 +687,9 @@ def publish_academic_history(request):
         defaults = {
             "student_name": student_name,
             "student_number": student_number,
-            "section_name": section_obj.name or "",
-            "subject_name": subject.name,
-            "subject_code": subject.code,
+            "section_name": resolved_section_name,
+            "subject_name": subject_name,
+            "subject_code": subject_code,
             "grade_level": grade_level if grade_level is not None else 0,
             "q1": row["q1"],
             "q2": row["q2"],
@@ -654,8 +703,8 @@ def publish_academic_history(request):
 
         _, created = AcademicRecord.objects.update_or_create(
             student=student,
-            school_year=school_year,
-            subject_name=subject.name,
+            school_year=school_year_key,
+            subject_name=subject_name,
             defaults=defaults,
         )
 
@@ -667,8 +716,8 @@ def publish_academic_history(request):
     return Response({
         "success": True,
         "section": section_obj.name,
-        "subject": subject.name,
-        "school_year": school_year,
+        "subject": subject_name,
+        "school_year": school_year_key,
         "published": published,
         "updated": updated,
         "total": len(preview_rows),
