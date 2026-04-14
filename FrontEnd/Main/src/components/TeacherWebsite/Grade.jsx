@@ -2,6 +2,7 @@
 import { Plus, X, Edit2, Trash2, Settings, Calendar, FileText, Printer } from "lucide-react";
 import "../TeacherWebsiteCSS/Grade.css";
 import { apiFetch } from "../api/apiFetch";
+import { getToken } from "../Auth/auth";
 import PreviewModal from "../PreviewModal";
 import ExcelJS from "exceljs";
 
@@ -860,6 +861,11 @@ const Grade = () => {
       return;
     }
 
+    if (!getToken()) {
+      alert("Your session has expired. Please log in again before publishing.");
+      return;
+    }
+
     const schoolYearLabel =
       schoolYear?.name ||
       (schoolYear?.start_year && schoolYear?.end_year
@@ -885,7 +891,15 @@ const Grade = () => {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        setPublishPreviewError(data?.detail || "Unable to load publish preview.");
+        if (res.status === 401) {
+          setPublishPreviewError("Session expired. Please log in again and retry.");
+        } else if (res.status === 405) {
+          setPublishPreviewError(
+            "Server publish endpoint is out of date (POST/preview method mismatch). Redeploy backend API and clear build cache."
+          );
+        } else {
+          setPublishPreviewError(data?.detail || "Unable to load publish preview.");
+        }
         setShowPublishModal(false);
       } else {
         setPublishPreviewRows(Array.isArray(data.rows) ? data.rows : []);
@@ -907,6 +921,11 @@ const Grade = () => {
 
   const confirmPublishAcademicHistory = async () => {
     if (!publishCanConfirm) {
+      return;
+    }
+
+    if (!getToken()) {
+      alert("Your session has expired. Please log in again before publishing.");
       return;
     }
 
@@ -933,7 +952,15 @@ const Grade = () => {
 
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        alert(data?.detail || "Failed to publish academic history. Please check logs and validate all fields.");
+        if (res.status === 401) {
+          alert("Session expired. Please log in again and retry publish.");
+        } else if (res.status === 405) {
+          alert(
+            "Publish method is not enabled on the deployed backend. Redeploy backend API and clear build cache."
+          );
+        } else {
+          alert(data?.detail || "Failed to publish academic history. Please check logs and validate all fields.");
+        }
       } else {
         setPublishMessage(
           `Published: ${data.published || 0}, Updated: ${data.updated || 0}, Total: ${data.total || 0}, Students: ${data.student_count || data.total || 0}`
