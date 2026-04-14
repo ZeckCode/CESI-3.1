@@ -190,28 +190,32 @@ def resolve_school_year_label(school_year_obj):
 
 def build_section_students_payload(section_id):
     students_map = {}
+    student_number_to_key = {}
 
-    def build_student_key(student, enrollment=None, profile=None):
+    def normalize_student_number(value):
+        return str(value or "").strip().lower()
+
+    def build_student_key(student):
         student_id = getattr(student, "id", None)
-        if student_id is not None:
-            return f"id:{student_id}"
+        return f"id:{student_id}" if student_id is not None else ""
 
-        student_number = None
-        if enrollment and enrollment.student_number:
-            student_number = enrollment.student_number
-        if not student_number and profile and profile.student_number:
-            student_number = profile.student_number
-        if not student_number and hasattr(student, "profile") and student.profile:
-            student_number = student.profile.student_number
+    def upsert_student_row(student_row, prefer_existing_number=False):
+        row_id = student_row.get("id")
+        row_key = f"id:{row_id}" if row_id is not None else ""
+        if not row_key:
+            return
 
-        student_number = (student_number or "").strip()
-        if student_number:
-            return f"num:{student_number.lower()}"
+        number_key = normalize_student_number(student_row.get("student_number"))
+        existing_key = student_number_to_key.get(number_key) if number_key else None
 
-        username = (getattr(student, "username", "") or "").strip()
-        if username:
-            return f"user:{username.lower()}"
-        return ""
+        if existing_key and existing_key != row_key:
+            if prefer_existing_number:
+                return
+            students_map.pop(existing_key, None)
+
+        students_map[row_key] = student_row
+        if number_key:
+            student_number_to_key[number_key] = row_key
 
     enrollments = Enrollment.objects.filter(
         section_id=section_id,
@@ -241,16 +245,13 @@ def build_section_students_payload(section_id):
         if not full_name:
             full_name = student_user.username
 
-        key = build_student_key(student_user, enrollment=enr, profile=profile)
-        if not key:
-            continue
-        students_map[key] = {
+        upsert_student_row({
             "id": student_user.id,
             "username": student_user.username,
             "student_name": full_name,
             "student_number": enrollment_number or getattr(getattr(student_user, "profile", None), "student_number", None),
             "grade_level": enr.grade_level or getattr(getattr(student_user, "profile", None), "grade_level", None),
-        }
+        })
 
     legacy_profiles = UserProfile.objects.filter(
         section_id=section_id,
@@ -260,21 +261,44 @@ def build_section_students_payload(section_id):
 
     for p in legacy_profiles:
         stu = p.user
-        key = build_student_key(stu, profile=p)
-        if not key or key in students_map:
+        key = build_student_key(stu)
+        if not key:
             continue
         full_name = " ".join(
             part for part in [p.student_first_name or "", p.student_last_name or ""] if part
         ).strip() or stu.username
-        students_map[key] = {
+        upsert_student_row({
             "id": stu.id,
             "username": stu.username,
             "student_name": full_name,
             "student_number": p.student_number or getattr(getattr(stu, "profile", None), "student_number", None),
             "grade_level": p.grade_level or getattr(getattr(stu, "profile", None), "grade_level", None),
-        }
+        }, prefer_existing_number=True)
 
     return sorted(students_map.values(), key=lambda s: (s["student_name"].lower(), s["id"]))
+
+
+def dedupe_serialized_academic_records(records):
+    deduped = {}
+    for record in records:
+        school_year = str(record.get("school_year") or "").strip()
+        subject_name = str(record.get("subject_name") or "").strip().lower()
+        number_key = str(record.get("student_number") or "").strip().lower()
+        student_id = record.get("student")
+        identity_key = number_key or (f"id:{student_id}" if student_id is not None else "unknown")
+        dedupe_key = (school_year, identity_key, subject_name)
+
+        existing = deduped.get(dedupe_key)
+        if not existing:
+            deduped[dedupe_key] = record
+            continue
+
+        existing_updated = str(existing.get("updated_at") or "")
+        current_updated = str(record.get("updated_at") or "")
+        if current_updated > existing_updated:
+            deduped[dedupe_key] = record
+
+    return list(deduped.values())
 
 
 # ══════════════════════════════════════════════════════
@@ -828,8 +852,22 @@ def publish_academic_history(request):
             "recorded_by": user,
         }
 
+        target_student = student
+        if student_number:
+            existing_by_number = (
+                AcademicRecord.objects.filter(
+                    school_year=school_year_key,
+                    subject_name=subject_name,
+                    student_number__iexact=student_number,
+                )
+                .order_by("-updated_at", "-id")
+                .first()
+            )
+            if existing_by_number and existing_by_number.student_id:
+                target_student = existing_by_number.student
+
         _, created = AcademicRecord.objects.update_or_create(
-            student=student,
+            student=target_student,
             school_year=school_year_key,
             subject_name=subject_name,
             defaults=defaults,
@@ -1555,6 +1593,7 @@ def my_academic_history(request):
 
     records = records_qs.order_by("-school_year", "grade_level", "section_name", "subject_name")
     serialized = AcademicRecordSerializer(records, many=True).data
+    serialized = dedupe_serialized_academic_records(serialized)
 
     grouped = {}
     for rec in serialized:
@@ -1627,6 +1666,11 @@ class AcademicRecordListCreate(generics.ListCreateAPIView):
         if status_filter:
             qs = qs.filter(remarks__iexact=status_filter)
         return qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset().order_by("-updated_at", "-id"))
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(dedupe_serialized_academic_records(serializer.data))
 
     def perform_create(self, serializer):
         user = self.request.user
