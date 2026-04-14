@@ -16,6 +16,12 @@ const StepPayment = ({
   studentType,
 }) => {
   const minimumPayment = getRequiredEnrollmentPayment(tuition, form.paymentMode, studentType);
+  const isNewStudent = String(studentType || "").trim().toLowerCase() === "new";
+  const assessmentFee = isNewStudent ? Number(tuition?.assessment || 0) : 0;
+  const onsitePreparationAmount =
+    form.paymentMode === "cash"
+      ? Number(tuition?.total_cash || 0) + assessmentFee
+      : Number(tuition?.initial || 0) + assessmentFee;
 
   const handleFileChange = (key) => (e) => {
     const file = e.target.files?.[0] || null;
@@ -136,9 +142,9 @@ const StepPayment = ({
               <span>
                 {form.paymentMode === "installment"
                   ? "Please prepare the right amount of initial payment + assessment fee."
-                  : "Please prepare the right amount of half of total cash + assessment fee."}
+                  : "Please prepare the right amount of total cash + assessment fee."}
               </span>
-              <strong>₱{formatMoney(minimumPayment)}</strong>
+              <strong>₱{formatMoney(onsitePreparationAmount)}</strong>
             </div>
           </div>
         )}

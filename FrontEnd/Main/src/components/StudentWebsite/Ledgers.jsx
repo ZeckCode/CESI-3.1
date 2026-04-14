@@ -490,6 +490,9 @@
             return rows;
           }, []);
 
+          const isInstallmentMode =
+            String(student?.payment_mode || "").trim().toLowerCase() === "installment";
+
           const filteredInstallmentRows = isNewStudent
             ? installmentRows
             : installmentRows.filter(
@@ -502,7 +505,10 @@
           );
           const installmentRowsWithAssessment = hasAssessmentRow
             ? filteredInstallmentRows
-            : isNewStudent && Number.isFinite(expectedAssessment) && expectedAssessment > 0
+            : isInstallmentMode &&
+                isNewStudent &&
+                Number.isFinite(expectedAssessment) &&
+                expectedAssessment > 0
               ? [
                   ...filteredInstallmentRows,
                   {

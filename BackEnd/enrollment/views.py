@@ -588,12 +588,25 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             ("March", date(current_year + 1, 3, 31)),
         ]
 
+        installment = Decimal(str(tuition.installment or 0))
+        scheduled_installment = initial + (monthly * Decimal("10"))
+        installment_adjustment = installment - scheduled_installment
+
         if monthly > 0:
             for label, due in months:
+                month_amount = monthly
+                if label == "March":
+                    month_amount += installment_adjustment
+                    if month_amount < 0:
+                        month_amount = Decimal("0.00")
+
+                if month_amount == 0:
+                    continue
+
                 items.append({
                     "item": "MONTHLY",
                     "description": f"{label} Installment",
-                    "amount": monthly,
+                    "amount": month_amount,
                     "transaction_date": posted_date,
                     "due_date": due,
                     "semester": self._semester_from_date(due),

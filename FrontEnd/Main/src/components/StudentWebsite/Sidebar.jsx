@@ -167,6 +167,7 @@ export default function Sidebar({
   const showLabels = !isCollapsed || isMobile || isHoverExpanded;
   const displayName = getDisplayName(currentUser, { preferStudentProfile: true });
   const avatarLetter = getAvatarLetter(displayName);
+  const avatarUrl = currentUser?.avatar || currentUser?.profile?.avatar;
   const sidebarInlineStyle = !isMobile && isCollapsed
     ? { width: isHoverExpanded ? "var(--as-wide)" : "var(--as-narrow)" }
     : undefined;
@@ -208,7 +209,13 @@ export default function Sidebar({
         <div className="as-top-section">
           {showLabels && (
             <div className="as-usercard">
-              <div className="as-avatar">{avatarLetter}</div>
+              <div className="as-avatar">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={displayName} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                ) : (
+                  avatarLetter
+                )}
+              </div>
               <div className="as-usermeta">
                 <div className="as-userrow">
                   <div className="as-username">{displayName}</div>
@@ -222,7 +229,13 @@ export default function Sidebar({
 
           {isCollapsed && !isMobile && !isHoverExpanded && (
             <div className="as-usercard-collapsed">
-              <div className="as-avatar">{avatarLetter}</div>
+              <div className="as-avatar">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={displayName} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                ) : (
+                  avatarLetter
+                )}
+              </div>
             </div>
           )}
         </div>

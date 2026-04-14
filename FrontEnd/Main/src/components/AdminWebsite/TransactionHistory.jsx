@@ -896,8 +896,8 @@ const TransactionHistory = () => {
           })
           .forEach((tx) => {
             const debitAmount = Number(tx.debit || 0);
-            const dueBasis = tx.due_date || tx.date_posted || tx.transaction_date || '';
-            const isPastDue = isDueForReminder(dueBasis);
+            // Only use due_date for determining overdue status, not posted/transaction dates
+            const isPastDue = isDueForReminder(tx.due_date);
             const isBillingDebit = BILLING_DEBIT_ITEMS.has(String(tx.item || '').toUpperCase());
 
             if (!isBillingDebit || debitAmount <= 0) {

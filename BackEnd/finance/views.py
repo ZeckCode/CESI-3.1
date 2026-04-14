@@ -277,12 +277,6 @@ def build_installment_schedule(tuition, include_assessment=False):
     scheduled_installment = initial + (monthly * Decimal('10'))
     installment_adjustment = installment - scheduled_installment
 
-    # Never emit negative installment deduction rows/effects in schedule.
-    # Keep assessment strictly based on tuition config; do not inflate it
-    # from installment mismatches.
-    if installment_adjustment < 0:
-        installment_adjustment = Decimal('0.00')
-
     misc_by_month = {
         'August': misc_aug,
         'November': misc_nov,
@@ -295,6 +289,8 @@ def build_installment_schedule(tuition, include_assessment=False):
             # instead of adding a separate adjustment row.
             if label == 'March':
                 month_amount += installment_adjustment
+                if month_amount < 0:
+                    month_amount = Decimal('0.00')
             if month_amount != 0:
                 items.append({
                     'type': f'{label} Installment',
