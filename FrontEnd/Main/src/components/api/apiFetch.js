@@ -67,6 +67,9 @@ export async function apiFetch(url, options = {}) {
 
   if (response.status === 401) {
     clearAuth();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cesi-auth-changed'));
+    }
   }
 
   return response;
