@@ -188,6 +188,95 @@ def resolve_school_year_label(school_year_obj):
     return ""
 
 
+def build_section_students_payload(section_id):
+    students_map = {}
+
+    def build_student_key(student, enrollment=None, profile=None):
+        student_id = getattr(student, "id", None)
+        if student_id is not None:
+            return f"id:{student_id}"
+
+        student_number = None
+        if enrollment and enrollment.student_number:
+            student_number = enrollment.student_number
+        if not student_number and profile and profile.student_number:
+            student_number = profile.student_number
+        if not student_number and hasattr(student, "profile") and student.profile:
+            student_number = student.profile.student_number
+
+        student_number = (student_number or "").strip()
+        if student_number:
+            return f"num:{student_number.lower()}"
+
+        username = (getattr(student, "username", "") or "").strip()
+        if username:
+            return f"user:{username.lower()}"
+        return ""
+
+    enrollments = Enrollment.objects.filter(
+        section_id=section_id,
+        status="ACTIVE",
+    ).select_related("student", "student__profile")
+
+    for enr in enrollments:
+        stu = enr.student
+        if not stu:
+            continue
+
+        profile = getattr(stu, "profile", None)
+        student_user = stu
+        enrollment_number = enr.student_number or getattr(profile, "student_number", None)
+
+        full_name = " ".join(
+            p for p in [enr.first_name or "", enr.last_name or ""] if p
+        ).strip()
+        if not full_name and profile:
+            full_name = " ".join(
+                p for p in [profile.student_first_name or "", profile.student_last_name or ""] if p
+            ).strip()
+        if not full_name and hasattr(student_user, "profile") and student_user.profile:
+            full_name = " ".join(
+                p for p in [student_user.profile.student_first_name or "", student_user.profile.student_last_name or ""] if p
+            ).strip()
+        if not full_name:
+            full_name = student_user.username
+
+        key = build_student_key(student_user, enrollment=enr, profile=profile)
+        if not key:
+            continue
+        students_map[key] = {
+            "id": student_user.id,
+            "username": student_user.username,
+            "student_name": full_name,
+            "student_number": enrollment_number or getattr(getattr(student_user, "profile", None), "student_number", None),
+            "grade_level": enr.grade_level or getattr(getattr(student_user, "profile", None), "grade_level", None),
+        }
+
+    legacy_profiles = UserProfile.objects.filter(
+        section_id=section_id,
+        user__role="PARENT_STUDENT",
+        user__status="ACTIVE",
+    ).select_related("user")
+
+    for p in legacy_profiles:
+        stu = p.user
+        key = build_student_key(stu, profile=p)
+        if not key or key in students_map:
+            continue
+        full_name = " ".join(
+            part for part in [p.student_first_name or "", p.student_last_name or ""] if part
+        ).strip() or stu.username
+        students_map[key] = {
+            "id": stu.id,
+            "username": stu.username,
+            "student_name": full_name,
+            "student_number": p.student_number or getattr(getattr(stu, "profile", None), "student_number", None),
+            "grade_level": p.grade_level or getattr(getattr(stu, "profile", None), "grade_level", None),
+        }
+
+    return sorted(students_map.values(), key=lambda s: (s["student_name"].lower(), s["id"]))
+
+
 # ══════════════════════════════════════════════════════
 # WEIGHTS  —  get / update per subject
 # ══════════════════════════════════════════════════════
@@ -584,11 +673,7 @@ def publish_academic_history(request):
             return Response({"detail": "Forbidden"}, status=403)
 
     if user.role == "TEACHER":
-        raw_request = getattr(request, "_request", request)
-        students_response = students_by_section(raw_request, section_obj.id)
-        if students_response.status_code != 200:
-            return students_response
-        section_students = students_response.data if isinstance(students_response.data, list) else []
+        section_students = build_section_students_payload(section_obj.id)
     else:
         section_students = []
         admin_enrollments = Enrollment.objects.filter(
@@ -1428,93 +1513,7 @@ def students_by_section(request, section_id):
         if not allowed:
             return Response({"detail": "Forbidden"}, status=403)
 
-    students_map = {}
-
-    def build_student_key(student, enrollment=None, profile=None):
-        student_id = getattr(student, "id", None)
-        if student_id is not None:
-            return f"id:{student_id}"
-
-        student_number = None
-        if enrollment and enrollment.student_number:
-            student_number = enrollment.student_number
-        if not student_number and profile and profile.student_number:
-            student_number = profile.student_number
-        if not student_number and hasattr(student, "profile") and student.profile:
-            student_number = student.profile.student_number
-
-        student_number = (student_number or "").strip()
-        if student_number:
-            return f"num:{student_number.lower()}"
-
-        username = (getattr(student, "username", "") or "").strip()
-        if username:
-            return f"user:{username.lower()}"
-        return ""
-
-    enrollments = Enrollment.objects.filter(
-        section_id=section_id,
-        status="ACTIVE",
-    ).select_related("student", "student__profile")
-
-    for enr in enrollments:
-        stu = enr.student
-        if not stu:
-            continue
-
-        profile = getattr(stu, "profile", None)
-        student_user = stu
-        enrollment_number = enr.student_number or getattr(profile, "student_number", None)
-
-        full_name = " ".join(
-            p for p in [enr.first_name or "", enr.last_name or ""] if p
-        ).strip()
-        if not full_name and profile:
-            full_name = " ".join(
-                p for p in [profile.student_first_name or "", profile.student_last_name or ""] if p
-            ).strip()
-        if not full_name and hasattr(student_user, "profile") and student_user.profile:
-            full_name = " ".join(
-                p for p in [student_user.profile.student_first_name or "", student_user.profile.student_last_name or ""] if p
-            ).strip()
-        if not full_name:
-            full_name = student_user.username
-
-        key = build_student_key(student_user, enrollment=enr, profile=profile)
-        if not key:
-            continue
-        students_map[key] = {
-            "id": student_user.id,
-            "username": student_user.username,
-            "student_name": full_name,
-            "student_number": enrollment_number or getattr(getattr(student_user, "profile", None), "student_number", None),
-            "grade_level": enr.grade_level or getattr(getattr(student_user, "profile", None), "grade_level", None),
-        }
-
-    legacy_profiles = UserProfile.objects.filter(
-        section_id=section_id,
-        user__role="PARENT_STUDENT",
-        user__status="ACTIVE",
-    ).select_related("user")
-
-    for p in legacy_profiles:
-        stu = p.user
-        key = build_student_key(stu, profile=p)
-        if not key or key in students_map:
-            continue
-        full_name = " ".join(
-            part for part in [p.student_first_name or "", p.student_last_name or ""] if part
-        ).strip() or stu.username
-        students_map[key] = {
-            "id": stu.id,
-            "username": stu.username,
-            "student_name": full_name,
-            "student_number": p.student_number or getattr(getattr(stu, "profile", None), "student_number", None),
-            "grade_level": p.grade_level or getattr(getattr(stu, "profile", None), "grade_level", None),
-        }
-
-    result = sorted(students_map.values(), key=lambda s: (s["student_name"].lower(), s["id"]))
-    return Response(result)
+    return Response(build_section_students_payload(section_id))
 
 
 # ══════════════════════════════════════════════════════
