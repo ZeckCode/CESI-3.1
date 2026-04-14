@@ -1132,7 +1132,7 @@
                             }}
                           >
                            
-                            <div>School Year:</div>
+                            {/* <div>School Year:</div>
                             <div>
                               <strong>{schoolYearLabel(student) || "—"}</strong>
                             </div>
@@ -1160,7 +1160,8 @@
                               >
                                 {student.overall_status || "PENDING"}
                               </strong>
-                            </div>
+                            </div> */}
+                            
                           </div>
                         </div>
                       </div>
