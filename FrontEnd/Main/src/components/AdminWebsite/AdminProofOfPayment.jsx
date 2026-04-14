@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api/apiFetch";
 import "../AdminWebsiteCSS/AdminProofOfPayment.css";
 import { Check, X, Eye, XCircle } from "lucide-react";
@@ -57,11 +57,7 @@ export default function AdminProofOfPayment() {
   const [actionType, setActionType] = useState("");
   const [imageOverlay, setImageOverlay] = useState(null);
 
-  useEffect(() => {
-    fetchPayments();
-  }, []);
-
-  const fetchPayments = async () => {
+  const fetchPayments = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiFetch("/api/finance/proof-of-payments/");
@@ -100,7 +96,11 @@ export default function AdminProofOfPayment() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
 
   const getStudentDisplayName = (payment) => {
     if (payment.student_name) {
@@ -179,10 +179,14 @@ export default function AdminProofOfPayment() {
     });
   };
 
-  const getImageUrl = (imagePath) => {
+  const getImageUrl = (payment) => {
+    if (!payment) return null;
+    if (payment.proof_image_url) return payment.proof_image_url;
+
+    const imagePath = payment.proof_image;
     if (!imagePath) return null;
     if (imagePath.startsWith("http")) return imagePath;
-    return `${process.env.REACT_APP_API_URL || ""}${imagePath}`;
+    return imagePath;
   };
 
   const openImageOverlay = (imageUrl) => {
@@ -440,7 +444,7 @@ export default function AdminProofOfPayment() {
                     Payment Proof:
                   </label>
                   <img
-                    src={getImageUrl(selectedPayment.proof_image)}
+                    src={getImageUrl(selectedPayment)}
                     alt="Payment proof"
                     style={{
                       maxWidth: "100%",
@@ -450,9 +454,7 @@ export default function AdminProofOfPayment() {
                       border: "1px solid #e2e8f0",
                       cursor: "pointer",
                     }}
-                    onClick={() =>
-                      openImageOverlay(getImageUrl(selectedPayment.proof_image))
-                    }
+                    onClick={() => openImageOverlay(getImageUrl(selectedPayment))}
                   />
                 </div>
               )}

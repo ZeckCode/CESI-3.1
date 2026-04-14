@@ -1,6 +1,6 @@
 import { GRADE_AGE_RULES } from "../../../config/EnrollmentConfig.js";
 import { LRN_REQUIRED_GRADES } from "./constants";
-import { calcAge, normalizePHMobile } from "./helpers";
+import { calcAge, normalizePHMobile, getRequiredEnrollmentPayment } from "./helpers";
 
 const isValidEmail = (email = "") => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -229,11 +229,31 @@ export const validateDocumentsStep = ({ studentPhotoFile }) => {
   return errors;
 };
 
-export const validatePaymentStep = ({ paymentMode, paymentMethod, paymentProofFile }) => {
+export const validatePaymentStep = ({
+  paymentMode,
+  paymentMethod,
+  paymentProofFile,
+  paymentAmount,
+  tuition,
+  studentType,
+}) => {
   const errors = {};
 
   if (!paymentMode) errors.paymentMode = "Please select payment mode.";
   if (!paymentMethod) errors.paymentMethod = "Please select payment method.";
+
+  if (paymentMethod === "online") {
+    const amount = Number(paymentAmount || 0);
+    const minimumAmount = getRequiredEnrollmentPayment(tuition, paymentMode, studentType);
+
+    if (!paymentAmount) {
+      errors.paymentAmount = "Please enter the payment amount.";
+    } else if (amount <= 0) {
+      errors.paymentAmount = "Payment amount must be greater than 0.";
+    } else if (minimumAmount > 0 && amount < minimumAmount) {
+      errors.paymentAmount = `Please pay at least ₱${Number(minimumAmount).toFixed(2)} before submitting enrollment.`;
+    }
+  }
 
   if (paymentMethod === "online" && !paymentProofFile) {
     errors.paymentProofFile = "Please upload proof of payment.";

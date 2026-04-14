@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 from django.utils import timezone
 import re
@@ -6,12 +8,29 @@ from .models import Enrollment, ParentInfo, EnrollmentDocument
 from accounts.models import User
 from accounts.serializers import UserSerializer
 from enrollment.models import EnrollmentSettings
+from finance.models import TuitionConfig
 
 PRESCHOOL = {"prek", "kinder"}
 ELEMENTARY = {"grade1", "grade2", "grade3", "grade4", "grade5", "grade6"}
 
 PHONE_RE = re.compile(r"^[0-9+\-\s()]{7,20}$")
 PH_MOBILE_RE = re.compile(r"^(09\d{9}|\+639\d{9})$")
+
+
+def get_required_enrollment_payment(tuition, payment_mode, student_type):
+    if not tuition or not payment_mode:
+        return Decimal("0")
+
+    is_new_student = str(student_type or "").strip().lower() == "new"
+    assessment = Decimal(str(tuition.assessment or 0)) if is_new_student else Decimal("0")
+
+    if payment_mode == "cash":
+        return (Decimal(str(tuition.total_cash or 0)) + assessment) / Decimal("2")
+
+    if payment_mode == "installment":
+        return Decimal(str(tuition.initial or 0)) + assessment
+
+    return assessment
 
 
 def normalize_ph_mobile(value):
@@ -213,6 +232,7 @@ class OldStudentLookupSerializer(serializers.Serializer):
 
 class EnrollmentCreateSerializer(serializers.ModelSerializer):
     parent_info = ParentInfoSerializer(required=False)
+    payment_amount = serializers.DecimalField(required=False, allow_null=True, max_digits=10, decimal_places=2)
     website = serializers.CharField(required=False, allow_blank=True, write_only=True)
     student_photo = serializers.ImageField(required=False, allow_null=True, write_only=True)
     payment_proof_file = serializers.FileField(required=False, allow_null=True, write_only=True)
@@ -246,6 +266,8 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid submission.")
 
         attrs.pop("website", None)
+
+        payment_amount = attrs.get("payment_amount")
 
         if is_create:
             required = [
@@ -366,10 +388,38 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
                     }
                 )
 
+        payment_mode = merged_value("payment_mode")
+        payment_method = merged_value("payment_method")
+        student_type = merged_value("student_type")
+        grade_level = merged_value("grade_level")
+
+        if payment_method == "online":
+            amount_value = Decimal(str(payment_amount or 0))
+            if amount_value <= 0:
+                raise serializers.ValidationError({
+                    "payment_amount": "Please enter the payment amount."
+                })
+
+            tuition = TuitionConfig.objects.filter(
+                grade_key=str(grade_level or "").strip().lower(),
+                is_active=True,
+                status="active",
+            ).first()
+
+            if tuition:
+                minimum_amount = get_required_enrollment_payment(tuition, payment_mode, student_type)
+                if minimum_amount > 0 and amount_value < minimum_amount:
+                    raise serializers.ValidationError({
+                        "payment_amount": (
+                            f"Please pay a minimum of Php {minimum_amount:.2f} before submitting enrollment."
+                        )
+                    })
+
         return attrs
 
     def create(self, validated_data):
         validated_data.pop("website", None)
+        validated_data.pop("payment_amount", None)
         parent_data = validated_data.pop("parent_info", None)
         student_photo = validated_data.pop("student_photo", None)
         payment_proof_file = validated_data.pop("payment_proof_file", None)

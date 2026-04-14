@@ -1,7 +1,7 @@
 // StepPayment.jsx
 import React from "react";
 import FieldError from "../FieldError";
-import { formatMoney } from "../helpers";
+import { formatMoney, getRequiredEnrollmentPayment } from "../helpers";
 
 const StepPayment = ({
   form,
@@ -15,6 +15,8 @@ const StepPayment = ({
   tuitionError,
   studentType,
 }) => {
+  const minimumPayment = getRequiredEnrollmentPayment(tuition, form.paymentMode, studentType);
+
   const handleFileChange = (key) => (e) => {
     const file = e.target.files?.[0] || null;
     setFiles((prev) => ({
@@ -31,6 +33,7 @@ const StepPayment = ({
         <h4>Payment Policies</h4>
         <ul>
           <li>Please select your preferred payment mode and payment method.</li>
+          <li>Onsite payments show the required amount only as a reminder.</li>
           <li>For online payments, proof of payment is required before submission.</li>
           <li>Submitted payment information is subject to school verification.</li>
           <li>Enrollment processing may be delayed if payment details are incomplete.</li>
@@ -83,6 +86,35 @@ const StepPayment = ({
         {form.paymentMethod === "online" && (
           <div className="form-group form-group--full">
             <label>
+              Amount <span className="required">*</span>
+            </label>
+            <input
+              ref={registerFieldRef("paymentAmount")}
+              type="number"
+              step="0.01"
+              min={minimumPayment > 0 ? minimumPayment : 0}
+              value={form.paymentAmount}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  paymentAmount: e.target.value,
+                }))
+              }
+              placeholder={`Please pay at least ₱${formatMoney(minimumPayment)} before submitting enrollment`}
+            />
+            {minimumPayment > 0 ? (
+              <div className="tuition-row" style={{ marginTop: 8 }}>
+                <span>
+                  {form.paymentMode === "installment"
+                    ? "Minimum required amount (initial payment + assessment fee)"
+                    : "Minimum required amount (50% of cash total + assessment fee)"}
+                </span>
+                <strong>₱{formatMoney(minimumPayment)}</strong>
+              </div>
+            ) : null}
+            <FieldError error={errors.paymentAmount} />
+
+            <label>
               Proof of Payment <span className="required">*</span>
             </label>
             <input
@@ -95,6 +127,19 @@ const StepPayment = ({
               <div className="file-name">{files.paymentProofFile.name}</div>
             )}
             <FieldError error={errors.paymentProofFile} />
+          </div>
+        )}
+
+        {form.paymentMethod === "onsite" && form.paymentMode && (
+          <div className="form-group form-group--full">
+            <div className="tuition-row" style={{ marginTop: 8 }}>
+              <span>
+                {form.paymentMode === "installment"
+                  ? "Please prepare the right amount of initial payment + assessment fee."
+                  : "Please prepare the right amount of half of total cash + assessment fee."}
+              </span>
+              <strong>₱{formatMoney(minimumPayment)}</strong>
+            </div>
           </div>
         )}
       </div>

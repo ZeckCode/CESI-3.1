@@ -61,6 +61,7 @@ const EnrollmentForm = ({ onClose }) => {
     gradeLevel: "",
     paymentMode: "",
     paymentMethod: "",
+    paymentAmount: "",
 
     lrn: "",
     lastName: "",
@@ -252,6 +253,9 @@ const EnrollmentForm = ({ onClose }) => {
         paymentMode: form.paymentMode,
         paymentMethod: form.paymentMethod,
         paymentProofFile: files.paymentProofFile,
+        paymentAmount: form.paymentAmount,
+        tuition,
+        studentType: form.studentType,
       });
     }
 
@@ -275,6 +279,7 @@ const EnrollmentForm = ({ onClose }) => {
       telephone_number: "mobile",
       payment_mode: "paymentMode",
       payment_method: "paymentMethod",
+      payment_amount: "paymentAmount",
       grade_level: "gradeLevel",
       education_level: "educationLevel",
       custom_religion: "customReligion",
@@ -425,6 +430,9 @@ const EnrollmentForm = ({ onClose }) => {
     formData.append("parent_facebook", form.parentFacebook);
     formData.append("payment_mode", form.paymentMode);
     formData.append("payment_method", form.paymentMethod);
+    if (form.paymentMethod === "online" && form.paymentAmount) {
+      formData.append("payment_amount", form.paymentAmount);
+    }
     formData.append("remarks", "");
 
     formData.append(
@@ -498,7 +506,7 @@ const EnrollmentForm = ({ onClose }) => {
       setSubmittedEmail(form.email);
       setSubmittedName(`${form.firstName} ${form.lastName}`);
       setCurrentStep(STEP_KEYS.CONFIRMATION);
-    } catch (err) {
+    } catch {
       const errorMsg = "Network error. Check if backend is running.";
       setSubmitError(errorMsg);
       addToast("Network Error", errorMsg, "error");

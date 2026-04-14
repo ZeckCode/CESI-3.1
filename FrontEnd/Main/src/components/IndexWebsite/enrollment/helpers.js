@@ -10,6 +10,23 @@ export const fmtDate = (date) =>
 
 export const formatMoney = (value) => Number(value || 0).toLocaleString();
 
+export const getRequiredEnrollmentPayment = (tuition, paymentMode, studentType) => {
+  if (!tuition || !paymentMode) return 0;
+
+  const isNewStudent = String(studentType || "").trim().toLowerCase() === "new";
+  const assessment = isNewStudent ? Number(tuition.assessment || 0) : 0;
+
+  if (paymentMode === "cash") {
+    return (Number(tuition.total_cash || 0) + assessment) / 2;
+  }
+
+  if (paymentMode === "installment") {
+    return Number(tuition.initial || 0) + assessment;
+  }
+
+  return assessment;
+};
+
 export const onlyDigits = (value, max = 20) =>
   String(value || "").replace(/\D/g, "").slice(0, max);
 

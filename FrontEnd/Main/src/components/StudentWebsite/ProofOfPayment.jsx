@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api/apiFetch";
 import "../StudentWebsiteCSS/ProofOfPayment.css";
 
@@ -45,12 +45,7 @@ export default function ProofOfPayment() {
     proof_image: null,
   });
 
-  useEffect(() => {
-    fetchPayments();
-    fetchStudentProfile();
-  }, []);
-
-  const fetchStudentProfile = async () => {
+  const fetchStudentProfile = useCallback(async () => {
     try {
       const endpoints = ["/api/accounts/me/detail/"];
 
@@ -67,9 +62,9 @@ export default function ProofOfPayment() {
     } catch (err) {
       console.error("Error fetching profile:", err);
     }
-  };
+  }, []);
 
-  const fetchPayments = async () => {
+  const fetchPayments = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiFetch("/api/finance/proof-of-payments/");
@@ -86,7 +81,12 @@ export default function ProofOfPayment() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPayments();
+    fetchStudentProfile();
+  }, [fetchPayments, fetchStudentProfile]);
 
   const getStudentName = () => {
     if (!studentData) return "Loading...";
@@ -219,10 +219,14 @@ export default function ProofOfPayment() {
     });
   };
 
-  const getImageUrl = (imagePath) => {
+  const getImageUrl = (payment) => {
+    if (!payment) return null;
+    if (payment.proof_image_url) return payment.proof_image_url;
+
+    const imagePath = payment.proof_image;
     if (!imagePath) return null;
     if (imagePath.startsWith("http")) return imagePath;
-    return `${process.env.REACT_APP_API_URL || ""}${imagePath}`;
+    return imagePath;
   };
 
   return (
@@ -397,13 +401,13 @@ export default function ProofOfPayment() {
                   {payment.proof_image && (
                     <div className="proof-image-container">
                       <a
-                        href={getImageUrl(payment.proof_image)}
+                        href={getImageUrl(payment)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="proof-image-link"
                       >
                         <img
-                          src={getImageUrl(payment.proof_image)}
+                          src={getImageUrl(payment)}
                           alt="Proof of payment"
                           className="proof-image-thumbnail"
                         />

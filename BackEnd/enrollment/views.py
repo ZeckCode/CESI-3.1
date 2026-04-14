@@ -700,16 +700,73 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             status=status_value,
         )
 
+    def _ensure_new_student_assessment_debit(
+        self,
+        *,
+        enrollment,
+        tuition,
+        school_year,
+        student_name,
+    ):
+        if not enrollment.parent_user:
+            return False
+
+        is_new_student = (enrollment.student_type or "").strip().lower() == "new"
+        if not is_new_student:
+            return False
+
+        assessment = Decimal(str(tuition.assessment or 0))
+        if assessment <= 0:
+            return False
+
+        assessment_exists = Transaction.objects.filter(
+            parent=enrollment.parent_user,
+            enrollment=enrollment,
+            transaction_type="TUITION",
+            entry_type="DEBIT",
+            item="ASSESSMENT",
+        ).exists()
+        if assessment_exists:
+            return False
+
+        payment_mode = (enrollment.payment_mode or "").strip().lower()
+        today = timezone.localdate()
+
+        due_date = None
+        semester = self._semester_from_date(today)
+        status_value = "POSTED"
+
+        if payment_mode == "installment":
+            current_year = today.year
+            due_date = date(current_year, 5, 31)
+            semester = self._semester_from_date(due_date)
+            status_value = "PENDING"
+
+        self._create_transaction(
+            enrollment=enrollment,
+            parent_user=enrollment.parent_user,
+            student_name=student_name,
+            school_year=school_year,
+            semester=semester,
+            transaction_type="TUITION",
+            entry_type="DEBIT",
+            item="ASSESSMENT",
+            amount=assessment,
+            description="Assessment Fee Billing",
+            payment_method="CASH",
+            transaction_date=today,
+            due_date=due_date,
+            status_value=status_value,
+        )
+
+        return True
+
     def _create_finance_ledger_for_enrollment(self, enrollment):
         if not enrollment.parent_user:
             return
 
-        if self._ledger_exists_for_enrollment(enrollment):
-            return
-
         grade_key = (enrollment.grade_level or "").strip().lower()
         payment_mode = (enrollment.payment_mode or "").strip().lower()
-        is_new_student = (enrollment.student_type or "").strip().lower() == "new"
         school_year = enrollment.academic_year or ""
         student_name = self._student_full_name(enrollment)
 
@@ -721,6 +778,19 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
         if not tuition:
             return
+
+        if self._ledger_exists_for_enrollment(enrollment):
+            created = self._ensure_new_student_assessment_debit(
+                enrollment=enrollment,
+                tuition=tuition,
+                school_year=school_year,
+                student_name=student_name,
+            )
+            if created:
+                self._recompute_parent_ledger_balances(enrollment.parent_user)
+            return
+
+        is_new_student = (enrollment.student_type or "").strip().lower() == "new"
 
         today = timezone.localdate()
         semester = self._semester_from_date(today)
@@ -860,6 +930,13 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     due_date=sched["due_date"],
                     status_value=debit_status,
                 )
+
+        self._ensure_new_student_assessment_debit(
+            enrollment=enrollment,
+            tuition=tuition,
+            school_year=school_year,
+            student_name=student_name,
+        )
 
             # initial = Decimal(str(tuition.initial or 0))
             # if initial > 0:

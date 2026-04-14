@@ -35,7 +35,6 @@ import {
 import {
   gradeLabel,
   statusLabel,
-  matchesStatusFilter,
   GRADE_AGE_RULES,
   getNextGrade,
   advanceAcademicYear,
@@ -57,7 +56,6 @@ import {
 
 import { StatusBadge } from "./Enrollment/EnrollmentBadges";
 import { StudentCell, ParentCell } from "./Enrollment/EnrollmentCells";
-import { exportToPDF } from "./Enrollment/exportEnrollmentPDF";
 import DeclineDialog from "./Enrollment/DeclineDialog";
 import IdUploadModal from "./Enrollment/IdUploadModal";
 import TableActionMenu from "./TableActionMenu";
@@ -166,14 +164,14 @@ export default function EnrollmentManagement() {
 
   // Payment Proof States
   const [proofs, setProofs] = useState([]);
-  const [loadingProofs, setLoadingProofs] = useState(false);
+  const [_loadingProofs, setLoadingProofs] = useState(false);
   const [gradeProgressMap, setGradeProgressMap] = useState(new Map());
   const [balanceMap, setBalanceMap] = useState(new Map());
   const [paymentProofModalOpen, setPaymentProofModalOpen] = useState(false);
-  const [selectedProofId, setSelectedProofId] = useState(null);
+  const [selectedProofId, _setSelectedProofId] = useState(null);
   const [approvalRemarks, setApprovalRemarks] = useState("");
-  const [isApprovingProof, setIsApprovingProof] = useState(false);
-  const [isRejectingProof, setIsRejectingProof] = useState(false);
+  const [_isApprovingProof, setIsApprovingProof] = useState(false);
+  const [_isRejectingProof, setIsRejectingProof] = useState(false);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState(null);
 
@@ -189,7 +187,7 @@ export default function EnrollmentManagement() {
   // ID Generator States
   const [idGeneratorOpen, setIdGeneratorOpen] = useState(false);
   const [selectedStudentForId, setSelectedStudentForId] = useState(null);
-  const [schoolInfo, setSchoolInfo] = useState(DEFAULT_SCHOOL_INFO);
+  const [schoolInfo, _setSchoolInfo] = useState(DEFAULT_SCHOOL_INFO);
 
   const addToast = useCallback((title, message, type = "warning") => {
     const id = Date.now() + Math.random();
@@ -366,7 +364,7 @@ export default function EnrollmentManagement() {
     setEnrollments((prev) => prev.map((item) => (item.id === id ? data : item)));
   };
 
-  const handleApproveProof = async () => {
+  const _handleApproveProof = async () => {
     if (!selectedProofId) return;
     
     setIsApprovingProof(true);
@@ -398,7 +396,7 @@ export default function EnrollmentManagement() {
     }
   };
 
-  const handleRejectProof = async () => {
+  const _handleRejectProof = async () => {
     if (!selectedProofId) return;
     
     setIsRejectingProof(true);
@@ -1207,7 +1205,15 @@ export default function EnrollmentManagement() {
         const cfgRes = await apiFetch(`/api/finance/tuition-configs/by-grade/${gradeKey}/`);
         const cfg = await cfgRes.json().catch(() => ({}));
         if (cfgRes.ok) {
-          setApproveMinimumAmount(Number(cfg?.initial || 0));
+          const isNewStudent = String(row?.raw?.student_type || "").trim().toLowerCase() === "new";
+          const assessment = isNewStudent ? Number(cfg?.assessment || 0) : 0;
+          const paymentMode = String(row?.raw?.payment_mode || "").trim().toLowerCase();
+
+          if (paymentMode === "cash") {
+            setApproveMinimumAmount((Number(cfg?.total_cash || 0) + assessment) / 2);
+          } else {
+            setApproveMinimumAmount(Number(cfg?.initial || 0) + assessment);
+          }
         }
       } catch {
         setApproveMinimumAmount(0);
@@ -1227,7 +1233,7 @@ export default function EnrollmentManagement() {
     setApproveRemarks("");
   };
 
-  const autoApprovePaymentProof = async (enrollmentId) => {
+  const _autoApprovePaymentProof = async (enrollmentId) => {
     try {
       // Find the proof of payment for this enrollment
       const proof = proofs.find(p => p.enrollment_id === enrollmentId);
@@ -1328,7 +1334,7 @@ export default function EnrollmentManagement() {
     }
   };
 
-  const handleSelectAll = () => {
+  const _handleSelectAll = () => {
     if (selectedIds.size === paginatedEnrollments.length) {
       setSelectedIds(new Set());
     } else {
@@ -1336,7 +1342,7 @@ export default function EnrollmentManagement() {
     }
   };
 
-  const handleSelectOne = (id) => {
+  const _handleSelectOne = (id) => {
     const newSet = new Set(selectedIds);
     if (newSet.has(id)) newSet.delete(id);
     else newSet.add(id);
@@ -2660,12 +2666,12 @@ const openIdGenerator = (row) => {
                 min={Number(approveMinimumAmount || 0)}
                 value={approveAmount}
                 onChange={(e) => setApproveAmount(e.target.value)}
-                placeholder="Enter approved payment amount"
+                placeholder="Please confirm the payment amount before approval"
                 className="approve-enrollment-panel__input"
               />
               {Number(approveMinimumAmount || 0) > 0 ? (
                 <div className="approve-enrollment-panel__meta-label" style={{ marginTop: 6 }}>
-                  Minimum required initial payment: Php {Number(approveMinimumAmount).toFixed(2)}
+                  Minimum required amount: Php {Number(approveMinimumAmount).toFixed(2)}
                 </div>
               ) : null}
             </div>

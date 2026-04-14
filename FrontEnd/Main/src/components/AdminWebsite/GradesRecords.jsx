@@ -118,22 +118,15 @@ const resolveAttendanceOverallStatus = ({ present, absent, late, excused }) => {
 const getStudentKey = (student) =>
   String(student?.student_number || student?.student_id || student?.student_username || '');
 
-const normalizeHistoryToken = (value) => String(value ?? '').trim().toLowerCase();
-
 const getHistoryGroupKey = (record) => {
-  const base = normalizeHistoryToken(
+  const base =
     record?.student_number ||
-      record?.student ||
-      record?.student_id ||
-      record?.student_username ||
-      record?.student_name ||
-      'unknown'
-  );
-  const schoolYear = normalizeHistoryToken(record?.school_year || 'unknown');
-  const gradeLevel = normalizeGradeLevel(record?.grade_level);
-  const sectionName = normalizeHistoryToken(record?.section_name || 'unknown');
-
-  return `${base}::${schoolYear}::${gradeLevel ?? 'unknown'}::${sectionName}`;
+    record?.student ||
+    record?.student_id ||
+    record?.student_username ||
+    record?.student_name ||
+    'unknown';
+  return `${base}::${record?.school_year || 'unknown'}`;
 };
 
 const GradesRecords = () => {
@@ -291,10 +284,6 @@ const GradesRecords = () => {
     setExpandedStudentId(null);
     setExpandedHistoryKey(null);
     setExpandedAttendanceStudentId(null);
-    setFilterStatus('all');
-    if (activeTab !== 'history') {
-      setFilterSchoolYear('all');
-    }
   }, [activeTab]);
 
   useEffect(() => {
@@ -447,11 +436,6 @@ const GradesRecords = () => {
       const yearA = String(a.school_year || '');
       const yearB = String(b.school_year || '');
       if (yearA !== yearB) return yearB.localeCompare(yearA);
-      const gradeA = normalizeGradeLevel(a.grade_level);
-      const gradeB = normalizeGradeLevel(b.grade_level);
-      if (gradeA !== gradeB) return (gradeA ?? 999) - (gradeB ?? 999);
-      const sectionCompare = String(a.section_name || '').localeCompare(String(b.section_name || ''));
-      if (sectionCompare !== 0) return sectionCompare;
       return String(a.student_name || '').localeCompare(String(b.student_name || ''));
     });
   }, [filteredHistory]);
