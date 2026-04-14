@@ -245,7 +245,25 @@ const SPerformance = () => {
           });
         }
         setPerformanceData(unique);
-      } else setPerformanceData([]);
+      } else {
+        const errPayload = await res.json().catch(() => ({}));
+        console.warn("SPerformance fetch failed", {
+          status: res.status,
+          error_code: errPayload?.error_code,
+          detail: errPayload?.detail,
+          trace_reason: errPayload?.trace_reason,
+          trace: errPayload?.trace,
+        });
+        pushToast({
+          type: "error",
+          title: "Section Performance",
+          message:
+            errPayload?.error_code || errPayload?.detail
+              ? `Failed to load performance (${errPayload?.error_code || errPayload?.detail}).`
+              : "Failed to load performance.",
+        });
+        setPerformanceData([]);
+      }
     } catch (e) {
       console.error(e);
       setPerformanceData([]);

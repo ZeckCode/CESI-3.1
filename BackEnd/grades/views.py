@@ -1357,11 +1357,13 @@ def section_performance(request):
 
         logger.warning("section_performance forbidden: %s | context=%s", reason, base_context)
 
-        payload = {"detail": "Forbidden"}
+        payload = {"detail": "Forbidden", "error_code": reason}
         if trace_mode:
             payload["trace_reason"] = reason
             payload["trace"] = base_context
-        return Response(payload, status=403)
+        response = Response(payload, status=403)
+        response["X-Section-Performance-Error"] = reason
+        return response
 
     if user.role not in ("TEACHER", "ADMIN"):
         return forbid("role_not_allowed")
