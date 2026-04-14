@@ -189,93 +189,138 @@ def resolve_school_year_label(school_year_obj):
 
 
 def build_section_students_payload(section_id):
-    students_map = {}
-    student_number_to_key = {}
-
     def normalize_student_number(value):
         return str(value or "").strip().lower()
 
-    def build_student_key(student):
-        student_id = getattr(student, "id", None)
-        return f"id:{student_id}" if student_id is not None else ""
+    def normalize_student_name(value):
+        return " ".join(str(value or "").strip().lower().split())
 
-    def upsert_student_row(student_row, prefer_existing_number=False):
-        row_id = student_row.get("id")
-        row_key = f"id:{row_id}" if row_id is not None else ""
-        if not row_key:
-            return
+    def row_quality(row):
+        username = str(row.get("username") or "").strip().lower()
+        return (
+            0 if username == "public_user" else 1,
+            1 if "@" in username else 0,
+            row.get("id") or 0,
+        )
 
-        number_key = normalize_student_number(student_row.get("student_number"))
-        existing_key = student_number_to_key.get(number_key) if number_key else None
+    def pick_preferred_row(a, b):
+        return a if row_quality(a) >= row_quality(b) else b
 
-        if existing_key and existing_key != row_key:
-            if prefer_existing_number:
-                return
-            students_map.pop(existing_key, None)
+    def resolve_portal_student_user(enrollment):
+        if enrollment.parent_user_id:
+            return enrollment.parent_user
 
-        students_map[row_key] = student_row
-        if number_key:
-            student_number_to_key[number_key] = row_key
+        if enrollment.student_id and enrollment.student and enrollment.student.username != "public_user":
+            return enrollment.student
 
-    enrollments = Enrollment.objects.filter(
-        section_id=section_id,
-        status="ACTIVE",
-    ).select_related("student", "student__profile")
+        enrollment_email = str(enrollment.email or "").strip()
+        if enrollment_email:
+            candidate = User.objects.filter(
+                email__iexact=enrollment_email,
+                role="PARENT_STUDENT",
+            ).first()
+            if candidate:
+                return candidate
 
-    for enr in enrollments:
-        stu = enr.student
-        if not stu:
+        identifiers = [enrollment.student_number, enrollment.lrn]
+        for identifier in identifiers:
+            lookup_value = str(identifier or "").strip()
+            if not lookup_value:
+                continue
+            profile = (
+                UserProfile.objects.select_related("user")
+                .filter(
+                    Q(student_number__iexact=lookup_value) | Q(lrn__iexact=lookup_value),
+                    user__role="PARENT_STUDENT",
+                )
+                .order_by("-id")
+                .first()
+            )
+            if profile and profile.user_id:
+                return profile.user
+
+        return enrollment.student
+
+    candidate_rows = []
+    enrollments = (
+        Enrollment.objects.filter(section_id=section_id, status="ACTIVE")
+        .select_related("student", "student__profile", "parent_user", "parent_user__profile")
+        .order_by("last_name", "first_name", "id")
+    )
+
+    for enrollment in enrollments:
+        student_user = resolve_portal_student_user(enrollment)
+        if not student_user:
             continue
 
-        profile = getattr(stu, "profile", None)
-        student_user = stu
-        enrollment_number = enr.student_number or getattr(profile, "student_number", None)
-
+        profile = getattr(student_user, "profile", None)
         full_name = " ".join(
-            p for p in [enr.first_name or "", enr.last_name or ""] if p
+            p for p in [enrollment.first_name or "", enrollment.last_name or ""] if p
         ).strip()
         if not full_name and profile:
             full_name = " ".join(
                 p for p in [profile.student_first_name or "", profile.student_last_name or ""] if p
             ).strip()
-        if not full_name and hasattr(student_user, "profile") and student_user.profile:
-            full_name = " ".join(
-                p for p in [student_user.profile.student_first_name or "", student_user.profile.student_last_name or ""] if p
-            ).strip()
         if not full_name:
             full_name = student_user.username
 
-        upsert_student_row({
+        candidate_rows.append({
             "id": student_user.id,
             "username": student_user.username,
             "student_name": full_name,
-            "student_number": enrollment_number or getattr(getattr(student_user, "profile", None), "student_number", None),
-            "grade_level": enr.grade_level or getattr(getattr(student_user, "profile", None), "grade_level", None),
+            "student_number": (
+                getattr(profile, "student_number", None)
+                or enrollment.student_number
+                or enrollment.lrn
+                or ""
+            ),
+            "grade_level": enrollment.grade_level or getattr(profile, "grade_level", None),
         })
 
-    legacy_profiles = UserProfile.objects.filter(
-        section_id=section_id,
-        user__role="PARENT_STUDENT",
-        user__status="ACTIVE",
-    ).select_related("user")
+    # Only use legacy profile fallback when there are no active enrollment rows.
+    if not candidate_rows:
+        legacy_profiles = UserProfile.objects.filter(
+            section_id=section_id,
+            user__role="PARENT_STUDENT",
+            user__status="ACTIVE",
+        ).select_related("user")
 
-    for p in legacy_profiles:
-        stu = p.user
-        key = build_student_key(stu)
-        if not key:
+        for profile in legacy_profiles:
+            student_user = profile.user
+            full_name = " ".join(
+                part for part in [profile.student_first_name or "", profile.student_last_name or ""] if part
+            ).strip() or student_user.username
+            candidate_rows.append({
+                "id": student_user.id,
+                "username": student_user.username,
+                "student_name": full_name,
+                "student_number": profile.student_number or "",
+                "grade_level": profile.grade_level,
+            })
+
+    # Collapse only true clone identities (same student_number + same normalized name).
+    clone_collapsed = {}
+    no_identity_rows = []
+    for row in candidate_rows:
+        number_key = normalize_student_number(row.get("student_number"))
+        name_key = normalize_student_name(row.get("student_name"))
+        if number_key and name_key:
+            clone_key = f"{number_key}::{name_key}"
+            existing = clone_collapsed.get(clone_key)
+            clone_collapsed[clone_key] = pick_preferred_row(existing, row) if existing else row
+        else:
+            no_identity_rows.append(row)
+
+    final_map = {}
+    for row in list(clone_collapsed.values()) + no_identity_rows:
+        row_id = row.get("id")
+        if row_id is None:
             continue
-        full_name = " ".join(
-            part for part in [p.student_first_name or "", p.student_last_name or ""] if part
-        ).strip() or stu.username
-        upsert_student_row({
-            "id": stu.id,
-            "username": stu.username,
-            "student_name": full_name,
-            "student_number": p.student_number or getattr(getattr(stu, "profile", None), "student_number", None),
-            "grade_level": p.grade_level or getattr(getattr(stu, "profile", None), "grade_level", None),
-        }, prefer_existing_number=True)
+        existing = final_map.get(row_id)
+        final_map[row_id] = pick_preferred_row(existing, row) if existing else row
 
-    return sorted(students_map.values(), key=lambda s: (s["student_name"].lower(), s["id"]))
+    final_rows = list(final_map.values())
+    return sorted(final_rows, key=lambda s: (str(s.get("student_name") or "").lower(), s.get("id") or 0))
 
 
 def dedupe_serialized_academic_records(records):
