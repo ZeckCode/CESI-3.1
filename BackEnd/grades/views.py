@@ -1375,10 +1375,18 @@ def section_performance(request):
         except Exception:
             return Response({"detail": "Teacher profile not found"}, status=404)
 
-        schedule_subject_ids = get_teacher_schedule_subject_ids(user, school_year_obj=school_year_obj)
-        teacher_subject_ids = schedule_subject_ids or get_teacher_subject_ids(teacher_profile)
-        if not teacher_subject_ids:
-            return Response({"detail": "No subject assigned to this teacher"}, status=404)
+        teacher_schedules_qs = Schedule.objects.filter(
+            teacher_schedule_access_q(user),
+            section_id=section_id,
+            subject__isnull=False,
+        )
+        if school_year_obj:
+            teacher_schedules_qs = teacher_schedules_qs.filter(school_year=school_year_obj)
+
+        section_subject_ids = list(teacher_schedules_qs.values_list("subject_id", flat=True).distinct())
+        if not section_subject_ids:
+            return Response({"detail": "Forbidden"}, status=403)
+        section_subject_id_set = set(section_subject_ids)
 
         raw_subj = request.query_params.get("subject")
         if raw_subj:
@@ -1386,21 +1394,24 @@ def section_performance(request):
                 subject_id = int(raw_subj)
             except (ValueError, TypeError):
                 return Response({"detail": "Invalid subject id"}, status=400)
-            if subject_id not in teacher_subject_ids:
+            if subject_id not in section_subject_id_set:
                 return Response({"detail": "Forbidden"}, status=403)
         else:
-            subject_id = teacher_profile.subject_id or teacher_subject_ids[0]
+            # Pick a section-linked subject to avoid false 403 when profile.subject points elsewhere.
+            profile_subject_id = teacher_profile.subject_id
+            if profile_subject_id in section_subject_id_set:
+                subject_id = profile_subject_id
+            else:
+                teacher_subject_ids = get_teacher_subject_ids(teacher_profile)
+                subject_id = next(
+                    (sid for sid in teacher_subject_ids if sid in section_subject_id_set),
+                    section_subject_ids[0],
+                )
 
-        teacher_schedules = Schedule.objects.filter(
-            teacher_schedule_access_q(user),
-            section_id=section_id,
-            subject_id=subject_id,
-        )
-        if school_year_obj:
-            teacher_schedules = teacher_schedules.filter(school_year=school_year_obj)
-        if not teacher_schedules.exists():
-            return Response({"detail": "Forbidden"}, status=403)
+        teacher_schedules = teacher_schedules_qs.filter(subject_id=subject_id)
         schedule_ids = list(teacher_schedules.values_list("id", flat=True))
+        if not schedule_ids:
+            return Response({"detail": "Forbidden"}, status=403)
     else:
         raw_subj = request.query_params.get("subject")
         if not raw_subj:

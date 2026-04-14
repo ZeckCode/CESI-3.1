@@ -209,10 +209,16 @@ const SPerformance = () => {
       setPerformanceData([]);
       return;
     }
+
+    const selectedSectionMeta = sections.find((sec) => String(sec.id) === String(selectedSection));
+    const subjectQuery = selectedSectionMeta?.subject_id
+      ? `&subject=${encodeURIComponent(selectedSectionMeta.subject_id)}`
+      : "";
+
     setLoading(true);
     try {
       const res = await apiFetch(
-        `${API}/api/grades/section-performance/?section=${selectedSection}&quarter=${quarter}`
+        `${API}/api/grades/section-performance/?section=${selectedSection}&quarter=${quarter}${subjectQuery}`
       );
       if (res.ok) {
         const raw = await res.json();
@@ -246,7 +252,7 @@ const SPerformance = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedSection, quarter]);
+  }, [selectedSection, quarter, sections]);
 
   useEffect(() => {
     fetchPerformance();
