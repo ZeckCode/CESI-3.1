@@ -77,6 +77,7 @@ const gradeLabel = (value) => {
 };
 
 const QUARTERS = [1, 2, 3, 4];
+const MIN_WEIGHT_PERCENT = 1;
 
 const CATEGORIES = [
   { key: "ACTIVITY", label: "Activities", color: "#3b82f6" },
@@ -806,6 +807,19 @@ const Grade = () => {
         setError(`Weight for ${w.key.replace(/_/g, ' ')} cannot be negative.`);
         return;
       }
+
+      if (w.value < MIN_WEIGHT_PERCENT) {
+        setError(
+          `Weight for ${w.key.replace(/_/g, ' ')} must be at least ${MIN_WEIGHT_PERCENT}%.`
+        );
+        return;
+      }
+    }
+
+    const totalWeight = weights_array.reduce((sum, item) => sum + item.value, 0);
+    if (totalWeight !== 100) {
+      setError("Total weight must equal 100%.");
+      return;
     }
 
     try {
@@ -1107,6 +1121,12 @@ const Grade = () => {
     Number(tempWeights.quiz_weight || 0) +
     Number(tempWeights.exam_weight || 0) +
     Number(tempWeights.class_standing_weight || 0);
+
+  const hasMinimumWeightViolation =
+    Number(tempWeights.activity_weight || 0) < MIN_WEIGHT_PERCENT ||
+    Number(tempWeights.quiz_weight || 0) < MIN_WEIGHT_PERCENT ||
+    Number(tempWeights.exam_weight || 0) < MIN_WEIGHT_PERCENT ||
+    Number(tempWeights.class_standing_weight || 0) < MIN_WEIGHT_PERCENT;
 
   if (!teacherSubject || availableSubjects.length === 0) {
     return (
@@ -1766,7 +1786,7 @@ const Grade = () => {
               {error && <div className="ge__error">⚠️ {error}</div>}
               <p className="ge__weightNote">
                 Adjust how much each category contributes to the quarter grade.
-                Total must equal 100%.
+                Total must equal 100%, and each category must be at least {MIN_WEIGHT_PERCENT}%.
               </p>
 
               {[
@@ -1782,7 +1802,7 @@ const Grade = () => {
                   <input
                     type="number"
                     className="ge__input ge__inputWeight"
-                    min={0}
+                    min={MIN_WEIGHT_PERCENT}
                     max={100}
                     value={tempWeights[key]}
                     onChange={(e) =>
@@ -1798,10 +1818,11 @@ const Grade = () => {
 
               <div
                 className={`ge__weightTotal ${
-                  weightTotal !== 100 ? "ge__weightTotal--bad" : ""
+                  weightTotal !== 100 || hasMinimumWeightViolation ? "ge__weightTotal--bad" : ""
                 }`}
               >
                 Total: {weightTotal}% {weightTotal !== 100 && "(must be 100%)"}
+                {hasMinimumWeightViolation && ` (each weight must be at least ${MIN_WEIGHT_PERCENT}%)`}
               </div>
             </div>
 
@@ -1812,7 +1833,7 @@ const Grade = () => {
               <button
                 className="ge__btnSave"
                 onClick={handleSaveWeights}
-                disabled={weightTotal !== 100}
+                disabled={weightTotal !== 100 || hasMinimumWeightViolation}
               >
                 Save Weights
               </button>
