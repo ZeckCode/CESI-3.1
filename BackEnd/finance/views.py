@@ -810,6 +810,59 @@ def my_tuition_installments(request):
     today = date.today()
     data = []
 
+    def build_allocation_rows(schedule_items, payment_rows):
+        remaining_payments = [
+            {
+                'id': tx.id,
+                'amount_left': Decimal(str(tx.credit or 0)),
+                'reference_number': tx.reference_number,
+                'transaction_date': tx.transaction_date.isoformat() if tx.transaction_date else None,
+                'item': tx.item,
+            }
+            for tx in payment_rows
+            if Decimal(str(tx.credit or 0)) > 0
+        ]
+
+        rows = []
+        for item in schedule_items:
+            amount_due = Decimal(str(item['amount'] or 0))
+            remaining_due = amount_due
+            refs_used = []
+
+            for payment in remaining_payments:
+                if remaining_due <= 0:
+                    break
+                if payment['amount_left'] <= 0:
+                    continue
+
+                applied = min(payment['amount_left'], remaining_due)
+                if applied > 0:
+                    payment['amount_left'] -= applied
+                    remaining_due -= applied
+
+                    if payment['reference_number']:
+                        refs_used.append(payment['reference_number'])
+
+            paid_amount = amount_due - remaining_due
+            is_paid = remaining_due <= 0
+            is_overdue = (not is_paid) and item['due_date'] and item['due_date'] < today
+
+            rows.append({
+                'type': item['type'],
+                'item': item['item'],
+                'amount': float(amount_due),
+                'amount_paid': float(paid_amount),
+                'balance': float(remaining_due if remaining_due > 0 else Decimal('0.00')),
+                'month': item['month'],
+                'due_date': item['due_date'].isoformat() if item.get('due_date') else None,
+                'is_paid': is_paid,
+                'status': 'PAID' if is_paid else ('OVERDUE' if is_overdue else ('PARTIAL' if paid_amount > 0 else 'PENDING')),
+                'reference_number': refs_used[0] if len(refs_used) == 1 else None,
+                'reference_numbers': refs_used,
+            })
+
+        return rows
+
     for profile in profiles:
         student_name = " ".join(
             p for p in [
@@ -869,56 +922,7 @@ def my_tuition_installments(request):
 
         if payment_mode == 'installment':
             schedule = build_installment_schedule(tuition, include_assessment=is_new_student)
-
-            # Clone payments so we can consume them sequentially like real allocation
-            remaining_payments = [
-                {
-                    'id': tx.id,
-                    'amount_left': Decimal(str(tx.credit or 0)),
-                    'reference_number': tx.reference_number,
-                    'transaction_date': tx.transaction_date.isoformat() if tx.transaction_date else None,
-                    'item': tx.item,
-                }
-                for tx in payment_rows
-                if Decimal(str(tx.credit or 0)) > 0
-            ]
-
-            for item in schedule:
-                amount_due = Decimal(str(item['amount'] or 0))
-                remaining_due = amount_due
-                refs_used = []
-
-                for payment in remaining_payments:
-                    if remaining_due <= 0:
-                        break
-                    if payment['amount_left'] <= 0:
-                        continue
-
-                    applied = min(payment['amount_left'], remaining_due)
-                    if applied > 0:
-                        payment['amount_left'] -= applied
-                        remaining_due -= applied
-
-                        if payment['reference_number']:
-                            refs_used.append(payment['reference_number'])
-
-                paid_amount = amount_due - remaining_due
-                is_paid = remaining_due <= 0
-                is_overdue = (not is_paid) and (item['due_date'] < today)
-
-                installments.append({
-                    'type': item['type'],
-                    'item': item['item'],
-                    'amount': float(amount_due),
-                    'amount_paid': float(paid_amount),
-                    'balance': float(remaining_due if remaining_due > 0 else Decimal('0.00')),
-                    'month': item['month'],
-                    'due_date': item['due_date'].isoformat(),
-                    'is_paid': is_paid,
-                    'status': 'PAID' if is_paid else ('OVERDUE' if is_overdue else ('PARTIAL' if paid_amount > 0 else 'PENDING')),
-                    'reference_number': refs_used[0] if len(refs_used) == 1 else None,
-                    'reference_numbers': refs_used,
-                })
+            installments = build_allocation_rows(schedule, payment_rows)
 
             total_due = sum((item['amount'] for item in schedule), Decimal('0.00'))
             overall_status = compute_installment_status(
@@ -929,9 +933,35 @@ def my_tuition_installments(request):
             )
 
         else:
-            total_due = Decimal(str(tuition.total_cash or 0))
-            if is_new_student:
-                total_due += Decimal(str(tuition.assessment or 0))
+            cash_schedule = []
+
+            if enrollment:
+                debit_rows = list(
+                    Transaction.objects.filter(
+                        parent=request.user,
+                        enrollment=enrollment,
+                        transaction_type='TUITION',
+                        entry_type='DEBIT',
+                    )
+                    .order_by('transaction_date', 'date_posted', 'id')
+                )
+
+                for tx in debit_rows:
+                    cash_schedule.append({
+                        'type': tx.description or tx.item or 'Charge',
+                        'item': tx.item,
+                        'amount': Decimal(str(tx.debit or 0)),
+                        'month': '',
+                        'due_date': tx.due_date or tx.transaction_date,
+                    })
+
+            installments = build_allocation_rows(cash_schedule, payment_rows) if cash_schedule else []
+
+            total_due = sum((item['amount'] for item in cash_schedule), Decimal('0.00'))
+            if total_due <= 0:
+                total_due = Decimal(str(tuition.total_cash or 0))
+                if is_new_student:
+                    total_due += Decimal(str(tuition.assessment or 0))
             overall_status = compute_cash_status(total_due, total_paid)
 
         remaining_balance = total_due - total_paid
