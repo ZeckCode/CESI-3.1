@@ -584,7 +584,8 @@ def publish_academic_history(request):
             return Response({"detail": "Forbidden"}, status=403)
 
     if user.role == "TEACHER":
-        students_response = students_by_section(request, section_obj.id)
+        raw_request = getattr(request, "_request", request)
+        students_response = students_by_section(raw_request, section_obj.id)
         if students_response.status_code != 200:
             return students_response
         section_students = students_response.data if isinstance(students_response.data, list) else []
