@@ -2,6 +2,7 @@
 from django.db import models
 from django.utils.text import slugify
 from rest_framework import serializers
+from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
 from .models import User, UserProfile, TeacherProfile, AdminProfile, Section, Subject, PasswordResetRequest
 
 # Enrollment
@@ -10,20 +11,20 @@ from enrollment.models import Enrollment
 
 # ── Read-only serializers ──────────────────────────────
 
-class SubjectTeacherSerializer(serializers.Serializer):
+class SubjectTeacherSerializer(SafeSerializer):
     """Lightweight teacher info nested inside a subject."""
     id = serializers.IntegerField(source="user.id")
     username = serializers.CharField(source="user.username")
     employee_id = serializers.CharField()
 
 
-class SubjectLiteSerializer(serializers.ModelSerializer):
+class SubjectLiteSerializer(SafeModelSerializer):
     class Meta:
         model = Subject
         fields = ["id", "name", "code"]
 
 
-class SubjectSerializer(serializers.ModelSerializer):
+class SubjectSerializer(SafeModelSerializer):
     teachers = serializers.SerializerMethodField()
     assigned_teacher = serializers.IntegerField(
         write_only=True, required=False, allow_null=True,
@@ -61,7 +62,7 @@ class SubjectSerializer(serializers.ModelSerializer):
         return SubjectTeacherSerializer(teacher_profiles, many=True).data
 
 
-class SectionSerializer(serializers.ModelSerializer):
+class SectionSerializer(SafeModelSerializer):
     adviser_name = serializers.SerializerMethodField(read_only=True)
     student_count = serializers.SerializerMethodField()
     is_full = serializers.SerializerMethodField()
@@ -110,19 +111,19 @@ class SectionSerializer(serializers.ModelSerializer):
         ]
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(SafeModelSerializer):
     class Meta:
         model = User
         fields = ["id", "username", "first_name", "last_name", "email", "role", "status", "created_at"]
 
 
-class AdminProfileReadSerializer(serializers.ModelSerializer):
+class AdminProfileReadSerializer(SafeModelSerializer):
     class Meta:
         model = AdminProfile
         fields = ["id", "permissions_level"]
 
 
-class TeacherProfileReadSerializer(serializers.ModelSerializer):
+class TeacherProfileReadSerializer(SafeModelSerializer):
     """Nested read-only representation returned inside UserDetailSerializer."""
     subject = SubjectSerializer(read_only=True)
     subjects = serializers.SerializerMethodField()
@@ -148,7 +149,7 @@ class TeacherProfileReadSerializer(serializers.ModelSerializer):
         return None
 
 
-class UserProfileReadSerializer(serializers.ModelSerializer):
+class UserProfileReadSerializer(SafeModelSerializer):
     section = SectionSerializer(read_only=True)
     avatar_url = serializers.SerializerMethodField()
     transfer_clearance_url = serializers.SerializerMethodField()
@@ -191,7 +192,7 @@ class UserProfileReadSerializer(serializers.ModelSerializer):
         return None
 
 
-class UserDetailSerializer(serializers.ModelSerializer):
+class UserDetailSerializer(SafeModelSerializer):
     """
     Full user + nested profile + current enrollment for parent/student.
     """
@@ -238,7 +239,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
 # ── Write serializers ──────────────────────────────────
 
-class TeacherAssignmentSerializer(serializers.Serializer):
+class TeacherAssignmentSerializer(SafeSerializer):
     """Update a teacher's subject / section assignment."""
     subject = serializers.IntegerField(required=False, allow_null=True)
     subjects = serializers.ListField(
@@ -282,7 +283,7 @@ class TeacherAssignmentSerializer(serializers.Serializer):
         return value
 
 
-class AdminProfileUpdateSerializer(serializers.Serializer):
+class AdminProfileUpdateSerializer(SafeSerializer):
     """Update an admin account's editable fields."""
     username = serializers.CharField(max_length=50, required=False)
     first_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
@@ -310,7 +311,7 @@ class AdminProfileUpdateSerializer(serializers.Serializer):
         return attrs
 
 
-class StudentProfileUpdateSerializer(serializers.Serializer):
+class StudentProfileUpdateSerializer(SafeSerializer):
     """Update a student's profile fields."""
     student_first_name = serializers.CharField(max_length=50, required=False)
     student_middle_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
@@ -330,7 +331,7 @@ class StudentProfileUpdateSerializer(serializers.Serializer):
         return value
 
 
-class StudentTransferDecisionSerializer(serializers.Serializer):
+class StudentTransferDecisionSerializer(SafeSerializer):
     decision = serializers.ChoiceField(choices=["PENDING", "APPROVED", "REJECTED"])
     transfer_date = serializers.DateField(required=False, allow_null=True)
     transfer_reason = serializers.CharField(required=False, allow_blank=True)
@@ -342,7 +343,7 @@ class StudentTransferDecisionSerializer(serializers.Serializer):
     allow_transfer_with_balance = serializers.BooleanField(required=False, default=False)
 
 
-class StudentTransferRequestSerializer(serializers.Serializer):
+class StudentTransferRequestSerializer(SafeSerializer):
     transfer_reason = serializers.CharField(required=True, allow_blank=False)
     destination_school_name = serializers.CharField(required=True, allow_blank=False)
     destination_school_address = serializers.CharField(required=False, allow_blank=True)
@@ -351,12 +352,12 @@ class StudentTransferRequestSerializer(serializers.Serializer):
     transfer_notes = serializers.CharField(required=False, allow_blank=True)
 
 
-class LoginSerializer(serializers.Serializer):
+class LoginSerializer(SafeSerializer):
     username = serializers.CharField()
     password = serializers.CharField()
 
 
-class CreateUserSerializer(serializers.Serializer):
+class CreateUserSerializer(SafeSerializer):
     username = serializers.CharField(max_length=50, required=False, allow_blank=True)
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=6)
@@ -570,7 +571,7 @@ class CreateUserSerializer(serializers.Serializer):
         return user
 
 
-class PasswordResetRequestCreateSerializer(serializers.Serializer):
+class PasswordResetRequestCreateSerializer(SafeSerializer):
     username = serializers.CharField(max_length=50)
     email = serializers.EmailField()
     message = serializers.CharField(required=False, allow_blank=True)
@@ -607,7 +608,7 @@ class PasswordResetRequestCreateSerializer(serializers.Serializer):
         return attrs
 
 
-class PasswordResetRequestSerializer(serializers.ModelSerializer):
+class PasswordResetRequestSerializer(SafeModelSerializer):
     user_name = serializers.SerializerMethodField()
     account_email = serializers.SerializerMethodField()
     email_matches_account = serializers.SerializerMethodField()

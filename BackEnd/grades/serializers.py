@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
 from .models import GradeWeight, GradeItem, StudentScore, ClassStanding, AcademicRecord
 from accounts.models import Subject
 from enrollment.models import Enrollment
@@ -54,7 +55,7 @@ def resolve_student_display_name(user, school_year=None):
 
 
 # ─── Weight Config ───
-class GradeWeightSerializer(serializers.ModelSerializer):
+class GradeWeightSerializer(SafeModelSerializer):
     subject_name = serializers.CharField(source="subject.name", read_only=True)
     subject_code = serializers.CharField(source="subject.code", read_only=True)
 
@@ -68,7 +69,7 @@ class GradeWeightSerializer(serializers.ModelSerializer):
 
 
 # ─── Grade Items (Activity / Quiz / Exam) ───
-class GradeItemSerializer(serializers.ModelSerializer):
+class GradeItemSerializer(SafeModelSerializer):
     date_given = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
     due_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
 
@@ -84,7 +85,7 @@ class GradeItemSerializer(serializers.ModelSerializer):
 
 
 # ─── Student Scores ───
-class StudentScoreSerializer(serializers.ModelSerializer):
+class StudentScoreSerializer(SafeModelSerializer):
     student_name = serializers.SerializerMethodField()
     grade_item_title = serializers.CharField(source="grade_item.title", read_only=True)
     total_score = serializers.IntegerField(source="grade_item.total_score", read_only=True)
@@ -105,7 +106,7 @@ class StudentScoreSerializer(serializers.ModelSerializer):
 
 
 # ─── Class Standing ───
-class ClassStandingSerializer(serializers.ModelSerializer):
+class ClassStandingSerializer(SafeModelSerializer):
     student_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -121,7 +122,7 @@ class ClassStandingSerializer(serializers.ModelSerializer):
 
 
 # ─── Lightweight student list serializer ───
-class StudentListSerializer(serializers.Serializer):
+class StudentListSerializer(SafeSerializer):
     id = serializers.IntegerField()
     username = serializers.CharField()
     student_name = serializers.CharField()
@@ -133,7 +134,7 @@ class StudentListSerializer(serializers.Serializer):
 
 
 # ─── Academic Record (historical) ───
-class AcademicRecordSerializer(serializers.ModelSerializer):
+class AcademicRecordSerializer(SafeModelSerializer):
     student_name = serializers.SerializerMethodField(read_only=True)
     student_display_name = serializers.SerializerMethodField(read_only=True)
     student_username = serializers.CharField(source="student.username", read_only=True)

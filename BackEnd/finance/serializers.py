@@ -3,6 +3,7 @@ from urllib import request
 from django.db.models import Sum
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
 
 from .models import Transaction, TuitionConfig, ProofOfPayment, AdvanceRequest
 from .utils import normalize_money, recompute_transaction_statuses_for_enrollment
@@ -10,7 +11,7 @@ from accounts.models import User, UserProfile
 from enrollment.models import Enrollment
 
 
-class TransactionSerializer(serializers.ModelSerializer):
+class TransactionSerializer(SafeModelSerializer):
     parent_username = serializers.CharField(source='parent.username', read_only=True)
     date_created = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
     transaction_date = serializers.DateField(format="%Y-%m-%d", required=False, allow_null=True)
@@ -87,7 +88,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         read_only_fields = ['debit', 'credit', 'balance', 'date_posted', 'date_created']
 
 
-class TransactionCreateSerializer(serializers.ModelSerializer):
+class TransactionCreateSerializer(SafeModelSerializer):
     due_date = serializers.DateField(required=False, allow_null=True)
     transaction_date = serializers.DateField(required=False, allow_null=True)
     student_name = serializers.CharField(required=False, allow_blank=True)
@@ -349,7 +350,7 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
         return tx
 
 
-class ParentDropdownSerializer(serializers.ModelSerializer):
+class ParentDropdownSerializer(SafeModelSerializer):
     student_name = serializers.SerializerMethodField()
     parent_name = serializers.SerializerMethodField()
     student_number = serializers.CharField(source='profile.student_number', read_only=True, default='')
@@ -386,7 +387,7 @@ class ParentDropdownSerializer(serializers.ModelSerializer):
             return ""
 
 
-class TuitionConfigSerializer(serializers.ModelSerializer):
+class TuitionConfigSerializer(SafeModelSerializer):
     created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
     updated_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M", read_only=True)
 
@@ -415,7 +416,7 @@ class TuitionConfigSerializer(serializers.ModelSerializer):
         read_only_fields = ['total_cash', 'total_installment', 'created_date', 'updated_date']
 
 
-class TuitionConfigCreateSerializer(serializers.ModelSerializer):
+class TuitionConfigCreateSerializer(SafeModelSerializer):
     class Meta:
         model = TuitionConfig
         fields = [
@@ -452,7 +453,7 @@ User = get_user_model()
 
 
 
-class ProofOfPaymentSerializer(serializers.ModelSerializer):
+class ProofOfPaymentSerializer(SafeModelSerializer):
     student_name = serializers.SerializerMethodField()
     student_username = serializers.SerializerMethodField()
     student_grade = serializers.SerializerMethodField()
@@ -555,7 +556,7 @@ class ProofOfPaymentSerializer(serializers.ModelSerializer):
             return obj.enrollment.id
         return None
     
-class AdvanceRequestSerializer(serializers.ModelSerializer):
+class AdvanceRequestSerializer(SafeModelSerializer):
     student_name = serializers.SerializerMethodField()
     student_number = serializers.SerializerMethodField()
 

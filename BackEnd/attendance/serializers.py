@@ -1,11 +1,12 @@
 from rest_framework import serializers
+from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
 from django.db.models import Q
 from .models import AttendanceRecord
 from accounts.models import Section
 from enrollment.models import Enrollment
 
 
-class AttendanceRecordSerializer(serializers.ModelSerializer):
+class AttendanceRecordSerializer(SafeModelSerializer):
     student_name = serializers.SerializerMethodField()
     student_username = serializers.CharField(source="student.username", read_only=True)
     student_number = serializers.SerializerMethodField()
@@ -122,7 +123,7 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
         return None
 
 
-class BulkAttendanceSerializer(serializers.Serializer):
+class BulkAttendanceSerializer(SafeSerializer):
     """
     For bulk creating/updating attendance records.
     Now supports per-subject attendance with optional schedule field.
@@ -152,7 +153,7 @@ class BulkAttendanceSerializer(serializers.Serializer):
         return data
 
 
-class SectionSimpleSerializer(serializers.ModelSerializer):
+class SectionSimpleSerializer(SafeModelSerializer):
     """Simple serializer for sections the teacher teaches."""
     grade_level = serializers.SerializerMethodField()
 
@@ -168,7 +169,7 @@ class SectionSimpleSerializer(serializers.ModelSerializer):
         return f"Grade {gl}"
 
 
-class StudentAttendanceStatsSerializer(serializers.Serializer):
+class StudentAttendanceStatsSerializer(SafeSerializer):
     """For returning attendance statistics."""
     student_id = serializers.IntegerField()
     student_name = serializers.CharField()

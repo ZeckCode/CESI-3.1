@@ -1,9 +1,10 @@
 from rest_framework import serializers
+from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
 from .models import Reminder
 from decimal import Decimal
 
 
-class ReminderSerializer(serializers.ModelSerializer):
+class ReminderSerializer(SafeModelSerializer):
     recipient_name = serializers.SerializerMethodField()
     sender_name = serializers.SerializerMethodField()
     amount_to_pay = serializers.SerializerMethodField()

@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from rest_framework import serializers
+from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
 from django.utils import timezone
 import re
 
@@ -47,7 +48,7 @@ def normalize_ph_mobile(value):
     return None
 
 
-class ParentInfoSerializer(serializers.ModelSerializer):
+class ParentInfoSerializer(SafeModelSerializer):
     class Meta:
         model = ParentInfo
         fields = [
@@ -63,7 +64,7 @@ class ParentInfoSerializer(serializers.ModelSerializer):
         ]
 
 
-class EnrollmentDocumentSerializer(serializers.ModelSerializer):
+class EnrollmentDocumentSerializer(SafeModelSerializer):
     class Meta:
         model = EnrollmentDocument
         fields = [
@@ -76,7 +77,7 @@ class EnrollmentDocumentSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "uploaded_at"]
 
 
-class EnrollmentSerializer(serializers.ModelSerializer):
+class EnrollmentSerializer(SafeModelSerializer):
     student_username = serializers.CharField(source="student.username", read_only=True)
     section_name = serializers.CharField(source="section.name", read_only=True)
     parent_info = ParentInfoSerializer(read_only=True)
@@ -166,7 +167,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             return False
 
 
-class EnrollmentDetailedSerializer(serializers.ModelSerializer):
+class EnrollmentDetailedSerializer(SafeModelSerializer):
     student = UserSerializer(read_only=True)
     section_details = serializers.SerializerMethodField()
     parent_info = ParentInfoSerializer(read_only=True)
@@ -215,7 +216,7 @@ class EnrollmentDetailedSerializer(serializers.ModelSerializer):
             return False
 
 
-class OldStudentLookupSerializer(serializers.Serializer):
+class OldStudentLookupSerializer(SafeSerializer):
     identifier = serializers.CharField(required=True)
     identifier_type = serializers.ChoiceField(
         choices=["auto", "lrn", "student_number"],
@@ -230,7 +231,7 @@ class OldStudentLookupSerializer(serializers.Serializer):
         return value
 
 
-class EnrollmentCreateSerializer(serializers.ModelSerializer):
+class EnrollmentCreateSerializer(SafeModelSerializer):
     parent_info = ParentInfoSerializer(required=False)
     payment_amount = serializers.DecimalField(required=False, allow_null=True, max_digits=10, decimal_places=2)
     website = serializers.CharField(required=False, allow_blank=True, write_only=True)
@@ -538,7 +539,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         return instance
 
 
-class EnrollmentSettingsSerializer(serializers.ModelSerializer):
+class EnrollmentSettingsSerializer(SafeModelSerializer):
     class Meta:
         model = EnrollmentSettings
         fields = ["open_date", "window_days", "academic_year", "updated_at"]

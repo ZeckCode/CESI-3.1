@@ -1,8 +1,9 @@
 # announcements/serializers.py
 from rest_framework import serializers
+from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
 from .models import Announcement, AnnouncementMedia
 
-class AnnouncementMediaSerializer(serializers.ModelSerializer):
+class AnnouncementMediaSerializer(SafeModelSerializer):
     file_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -40,7 +41,7 @@ class AnnouncementMediaSerializer(serializers.ModelSerializer):
         return None
 
 
-class AnnouncementSerializer(serializers.ModelSerializer):
+class AnnouncementSerializer(SafeModelSerializer):
     media = AnnouncementMediaSerializer(many=True, read_only=True)
 
     class Meta:

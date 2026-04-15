@@ -322,6 +322,13 @@ def _build_payment_reminder_email_message(*, transaction, amount, status_value, 
 
 
 def _compute_outstanding_balance(transaction):
+    status_upper = str(getattr(transaction, "status", "") or "").upper()
+    if status_upper == "PAID":
+        return Decimal("0.00")
+
+    if str(getattr(transaction, "entry_type", "") or "").upper() == "CREDIT":
+        return Decimal("0.00")
+
     debit_amount = Decimal(str(getattr(transaction, "debit", 0) or getattr(transaction, "amount", 0) or 0))
     credit_amount = Decimal(str(getattr(transaction, "credit", 0) or 0))
     outstanding = debit_amount - credit_amount
@@ -551,85 +558,100 @@ def send_bulk_payment_reminders(request):
     today = timezone.localdate()
     transactions = Transaction.objects.select_related("parent").filter(
         entry_type="DEBIT",
+        parent__isnull=False,
+        status__in=["PENDING", "OVERDUE", "PARTIAL", "POSTED"],
         due_date__isnull=False,
         due_date__lte=today,
     )
 
+    processed_count = 0
     created_count = 0
     duplicate_count = 0
     emailed_count = 0
     missing_email_count = 0
     email_failed_count = 0
     skipped_count = 0
+    error_count = 0
 
     for transaction in transactions:
-        recipient = transaction.parent
-        outstanding_balance = _compute_outstanding_balance(transaction)
-        if outstanding_balance <= 0:
-            skipped_count += 1
-            continue
+        processed_count += 1
+        try:
+            recipient = transaction.parent
+            outstanding_balance = _compute_outstanding_balance(transaction)
+            if outstanding_balance <= 0:
+                skipped_count += 1
+                continue
 
-        due_date = getattr(transaction, "due_date", None)
-        transaction_type = getattr(transaction, "transaction_type", "Payment")
-        event_type, status_value, notice_label = _resolve_payment_notice_type(transaction, today=today)
-        title = f"{notice_label} Notice - {getattr(transaction, 'student_name', 'Student')}"
+            due_date = getattr(transaction, "due_date", None)
+            transaction_type = getattr(transaction, "transaction_type", "Payment")
+            event_type, status_value, notice_label = _resolve_payment_notice_type(transaction, today=today)
+            title = f"{notice_label} Notice - {getattr(transaction, 'student_name', 'Student')}"
 
-        if status_value == "OVERDUE":
-            body = (
-                "This is from Caloocan Evangelical School Inc. to inform you that your student's "
-                f"{transaction_type} account has not yet been fully settled."
+            if status_value == "OVERDUE":
+                body = (
+                    "This is from Caloocan Evangelical School Inc. to inform you that your student's "
+                    f"{transaction_type} account has not yet been fully settled."
+                )
+            else:
+                body = (
+                    "This is from Caloocan Evangelical School Inc. to remind you that your student's "
+                    f"{transaction_type} account is pending and due for settlement."
+                )
+
+            email_message = _build_payment_reminder_email_message(
+                transaction=transaction,
+                amount=outstanding_balance,
+                status_value=status_value,
+                due_date=due_date,
+                body=body,
             )
-        else:
-            body = (
-                "This is from Caloocan Evangelical School Inc. to remind you that your student's "
-                f"{transaction_type} account is pending and due for settlement."
+
+            reminder, created = create_reminder_once(
+                recipient=recipient,
+                sender=request.user,
+                title=title,
+                message=email_message,
+                reminder_type="PAYMENT",
+                event_type=event_type,
+                transaction=transaction,
+                reference_date=due_date or timezone.localdate(),
             )
 
-        email_message = _build_payment_reminder_email_message(
-            transaction=transaction,
-            amount=outstanding_balance,
-            status_value=status_value,
-            due_date=due_date,
-            body=body,
-        )
+            if created:
+                created_count += 1
+            else:
+                duplicate_count += 1
+                continue
 
-        reminder, created = create_reminder_once(
-            recipient=recipient,
-            sender=request.user,
-            title=title,
-            message=email_message,
-            reminder_type="PAYMENT",
-            event_type=event_type,
-            transaction=transaction,
-            reference_date=due_date or timezone.localdate(),
-        )
-
-        if created:
-            created_count += 1
-        else:
-            duplicate_count += 1
-
-        emailed = _send_payment_reminder_email(
-            recipient=recipient,
-            title=title,
-            message=email_message,
-        )
-        if emailed:
-            emailed_count += 1
-        elif not getattr(recipient, "email", ""):
-            missing_email_count += 1
-        else:
-            email_failed_count += 1
+            emailed = _send_payment_reminder_email(
+                recipient=recipient,
+                title=title,
+                message=email_message,
+            )
+            if emailed:
+                emailed_count += 1
+            elif not getattr(recipient, "email", ""):
+                missing_email_count += 1
+            else:
+                email_failed_count += 1
+        except Exception:
+            error_count += 1
+            logger.exception(
+                "Failed bulk reminder for transaction_id=%s",
+                getattr(transaction, "id", None),
+            )
 
     return Response(
         {
             "detail": (
+                f"{processed_count} transaction(s) processed, "
                 f"{created_count} reminder record(s) saved, "
                 f"{emailed_count} email(s) sent, "
                 f"{missing_email_count} skipped for missing email, "
                 f"{email_failed_count} email(s) failed, "
                 f"{duplicate_count} skipped as duplicates, "
-                f"{skipped_count} skipped with no outstanding balance."
+                f"{skipped_count} skipped with no outstanding balance, "
+                f"{error_count} processing error(s)."
             )
         },
         status=status.HTTP_200_OK,
