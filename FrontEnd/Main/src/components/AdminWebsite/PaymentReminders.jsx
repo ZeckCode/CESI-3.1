@@ -389,8 +389,7 @@ const PaymentReminders = () => {
                         onClick={() => sendReminder(r)}
                         disabled={
                           !r.transaction_id ||
-                          sendingId === r.transaction_id ||
-                          !canSendReminderForTransaction(r)
+                          sendingId === r.transaction_id
                         }
                         title={
                           !r.transaction_id
@@ -400,7 +399,7 @@ const PaymentReminders = () => {
                             : r.is_paid_already
                             ? "Paid already"
                             : !canSendReminderForTransaction(r)
-                            ? "Only due/overdue PENDING/PARTIAL transactions are eligible"
+                            ? "Click to see why this row is not eligible"
                             : "Send payment reminder"
                         }
                       >
