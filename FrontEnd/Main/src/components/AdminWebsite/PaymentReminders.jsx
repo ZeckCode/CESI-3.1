@@ -19,12 +19,14 @@ const canSendReminderForTransaction = (row) =>
   Boolean(row?.transaction_id) && row?.can_send_payment_reminder === true;
 
 const dueStateLabel = (state) => {
+  if (state === "paid") return "Paid";
   if (state === "overdue") return "Overdue";
   if (state === "due_today") return "Due Today";
   return "Upcoming";
 };
 
 const dueStateBadgeClass = (state) => {
+  if (state === "paid") return "reminded";
   if (state === "overdue") return "reminded";
   return "pending";
 };
@@ -94,8 +96,8 @@ const PaymentReminders = () => {
     return sum + Number(r.remaining_balance || 0);
   }, 0);
 
-  const studentsWithBalance = ledgerRows.length;
-  const overdueCount = ledgerRows.filter((r) => r.due_state === "overdue").length;
+  const studentsWithBalance = ledgerRows.filter((r) => Number(r.remaining_balance || 0) > 0).length;
+  const overdueCount = ledgerRows.filter((r) => r.due_state === "overdue" && !r.is_paid_already).length;
 
   const dueWithin7Days = useMemo(() => {
     const today = new Date();
@@ -136,7 +138,9 @@ const PaymentReminders = () => {
     if (!canSendReminderForTransaction(row)) {
       addToast(
         "Blocked",
-        "Only due/overdue PENDING transactions can receive reminders.",
+        row?.is_paid_already
+          ? "This reminder is already paid. No reminder needed."
+          : "Only due/overdue PENDING/PARTIAL transactions can receive reminders.",
         "warning"
       );
       return;
@@ -313,6 +317,7 @@ const PaymentReminders = () => {
                 <option value="upcoming">Upcoming</option>
                 <option value="due_today">Due Today</option>
                 <option value="overdue">Overdue</option>
+                <option value="paid">Paid</option>
               </select>
             </div>
           </div>
@@ -329,13 +334,14 @@ const PaymentReminders = () => {
                 <th>Amount Due</th>
                 <th>Remaining Balance</th>
                 <th>Status</th>
+                <th>Payment Info</th>
                 <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
-                renderSkeletonRows(7)
+                renderSkeletonRows(8)
               ) : filteredRows.length > 0 ? (
                 filteredRows.map((r) => (
                   <tr
@@ -376,6 +382,7 @@ const PaymentReminders = () => {
                         {dueStateLabel(r.due_state)}
                       </span>
                     </td>
+                    <td>{r.payment_info || (r.is_paid_already ? "Paid already" : "With remaining balance")}</td>
                     <td>
                       <button
                         className="pr-btn-send"
@@ -390,8 +397,10 @@ const PaymentReminders = () => {
                             ? "No linked transaction"
                             : sendingId === r.transaction_id
                             ? "Sending..."
+                            : r.is_paid_already
+                            ? "Paid already"
                             : !canSendReminderForTransaction(r)
-                            ? "Only due/overdue PENDING transactions are eligible"
+                            ? "Only due/overdue PENDING/PARTIAL transactions are eligible"
                             : "Send payment reminder"
                         }
                       >
@@ -403,9 +412,9 @@ const PaymentReminders = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="pr-no-data">
+                  <td colSpan="8" className="pr-no-data">
                     <AlertCircle size={24} />
-                    <p>No student ledgers with due balances found</p>
+                    <p>No student ledger rows found</p>
                   </td>
                 </tr>
               )}

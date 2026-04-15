@@ -506,11 +506,12 @@ def payment_ledger_nearest_due(request):
         else:
             remaining_balance = _compute_parent_student_balance(chosen.parent, chosen.student_name)
 
-        if remaining_balance <= 0:
-            continue
+        is_paid_already = remaining_balance <= 0 or _compute_outstanding_balance(chosen) <= 0
 
         due_date = chosen.due_date
-        if due_date < today:
+        if is_paid_already:
+            due_state = "paid"
+        elif due_date < today:
             due_state = "overdue"
         elif due_date == today:
             due_state = "due_today"
@@ -532,8 +533,10 @@ def payment_ledger_nearest_due(request):
                 "amount_to_pay": chosen.amount,
                 "outstanding_balance": _compute_outstanding_balance(chosen),
                 "remaining_balance": remaining_balance,
+                "is_paid_already": is_paid_already,
+                "payment_info": "Paid already" if is_paid_already else "With remaining balance",
                 "due_state": due_state,
-                "can_send_payment_reminder": can_send_reminder_for_transaction(chosen),
+                "can_send_payment_reminder": (not is_paid_already) and can_send_reminder_for_transaction(chosen),
             }
         )
 
