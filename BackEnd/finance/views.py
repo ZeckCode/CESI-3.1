@@ -378,14 +378,18 @@ def compute_installment_status(total_due, total_paid, tuition, include_assessmen
     schedule = build_installment_schedule(tuition, include_assessment=include_assessment)
 
     if total_paid <= 0:
-        has_overdue = any(item['due_date'] < today for item in schedule if item['item'] != 'INITIAL')
+        has_overdue = any(
+            item.get('due_date') and item['due_date'] < today
+            for item in schedule
+            if item['item'] != 'INITIAL'
+        )
         return 'OVERDUE' if has_overdue else 'PENDING'
 
     covered = Decimal('0.00')
     for item in schedule:
         next_covered = covered + item['amount']
         if next_covered > total_paid:
-            if item['due_date'] < today:
+            if item.get('due_date') and item['due_date'] < today:
                 return 'OVERDUE'
             return 'PARTIAL'
         covered = next_covered

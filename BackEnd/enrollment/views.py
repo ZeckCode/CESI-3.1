@@ -575,7 +575,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 "description": "Initial Tuition Billing",
                 "amount": initial,
                 "transaction_date": posted_date,
-                "due_date": initial_due,
+                "due_date": None,
                 "semester": self._semester_from_date(initial_due),
             })
 
@@ -586,7 +586,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 "description": "Assessment Fee Billing",
                 "amount": assessment,
                 "transaction_date": posted_date,
-                "due_date": initial_due,
+                "due_date": None,
                 "semester": self._semester_from_date(initial_due),
             })
 

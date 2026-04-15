@@ -70,7 +70,7 @@ def build_installment_schedule(tuition, *, include_assessment=False):
             "description": "Initial Tuition Billing",
             "amount": initial,
             "transaction_date": today,
-            "due_date": initial_due,
+            "due_date": None,
             "semester": semester_from_date(initial_due),
             "status": "POSTED",
         })
@@ -82,7 +82,7 @@ def build_installment_schedule(tuition, *, include_assessment=False):
             "description": "Assessment Fee Billing",
             "amount": assessment,
             "transaction_date": today,
-            "due_date": initial_due,
+            "due_date": None,
             "semester": semester_from_date(initial_due),
             "status": "PENDING",
         })
