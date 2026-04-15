@@ -20,6 +20,15 @@ DEBIT_ALLOCATION_PRIORITY = {
     'ASSESSMENT': 1,
 }
 
+DEBIT_ALLOCATION_SEQUENCE = [
+    'INITIAL',
+    'ASSESSMENT',
+    'REGISTRATION',
+    'RESERVATION',
+    'MONTHLY',
+    'MISC',
+]
+
 
 def normalize_money(value):
     return Decimal(str(value or 0)).quantize(WHOLE_PESO, rounding=ROUND_HALF_UP)
@@ -102,26 +111,39 @@ def recompute_transaction_statuses_for_enrollment(enrollment):
         else:
             debit_rows.append(row)
 
-    # Preserve billing intent by always allocating credits to
-    # Initial and Assessment entries before monthly installments,
-    # regardless of manual due date edits.
-    debit_rows.sort(
+    # Allocate credits in a fixed billing sequence so edited due dates cannot
+    # move Monthly ahead of Initial/Assessment during settlement.
+    sequenced_rows = []
+    for sequence_index, item_key in enumerate(DEBIT_ALLOCATION_SEQUENCE):
+        matched_rows = [row for row in debit_rows if normalize_transaction_item(row.item) == item_key]
+        matched_rows.sort(
+            key=lambda row: (
+                row.due_date or row.transaction_date or today,
+                row.date_posted or row.transaction_date or today,
+                row.id,
+            )
+        )
+        for row in matched_rows:
+            sequenced_rows.append((sequence_index, row))
+
+    remaining_rows = [row for row in debit_rows if normalize_transaction_item(row.item) not in DEBIT_ALLOCATION_SEQUENCE]
+    remaining_rows.sort(
         key=lambda row: (
-            DEBIT_ALLOCATION_PRIORITY.get(normalize_transaction_item(row.item), 2),
             row.due_date or row.transaction_date or today,
             row.date_posted or row.transaction_date or today,
             row.id,
         )
     )
+    sequenced_rows.extend((len(DEBIT_ALLOCATION_SEQUENCE), row) for row in remaining_rows)
 
-    for row in debit_rows:
+    for _, row in sequenced_rows:
         row_item_key = normalize_transaction_item(row.item)
         debit_amount = normalize_money(row.debit)
         is_billing_debit = row_item_key in BILLING_DEBIT_ITEMS
 
         if available_credit <= 0:
             if is_billing_debit:
-                # Only mark OVERDUE if there's an explicit due_date that has passed
+                # Only mark OVERDUE if there's an explicit due_date that has passed.
                 desired_status = 'OVERDUE' if (row.due_date and row.due_date < today) else 'PENDING'
             else:
                 desired_status = row.status or 'POSTED'
@@ -129,7 +151,7 @@ def recompute_transaction_statuses_for_enrollment(enrollment):
             desired_status = 'PAID'
             available_credit = normalize_money(available_credit - debit_amount)
         else:
-            # Only mark OVERDUE if there's an explicit due_date that has passed
+            # Only mark OVERDUE if there's an explicit due_date that has passed.
             if is_billing_debit and row.due_date and row.due_date < today:
                 desired_status = 'OVERDUE'
             else:

@@ -207,6 +207,7 @@ const TransactionHistory = () => {
   const dropdownRef = useRef(null);
   const debounceRef = useRef(null);
   const didInitialLoadRef = useRef(false);
+  const repairedEnrollmentIdsRef = useRef(new Set());
 
   const [sendingReminderId, setSendingReminderId] = useState(null);
   const [sendingBulk, setSendingBulk] = useState(false);
@@ -248,12 +249,58 @@ const TransactionHistory = () => {
       if (!res.ok) throw new Error('Failed to load transactions');
 
       const data = await res.json();
-      setTransactions(Array.isArray(data) ? data : []);
+      const rows = Array.isArray(data) ? data : [];
+
+      const pendingRepairEnrollmentIds = Array.from(
+        new Set(
+          rows
+            .map((tx) => Number(tx.enrollment_id || 0))
+            .filter((id) => id > 0 && !repairedEnrollmentIdsRef.current.has(id))
+        )
+      );
+
+      if (pendingRepairEnrollmentIds.length > 0) {
+        try {
+          const repairRes = await apiFetch('/api/finance/ledgers/repair-statuses/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enrollment_ids: pendingRepairEnrollmentIds }),
+          });
+
+          if (repairRes.ok) {
+            const repairData = await repairRes.json().catch(() => ({}));
+            const repairedIds = Array.isArray(repairData.enrollment_ids_repaired)
+              ? repairData.enrollment_ids_repaired
+              : pendingRepairEnrollmentIds;
+
+            repairedIds.forEach((id) => repairedEnrollmentIdsRef.current.add(Number(id)));
+
+            const appliedRepairs = Number(repairData.repairs_applied || 0);
+            if (appliedRepairs > 0) {
+              addToast(
+                'Ledger Auto-Repair',
+                `Auto-repaired ${appliedRepairs} ledger${appliedRepairs === 1 ? '' : 's'} during load.`,
+                'success'
+              );
+              const refreshedRes = await apiFetch(`/api/finance/transactions/?${params.toString()}`);
+              if (refreshedRes.ok) {
+                const refreshedData = await refreshedRes.json();
+                setTransactions(Array.isArray(refreshedData) ? refreshedData : []);
+                return;
+              }
+            }
+          }
+        } catch (repairErr) {
+          console.warn('Auto-repair skipped due to request error:', repairErr);
+        }
+      }
+
+      setTransactions(rows);
     } catch (err) {
       console.error('Error fetching transactions:', err);
       setTransactions([]);
     }
-  }, [searchTerm, filterEntryType]);
+  }, [searchTerm, filterEntryType, addToast]);
 
   const fetchAdvanceRequests = useCallback(async () => {
     try {

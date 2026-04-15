@@ -18,6 +18,7 @@ from .views import (
     pay_student_balance,
     refund_student_payment,
     auto_apply_advance,
+    repair_ledger_statuses,
     my_advance_requests,
     advance_requests_admin,
     process_advance_request,
@@ -58,4 +59,5 @@ urlpatterns = [
     path('ledgers/pay/', pay_student_balance, name='ledger-pay'),
     path('ledgers/refund/', refund_student_payment, name='ledger-refund'),
     path('ledgers/auto-apply-advance/', auto_apply_advance, name='ledger-auto-apply-advance'),
+    path('ledgers/repair-statuses/', repair_ledger_statuses, name='ledger-repair-statuses'),
 ]

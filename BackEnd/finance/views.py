@@ -1232,6 +1232,120 @@ def auto_apply_advance(request):
         'new_balance': float(new_balance if new_balance > 0 else Decimal('0.00')),
         'status': 'PAID' if new_balance <= 0 else 'PARTIAL',
     }, status=200)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def repair_ledger_statuses(request):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    enrollment_id = request.data.get('enrollment_id')
+    enrollment_ids = request.data.get('enrollment_ids') or []
+    student_number = str(request.data.get('student_number', '')).strip()
+
+    if not enrollment_id and not student_number and not enrollment_ids:
+        return Response(
+            {'detail': 'Provide enrollment_id, student_number, or enrollment_ids.'},
+            status=400,
+        )
+
+    is_single_target = bool(enrollment_id or student_number)
+    enrollments = []
+
+    if enrollment_id:
+        enrollment = Enrollment.objects.filter(id=enrollment_id).select_related('parent_user', 'student').first()
+        if enrollment:
+            enrollments = [enrollment]
+    elif student_number:
+        enrollment = get_active_enrollment_by_student_number(student_number)
+        if enrollment:
+            enrollments = [enrollment]
+    else:
+        normalized_ids = []
+        for raw_id in enrollment_ids:
+            try:
+                normalized_ids.append(int(raw_id))
+            except (TypeError, ValueError):
+                continue
+
+        normalized_ids = list(dict.fromkeys(normalized_ids))
+        if not normalized_ids:
+            return Response({'detail': 'No valid enrollment_ids were provided.'}, status=400)
+
+        enrollments = list(
+            Enrollment.objects.filter(id__in=normalized_ids).select_related('parent_user', 'student')
+        )
+
+    if not enrollments:
+        return Response({'detail': 'Enrollment not found.'}, status=404)
+
+    def status_counts_for(enroll):
+        counts = {
+            'PAID': 0,
+            'PARTIAL': 0,
+            'PENDING': 0,
+            'OVERDUE': 0,
+            'POSTED': 0,
+        }
+        rows = Transaction.objects.filter(enrollment=enroll)
+        for row in rows:
+            key = str(row.status or '').upper()
+            if key in counts:
+                counts[key] += 1
+        return counts
+
+    results = []
+    repairs_applied = 0
+
+    for enrollment in enrollments:
+        before_counts = status_counts_for(enrollment)
+        before_balance = ledger_totals_for_enrollment(enrollment)[2]
+
+        with db_transaction.atomic():
+            recompute_running_balances_for_enrollment(enrollment)
+            recompute_transaction_statuses_for_enrollment(enrollment)
+
+        _, _, new_balance = ledger_totals_for_enrollment(enrollment)
+        after_counts = status_counts_for(enrollment)
+
+        changed = (before_counts != after_counts) or (before_balance != new_balance)
+        if changed:
+            repairs_applied += 1
+
+        results.append({
+            'enrollment_id': enrollment.id,
+            'student_number': enrollment.student_number,
+            'student_name': (
+                f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip()
+                or enrollment.student.username
+            ),
+            'new_balance': float(new_balance if new_balance > 0 else Decimal('0.00')),
+            'status_counts_before': before_counts,
+            'status_counts_after': after_counts,
+            'changed': changed,
+        })
+
+    if is_single_target and len(results) == 1:
+        single = results[0]
+        return Response({
+            'success': True,
+            'enrollment_id': single['enrollment_id'],
+            'student_number': single['student_number'],
+            'student_name': single['student_name'],
+            'new_balance': single['new_balance'],
+            'status_counts_before': single['status_counts_before'],
+            'status_counts_after': single['status_counts_after'],
+            'changed': single['changed'],
+        }, status=200)
+
+    return Response({
+        'success': True,
+        'processed_count': len(results),
+        'repairs_applied': repairs_applied,
+        'enrollment_ids_repaired': [x['enrollment_id'] for x in results],
+        'results': results,
+    }, status=200)
     
     
 @api_view(['GET', 'POST'])
