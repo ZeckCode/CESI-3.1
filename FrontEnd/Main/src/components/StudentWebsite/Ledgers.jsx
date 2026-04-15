@@ -3,6 +3,9 @@
   import { apiFetch } from "../api/apiFetch";
   import Pagination from "./Pagination";
   import PreviewModal from "../PreviewModal";
+  import ExcelJS from 'exceljs';
+  import jsPDF from 'jspdf';
+  import 'jspdf-autotable';
 
   const API_BASE = "";
   const ITEMS_PER_PAGE = 5;
@@ -653,6 +656,573 @@
 
     const handlePrint = () => {
       setShowPreview(true);
+    };
+
+    const handleDownloadExcel = async () => {
+      try {
+        const timestamp = new Date().toISOString().slice(0, 10);
+        
+        if (viewMode === "transactions") {
+          // Export Account Ledger
+          const workbook = new ExcelJS.Workbook();
+          const worksheet = workbook.addWorksheet("Account Ledger");
+          
+          // Add headers
+          const headers = ["Date", "Reference", "Description", "Debit", "Credit", "Balance", "Status"];
+          worksheet.addRow(headers);
+          
+          // Format header row with center alignment and bold - only on actual header cells
+          const headerRow = worksheet.getRow(1);
+          headers.forEach((_, colIndex) => {
+            const cell = headerRow.getCell(colIndex + 1);
+            cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0078FF" } };
+            cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+          });
+          
+          // Add data rows with center/right alignment as needed
+          groupedTransactions.forEach((group) => {
+            group.rows.forEach((tx) => {
+              const row = worksheet.addRow([
+                tx.transaction_date || "—",
+                tx.reference_number || "—",
+                ITEM_LABELS[tx.item] || tx.item || "Entry",
+                tx.debit || 0,
+                tx.credit || 0,
+                tx._runningBalance || 0,
+                tx.status || "—",
+              ]);
+              
+              // Apply alignment based on column type
+              row.eachCell((cell, colNumber) => {
+                if ([4, 5, 6].includes(colNumber)) {
+                  // Center align Debit, Credit, Balance columns
+                  cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+                  // Add comma formatting for numbers
+                  cell.numFmt = '#,##0.00';
+                } else {
+                  // Center align other columns
+                  cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+                }
+              });
+            });
+          });
+          
+          // Calculate and add totals row
+          let totalDebit = 0;
+          let totalCredit = 0;
+          let totalBalance = 0;
+          groupedTransactions.forEach((group) => {
+            group.rows.forEach((tx) => {
+              totalDebit += tx.debit || 0;
+              totalCredit += tx.credit || 0;
+            });
+            totalBalance = group.payableBalance || 0;
+          });
+          
+          // Add totals row
+          const totalsRow = worksheet.addRow([
+            "",
+            "",
+            "TOTAL",
+            totalDebit,
+            totalCredit,
+            totalBalance,
+            "",
+          ]);
+          
+          // Format totals row
+          totalsRow.eachCell((cell, colNumber) => {
+            cell.font = { bold: true };
+            cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+            if ([4, 5, 6].includes(colNumber)) {
+              cell.numFmt = '#,##0.00';
+            }
+          });
+          
+          // Set column widths
+          worksheet.columns = [
+            { width: 12 },
+            { width: 15 },
+            { width: 25 },
+            { width: 12 },
+            { width: 12 },
+            { width: 12 },
+            { width: 12 },
+          ];
+          
+          // Generate buffer and download
+          const buffer = await workbook.xlsx.writeBuffer();
+          const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `Ledger_${timestamp}.xlsx`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          alert("✓ Excel file downloaded successfully!");
+        } else if (viewMode === "installments") {
+          // Export Tuition Installment Schedule
+          const workbook = new ExcelJS.Workbook();
+          const worksheet = workbook.addWorksheet("Installments");
+          
+          // Add headers
+          const headers = [
+            "Student Name",
+            "School Year",
+            "Grade Level",
+            "Installment",
+            "Type",
+            "Due Date",
+            "Amount Due",
+            "Amount Paid",
+            "Balance",
+            "Status",
+            "Reference",
+          ];
+          worksheet.addRow(headers);
+          
+          // Format header row with center alignment and bold - only on actual header cells
+          const headerRow = worksheet.getRow(1);
+          headers.forEach((_, colIndex) => {
+            const cell = headerRow.getCell(colIndex + 1);
+            cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0078FF" } };
+            cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+          });
+          
+          // Add data rows with center/right alignment as needed
+          normalizedTuitionInstallments.forEach((student) => {
+            (student.installments || []).forEach((inst, idx) => {
+              const row = worksheet.addRow([
+                student.student_name || "—",
+                schoolYearLabel(student) || "—",
+                gradeLevelLabel(student.grade_level) || "—",
+                inst.installment_number || idx + 1,
+                inst.type || "Installment",
+                inst.due_date || "—",
+                inst.amount || 0,
+                inst.amount_paid || 0,
+                inst.balance || 0,
+                inst.status || "PENDING",
+                inst.reference_number || "—",
+              ]);
+              
+              // Apply alignment based on column type
+              row.eachCell((cell, colNumber) => {
+                if ([7, 8, 9].includes(colNumber)) {
+                  // Center align Amount Due, Amount Paid, Balance columns
+                  cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+                  // Add comma formatting for numbers
+                  cell.numFmt = '#,##0.00';
+                } else {
+                  // Center align other columns
+                  cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+                }
+              });
+            });
+          });
+          
+          // Calculate and add totals row
+          let totalAmountDue = 0;
+          let totalAmountPaid = 0;
+          let totalBalanceAmount = 0;
+          normalizedTuitionInstallments.forEach((student) => {
+            (student.installments || []).forEach((inst) => {
+              totalAmountDue += inst.amount || 0;
+              totalAmountPaid += inst.amount_paid || 0;
+              totalBalanceAmount += inst.balance || 0;
+            });
+          });
+          
+          // Add totals row
+          const totalsRow = worksheet.addRow([
+            "",
+            "",
+            "",
+            "",
+            "",
+            "TOTAL",
+            totalAmountDue,
+            totalAmountPaid,
+            totalBalanceAmount,
+            "",
+            "",
+          ]);
+          
+          // Format totals row
+          totalsRow.eachCell((cell, colNumber) => {
+            cell.font = { bold: true };
+            cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+            if ([7, 8, 9].includes(colNumber)) {
+              cell.numFmt = '#,##0.00';
+            }
+          });
+          
+          // Set column widths
+          worksheet.columns = [
+            { width: 20 },
+            { width: 12 },
+            { width: 14 },
+            { width: 12 },
+            { width: 18 },
+            { width: 12 },
+            { width: 12 },
+            { width: 12 },
+            { width: 12 },
+            { width: 12 },
+            { width: 15 },
+          ];
+          
+          // Generate buffer and download
+          const buffer = await workbook.xlsx.writeBuffer();
+          const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `Tuition_Installments_${timestamp}.xlsx`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          alert("✓ Excel file downloaded successfully!");
+        }
+      } catch (err) {
+        console.error("Error downloading Excel:", err);
+        alert("Failed to download Excel file. Please try again.");
+      }
+    };
+
+    const handleDownloadPDF = async () => {
+      try {
+        const timestamp = new Date().toLocaleString();
+        const dateOnly = new Date().toISOString().slice(0, 10);
+        
+        // Helper function to format numbers with commas
+        const formatNumberWithCommas = (num) => {
+          return Number(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+        
+        if (viewMode === "transactions") {
+          // Generate Account Ledger PDF
+          const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageHeight = doc.internal.pageSize.getHeight();
+          const margin = 10;
+          const usableWidth = pageWidth - 2 * margin;
+          
+          // Title
+          doc.setFontSize(16);
+          doc.setFont(undefined, 'bold');
+          doc.text('Account Ledger', margin, 15);
+          
+          // Underline
+          doc.setDrawColor(0, 120, 255);
+          doc.setLineWidth(1);
+          doc.line(margin, 19, pageWidth - margin, 19);
+          
+          // Timestamp
+          doc.setFontSize(10);
+          doc.setFont(undefined, 'normal');
+          doc.text(`Generated: ${timestamp}`, margin, 26);
+          
+          let yPos = 32;
+          let pageNum = 1;
+          
+          // Check if there's data to display
+          if (groupedTransactions.length === 0 || groupedTransactions.every(g => g.rows.length === 0)) {
+            doc.setFontSize(11);
+            doc.setTextColor(100, 100, 100);
+            doc.text('No transactions to display.', margin, yPos + 10);
+          } else {
+            // Headers for table
+            const headers = ['Date', 'Reference', 'Description', 'Debit', 'Credit', 'Balance', 'Status'];
+            const headerHeight = 8;
+            const rowHeight = 7;
+            
+            // Draw header
+            const drawHeader = () => {
+              headers.forEach((header, idx) => {
+                const xPos = margin + (idx * usableWidth / headers.length);
+                const colWidth = usableWidth / headers.length;
+                
+                doc.setFillColor(0, 120, 255);
+                doc.rect(xPos, yPos, colWidth, headerHeight, 'F');
+                
+                doc.setDrawColor(0, 80, 180);
+                doc.setLineWidth(0.8);
+                doc.rect(xPos, yPos, colWidth, headerHeight);
+                
+                doc.setTextColor(255, 255, 255);
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(9);
+                doc.text(header, xPos + colWidth / 2, yPos + 5, { align: 'center', maxWidth: colWidth - 4, fontSize: 9 });
+              });
+              yPos += headerHeight;
+            };
+            
+            // First page header
+            drawHeader();
+            
+            // Add data rows
+            groupedTransactions.forEach((group) => {
+              group.rows.forEach((tx) => {
+                // Check if need new page
+                if (yPos + rowHeight > pageHeight - 20) {
+                  // Add page number
+                  doc.setFontSize(8);
+                  doc.setTextColor(150, 150, 150);
+                  doc.text(`Page ${pageNum}`, pageWidth - margin - 10, pageHeight - 5);
+                  
+                  doc.addPage();
+                  yPos = margin;
+                  pageNum++;
+                  drawHeader();
+                }
+                
+                const rowData = [
+                  tx.transaction_date || '—',
+                  tx.reference_number || '—',
+                  ITEM_LABELS[tx.item] || tx.item || 'Entry',
+                  formatNumberWithCommas(tx.debit || 0),
+                  formatNumberWithCommas(tx.credit || 0),
+                  formatNumberWithCommas(tx._runningBalance || 0),
+                  tx.status || '—',
+                ];
+                
+                rowData.forEach((cellData, idx) => {
+                  const xPos = margin + (idx * usableWidth / headers.length);
+                  const colWidth = usableWidth / headers.length;
+                  
+                  doc.setDrawColor(100, 100, 100);
+                  doc.setLineWidth(0.3);
+                  doc.rect(xPos, yPos, colWidth, rowHeight);
+                  
+                  doc.setTextColor(0, 0, 0);
+                  doc.setFont(undefined, 'normal');
+                  doc.setFontSize(8);
+                  
+                  // Center align all columns
+                  doc.text(String(cellData), xPos + colWidth / 2, yPos + 4, { align: 'center', maxWidth: colWidth - 4 });
+                });
+                
+                yPos += rowHeight;
+              });
+            });
+            
+            // Calculate and add totals row
+            let totalDebit = 0;
+            let totalCredit = 0;
+            let totalBalance = 0;
+            groupedTransactions.forEach((group) => {
+              group.rows.forEach((tx) => {
+                totalDebit += tx.debit || 0;
+                totalCredit += tx.credit || 0;
+              });
+              totalBalance = group.payableBalance || 0;
+            });
+            
+            // Add totals row
+            const totalsRowData = [
+              '',
+              '',
+              'TOTAL',
+              formatNumberWithCommas(totalDebit),
+              formatNumberWithCommas(totalCredit),
+              formatNumberWithCommas(totalBalance),
+              '',
+            ];
+            
+            totalsRowData.forEach((cellData, idx) => {
+              const xPos = margin + (idx * usableWidth / headers.length);
+              const colWidth = usableWidth / headers.length;
+              
+              doc.setDrawColor(100, 100, 100);
+              doc.setLineWidth(0.3);
+              doc.rect(xPos, yPos, colWidth, rowHeight);
+              
+              doc.setTextColor(0, 0, 0);
+              doc.setFont(undefined, 'bold');
+              doc.setFontSize(8);
+              
+              // Center align all columns
+              doc.text(String(cellData), xPos + colWidth / 2, yPos + 4, { align: 'center', maxWidth: colWidth - 4 });
+            });
+          }
+          
+          // Add final page number
+          doc.setFontSize(8);
+          doc.setTextColor(150, 150, 150);
+          doc.text(`Page ${pageNum}`, pageWidth - margin - 10, pageHeight - 5);
+          
+          doc.save(`Ledger_${dateOnly}.pdf`);
+          alert("✓ PDF file downloaded successfully!");
+        } else if (viewMode === "installments") {
+          // Generate Tuition Installment Schedule PDF
+          const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageHeight = doc.internal.pageSize.getHeight();
+          const margin = 10;
+          const usableWidth = pageWidth - 2 * margin;
+          
+          // Title
+          doc.setFontSize(16);
+          doc.setFont(undefined, 'bold');
+          doc.text('Tuition Installment Schedule', margin, 15);
+          
+          // Underline
+          doc.setDrawColor(0, 120, 255);
+          doc.setLineWidth(1);
+          doc.line(margin, 19, pageWidth - margin, 19);
+          
+          // Timestamp
+          doc.setFontSize(10);
+          doc.setFont(undefined, 'normal');
+          doc.text(`Generated: ${timestamp}`, margin, 26);
+          
+          let yPos = 32;
+          let pageNum = 1;
+          
+          // Check if there's data to display
+          if (normalizedTuitionInstallments.length === 0 || normalizedTuitionInstallments.every(s => (s.installments || []).length === 0)) {
+            doc.setFontSize(11);
+            doc.setTextColor(100, 100, 100);
+            doc.text('No installment information available.', margin, yPos + 10);
+          } else {
+            // Headers for table
+            const headers = ['Student', 'School Year', 'Grade', 'Installment', 'Type', 'Due Date', 'Amount', 'Paid', 'Balance', 'Status'];
+            const headerHeight = 8;
+            const rowHeight = 6;
+            
+            // Draw header
+            const drawHeader = () => {
+              headers.forEach((header, idx) => {
+                const xPos = margin + (idx * usableWidth / headers.length);
+                const colWidth = usableWidth / headers.length;
+                
+                doc.setFillColor(0, 120, 255);
+                doc.rect(xPos, yPos, colWidth, headerHeight, 'F');
+                
+                doc.setDrawColor(0, 80, 180);
+                doc.setLineWidth(0.8);
+                doc.rect(xPos, yPos, colWidth, headerHeight);
+                
+                doc.setTextColor(255, 255, 255);
+                doc.setFont(undefined, 'bold');
+              doc.setFontSize(8);
+              doc.text(header, xPos + colWidth / 2, yPos + 4, { align: 'center', maxWidth: colWidth - 4, fontSize: 8 });
+            });
+            yPos += headerHeight;
+          };
+          
+          // First page header
+          drawHeader();
+          
+          // Add data rows
+          normalizedTuitionInstallments.forEach((student) => {
+            (student.installments || []).forEach((inst, idx) => {
+              // Check if need new page
+              if (yPos + rowHeight > pageHeight - 10) {
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text(`Page ${pageNum}`, pageWidth - margin - 10, pageHeight - 5);
+                
+                doc.addPage();
+                yPos = margin;
+                pageNum++;
+                drawHeader();
+              }
+              
+              const rowData = [
+                student.student_name || '—',
+                schoolYearLabel(student) || '—',
+                gradeLevelLabel(student.grade_level) || '—',
+                inst.installment_number || idx + 1,
+                inst.type || 'Installment',
+                inst.due_date || '—',
+                formatNumberWithCommas(inst.amount || 0),
+                formatNumberWithCommas(inst.amount_paid || 0),
+                formatNumberWithCommas(inst.balance || 0),
+                inst.status || 'PENDING',
+              ];
+              
+              rowData.forEach((cellData, colIdx) => {
+                const xPos = margin + (colIdx * usableWidth / headers.length);
+                const colWidth = usableWidth / headers.length;
+                
+                doc.setDrawColor(100, 100, 100);
+                doc.setLineWidth(0.3);
+                doc.rect(xPos, yPos, colWidth, rowHeight);
+                
+                doc.setTextColor(0, 0, 0);
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(7);
+                
+                // Center align all columns
+                doc.text(String(cellData), xPos + colWidth / 2, yPos + 3, { align: 'center', maxWidth: colWidth - 4 });
+              });
+              
+              yPos += rowHeight;
+            });
+          });
+          
+          // Calculate and add totals row
+          let totalAmount = 0;
+          let totalAmountPaid = 0;
+          let totalBalanceAmount = 0;
+          normalizedTuitionInstallments.forEach((student) => {
+            (student.installments || []).forEach((inst) => {
+              totalAmount += inst.amount || 0;
+              totalAmountPaid += inst.amount_paid || 0;
+              totalBalanceAmount += inst.balance || 0;
+            });
+          });
+          
+          // Add totals row
+          const totalsRowData = [
+            '',
+            '',
+            '',
+            '',
+            '',
+            'TOTAL',
+            formatNumberWithCommas(totalAmount),
+            formatNumberWithCommas(totalAmountPaid),
+            formatNumberWithCommas(totalBalanceAmount),
+            '',
+          ];
+          
+          totalsRowData.forEach((cellData, colIdx) => {
+            const xPos = margin + (colIdx * usableWidth / headers.length);
+            const colWidth = usableWidth / headers.length;
+            
+            doc.setDrawColor(100, 100, 100);
+            doc.setLineWidth(0.3);
+            doc.rect(xPos, yPos, colWidth, rowHeight);
+            
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(7);
+            
+            // Center align all columns
+            doc.text(String(cellData), xPos + colWidth / 2, yPos + 3, { align: 'center', maxWidth: colWidth - 4 });
+          });
+          }
+          
+          // Add final page number
+          doc.setFontSize(8);
+          doc.setTextColor(150, 150, 150);
+          doc.text(`Page ${pageNum}`, pageWidth - margin - 10, pageHeight - 5);
+          
+          doc.save(`Tuition_Installments_${dateOnly}.pdf`);
+          alert("✓ PDF file downloaded successfully!");
+        }
+      } catch (err) {
+        console.error("Error downloading PDF:", err);
+        alert("Failed to download PDF file. Please try again.");
+      }
     };
 
     return (
@@ -1629,6 +2199,8 @@
           isOpen={showPreview}
           onClose={() => setShowPreview(false)}
           title="Account & Financial Ledger"
+          onDownloadExcel={handleDownloadExcel}
+          onDownloadPDF={handleDownloadPDF}
           customPreview={
             <div
               style={{
