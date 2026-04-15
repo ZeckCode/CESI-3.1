@@ -211,9 +211,10 @@ class TransactionCreateSerializer(SafeModelSerializer):
     def validate(self, attrs):
         if self.instance and 'due_date' in attrs:
             due_date_changed = attrs.get('due_date') != self.instance.due_date
+            normalized_item = normalize_transaction_item(self.instance.item)
             is_locked_billing_item = (
                 self.instance.entry_type == 'DEBIT'
-                and normalize_transaction_item(self.instance.item) in {'INITIAL', 'ASSESSMENT'}
+                and normalized_item in {'INITIAL', 'ASSESSMENT'}
             )
             if due_date_changed and is_locked_billing_item:
                 enrollment_id = self.instance.enrollment_id
@@ -233,6 +234,34 @@ class TransactionCreateSerializer(SafeModelSerializer):
                             'already has payments. This prevents payment allocation from breaking.'
                         )
                     })
+
+            if (
+                due_date_changed
+                and self.instance.entry_type == 'DEBIT'
+                and normalized_item == 'MONTHLY'
+                and self.instance.enrollment_id
+            ):
+                sibling_rows = Transaction.objects.filter(
+                    enrollment_id=self.instance.enrollment_id,
+                    entry_type='DEBIT',
+                )
+                required_rows = [
+                    row for row in sibling_rows
+                    if normalize_transaction_item(row.item) in {'INITIAL', 'ASSESSMENT'}
+                ]
+
+                if required_rows:
+                    has_unpaid_required = any(
+                        str(row.status or '').upper() != 'PAID'
+                        for row in required_rows
+                    )
+                    if has_unpaid_required:
+                        raise serializers.ValidationError({
+                            'due_date': (
+                                'Monthly due date cannot be edited until Initial and Assessment '
+                                'entries are PAID for this enrollment.'
+                            )
+                        })
 
         parent = attrs.get('parent') or getattr(self.instance, 'parent', None)
         enrollment = attrs.get('enrollment') or getattr(self.instance, 'enrollment', None)

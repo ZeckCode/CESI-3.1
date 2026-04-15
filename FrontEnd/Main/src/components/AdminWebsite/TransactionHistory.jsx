@@ -1337,6 +1337,30 @@ const TransactionHistory = () => {
 
   const canProcessRequest = (req) => req.status === 'APPROVED';
 
+  const initialAssessmentPaidForEditingEnrollment = useMemo(() => {
+    if (!editingTxn) return true;
+
+    const enrollmentId = Number(editingTxn.enrollment_id || 0);
+    if (!enrollmentId) return true;
+
+    const requiredRows = (transactions || []).filter((tx) =>
+      Number(tx.enrollment_id || 0) === enrollmentId &&
+      String(tx.entry_type || '').toUpperCase() === 'DEBIT' &&
+      ['INITIAL', 'ASSESSMENT'].includes(String(tx.item || '').toUpperCase())
+    );
+
+    if (requiredRows.length === 0) return true;
+
+    return requiredRows.every((tx) => String(tx.status || '').toUpperCase() === 'PAID');
+  }, [editingTxn, transactions]);
+
+  const lockMonthlyDueDate = Boolean(
+    editingTxn &&
+    String(formData.entry_type || '').toUpperCase() === 'DEBIT' &&
+    String(formData.item || '').toUpperCase() === 'MONTHLY' &&
+    !initialAssessmentPaidForEditingEnrollment
+  );
+
   const financialInsights = useMemo(() => {
     const totalBilled = Number(stats.total_billed || 0);
     const totalCollected = Number(stats.total_collected || 0);
@@ -2231,7 +2255,13 @@ const TransactionHistory = () => {
                     value={formData.due_date}
                     onChange={handleFormChange}
                     className="th-form-input"
+                    disabled={lockMonthlyDueDate}
                   />
+                  {lockMonthlyDueDate && (
+                    <p className="th-auto-ref-note">
+                      Monthly due date is locked until Initial and Assessment are PAID.
+                    </p>
+                  )}
                 </div>
               </div>
 

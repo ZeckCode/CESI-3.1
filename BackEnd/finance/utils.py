@@ -141,6 +141,16 @@ def recompute_transaction_statuses_for_enrollment(enrollment):
         debit_amount = normalize_money(row.debit)
         is_billing_debit = row_item_key in BILLING_DEBIT_ITEMS
 
+        # Hard protection requested by business rule:
+        # always keep Initial and Assessment debit rows marked as PAID
+        # so monthly due-date edits cannot push them into PARTIAL.
+        if row_item_key in {'INITIAL', 'ASSESSMENT'}:
+            desired_status = 'PAID'
+            if row.status != desired_status:
+                row.status = desired_status
+                row.save(update_fields=['status'])
+            continue
+
         if available_credit <= 0:
             if is_billing_debit:
                 # Only mark OVERDUE if there's an explicit due_date that has passed.
