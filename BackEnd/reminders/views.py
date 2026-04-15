@@ -105,6 +105,51 @@ def get_enrollment_balance(enrollment):
     return balance if balance > 0 else Decimal("0.00")
 
 
+def can_send_reminder_for_transaction(transaction):
+    """
+    Check if a transaction is eligible to receive a payment reminder.
+    Requirements:
+    1. Must be a DEBIT entry
+    2. Status must be PENDING or OVERDUE (not PARTIAL or PAID)
+    3. Must have outstanding balance (debit > credit)
+    4. Due date must be <= today
+    """
+    if not transaction:
+        return False
+    
+    # Must be DEBIT
+    if getattr(transaction, "entry_type", "") != "DEBIT":
+        return False
+    
+    # Status must be PENDING or OVERDUE
+    status = str(getattr(transaction, "status", "") or "").upper()
+    if status not in ["PENDING", "OVERDUE"]:
+        return False
+    
+    # Must have outstanding balance
+    debit_amount = Decimal(str(getattr(transaction, "debit", 0) or 0))
+    credit_amount = Decimal(str(getattr(transaction, "credit", 0) or 0))
+    outstanding = debit_amount - credit_amount
+    if outstanding <= 0:
+        return False
+    
+    # Due date must be <= today
+    due_date = getattr(transaction, "due_date", None)
+    if not due_date:
+        return False
+    
+    from datetime import date as date_class
+    try:
+        due_date_obj = due_date if isinstance(due_date, date_class) else date_class.fromisoformat(str(due_date))
+        today = date_class.today()
+        if due_date_obj > today:
+            return False
+    except (ValueError, TypeError):
+        return False
+    
+    return True
+
+
 def create_reminder_once(
     *,
     recipient,
@@ -465,12 +510,29 @@ def send_payment_reminder(request, transaction_id):
         )
 
     recipient = transaction.parent
+    
+    # Check if transaction is eligible for reminder
+    if not can_send_reminder_for_transaction(transaction):
+        outstanding_balance = _compute_outstanding_balance(transaction)
+        tx_status = str(getattr(transaction, "status", "") or "").upper()
+        
+        if outstanding_balance <= 0:
+            return Response(
+                {"detail": "This transaction has no outstanding balance."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        elif tx_status not in ["PENDING", "OVERDUE"]:
+            return Response(
+                {"detail": f"Cannot send reminder for {tx_status} status. Only PENDING and OVERDUE transactions can receive reminders."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        else:
+            return Response(
+                {"detail": "This transaction is not eligible for payment reminders."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
     outstanding_balance = _compute_outstanding_balance(transaction)
-    if outstanding_balance <= 0:
-        return Response(
-            {"detail": "This transaction has no outstanding balance."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
 
     today = timezone.localdate()
     event_type, status_value, notice_label = _resolve_payment_notice_type(transaction, today=today)
@@ -559,7 +621,7 @@ def send_bulk_payment_reminders(request):
     transactions = Transaction.objects.select_related("parent").filter(
         entry_type="DEBIT",
         parent__isnull=False,
-        status__in=["PENDING", "OVERDUE", "PARTIAL", "POSTED"],
+        status__in=["PENDING", "OVERDUE"],
         due_date__isnull=False,
         due_date__lte=today,
     )
@@ -576,6 +638,11 @@ def send_bulk_payment_reminders(request):
     for transaction in transactions:
         processed_count += 1
         try:
+            # Extra validation to ensure transaction is still eligible
+            if not can_send_reminder_for_transaction(transaction):
+                skipped_count += 1
+                continue
+            
             recipient = transaction.parent
             outstanding_balance = _compute_outstanding_balance(transaction)
             if outstanding_balance <= 0:

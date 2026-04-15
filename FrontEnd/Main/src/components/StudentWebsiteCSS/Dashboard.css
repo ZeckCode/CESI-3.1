@@ -724,3 +724,168 @@
 
 .sd__pill--pass { background: #dcfce7; color: var(--success); }
 .sd__pill--fail { background: #fee2e2; color: var(--danger); }
+
+/* Skeleton loading */
+.sdSkel {
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.72),
+    transparent
+  );
+  animation: sdShimmerMove 1.2s infinite;
+}
+
+@keyframes sdShimmerMove {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.sdSkel__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.sdSkel__line {
+  height: 0.7rem;
+}
+
+.sdSkel__line--welcome {
+  width: 220px;
+  height: 0.95rem;
+  margin-bottom: 1rem;
+}
+
+.sdSkel__line--label {
+  width: 38%;
+}
+
+.sdSkel__line--value {
+  width: 52%;
+  height: 1.55rem;
+}
+
+.sdSkel__line--insight {
+  width: 72%;
+}
+
+.sdSkel__line--title {
+  width: 210px;
+  height: 1rem;
+  margin-bottom: 0.55rem;
+}
+
+.sdSkel__line--sub {
+  width: 320px;
+  max-width: 100%;
+  margin-bottom: 0.9rem;
+}
+
+.sdSkel__line--cardTitle {
+  width: 58%;
+  height: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.sdSkel__line--cardText {
+  width: 92%;
+}
+
+.sdSkel__line--cardTextShort {
+  width: 66%;
+}
+
+.sdSkel__line--scheduleTitle {
+  width: 150px;
+  max-width: 100%;
+  height: 0.85rem;
+}
+
+.sdSkel__line--scheduleMeta {
+  width: 210px;
+  max-width: 100%;
+}
+
+.sdSkel__line--time {
+  width: 92px;
+}
+
+.sdSkel__line--annTitle {
+  width: 74%;
+  height: 0.85rem;
+  margin-bottom: 0.45rem;
+}
+
+.sdSkel__line--annMeta {
+  width: 46%;
+  height: 0.65rem;
+}
+
+.sdSkel__stat {
+  border-left-color: #c7d2fe;
+}
+
+.sdSkel__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 0.75rem;
+  flex-shrink: 0;
+}
+
+.sdSkel__iconBox {
+  width: 44px;
+  height: 44px;
+  border-radius: 0.75rem;
+  flex: 0 0 auto;
+}
+
+.sdSkel__insightCard {
+  border-left-color: #bfdbfe;
+}
+
+.sdSkel__scheduleItem:hover {
+  border-left: none;
+  padding-left: 1.5rem;
+}
+
+.sdSkel__annItem {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sdSkel__annItem:last-child {
+  border-bottom: 0;
+}
+
+.sd__annSkeletonList {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 700px) {
+  .sdSkel__line--welcome {
+    width: 180px;
+  }
+
+  .sdSkel__line--sub {
+    width: 230px;
+  }
+}

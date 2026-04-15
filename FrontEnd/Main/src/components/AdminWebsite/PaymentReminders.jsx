@@ -15,6 +15,42 @@ import "../AdminWebsiteCSS/PaymentReminders.css";
 
 const REMINDER_SKELETON_ROWS = 6;
 
+// Validation logic (same as TransactionHistory)
+const isDueForReminder = (dueDate) => {
+  if (!dueDate) return false;
+
+  const due = new Date(`${dueDate}T00:00:00`);
+  if (Number.isNaN(due.getTime())) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return due <= today;
+};
+
+const canSendReminderForTransaction = (reminder) => {
+  if (!reminder) return false;
+
+  // Must have a transaction
+  if (!reminder.transaction) return false;
+
+  // Check if the transaction actually has the necessary data
+  const tx = reminder;
+  
+  // Must be DEBIT entry type (from transaction_status or inferred)
+  if (tx.debit === undefined || tx.debit === null) return false;
+
+  // Status must be PENDING or OVERDUE (not PARTIAL)
+  const status = String(tx.transaction_status || '').toUpperCase();
+  if (!['PENDING', 'OVERDUE'].includes(status)) return false;
+
+  // Due date must be <= today
+  if (!isDueForReminder(tx.transaction_due_date)) return false;
+
+  // Must have outstanding balance
+  const outstanding = tx.outstanding_balance || tx.amount_to_pay || 0;
+  return Number(outstanding || 0) > 0;
+};
+
 const PaymentReminders = () => {
   const [hoveredRow, setHoveredRow] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -105,8 +141,20 @@ const PaymentReminders = () => {
       return;
     }
 
-    if (reminder?.can_send_payment_reminder === false) {
-      addToast("Blocked", "This transaction has no outstanding balance.", "warning");
+    // Use same validation as TransactionHistory
+    if (!canSendReminderForTransaction(reminder)) {
+      const txStatus = String(reminder.transaction_status || '').toUpperCase();
+      const outstanding = reminder.outstanding_balance || reminder.amount_to_pay || 0;
+      
+      if (outstanding <= 0) {
+        addToast("Blocked", "This transaction has no outstanding balance.", "warning");
+      } else if (!['PENDING', 'OVERDUE'].includes(txStatus)) {
+        addToast("Blocked", `Cannot send reminder for ${txStatus} status. Only PENDING and OVERDUE transactions can receive reminders.`, "warning");
+      } else if (!isDueForReminder(reminder.transaction_due_date)) {
+        addToast("Blocked", "This transaction's due date is in the future.", "info");
+      } else {
+        addToast("Blocked", "This transaction is not eligible for payment reminders.", "warning");
+      }
       return;
     }
 
@@ -339,13 +387,22 @@ const PaymentReminders = () => {
                         disabled={
                           !r.transaction ||
                           sendingId === r.transaction ||
-                          r.can_send_payment_reminder === false
+                          !canSendReminderForTransaction(r)
                         }
                         title={
                           !r.transaction
                             ? "No linked transaction"
-                            : r.can_send_payment_reminder === false
-                            ? "No outstanding balance"
+                            : sendingId === r.transaction
+                            ? "Sending..."
+                            : !canSendReminderForTransaction(r)
+                            ? (() => {
+                                const txStatus = String(r.transaction_status || '').toUpperCase();
+                                const outstanding = r.outstanding_balance || r.amount_to_pay || 0;
+                                if (outstanding <= 0) return "No outstanding balance";
+                                if (!['PENDING', 'OVERDUE'].includes(txStatus)) return `Cannot send for ${txStatus} status`;
+                                if (!isDueForReminder(r.transaction_due_date)) return "Due date is in the future";
+                                return "Not eligible for reminder";
+                              })()
                             : "Send payment reminder"
                         }
                       >

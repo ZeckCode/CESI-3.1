@@ -66,7 +66,14 @@ function StudentAnnouncementsPanel() {
     <>
       <div className="card-body-padding sd__annBody">
         {loading ? (
-          <p className="sd__muted">Loading announcements…</p>
+          <div className="sd__annSkeletonList">
+            {[...Array(3)].map((_, idx) => (
+              <div key={idx} className="sdSkel__annItem">
+                <div className="sdSkel shimmer sdSkel__line sdSkel__line--annTitle" />
+                <div className="sdSkel shimmer sdSkel__line sdSkel__line--annMeta" />
+              </div>
+            ))}
+          </div>
         ) : err ? (
           <p className="sd__danger">{err}</p>
         ) : announcements.length === 0 ? (
@@ -96,7 +103,7 @@ function StudentAnnouncementsPanel() {
           onClick={() => setListOpen(true)}
           disabled={loading || announcements.length === 0}
         >
-          See All Updates
+          {loading ? "Loading updates..." : "See All Updates"}
         </button>
       </div>
 
@@ -289,6 +296,79 @@ const Dashboard = () => {
       },
     ];
   }, [attPct, avgGrade, gradedSubjects, gradeLabelStr, sectionName, todaySchedule.length]);
+
+  if (loading) {
+    return (
+      <div className="dashboard-content">
+        <header className="content-header">
+          <div className="sdSkel shimmer sdSkel__line sdSkel__line--welcome" />
+        </header>
+
+        <div className="sd__statsRow">
+          {[...Array(3)].map((_, idx) => (
+            <div key={idx} className="sdStat sdSkel__stat">
+              <div className="sdSkel shimmer sdSkel__icon" />
+              <div className="sdSkel__copy">
+                <div className="sdSkel shimmer sdSkel__line sdSkel__line--label" />
+                <div className="sdSkel shimmer sdSkel__line sdSkel__line--value" />
+                <div className="sdSkel shimmer sdSkel__line sdSkel__line--insight" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <section className="sdInsights">
+          <div className="sdSkel shimmer sdSkel__line sdSkel__line--title" />
+          <div className="sdSkel shimmer sdSkel__line sdSkel__line--sub" />
+          <div className="sdInsights__grid">
+            {[...Array(4)].map((_, idx) => (
+              <article key={idx} className="sdInsights__card sdSkel__insightCard">
+                <div className="sdSkel shimmer sdSkel__line sdSkel__line--cardTitle" />
+                <div className="sdSkel shimmer sdSkel__line sdSkel__line--cardText" />
+                <div className="sdSkel shimmer sdSkel__line sdSkel__line--cardTextShort" />
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <div className="dashboard-grid">
+          <section className="dashboard-card">
+            <div className="card-header-blue">
+              <h6 className="header-title">Today's Schedule</h6>
+            </div>
+            <div className="card-body-flush sd__scheduleScroll">
+              {[...Array(4)].map((_, idx) => (
+                <div className="sd__listItem sdSkel__scheduleItem" key={idx}>
+                  <div className="sd__listLeft">
+                    <div className="sdSkel shimmer sdSkel__iconBox" />
+                    <div className="sdSkel__copy">
+                      <div className="sdSkel shimmer sdSkel__line sdSkel__line--scheduleTitle" />
+                      <div className="sdSkel shimmer sdSkel__line sdSkel__line--scheduleMeta" />
+                    </div>
+                  </div>
+                  <div className="sdSkel shimmer sdSkel__line sdSkel__line--time" />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="dashboard-card">
+            <div className="card-header-red">
+              <h6 className="header-title">Announcements</h6>
+            </div>
+            <div className="card-body-padding">
+              {[...Array(3)].map((_, idx) => (
+                <div key={idx} className="sdSkel__annItem">
+                  <div className="sdSkel shimmer sdSkel__line sdSkel__line--annTitle" />
+                  <div className="sdSkel shimmer sdSkel__line sdSkel__line--annMeta" />
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-content">

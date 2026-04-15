@@ -459,6 +459,81 @@ const Grades = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <main className="student-grades-main">
+        <section className="sg-section sg-no-print">
+          <div className="sg-stats-grid">
+            {[...Array(4)].map((_, idx) => (
+              <div key={idx} className="sg-stat-card sgSkel__statCard">
+                <div className="sg-stat-header">
+                  <div className="sgSkel shimmer sgSkel__line sgSkel__line--statLabel" />
+                  <div className="sgSkel shimmer sgSkel__icon" />
+                </div>
+                <div className="sgSkel shimmer sgSkel__line sgSkel__line--statValue" />
+                <div className="sgSkel shimmer sgSkel__line sgSkel__line--statChange" />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="sg-section sg-no-print">
+          <div className="sg-insights-panel">
+            <div className="sg-insights-header">
+              <div className="sgSkel shimmer sgSkel__line sgSkel__line--title" />
+              <div className="sgSkel shimmer sgSkel__line sgSkel__line--subtitle" />
+            </div>
+
+            <div className="sg-insights-grid">
+              {[...Array(3)].map((_, idx) => (
+                <article key={idx} className="sg-insight-card">
+                  <div className="sgSkel shimmer sgSkel__line sgSkel__line--insightLabel" />
+                  <div className="sgSkel shimmer sgSkel__line sgSkel__line--insightValue" />
+                  <div className="sgSkel shimmer sgSkel__line sgSkel__line--insightNote" />
+                </article>
+              ))}
+            </div>
+
+            <div className="sg-quarter-strip">
+              {[...Array(5)].map((_, idx) => (
+                <span key={idx} className="sg-quarter-pill sgSkel__quarterPill">
+                  <span className="sgSkel shimmer sgSkel__line sgSkel__line--quarter" />
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="sg-section sg-print-area">
+          <div className="sg-section-header">
+            <div>
+              <div className="sgSkel shimmer sgSkel__line sgSkel__line--sectionTitle" />
+              <div className="sgSkel shimmer sgSkel__line sgSkel__line--sectionSub" />
+            </div>
+            <div className="sg-header-actions sg-no-print">
+              <div className="sgSkel shimmer sgSkel__btn" />
+            </div>
+          </div>
+
+          <div className="sg-table-container sgSkel__tableContainer">
+            <div className="sgSkel__tableHead">
+              {[...Array(7)].map((_, idx) => (
+                <div key={idx} className="sgSkel shimmer sgSkel__line sgSkel__line--th" />
+              ))}
+            </div>
+            {[...Array(5)].map((_, rowIdx) => (
+              <div key={rowIdx} className="sgSkel__tableRow">
+                {[...Array(7)].map((_, colIdx) => (
+                  <div key={colIdx} className="sgSkel shimmer sgSkel__line sgSkel__line--td" />
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="student-grades-main">
       {/* Stats Overview - HIDDEN ON PRINT */}

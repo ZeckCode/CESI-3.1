@@ -83,6 +83,46 @@ class ReminderSerializer(SafeModelSerializer):
         return self._get_outstanding_balance(obj)
 
     def get_can_send_payment_reminder(self, obj):
+        """
+        Check if a reminder can be sent for this transaction.
+        Must have:
+        1. A linked transaction
+        2. Entry type must be DEBIT
+        3. Status must be PENDING or OVERDUE (not PARTIAL)
+        4. Outstanding balance > 0
+        5. Due date <= today
+        """
         if not obj.transaction:
             return False
-        return self._get_outstanding_balance(obj) > 0
+
+        tx = obj.transaction
+        
+        # Must be a DEBIT entry
+        if getattr(tx, "entry_type", "") != "DEBIT":
+            return False
+        
+        # Status must be PENDING or OVERDUE (NOT PARTIAL)
+        status = str(getattr(tx, "status", "") or "").upper()
+        if status not in ["PENDING", "OVERDUE"]:
+            return False
+        
+        # Must have outstanding balance
+        outstanding = self._get_outstanding_balance(obj)
+        if outstanding <= 0:
+            return False
+        
+        # Due date must be today or earlier
+        due_date = getattr(tx, "due_date", None)
+        if not due_date:
+            return False
+        
+        from datetime import date
+        try:
+            due_date_obj = due_date if isinstance(due_date, date) else date.fromisoformat(str(due_date))
+            today = date.today()
+            if due_date_obj > today:
+                return False
+        except (ValueError, TypeError):
+            return False
+        
+        return True
