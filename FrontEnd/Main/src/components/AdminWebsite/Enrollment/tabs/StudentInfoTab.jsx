@@ -16,6 +16,7 @@ const RELIGION_OPTIONS = [
 export default function StudentInfoTab({
   formData,
   isReadOnly,
+  lockImportantFields,
   modalMode,
   onInputChange,
   gradeOptions,
@@ -27,6 +28,8 @@ export default function StudentInfoTab({
   validateAgeForGrade,
   GRADE_AGE_RULES,
 }) {
+  const disableImportantFields = isReadOnly || lockImportantFields;
+
   return (
     <div className="tab-content-scroll">
       {/* Academic Information */}
@@ -35,6 +38,12 @@ export default function StudentInfoTab({
           <span className="section-icon">🎓</span>
           Academic Information
         </div>
+
+        {lockImportantFields && (
+          <div className="enrollment-lock-note">
+            Grade and education details are locked after enrollment is approved.
+          </div>
+        )}
 
         <div className="form-row">
           <div className="form-group">
@@ -93,7 +102,7 @@ export default function StudentInfoTab({
               name="education_level"
               value={formData.education_level}
               onChange={onInputChange}
-              disabled={isReadOnly}
+              disabled={disableImportantFields}
             >
               <option value="">Select</option>
               <option value="preschool">Preschool</option>
@@ -107,7 +116,7 @@ export default function StudentInfoTab({
               name="grade_level"
               value={formData.grade_level}
               onChange={onInputChange}
-              disabled={isReadOnly || !formData.education_level}
+              disabled={disableImportantFields || !formData.education_level}
             >
               <option value="">Select</option>
               {gradeOptions.map((g) => (
@@ -174,6 +183,12 @@ export default function StudentInfoTab({
           Personal Information
         </div>
 
+        {lockImportantFields && (
+          <div className="enrollment-lock-note">
+            Name and birth date are locked after enrollment is approved.
+          </div>
+        )}
+
         <div className="form-row">
           <div className="form-group">
             <label>Last Name *</label>
@@ -181,7 +196,7 @@ export default function StudentInfoTab({
               name="last_name"
               value={formData.last_name}
               onChange={onInputChange}
-              disabled={isReadOnly}
+              disabled={disableImportantFields}
             />
           </div>
           <div className="form-group">
@@ -190,7 +205,7 @@ export default function StudentInfoTab({
               name="first_name"
               value={formData.first_name}
               onChange={onInputChange}
-              disabled={isReadOnly}
+              disabled={disableImportantFields}
             />
           </div>
         </div>
@@ -202,7 +217,7 @@ export default function StudentInfoTab({
               name="middle_name"
               value={formData.middle_name}
               onChange={onInputChange}
-              disabled={isReadOnly}
+              disabled={disableImportantFields}
             />
           </div>
           <div className="form-group">
@@ -212,7 +227,7 @@ export default function StudentInfoTab({
               name="birth_date"
               value={formData.birth_date || ""}
               onChange={onInputChange}
-              disabled={isReadOnly}
+              disabled={disableImportantFields}
               max={todayISO()}
             />
           </div>

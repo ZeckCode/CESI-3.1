@@ -739,6 +739,17 @@ def student_tuition_overview(request):
                 status='ACTIVE'
             ).order_by('-created_at').first()
 
+        if profile.user_id and not enrollment and profile.student_number:
+            enrollment = Enrollment.objects.filter(
+                parent_user=profile.user,
+                student_number=profile.student_number,
+            ).order_by('-created_at').first()
+
+        if profile.user_id and not enrollment:
+            enrollment = Enrollment.objects.filter(
+                parent_user=profile.user,
+            ).order_by('-created_at').first()
+
         student_type = (enrollment.student_type or '').strip().lower() if enrollment else ''
         is_new_student = student_type == 'new'
 
@@ -757,7 +768,23 @@ def student_tuition_overview(request):
                     Decimal('0.00')
                 )
 
-        if profile.user_id:
+        if enrollment:
+            totals = Transaction.objects.filter(
+                parent=profile.user,
+                enrollment=enrollment,
+                transaction_type='TUITION',
+                entry_type='CREDIT',
+            ).aggregate(total_credit=Sum('credit'))
+            total_paid = Decimal(str(totals.get('total_credit') or 0))
+        elif profile.user_id and profile.student_number:
+            totals = Transaction.objects.filter(
+                parent=profile.user,
+                transaction_type='TUITION',
+                entry_type='CREDIT',
+                student_number_snapshot=profile.student_number,
+            ).aggregate(total_credit=Sum('credit'))
+            total_paid = Decimal(str(totals.get('total_credit') or 0))
+        elif profile.user_id:
             total_paid = tuition_paid_for_parent(profile.user)
 
         remaining_balance = total_due - total_paid

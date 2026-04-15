@@ -3201,6 +3201,38 @@
   font-weight: 600;
 }
 
+.approve-enrollment-panel__submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pre-approve-panel {
+  max-width: 620px;
+}
+
+.pre-approve-note {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #bae6fd;
+  background: #f0f9ff;
+  color: #0c4a6e;
+  font-size: 13px;
+}
+
+.pre-approve-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.pre-approve-check input {
+  margin-top: 2px;
+}
+
 /* ========== ENROLLMENT MODAL SIZE OVERRIDE ========== */
 .enrollment-management .modal-overlay {
   padding: 14px !important;

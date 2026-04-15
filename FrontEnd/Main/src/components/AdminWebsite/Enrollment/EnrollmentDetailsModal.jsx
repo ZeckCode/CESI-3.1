@@ -17,6 +17,7 @@ export default function EnrollmentDetailsModal({
   gradeOptions,
   currentDocs,
   paymentProof,
+  lockImportantFields,
   studentPhoto,
   docUploadType,
   docUploadLabel,
@@ -115,6 +116,7 @@ export default function EnrollmentDetailsModal({
             <StudentInfoTab
               formData={formData}
               isReadOnly={isReadOnly}
+              lockImportantFields={lockImportantFields}
               modalMode={modalMode}
               onInputChange={onInputChange}
               gradeOptions={gradeOptions}

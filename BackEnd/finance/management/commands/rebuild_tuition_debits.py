@@ -302,19 +302,22 @@ class Command(BaseCommand):
             return
 
         enrollments = Enrollment.objects.filter(parent_user__isnull=False).order_by("id")
-        if not all_status:
-            enrollments = enrollments.filter(status="ACTIVE")
 
         if enrollment_id:
+            # Explicit id targeting should work regardless of enrollment status.
             enrollments = enrollments.filter(id=enrollment_id)
         elif student_number:
-            enrollments = enrollments.filter(student_number=student_number).order_by("-created_at", "-id")[:1]
+            base = enrollments if all_status else enrollments.filter(status="ACTIVE")
+            enrollments = base.filter(student_number=student_number).order_by("-created_at", "-id")[:1]
         elif username:
             user = User.objects.filter(username=username).first()
             if not user:
                 self.stdout.write(self.style.ERROR(f"No user found with username '{username}'."))
                 return
-            enrollments = enrollments.filter(parent_user=user).order_by("-created_at", "-id")[:1]
+            base = enrollments if all_status else enrollments.filter(status="ACTIVE")
+            enrollments = base.filter(parent_user=user).order_by("-created_at", "-id")[:1]
+        elif not all_status:
+            enrollments = enrollments.filter(status="ACTIVE")
 
         scanned = 0
         candidates = 0

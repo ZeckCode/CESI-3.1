@@ -178,6 +178,9 @@ export default function EnrollmentManagement() {
 
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [approveTargetRow, setApproveTargetRow] = useState(null);
+  const [preApproveConfirmOpen, setPreApproveConfirmOpen] = useState(false);
+  const [preApproveTargetRow, setPreApproveTargetRow] = useState(null);
+  const [preApproveChecked, setPreApproveChecked] = useState(false);
   const [approveAmount, setApproveAmount] = useState("");
   const [approveMinimumAmount, setApproveMinimumAmount] = useState(0);
   const [approveRemarks, setApproveRemarks] = useState("");
@@ -1233,6 +1236,25 @@ export default function EnrollmentManagement() {
     setApproveRemarks("");
   };
 
+  const openPreApproveConfirm = (row) => {
+    setPreApproveTargetRow(row);
+    setPreApproveChecked(false);
+    setPreApproveConfirmOpen(true);
+  };
+
+  const closePreApproveConfirm = () => {
+    setPreApproveConfirmOpen(false);
+    setPreApproveTargetRow(null);
+    setPreApproveChecked(false);
+  };
+
+  const proceedToApproveDialog = async () => {
+    if (!preApproveTargetRow || !preApproveChecked) return;
+    const row = preApproveTargetRow;
+    closePreApproveConfirm();
+    await openApproveDialog(row);
+  };
+
   const _autoApprovePaymentProof = async (enrollmentId) => {
     try {
       // Find the proof of payment for this enrollment
@@ -1353,7 +1375,7 @@ const handleApproveModal = async () => {
   if (!editingId) return;
   const row = normalized.find((r) => r.id === editingId);
   if (!row) return;
-  openApproveDialog(row);
+  openPreApproveConfirm(row);
 };
 
   const handleDeclineModal = () => {
@@ -1881,6 +1903,12 @@ const openIdGenerator = (row) => {
     ));
 
   const isInitialLoading = loading && enrollments.length === 0;
+  const lockImportantFields = Boolean(
+    editingId &&
+      ["ACTIVE", "COMPLETED"].includes(
+        String(modalStatus || formData.status || "").toUpperCase()
+      )
+  );
 
   return (
     <div className="enrollment-management">
@@ -2328,7 +2356,7 @@ const openIdGenerator = (row) => {
                           <div className="approve-decline-group">
                             <button
                               className="btn-approve enrollment-btn-approve table-btn-approve"
-                              onClick={() => openApproveDialog(row)}
+                              onClick={() => openPreApproveConfirm(row)}
                               title="Approve"
                               aria-label="Approve"
                             >
@@ -2409,6 +2437,7 @@ const openIdGenerator = (row) => {
         gradeOptions={gradeOptions}
         currentDocs={currentDocs}
         paymentProof={currentPaymentProof}
+        lockImportantFields={lockImportantFields}
         studentPhoto={editingId ? enrollments.find((e) => e.id === editingId)?.id_image_url : null}
         docUploadType={docUploadType}
         docUploadLabel={docUploadLabel}
@@ -2578,6 +2607,72 @@ const openIdGenerator = (row) => {
         studentData={selectedStudentForId || {}}
         schoolInfo={schoolInfo}
       />
+
+      {preApproveConfirmOpen && preApproveTargetRow && (
+        <div className="approve-enrollment-overlay" onClick={closePreApproveConfirm}>
+          <div className="approve-enrollment-panel pre-approve-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="approve-enrollment-panel__header">
+              <h3 className="approve-enrollment-panel__title">Confirm Enrollment Details</h3>
+              <button
+                onClick={closePreApproveConfirm}
+                className="approve-enrollment-panel__close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="pre-approve-note">
+              Please verify the student information below before approving this enrollment.
+            </div>
+
+            <div className="approve-enrollment-panel__grid">
+              <div>
+                <div className="approve-enrollment-panel__meta-label">Student Name</div>
+                <div className="approve-enrollment-panel__meta-value">{preApproveTargetRow.studentName || "—"}</div>
+              </div>
+              <div>
+                <div className="approve-enrollment-panel__meta-label">Birth Date</div>
+                <div className="approve-enrollment-panel__meta-value">
+                  {preApproveTargetRow.raw?.birth_date || "—"}
+                </div>
+              </div>
+              <div>
+                <div className="approve-enrollment-panel__meta-label">Grade Level</div>
+                <div className="approve-enrollment-panel__meta-value">{preApproveTargetRow.gradeLevel || "—"}</div>
+              </div>
+              <div>
+                <div className="approve-enrollment-panel__meta-label">Section</div>
+                <div className="approve-enrollment-panel__meta-value">{preApproveTargetRow.sectionName || "—"}</div>
+              </div>
+            </div>
+
+            <label className="pre-approve-check">
+              <input
+                type="checkbox"
+                checked={preApproveChecked}
+                onChange={(e) => setPreApproveChecked(e.target.checked)}
+              />
+              I have reviewed and confirmed that the student's details are correct.
+            </label>
+
+            <div className="approve-enrollment-panel__actions">
+              <button
+                onClick={closePreApproveConfirm}
+                className="approve-enrollment-panel__cancel"
+              >
+                Back
+              </button>
+              <button
+                onClick={proceedToApproveDialog}
+                disabled={!preApproveChecked}
+                className="approve-enrollment-panel__submit"
+              >
+                Continue to Approval
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
        {approveDialogOpen && approveTargetRow && (
         <div className="approve-enrollment-overlay" onClick={closeApproveDialog}>
