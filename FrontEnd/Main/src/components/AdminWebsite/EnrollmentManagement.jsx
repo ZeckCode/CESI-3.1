@@ -617,6 +617,8 @@ export default function EnrollmentManagement() {
           academicYear: e.academic_year || "",
           paymentMode: e.payment_mode || "—",
           paymentMethod: e.payment_method || "—",
+          submittedPaymentAmount:
+            tempRow.paymentProof?.amount ?? e.payment_amount ?? null,
           paymentProof: tempRow.paymentProof,
           gradeProgress: tempRow.gradeProgress,
           remainingBalance: tempRow.remainingBalance,
@@ -1223,8 +1225,10 @@ export default function EnrollmentManagement() {
       }
     }
 
-    // optional default amount from proof if later available
-    setApproveAmount("");
+    const submittedAmount = Number(
+      row?.submittedPaymentAmount ?? row?.paymentProof?.amount ?? 0
+    );
+    setApproveAmount(submittedAmount > 0 ? String(submittedAmount) : "");
     setApproveDialogOpen(true);
   };
 
@@ -2633,7 +2637,29 @@ const openIdGenerator = (row) => {
               <div>
                 <div className="approve-enrollment-panel__meta-label">Birth Date</div>
                 <div className="approve-enrollment-panel__meta-value">
-                  {preApproveTargetRow.raw?.birth_date || "—"}
+                  {preApproveTargetRow.raw?.birth_date
+                    ? `${preApproveTargetRow.raw.birth_date} (${calcAge(preApproveTargetRow.raw.birth_date)} years old)`
+                    : "—"}
+                </div>
+              </div>
+              <div>
+                <div className="approve-enrollment-panel__meta-label">Education Level</div>
+                <div className="approve-enrollment-panel__meta-value">
+                  {preApproveTargetRow.raw?.education_level
+                    ? String(preApproveTargetRow.raw.education_level)
+                        .replace(/_/g, " ")
+                        .replace(/\b\w/g, (c) => c.toUpperCase())
+                    : "—"}
+                </div>
+              </div>
+              <div>
+                <div className="approve-enrollment-panel__meta-label">Student Type</div>
+                <div className="approve-enrollment-panel__meta-value">
+                  {preApproveTargetRow.raw?.student_type
+                    ? String(preApproveTargetRow.raw.student_type)
+                        .replace(/_/g, " ")
+                        .replace(/\b\w/g, (c) => c.toUpperCase())
+                    : "—"}
                 </div>
               </div>
               <div>
@@ -2641,8 +2667,20 @@ const openIdGenerator = (row) => {
                 <div className="approve-enrollment-panel__meta-value">{preApproveTargetRow.gradeLevel || "—"}</div>
               </div>
               <div>
-                <div className="approve-enrollment-panel__meta-label">Section</div>
-                <div className="approve-enrollment-panel__meta-value">{preApproveTargetRow.sectionName || "—"}</div>
+                <div className="approve-enrollment-panel__meta-label">Academic Year</div>
+                <div className="approve-enrollment-panel__meta-value">{preApproveTargetRow.academicYear || "—"}</div>
+              </div>
+              <div>
+                <div className="approve-enrollment-panel__meta-label">Payment Mode</div>
+                <div className="approve-enrollment-panel__meta-value">{preApproveTargetRow.paymentMode || "—"}</div>
+              </div>
+              <div>
+                <div className="approve-enrollment-panel__meta-label">Payment Method</div>
+                <div className="approve-enrollment-panel__meta-value">{preApproveTargetRow.paymentMethod || "—"}</div>
+              </div>
+              <div>
+                <div className="approve-enrollment-panel__meta-label">LRN</div>
+                <div className="approve-enrollment-panel__meta-value">{preApproveTargetRow.raw?.lrn || "—"}</div>
               </div>
             </div>
 
@@ -2730,6 +2768,17 @@ const openIdGenerator = (row) => {
                   Payment Method
                 </div>
                 <div className="approve-enrollment-panel__meta-value">{approveTargetRow.paymentMethod || "—"}</div>
+              </div>
+
+              <div>
+                <div className="approve-enrollment-panel__meta-label">
+                  Student Submitted Amount
+                </div>
+                <div className="approve-enrollment-panel__meta-value">
+                  {Number(approveTargetRow.submittedPaymentAmount || 0) > 0
+                    ? `Php ${Number(approveTargetRow.submittedPaymentAmount).toFixed(2)}`
+                    : "—"}
+                </div>
               </div>
             </div>
 

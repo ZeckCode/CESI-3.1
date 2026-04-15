@@ -6,7 +6,7 @@ from rest_framework import serializers
 from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
 
 from .models import Transaction, TuitionConfig, ProofOfPayment, AdvanceRequest
-from .utils import normalize_money, recompute_transaction_statuses_for_enrollment
+from .utils import normalize_money, recompute_transaction_statuses_for_enrollment, normalize_transaction_item
 from accounts.models import User, UserProfile
 from enrollment.models import Enrollment
 
@@ -162,6 +162,18 @@ class TransactionCreateSerializer(SafeModelSerializer):
         if validated_data.get('enrollment'):
             return validated_data['enrollment']
 
+        # During updates, preserve the existing enrollment association.
+        # Rebinding to the latest active enrollment can corrupt ledger context.
+        if self.instance and getattr(self.instance, 'enrollment', None):
+            enrollment = self.instance.enrollment
+            validated_data.setdefault('enrollment', enrollment)
+            validated_data.setdefault('student_number_snapshot', enrollment.student_number)
+            validated_data.setdefault('grade_level_snapshot', enrollment.grade_level)
+            validated_data.setdefault('payment_mode_snapshot', enrollment.payment_mode)
+            validated_data.setdefault('student_type_snapshot', enrollment.student_type)
+            validated_data.setdefault('school_year', enrollment.academic_year)
+            return enrollment
+
         parent = validated_data.get('parent') or getattr(self.instance, 'parent', None)
         if not parent:
             return None
@@ -201,7 +213,7 @@ class TransactionCreateSerializer(SafeModelSerializer):
             due_date_changed = attrs.get('due_date') != self.instance.due_date
             is_locked_billing_item = (
                 self.instance.entry_type == 'DEBIT'
-                and (self.instance.item or '').upper() in {'INITIAL', 'ASSESSMENT'}
+                and normalize_transaction_item(self.instance.item) in {'INITIAL', 'ASSESSMENT'}
             )
             if due_date_changed and is_locked_billing_item:
                 enrollment_id = self.instance.enrollment_id

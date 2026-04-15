@@ -420,7 +420,7 @@ class EnrollmentCreateSerializer(SafeModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop("website", None)
-        validated_data.pop("payment_amount", None)
+        payment_amount = validated_data.pop("payment_amount", None)
         parent_data = validated_data.pop("parent_info", None)
         student_photo = validated_data.pop("student_photo", None)
         payment_proof_file = validated_data.pop("payment_proof_file", None)
@@ -494,6 +494,7 @@ class EnrollmentCreateSerializer(SafeModelSerializer):
         # Store files for perform_create to handle
         self.context['_files'] = {
             'payment_proof_file': payment_proof_file,
+            'payment_amount': payment_amount,
             'form_137_file': form_137_file,
             'sf10_file': sf10_file,
             'birth_certificate_file': birth_certificate_file,
@@ -505,6 +506,7 @@ class EnrollmentCreateSerializer(SafeModelSerializer):
 
     def update(self, instance, validated_data):
         validated_data.pop("website", None)
+        payment_amount = validated_data.pop("payment_amount", None)
         parent_data = validated_data.pop("parent_info", None)
         student_photo = validated_data.pop("student_photo", None)
         payment_proof_file = validated_data.pop("payment_proof_file", None)
@@ -529,6 +531,7 @@ class EnrollmentCreateSerializer(SafeModelSerializer):
         # Store files for perform_update to handle
         self.context['_files'] = {
             'payment_proof_file': payment_proof_file,
+            'payment_amount': payment_amount,
             'form_137_file': form_137_file,
             'sf10_file': sf10_file,
             'birth_certificate_file': birth_certificate_file,

@@ -453,7 +453,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                     label=label,
                 )
 
-    def _create_proof_of_payment(self, enrollment, proof_file):
+    def _create_proof_of_payment(self, enrollment, proof_file, payment_amount=None):
         """Create a ProofOfPayment record from enrollment proof file."""
         if not proof_file:
             return
@@ -463,12 +463,20 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         # Get student name from enrollment (not from user)
         student_name = f"{enrollment.first_name} {enrollment.last_name}".strip()
         
+        try:
+            submitted_amount = Decimal(str(payment_amount or 0))
+        except Exception:
+            submitted_amount = Decimal("0")
+
+        if submitted_amount < 0:
+            submitted_amount = Decimal("0")
+
         ProofOfPayment.objects.create(
             user=enrollment.parent_user or enrollment.student,
             enrollment=enrollment,  # Link to enrollment
             reference_number=f"ENROLL-{enrollment.id}",
             description=f"Enrollment Initial Payment - {student_name}",
-            amount=0,  # Will be filled by admin during review
+            amount=submitted_amount,
             billed_item='REGISTRATION',  # Enrollment registration bill type
             proof_image=proof_file,
             payment_type='enrollment',
@@ -480,13 +488,21 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         enrollment = serializer.save()
         files = serializer.context.get('_files', {})
         self._save_optional_documents(enrollment, files)
-        self._create_proof_of_payment(enrollment, files.get('payment_proof_file'))
+        self._create_proof_of_payment(
+            enrollment,
+            files.get('payment_proof_file'),
+            files.get('payment_amount'),
+        )
 
     def perform_update(self, serializer):
         enrollment = serializer.save()
         files = serializer.context.get('_files', {})
         self._save_optional_documents(enrollment, files)
-        self._create_proof_of_payment(enrollment, files.get('payment_proof_file'))
+        self._create_proof_of_payment(
+            enrollment,
+            files.get('payment_proof_file'),
+            files.get('payment_amount'),
+        )
 
     def generate_student_number(self):
         year = timezone.now().year
