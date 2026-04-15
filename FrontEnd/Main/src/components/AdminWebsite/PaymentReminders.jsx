@@ -76,7 +76,8 @@ const PaymentReminders = () => {
   }, [reminders, searchTerm, filterStatus]);
 
   const totalOutstanding = reminders.reduce((sum, r) => {
-    return sum + Number(r.amount_to_pay || 0);
+    const rowOutstanding = r.outstanding_balance != null ? r.outstanding_balance : r.amount_to_pay;
+    return sum + Number(rowOutstanding || 0);
   }, 0);
 
   const pendingCount = reminders.filter((r) => !r.is_read).length;
@@ -97,9 +98,15 @@ const PaymentReminders = () => {
       </tr>
     ));
 
-  const sendReminder = async (transactionId) => {
+  const sendReminder = async (reminder) => {
+    const transactionId = reminder?.transaction;
     if (!transactionId) {
       addToast("Error", "This reminder has no linked transaction.", "error");
+      return;
+    }
+
+    if (reminder?.can_send_payment_reminder === false) {
+      addToast("Blocked", "This transaction has no outstanding balance.", "warning");
       return;
     }
 
@@ -116,7 +123,7 @@ const PaymentReminders = () => {
       }
 
       addToast("Success", data.detail || "Payment reminder sent successfully!", "success");
-      loadReminders();
+      await loadReminders();
     } catch (err) {
       console.error("Error sending reminder:", err);
       addToast("Error", err.message || "Failed to send reminder.", "error");
@@ -139,7 +146,7 @@ const PaymentReminders = () => {
       }
 
       addToast("Success", data.detail || "Bulk reminders sent successfully!", "success");
-      loadReminders();
+      await loadReminders();
     } catch (err) {
       console.error("Error sending bulk reminders:", err);
       addToast("Error", err.message || "Failed to send bulk reminders.", "error");
@@ -307,8 +314,10 @@ const PaymentReminders = () => {
                     <td className="pr-student-name">{r.recipient_name || "—"}</td>
                     <td>{r.title || "—"}</td>
                     <td>
-                      {r.amount_to_pay != null
-                        ? `₱${Number(r.amount_to_pay).toLocaleString()}`
+                      {(r.outstanding_balance != null || r.amount_to_pay != null)
+                        ? `₱${Number(
+                            r.outstanding_balance != null ? r.outstanding_balance : r.amount_to_pay
+                          ).toLocaleString()}`
                         : "—"}
                     </td>
                     <td>
@@ -326,8 +335,19 @@ const PaymentReminders = () => {
                     <td>
                       <button
                         className="pr-btn-send"
-                        onClick={() => sendReminder(r.transaction)}
-                        disabled={!r.transaction || sendingId === r.transaction}
+                        onClick={() => sendReminder(r)}
+                        disabled={
+                          !r.transaction ||
+                          sendingId === r.transaction ||
+                          r.can_send_payment_reminder === false
+                        }
+                        title={
+                          !r.transaction
+                            ? "No linked transaction"
+                            : r.can_send_payment_reminder === false
+                            ? "No outstanding balance"
+                            : "Send payment reminder"
+                        }
                       >
                         <Send size={16} />{" "}
                         {sendingId === r.transaction ? "Sending..." : "Send"}

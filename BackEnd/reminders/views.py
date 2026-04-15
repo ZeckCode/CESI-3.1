@@ -321,6 +321,27 @@ def _build_payment_reminder_email_message(*, transaction, amount, status_value, 
     return "\n".join(lines).strip()
 
 
+def _compute_outstanding_balance(transaction):
+    debit_amount = Decimal(str(getattr(transaction, "debit", 0) or getattr(transaction, "amount", 0) or 0))
+    credit_amount = Decimal(str(getattr(transaction, "credit", 0) or 0))
+    outstanding = debit_amount - credit_amount
+    return outstanding if outstanding > 0 else Decimal("0.00")
+
+
+def _resolve_payment_notice_type(transaction, today=None):
+    today = today or timezone.localdate()
+    due_date = getattr(transaction, "due_date", None)
+    status_upper = str(getattr(transaction, "status", "") or "").upper()
+
+    if status_upper == "OVERDUE" or (due_date and due_date < today):
+        return "PAYMENT_OVERDUE", "OVERDUE", "Overdue"
+
+    if due_date and due_date > today:
+        return "PAYMENT_DUE", "PENDING", "Upcoming Payment Due"
+
+    return "PAYMENT_DUE", "PENDING", "Payment Due"
+
+
 def _resolve_student_recipient(student_id=None, student_number=None):
     profiles = UserProfile.objects.select_related("user")
 
@@ -437,38 +458,41 @@ def send_payment_reminder(request, transaction_id):
         )
 
     recipient = transaction.parent
-    amount = getattr(transaction, "amount", None)
-    status_value = getattr(transaction, "status", "PENDING")
+    outstanding_balance = _compute_outstanding_balance(transaction)
+    if outstanding_balance <= 0:
+        return Response(
+            {"detail": "This transaction has no outstanding balance."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    today = timezone.localdate()
+    event_type, status_value, notice_label = _resolve_payment_notice_type(transaction, today=today)
     due_date = getattr(transaction, "due_date", None)
     transaction_type = getattr(transaction, "transaction_type", "Payment")
-    status_upper = str(status_value).upper()
+    title = f"{notice_label} Notice - {getattr(transaction, 'student_name', 'Student')}"
 
-    if status_upper not in {"PENDING", "OVERDUE"}:
-        return Response(
-            {"detail": "Only pending and overdue payments can receive reminders."},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    if due_date and due_date > timezone.localdate():
-        return Response(
-            {"detail": "This payment is not due yet."},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    event_type = "PAYMENT_OVERDUE" if status_upper == "OVERDUE" else "PAYMENT_DUE"
-    title = (
-        f"{'Overdue' if status_upper == 'OVERDUE' else 'Payment Due'} Notice - "
-        f"{getattr(transaction, 'student_name', 'Student')}"
-    )
-    message = _build_payment_reminder_email_message(
-        transaction=transaction,
-        amount=amount,
-        status_value=status_value,
-        due_date=due_date,
-        body=(
+    if status_value == "OVERDUE":
+        body = (
             "This is from Caloocan Evangelical School Inc. to inform you that your student's "
             "account has not yet been fully settled."
         )
+    elif due_date and due_date > today:
+        body = (
+            "This is a friendly reminder from Caloocan Evangelical School Inc. that your student's "
+            f"{transaction_type} account is coming due soon."
+        )
+    else:
+        body = (
+            "This is from Caloocan Evangelical School Inc. to remind you that your student's "
+            "account is pending and due for settlement."
+        )
+
+    message = _build_payment_reminder_email_message(
+        transaction=transaction,
+        amount=outstanding_balance,
+        status_value=status_value,
+        due_date=due_date,
+        body=body,
     )
 
     reminder, created = create_reminder_once(
@@ -527,7 +551,6 @@ def send_bulk_payment_reminders(request):
     today = timezone.localdate()
     transactions = Transaction.objects.select_related("parent").filter(
         entry_type="DEBIT",
-        status__in=["PENDING", "OVERDUE"],
         due_date__isnull=False,
         due_date__lte=today,
     )
@@ -537,27 +560,37 @@ def send_bulk_payment_reminders(request):
     emailed_count = 0
     missing_email_count = 0
     email_failed_count = 0
+    skipped_count = 0
 
     for transaction in transactions:
         recipient = transaction.parent
-        amount = getattr(transaction, "amount", None)
+        outstanding_balance = _compute_outstanding_balance(transaction)
+        if outstanding_balance <= 0:
+            skipped_count += 1
+            continue
+
         due_date = getattr(transaction, "due_date", None)
         transaction_type = getattr(transaction, "transaction_type", "Payment")
-        status_value = str(transaction.status).upper()
-        event_type = "PAYMENT_OVERDUE" if status_value == "OVERDUE" else "PAYMENT_DUE"
-        title = (
-            f"{'Overdue' if status_value == 'OVERDUE' else 'Payment Due'} Notice - "
-            f"{getattr(transaction, 'student_name', 'Student')}"
-        )
-        email_message = _build_payment_reminder_email_message(
-            transaction=transaction,
-            amount=amount,
-            status_value=transaction.status,
-            due_date=due_date,
-            body=(
+        event_type, status_value, notice_label = _resolve_payment_notice_type(transaction, today=today)
+        title = f"{notice_label} Notice - {getattr(transaction, 'student_name', 'Student')}"
+
+        if status_value == "OVERDUE":
+            body = (
                 "This is from Caloocan Evangelical School Inc. to inform you that your student's "
                 f"{transaction_type} account has not yet been fully settled."
-            ),
+            )
+        else:
+            body = (
+                "This is from Caloocan Evangelical School Inc. to remind you that your student's "
+                f"{transaction_type} account is pending and due for settlement."
+            )
+
+        email_message = _build_payment_reminder_email_message(
+            transaction=transaction,
+            amount=outstanding_balance,
+            status_value=status_value,
+            due_date=due_date,
+            body=body,
         )
 
         reminder, created = create_reminder_once(
@@ -595,7 +628,8 @@ def send_bulk_payment_reminders(request):
                 f"{emailed_count} email(s) sent, "
                 f"{missing_email_count} skipped for missing email, "
                 f"{email_failed_count} email(s) failed, "
-                f"{duplicate_count} skipped as duplicates."
+                f"{duplicate_count} skipped as duplicates, "
+                f"{skipped_count} skipped with no outstanding balance."
             )
         },
         status=status.HTTP_200_OK,
