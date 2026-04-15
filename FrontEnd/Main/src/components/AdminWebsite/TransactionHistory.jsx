@@ -1290,6 +1290,13 @@ const TransactionHistory = () => {
 
   const canProcessRequest = (req) => req.status === 'APPROVED';
 
+  const dueDateLocked = Boolean(
+    editingTxn &&
+    String(formData.entry_type || '').toUpperCase() === 'DEBIT' &&
+    ['INITIAL', 'ASSESSMENT'].includes(String(formData.item || '').toUpperCase()) &&
+    String(editingTxn.status || '').toUpperCase() === 'PAID'
+  );
+
   const financialInsights = useMemo(() => {
     const totalBilled = Number(stats.total_billed || 0);
     const totalCollected = Number(stats.total_collected || 0);
@@ -2183,7 +2190,13 @@ const TransactionHistory = () => {
                     value={formData.due_date}
                     onChange={handleFormChange}
                     className="th-form-input"
+                    disabled={dueDateLocked}
                   />
+                  {dueDateLocked && (
+                    <p className="th-auto-ref-note">
+                      Due date is locked for paid Initial/Assessment entries.
+                    </p>
+                  )}
                 </div>
               </div>
 

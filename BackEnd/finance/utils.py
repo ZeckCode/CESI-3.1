@@ -15,6 +15,11 @@ BILLING_DEBIT_ITEMS = {
     'ASSESSMENT',
 }
 
+DEBIT_ALLOCATION_PRIORITY = {
+    'INITIAL': 0,
+    'ASSESSMENT': 1,
+}
+
 
 def normalize_money(value):
     return Decimal(str(value or 0)).quantize(WHOLE_PESO, rounding=ROUND_HALF_UP)
@@ -60,8 +65,12 @@ def recompute_transaction_statuses_for_enrollment(enrollment):
         else:
             debit_rows.append(row)
 
+    # Preserve billing intent by always allocating credits to
+    # Initial and Assessment entries before monthly installments,
+    # regardless of manual due date edits.
     debit_rows.sort(
         key=lambda row: (
+            DEBIT_ALLOCATION_PRIORITY.get((row.item or '').upper(), 2),
             row.due_date or row.transaction_date or today,
             row.date_posted or row.transaction_date or today,
             row.id,

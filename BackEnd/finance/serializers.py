@@ -197,6 +197,31 @@ class TransactionCreateSerializer(SafeModelSerializer):
         return total_debit - total_credit
 
     def validate(self, attrs):
+        if self.instance and 'due_date' in attrs:
+            due_date_changed = attrs.get('due_date') != self.instance.due_date
+            is_locked_billing_item = (
+                self.instance.entry_type == 'DEBIT'
+                and (self.instance.item or '').upper() in {'INITIAL', 'ASSESSMENT'}
+            )
+            if due_date_changed and is_locked_billing_item:
+                enrollment_id = self.instance.enrollment_id
+                enrollment_has_credits = False
+
+                if enrollment_id:
+                    enrollment_has_credits = Transaction.objects.filter(
+                        enrollment_id=enrollment_id,
+                        entry_type='CREDIT',
+                        credit__gt=0,
+                    ).exists()
+
+                if self.instance.status == 'PAID' or enrollment_has_credits:
+                    raise serializers.ValidationError({
+                        'due_date': (
+                            'Due date is locked for Initial/Assessment once the enrollment '
+                            'already has payments. This prevents payment allocation from breaking.'
+                        )
+                    })
+
         parent = attrs.get('parent') or getattr(self.instance, 'parent', None)
         enrollment = attrs.get('enrollment') or getattr(self.instance, 'enrollment', None)
         transaction_type = attrs.get('transaction_type') or getattr(self.instance, 'transaction_type', None)
