@@ -136,6 +136,20 @@ const PaymentReminders = () => {
     }
 
     if (!canSendReminderForTransaction(row)) {
+      if (row?.due_state === "upcoming" && row?.due_date) {
+        const dueDate = new Date(`${row.due_date}T00:00:00`);
+        if (!Number.isNaN(dueDate.getTime())) {
+          const eligibleDate = new Date(dueDate);
+          eligibleDate.setDate(dueDate.getDate() - 7);
+          addToast(
+            "Too Early",
+            `Reminder can be sent starting ${eligibleDate.toLocaleDateString()} (7 days before due date ${dueDate.toLocaleDateString()}).`,
+            "info"
+          );
+          return;
+        }
+      }
+
       addToast(
         "Blocked",
         row?.is_paid_already
