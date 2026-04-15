@@ -348,12 +348,12 @@ class ReminderListCreateView(generics.ListCreateAPIView):
         ).all()
 
         reminder_type = self.request.query_params.get("type")
+        normalized_type = reminder_type.upper() if reminder_type else None
         recipient_id = self.request.query_params.get("recipient")
         is_read = self.request.query_params.get("is_read")
 
         if reminder_type:
-            reminder_type = reminder_type.upper()
-            if reminder_type == "PAYMENT" and not is_admin(self.request.user):
+            if normalized_type == "PAYMENT" and not is_admin(self.request.user):
                 # Backward-compatible bell/API behavior: PAYMENT feed also includes
                 # star-award notifications sent by teachers.
                 star_filter = Q(reminder_type="PERFORMANCE") & (
@@ -361,7 +361,7 @@ class ReminderListCreateView(generics.ListCreateAPIView):
                 )
                 queryset = queryset.filter(Q(reminder_type="PAYMENT") | star_filter)
             else:
-                queryset = queryset.filter(reminder_type=reminder_type)
+                queryset = queryset.filter(reminder_type=normalized_type)
 
         if recipient_id:
             queryset = queryset.filter(recipient_id=recipient_id)
@@ -373,14 +373,17 @@ class ReminderListCreateView(generics.ListCreateAPIView):
                 queryset = queryset.filter(is_read=False)
 
         if is_admin(self.request.user):
-            # Admin actions can still trigger reminders for recipients,
-            # but reminder inbox viewing is restricted to non-admin users.
+            # Admin dashboard needs visibility for payment reminder monitoring.
+            if normalized_type == "PAYMENT":
+                return queryset
+
+            # Keep other reminder inbox feeds hidden from admin users.
             return queryset.none()
 
         role = getattr(self.request.user, "role", "").upper()
 
         # Teacher should see PERFORMANCE reminders they SENT
-        if role == "TEACHER" and reminder_type == "PERFORMANCE":
+        if role == "TEACHER" and normalized_type == "PERFORMANCE":
             return queryset.filter(sender=self.request.user)
 
         # Everyone else sees reminders they RECEIVED
