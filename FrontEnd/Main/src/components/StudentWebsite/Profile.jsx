@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { Camera, Edit3, X, Check, User, AlertCircle } from "lucide-react";
+import { Camera, Edit3, X, Check, User, AlertCircle, Eye, EyeOff } from "lucide-react";
 import "../StudentWebsiteCSS/Profile.css";
 import { getToken } from "../Auth/auth";
 
@@ -113,6 +113,22 @@ async function tryProfileEndpoints() {
 async function tryUpdateEndpoints(formData) {
   let lastError = null;
 
+  const extractErrorMessage = (json, statusCode, endpoint) => {
+    if (!json) return `Save failed (${statusCode}) at ${endpoint}`;
+    if (typeof json.detail === "string" && json.detail.trim()) return json.detail;
+
+    if (typeof json === "object") {
+      for (const value of Object.values(json)) {
+        if (typeof value === "string" && value.trim()) return value;
+        if (Array.isArray(value) && value.length && typeof value[0] === "string") {
+          return value[0];
+        }
+      }
+    }
+
+    return `Save failed (${statusCode}) at ${endpoint}`;
+  };
+
   for (const endpoint of UPDATE_ENDPOINTS) {
     try {
       const res = await fetchWithToken(endpoint, {
@@ -132,9 +148,7 @@ async function tryUpdateEndpoints(formData) {
         return { data: json, endpoint };
       }
 
-      lastError = new Error(
-        json?.detail || `Save failed (${res.status}) at ${endpoint}`
-      );
+      lastError = new Error(extractErrorMessage(json, res.status, endpoint));
     } catch (err) {
       lastError = err;
     }
@@ -150,8 +164,20 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [editForm, setEditForm] = useState({});
+  const [accountForm, setAccountForm] = useState({
+    username: "",
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
+  const [accountSaving, setAccountSaving] = useState(false);
+  const [showAccountPassword, setShowAccountPassword] = useState({
+    current: false,
+    next: false,
+    confirm: false,
+  });
   const [requestingTransfer, setRequestingTransfer] = useState(false);
   const [showTransferRequestForm, setShowTransferRequestForm] = useState(false);
   const [transferRequestForm, setTransferRequestForm] = useState({
@@ -184,6 +210,13 @@ const Profile = () => {
         contact_number: p.contact_number || "",
         address: p.address || "",
       });
+      setAccountForm((prev) => ({
+        ...prev,
+        username: json?.username || "",
+        current_password: "",
+        new_password: "",
+        confirm_password: "",
+      }));
     } catch (e) {
       console.error("Failed to load profile:", e);
       setError(e.message || "Failed to load profile.");
@@ -280,6 +313,10 @@ const Profile = () => {
     setEditForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleAccountChange = (field, value) => {
+    setAccountForm((prev) => ({ ...prev, [field]: value }));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError("");
@@ -329,6 +366,76 @@ const Profile = () => {
     setTransferRequestForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const toggleAccountPasswordVisibility = (field) => {
+    setShowAccountPassword((prev) => ({
+      ...prev,
+      [field]: !prev[field],
+    }));
+  };
+
+  const handleSaveAccountSettings = async () => {
+    const username = (accountForm.username || "").trim();
+    const currentPassword = accountForm.current_password || "";
+    const newPassword = accountForm.new_password || "";
+    const confirmPassword = accountForm.confirm_password || "";
+    const hasPasswordUpdate = currentPassword || newPassword || confirmPassword;
+
+    if (!username) {
+      setError("Username cannot be empty.");
+      return;
+    }
+
+    if (hasPasswordUpdate) {
+      if (!currentPassword) {
+        setError("Current password is required.");
+        return;
+      }
+      if (!newPassword) {
+        setError("New password is required.");
+        return;
+      }
+      if (newPassword.length < 8) {
+        setError("New password must be at least 8 characters.");
+        return;
+      }
+      if (!confirmPassword) {
+        setError("Please confirm the new password.");
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setError("New password and confirmation do not match.");
+        return;
+      }
+    }
+
+    setAccountSaving(true);
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("username", username);
+
+      if (hasPasswordUpdate) {
+        formData.append("current_password", currentPassword);
+        formData.append("new_password", newPassword);
+        formData.append("confirm_password", confirmPassword);
+      }
+
+      await tryUpdateEndpoints(formData);
+      await loadProfile();
+      setAccountForm((prev) => ({
+        ...prev,
+        current_password: "",
+        new_password: "",
+        confirm_password: "",
+      }));
+    } catch (e) {
+      setError(e.message || "Failed to save account settings.");
+    } finally {
+      setAccountSaving(false);
+    }
+  };
+
   const handleSubmitTransferRequest = async () => {
     setRequestingTransfer(true);
     setError("");
@@ -373,7 +480,55 @@ const Profile = () => {
   if (loading) {
     return (
       <div className="profile-content">
-        <div className="loading-spinner">Loading profile...</div>
+        <div className="profile-hero-card profileSkel__card">
+          <div className="hero-main-info">
+            <div className="profileSkel profile-shimmer profileSkel__avatar" />
+            <div className="hero-text">
+              <div className="profileSkel profile-shimmer profileSkel__line profileSkel__line--name" />
+              <div className="profileSkel profile-shimmer profileSkel__line profileSkel__line--lrn" />
+              <div className="student-tags">
+                <span className="tag-pill profileSkel__tag">
+                  <span className="profileSkel profile-shimmer profileSkel__line profileSkel__line--tag" />
+                </span>
+                <span className="tag-pill profileSkel__tag">
+                  <span className="profileSkel profile-shimmer profileSkel__line profileSkel__line--tag" />
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <section className="details-card profileSkel__card" style={{ marginBottom: "1.5rem" }}>
+          <div className="details-header">Transfer Request</div>
+          <div className="details-body">
+            <div className="info-entry entry-border">
+              <span className="profileSkel profile-shimmer profileSkel__line profileSkel__line--entryLabel" />
+              <span className="profileSkel profile-shimmer profileSkel__line profileSkel__line--entryValue" />
+            </div>
+            <div className="header-actions" style={{ marginTop: "12px" }}>
+              <div className="profileSkel profile-shimmer profileSkel__btn" />
+            </div>
+          </div>
+        </section>
+
+        <div className="profile-details-grid">
+          {[...Array(2)].map((_, idx) => (
+            <section key={idx} className="details-card profileSkel__card">
+              <div className="details-header">&nbsp;</div>
+              <div className="details-body">
+                {[...Array(7)].map((__, rowIdx) => (
+                  <div
+                    key={rowIdx}
+                    className={`info-entry ${rowIdx < 6 ? "entry-border" : ""}`}
+                  >
+                    <span className="profileSkel profile-shimmer profileSkel__line profileSkel__line--entryLabel" />
+                    <span className="profileSkel profile-shimmer profileSkel__line profileSkel__line--entryValue" />
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
     );
   }
@@ -534,6 +689,58 @@ const Profile = () => {
           </div>
         </div>
       </div>
+
+      <section className="details-card" style={{ marginBottom: "1.5rem" }}>
+        <div className="details-header">
+          <i className="bi bi-gear-fill me-2"></i>
+          Account Settings
+        </div>
+        <div className="details-body">
+          <EditRow
+            label="Username"
+            value={accountForm.username}
+            onChange={(v) => handleAccountChange("username", v)}
+          />
+          <EditRow
+            label="Current Password"
+            value={accountForm.current_password}
+            onChange={(v) => handleAccountChange("current_password", v)}
+            type={showAccountPassword.current ? "text" : "password"}
+            showToggle
+            onToggleVisibility={() => toggleAccountPasswordVisibility("current")}
+            isVisible={showAccountPassword.current}
+          />
+          <EditRow
+            label="New Password"
+            value={accountForm.new_password}
+            onChange={(v) => handleAccountChange("new_password", v)}
+            type={showAccountPassword.next ? "text" : "password"}
+            showToggle
+            onToggleVisibility={() => toggleAccountPasswordVisibility("next")}
+            isVisible={showAccountPassword.next}
+          />
+          <EditRow
+            label="Confirm New Password"
+            value={accountForm.confirm_password}
+            onChange={(v) => handleAccountChange("confirm_password", v)}
+            type={showAccountPassword.confirm ? "text" : "password"}
+            showToggle
+            onToggleVisibility={() => toggleAccountPasswordVisibility("confirm")}
+            isVisible={showAccountPassword.confirm}
+            isLast
+          />
+          <div className="header-actions" style={{ marginTop: "12px", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              className="btn-save"
+              onClick={handleSaveAccountSettings}
+              disabled={accountSaving}
+            >
+              <Check size={16} /> {accountSaving ? "Saving..." : "Save Account"}
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="details-card" style={{ marginBottom: "1.5rem" }}>
         <div className="details-header">
@@ -721,7 +928,17 @@ const InfoRow = ({ label, value, isLast }) => (
   </div>
 );
 
-const EditRow = ({ label, value, onChange, isLast, textarea }) => (
+const EditRow = ({
+  label,
+  value,
+  onChange,
+  isLast,
+  textarea,
+  type = "text",
+  showToggle = false,
+  onToggleVisibility,
+  isVisible = false,
+}) => (
   <div className={`info-entry edit-mode ${!isLast ? "entry-border" : ""}`}>
     <span className="entry-label">{label}</span>
     {textarea ? (
@@ -732,12 +949,26 @@ const EditRow = ({ label, value, onChange, isLast, textarea }) => (
         rows={3}
       />
     ) : (
-      <input
-        type="text"
-        className="entry-input"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <input
+          type={type}
+          className="entry-input"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        {showToggle && (
+          <button
+            type="button"
+            className="btn-cancel"
+            onClick={onToggleVisibility}
+            style={{ padding: "0.5rem 0.625rem", minWidth: "42px", justifyContent: "center" }}
+            aria-label={isVisible ? "Hide password" : "Show password"}
+            title={isVisible ? "Hide password" : "Show password"}
+          >
+            {isVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        )}
+      </div>
     )}
   </div>
 );

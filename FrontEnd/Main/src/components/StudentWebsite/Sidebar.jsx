@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   UserCircle,
@@ -35,9 +34,9 @@ export default function Sidebar({
   onHoverChange,
   enrollmentOpen = false,
 }) {
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [currentUser, setCurrentUser] = useState(user || null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -46,6 +45,10 @@ export default function Sidebar({
   useEffect(() => {
     if (user) setCurrentUser(user);
   }, [user]);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [currentUser?.avatar, currentUser?.profile?.avatar, currentUser?.profile?.avatar_url, currentUser?.teacher_profile?.avatar, currentUser?.teacher_profile?.avatar_url]);
 
   useEffect(() => {
     let mounted = true;
@@ -167,7 +170,13 @@ export default function Sidebar({
   const showLabels = !isCollapsed || isMobile || isHoverExpanded;
   const displayName = getDisplayName(currentUser, { preferStudentProfile: true });
   const avatarLetter = getAvatarLetter(displayName);
-  const avatarUrl = currentUser?.avatar || currentUser?.profile?.avatar;
+  const avatarUrl =
+    currentUser?.profile?.avatar_url ||
+    currentUser?.teacher_profile?.avatar_url ||
+    currentUser?.avatar ||
+    currentUser?.profile?.avatar ||
+    currentUser?.teacher_profile?.avatar;
+  const showAvatarImage = Boolean(avatarUrl) && !avatarFailed;
   const sidebarInlineStyle = !isMobile && isCollapsed
     ? { width: isHoverExpanded ? "var(--as-wide)" : "var(--as-narrow)" }
     : undefined;
@@ -210,8 +219,13 @@ export default function Sidebar({
           {showLabels && (
             <div className="as-usercard">
               <div className="as-avatar">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt={displayName} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                {showAvatarImage ? (
+                  <img
+                    src={avatarUrl}
+                    alt={displayName}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%", display: "block" }}
+                    onError={() => setAvatarFailed(true)}
+                  />
                 ) : (
                   avatarLetter
                 )}
@@ -230,8 +244,13 @@ export default function Sidebar({
           {isCollapsed && !isMobile && !isHoverExpanded && (
             <div className="as-usercard-collapsed">
               <div className="as-avatar">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt={displayName} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                {showAvatarImage ? (
+                  <img
+                    src={avatarUrl}
+                    alt={displayName}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%", display: "block" }}
+                    onError={() => setAvatarFailed(true)}
+                  />
                 ) : (
                   avatarLetter
                 )}

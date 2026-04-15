@@ -427,6 +427,85 @@ textarea.entry-input {
   min-height: 100px;
 }
 
+/* Skeleton loading */
+.profileSkel {
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.profile-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  animation: profileShimmerMove 1.2s infinite;
+}
+
+@keyframes profileShimmerMove {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.profileSkel__card {
+  border: 1px solid var(--border);
+}
+
+.profileSkel__line {
+  height: 0.72rem;
+}
+
+.profileSkel__avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 1rem;
+  flex-shrink: 0;
+}
+
+.profileSkel__line--name {
+  width: 260px;
+  max-width: 100%;
+  height: 1.3rem;
+  margin-bottom: 0.55rem;
+}
+
+.profileSkel__line--lrn {
+  width: 180px;
+  max-width: 100%;
+  margin-bottom: 0.8rem;
+}
+
+.profileSkel__tag {
+  background: #e2e8f0;
+}
+
+.profileSkel__line--tag {
+  width: 68px;
+}
+
+.profileSkel__line--entryLabel {
+  width: 120px;
+  margin-bottom: 0.45rem;
+}
+
+.profileSkel__line--entryValue {
+  width: 200px;
+  max-width: 100%;
+}
+
+.profileSkel__btn {
+  width: 150px;
+  height: 40px;
+  border-radius: 0.5rem;
+  background: #dbeafe;
+}
+
 /* Responsive */
 @media (max-width: 992px) {
   .profile-details-grid {
@@ -455,6 +534,10 @@ textarea.entry-input {
   
   .profile-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .profileSkel__line--name {
+    width: 220px;
   }
 }
 
@@ -490,6 +573,16 @@ textarea.entry-input {
   .header-actions button {
     flex: 1;
     justify-content: center;
+  }
+
+  .profileSkel__avatar {
+    margin: 0 auto;
+  }
+
+  .profileSkel__line--name,
+  .profileSkel__line--lrn {
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 
@@ -537,5 +630,22 @@ textarea.entry-input {
     min-width: 80px;
     padding: 0.75rem 0.5rem;
     font-size: 0.75rem;
+  }
+
+  .profileSkel__avatar {
+    width: 80px;
+    height: 80px;
+  }
+
+  .profileSkel__line--name {
+    width: 170px;
+  }
+
+  .profileSkel__line--lrn {
+    width: 130px;
+  }
+
+  .profileSkel__btn {
+    width: 100%;
   }
 }

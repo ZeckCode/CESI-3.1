@@ -264,7 +264,8 @@
 .as-avatar {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 50%;
+  overflow: hidden;
   background: linear-gradient(135deg, var(--as-accent), #ffe066);
   color: #1a1a2e;
   display: grid;

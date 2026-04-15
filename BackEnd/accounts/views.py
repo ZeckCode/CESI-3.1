@@ -207,6 +207,63 @@ class UpdateProfileView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
+            new_username = (request.data.get("username") or "").strip()
+            if "username" in request.data:
+                if not new_username:
+                    return Response(
+                        {"detail": "Username cannot be empty."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                username_taken = User.objects.filter(username__iexact=new_username).exclude(pk=user.pk).exists()
+                if username_taken:
+                    return Response(
+                        {"detail": "Username is already taken."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                user.username = new_username
+
+            current_password = (request.data.get("current_password") or "").strip()
+            new_password = (request.data.get("new_password") or "").strip()
+            confirm_password = (request.data.get("confirm_password") or "").strip()
+
+            if current_password or new_password or confirm_password:
+                if not current_password:
+                    return Response(
+                        {"current_password": "Current password is required."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if not new_password:
+                    return Response(
+                        {"new_password": "New password is required."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if not confirm_password:
+                    return Response(
+                        {"confirm_password": "Please confirm the new password."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if new_password != confirm_password:
+                    return Response(
+                        {"confirm_password": "Passwords do not match."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if len(new_password) < 8:
+                    return Response(
+                        {"new_password": "New password must be at least 8 characters long."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if not user.check_password(current_password):
+                    return Response(
+                        {"current_password": "Current password is incorrect."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                user.set_password(new_password)
+
+            user.save()
+
             updatable_fields = [
                 "parent_first_name",
                 "parent_middle_name",

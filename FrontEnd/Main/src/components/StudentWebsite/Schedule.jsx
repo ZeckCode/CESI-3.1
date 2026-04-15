@@ -507,39 +507,59 @@ const handleDownloadSchedulePDF = () => {
       {/* Header with View Toggle */}
       <section className="ss-section">
         <div className="ss-section-header">
-          {/* <div>
-            <h2 className="ss-section-title">Weekly Schedule</h2>
-            <p className="ss-section-subtitle">S.Y. 2025–2026</p>
-          </div> */}
-          <div className="ss-view-toggle">
-            <button
-              className={`ss-toggle-btn ${view === "calendar" ? "active" : ""}`}
-              onClick={() => setView("calendar")}
-            >
-              <Calendar size={18} />
-              Timeline
-            </button>
-            <button
-              className={`ss-toggle-btn ${view === "table" ? "active" : ""}`}
-              onClick={() => setView("table")}
-            >
-              <List size={18} />
-              Table
-            </button>
-          </div>
-          <button
-            className="ss-export-btn"
-            onClick={handleExport}
-          >
-            <Download size={18} />
-            Export
-          </button>
+          {loading ? (
+            <>
+              <div className="ssSkel ss-shimmer ssSkel__toggle" />
+              <div className="ssSkel ss-shimmer ssSkel__export" />
+            </>
+          ) : (
+            <>
+              <div className="ss-view-toggle">
+                <button
+                  className={`ss-toggle-btn ${view === "calendar" ? "active" : ""}`}
+                  onClick={() => setView("calendar")}
+                >
+                  <Calendar size={18} />
+                  Timeline
+                </button>
+                <button
+                  className={`ss-toggle-btn ${view === "table" ? "active" : ""}`}
+                  onClick={() => setView("table")}
+                >
+                  <List size={18} />
+                  Table
+                </button>
+              </div>
+              <button
+                className="ss-export-btn"
+                onClick={handleExport}
+              >
+                <Download size={18} />
+                Export
+              </button>
+            </>
+          )}
         </div>
       </section>
 
       {/* Loading / Error */}
       {loading && (
-        <div className="ss-loading">Loading schedule...</div>
+        <section className="ss-section">
+          <div className="ss-table-container ssSkel__tableContainer">
+            <div className="ssSkel__gridHead">
+              {[...Array(6)].map((_, idx) => (
+                <div key={idx} className="ssSkel ss-shimmer ssSkel__line ssSkel__line--head" />
+              ))}
+            </div>
+            {[...Array(6)].map((_, rowIdx) => (
+              <div key={rowIdx} className="ssSkel__gridRow">
+                {[...Array(6)].map((__, colIdx) => (
+                  <div key={colIdx} className="ssSkel ss-shimmer ssSkel__line ssSkel__line--cell" />
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
       {error && (
         <div className="ss-error">{error}</div>
