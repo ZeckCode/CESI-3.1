@@ -140,7 +140,7 @@ const canSendReminderForTransaction = (tx) => {
 
   // Backend reminder endpoint accepts only transactions explicitly marked
   // as PENDING/OVERDUE/PARTIAL.
-  const status = String(tx.status || '').toUpperCase();
+  const status = String(tx._effectiveStatus || tx.status || '').toUpperCase();
   if (!['PENDING', 'OVERDUE', 'PARTIAL'].includes(status)) return false;
 
   if (!isDueForReminder(tx.due_date || tx.transaction_date)) return false;

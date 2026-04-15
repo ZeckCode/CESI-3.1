@@ -253,7 +253,6 @@ def send_upcoming_payment_due_reminders(*, days_before=7, sender=None, target_da
             due_date__isnull=False,
             transaction_type="TUITION",
             parent__isnull=False,
-            due_date__gte=today,
             status__in=["PENDING", "OVERDUE", "PARTIAL"],
         )
         .exclude(status="PAID")
@@ -844,7 +843,6 @@ def send_bulk_payment_reminders(request):
                 created_count += 1
             else:
                 duplicate_count += 1
-                continue
 
             emailed = _send_payment_reminder_email(
                 recipient=recipient,
