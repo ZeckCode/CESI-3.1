@@ -88,7 +88,7 @@ class ReminderSerializer(SafeModelSerializer):
         Must have:
         1. A linked transaction
         2. Entry type must be DEBIT
-        3. Status must be PENDING or OVERDUE (not PARTIAL)
+        3. Status must be PENDING, OVERDUE, or PARTIAL
         4. Outstanding balance > 0
         5. Due date <= today
         """
@@ -101,9 +101,9 @@ class ReminderSerializer(SafeModelSerializer):
         if getattr(tx, "entry_type", "") != "DEBIT":
             return False
         
-        # Status must be PENDING or OVERDUE (NOT PARTIAL)
+        # Status must be PENDING, OVERDUE, or PARTIAL
         status = str(getattr(tx, "status", "") or "").upper()
-        if status not in ["PENDING", "OVERDUE"]:
+        if status not in ["PENDING", "OVERDUE", "PARTIAL"]:
             return False
         
         # Must have outstanding balance

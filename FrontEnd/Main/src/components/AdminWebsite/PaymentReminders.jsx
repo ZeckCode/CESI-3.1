@@ -15,47 +15,25 @@ import "../AdminWebsiteCSS/PaymentReminders.css";
 
 const REMINDER_SKELETON_ROWS = 6;
 
-// Validation logic (same as TransactionHistory)
-const isDueForReminder = (dueDate) => {
-  if (!dueDate) return false;
+const canSendReminderForTransaction = (row) =>
+  Boolean(row?.transaction_id) && row?.can_send_payment_reminder === true;
 
-  const due = new Date(`${dueDate}T00:00:00`);
-  if (Number.isNaN(due.getTime())) return false;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return due <= today;
+const dueStateLabel = (state) => {
+  if (state === "overdue") return "Overdue";
+  if (state === "due_today") return "Due Today";
+  return "Upcoming";
 };
 
-const canSendReminderForTransaction = (reminder) => {
-  if (!reminder) return false;
-
-  // Must have a transaction
-  if (!reminder.transaction) return false;
-
-  // Check if the transaction actually has the necessary data
-  const tx = reminder;
-  
-  // Must be DEBIT entry type (from transaction_status or inferred)
-  if (tx.debit === undefined || tx.debit === null) return false;
-
-  // Status must be PENDING or OVERDUE (not PARTIAL)
-  const status = String(tx.transaction_status || '').toUpperCase();
-  if (!['PENDING', 'OVERDUE'].includes(status)) return false;
-
-  // Due date must be <= today
-  if (!isDueForReminder(tx.transaction_due_date)) return false;
-
-  // Must have outstanding balance
-  const outstanding = tx.outstanding_balance || tx.amount_to_pay || 0;
-  return Number(outstanding || 0) > 0;
+const dueStateBadgeClass = (state) => {
+  if (state === "overdue") return "reminded";
+  return "pending";
 };
 
 const PaymentReminders = () => {
   const [hoveredRow, setHoveredRow] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [reminders, setReminders] = useState([]);
+  const [ledgerRows, setLedgerRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sendingId, setSendingId] = useState(null);
   const [sendingBulk, setSendingBulk] = useState(false);
@@ -76,15 +54,15 @@ const PaymentReminders = () => {
   const loadReminders = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch("/api/reminders/?type=PAYMENT");
+      const res = await apiFetch("/api/reminders/payments/ledger/nearest-due/");
 
-      if (!res.ok) throw new Error("Failed to load reminders");
+      if (!res.ok) throw new Error("Failed to load payment ledger");
 
       const data = await res.json();
-      setReminders(Array.isArray(data) ? data : []);
+      setLedgerRows(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Error loading payment reminders:", err);
-      setReminders([]);
+      console.error("Error loading payment ledger:", err);
+      setLedgerRows([]);
     } finally {
       setLoading(false);
     }
@@ -94,30 +72,44 @@ const PaymentReminders = () => {
     loadReminders();
   }, []);
 
-  const filteredReminders = useMemo(() => {
-    return reminders.filter((r) => {
+  const filteredRows = useMemo(() => {
+    return ledgerRows.filter((r) => {
       const text = searchTerm.toLowerCase();
 
       const matchesSearch =
         (r.reference_number || "").toLowerCase().includes(text) ||
-        String(r.transaction || "").toLowerCase().includes(text) ||
-        (r.title || "").toLowerCase().includes(text) ||
-        (r.recipient_name || "").toLowerCase().includes(text);
+        String(r.transaction_id || "").toLowerCase().includes(text) ||
+        (r.student_name || "").toLowerCase().includes(text) ||
+        (r.student_number || "").toLowerCase().includes(text) ||
+        (r.parent_name || "").toLowerCase().includes(text);
 
-      const statusValue = r.is_read ? "reminded" : "pending";
+      const statusValue = r.due_state || "upcoming";
       const matchesFilter = filterStatus === "all" || statusValue === filterStatus;
 
       return matchesSearch && matchesFilter;
     });
-  }, [reminders, searchTerm, filterStatus]);
+  }, [ledgerRows, searchTerm, filterStatus]);
 
-  const totalOutstanding = reminders.reduce((sum, r) => {
-    const rowOutstanding = r.outstanding_balance != null ? r.outstanding_balance : r.amount_to_pay;
-    return sum + Number(rowOutstanding || 0);
+  const totalOutstanding = ledgerRows.reduce((sum, r) => {
+    return sum + Number(r.remaining_balance || 0);
   }, 0);
 
-  const pendingCount = reminders.filter((r) => !r.is_read).length;
-  const remindedCount = reminders.filter((r) => r.is_read).length;
+  const studentsWithBalance = ledgerRows.length;
+  const overdueCount = ledgerRows.filter((r) => r.due_state === "overdue").length;
+
+  const dueWithin7Days = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sevenDays = new Date(today);
+    sevenDays.setDate(today.getDate() + 7);
+
+    return ledgerRows.filter((r) => {
+      if (!r?.due_date) return false;
+      const due = new Date(`${r.due_date}T00:00:00`);
+      if (Number.isNaN(due.getTime())) return false;
+      return due >= today && due <= sevenDays;
+    }).length;
+  }, [ledgerRows]);
 
   const renderSkeletonRows = (columnCount) =>
     Array.from({ length: REMINDER_SKELETON_ROWS }).map((_, rowIdx) => (
@@ -134,27 +126,19 @@ const PaymentReminders = () => {
       </tr>
     ));
 
-  const sendReminder = async (reminder) => {
-    const transactionId = reminder?.transaction;
+  const sendReminder = async (row) => {
+    const transactionId = row?.transaction_id;
     if (!transactionId) {
-      addToast("Error", "This reminder has no linked transaction.", "error");
+      addToast("Error", "This student row has no linked transaction.", "error");
       return;
     }
 
-    // Use same validation as TransactionHistory
-    if (!canSendReminderForTransaction(reminder)) {
-      const txStatus = String(reminder.transaction_status || '').toUpperCase();
-      const outstanding = reminder.outstanding_balance || reminder.amount_to_pay || 0;
-      
-      if (outstanding <= 0) {
-        addToast("Blocked", "This transaction has no outstanding balance.", "warning");
-      } else if (!['PENDING', 'OVERDUE'].includes(txStatus)) {
-        addToast("Blocked", `Cannot send reminder for ${txStatus} status. Only PENDING and OVERDUE transactions can receive reminders.`, "warning");
-      } else if (!isDueForReminder(reminder.transaction_due_date)) {
-        addToast("Blocked", "This transaction's due date is in the future.", "info");
-      } else {
-        addToast("Blocked", "This transaction is not eligible for payment reminders.", "warning");
-      }
+    if (!canSendReminderForTransaction(row)) {
+      addToast(
+        "Blocked",
+        "Only due/overdue PENDING transactions can receive reminders.",
+        "warning"
+      );
       return;
     }
 
@@ -181,10 +165,25 @@ const PaymentReminders = () => {
   };
 
   const sendBulkReminders = async () => {
+    const selectedTransactionIds = filteredRows
+      .filter((row) => canSendReminderForTransaction(row))
+      .map((row) => row.transaction_id)
+      .filter(Boolean);
+
+    if (selectedTransactionIds.length === 0) {
+      addToast(
+        "Blocked",
+        "No eligible rows in the current filter. Adjust filters to include due or overdue pending/partial balances.",
+        "warning"
+      );
+      return;
+    }
+
     setSendingBulk(true);
     try {
       const res = await apiFetch('/api/reminders/payments/send-bulk/', {
         method: 'POST',
+        body: JSON.stringify({ transaction_ids: selectedTransactionIds }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -229,25 +228,25 @@ const PaymentReminders = () => {
                 <Wallet size={24} className="pr-stat-icon" />
               </div>
               <div className="pr-stat-value">₱{totalOutstanding.toLocaleString()}</div>
-              <div className="pr-stat-change">Based on reminder-linked transactions</div>
+              <div className="pr-stat-change">Sum of current student ledger balances</div>
             </div>
 
             <div className="pr-stat-card pr-stat-yellow">
               <div className="pr-stat-header">
-                <span className="pr-stat-label">Pending Reminders</span>
+                <span className="pr-stat-label">Due Within 7 Days</span>
                 <Clock size={24} className="pr-stat-icon" />
               </div>
-              <div className="pr-stat-value">{pendingCount}</div>
-              <div className="pr-stat-change">Unread reminders</div>
+              <div className="pr-stat-value">{dueWithin7Days}</div>
+              <div className="pr-stat-change">Nearest-due student ledgers</div>
             </div>
 
             <div className="pr-stat-card pr-stat-green">
               <div className="pr-stat-header">
-                <span className="pr-stat-label">Reminders Sent</span>
+                <span className="pr-stat-label">Students With Balance</span>
                 <CheckCircle size={24} className="pr-stat-icon" />
               </div>
-              <div className="pr-stat-value">{remindedCount}</div>
-              <div className="pr-stat-change">Read reminders</div>
+              <div className="pr-stat-value">{studentsWithBalance}</div>
+              <div className="pr-stat-change">Overdue: {overdueCount}</div>
             </div>
           </div>
         )}
@@ -269,7 +268,7 @@ const PaymentReminders = () => {
             <div>
               <h2 className="pr-section-title">Payment Reminders</h2>
               <p className="pr-section-subtitle">
-                Manage payment reminders already saved in the system
+                One nearest-due ledger row per student with remaining balance
               </p>
             </div>
 
@@ -296,7 +295,7 @@ const PaymentReminders = () => {
               <Search size={20} className="pr-search-icon" />
               <input
                 type="text"
-                placeholder="Search by reference, recipient, or title..."
+                placeholder="Search by student, student no., parent, or reference..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pr-search-input"
@@ -311,8 +310,9 @@ const PaymentReminders = () => {
                 className="pr-filter-select"
               >
                 <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="reminded">Reminded</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="due_today">Due Today</option>
+                <option value="overdue">Overdue</option>
               </select>
             </div>
           </div>
@@ -323,11 +323,11 @@ const PaymentReminders = () => {
           <table className="pr-table">
             <thead>
               <tr>
-                <th>Transaction</th>
-                <th>Recipient</th>
-                <th>Title</th>
-                <th>Amount to Pay</th>
-                <th>Created</th>
+                <th>Student</th>
+                <th>Parent</th>
+                <th>Next Due Date</th>
+                <th>Amount Due</th>
+                <th>Remaining Balance</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -336,48 +336,44 @@ const PaymentReminders = () => {
             <tbody>
               {loading ? (
                 renderSkeletonRows(7)
-              ) : filteredReminders.length > 0 ? (
-                filteredReminders.map((r) => (
+              ) : filteredRows.length > 0 ? (
+                filteredRows.map((r) => (
                   <tr
-                    key={r.id}
-                    className={hoveredRow === r.id ? "pr-row-hover" : ""}
-                    onMouseEnter={() => setHoveredRow(r.id)}
+                    key={`${r.enrollment_id || "none"}-${r.transaction_id}`}
+                    className={hoveredRow === r.transaction_id ? "pr-row-hover" : ""}
+                    onMouseEnter={() => setHoveredRow(r.transaction_id)}
                     onMouseLeave={() => setHoveredRow(null)}
                   >
                     <td>
-                      {r.reference_number || r.transaction ? (
+                      {r.student_name || r.transaction_id ? (
                         <div className="pr-transaction-cell">
                           <div className="pr-transaction-id">
-                            #{r.transaction || "—"}
+                            {r.student_name || "—"}
                           </div>
                           <div className="pr-transaction-ref">
-                            {r.reference_number || "—"}
+                            {r.student_number ? `SN: ${r.student_number}` : "SN: —"}
                           </div>
-                          
+                          <div className="pr-transaction-ref">
+                            {r.reference_number ? `Ref: ${r.reference_number}` : `Txn #${r.transaction_id || "—"}`}
+                          </div>
                         </div>
                       ) : (
                         "—"
                       )}
                     </td>
-                    <td className="pr-student-name">{r.recipient_name || "—"}</td>
-                    <td>{r.title || "—"}</td>
+                    <td className="pr-student-name">{r.parent_name || "—"}</td>
                     <td>
-                      {(r.outstanding_balance != null || r.amount_to_pay != null)
-                        ? `₱${Number(
-                            r.outstanding_balance != null ? r.outstanding_balance : r.amount_to_pay
-                          ).toLocaleString()}`
-                        : "—"}
+                      {r.due_date ? new Date(`${r.due_date}T00:00:00`).toLocaleDateString() : "—"}
                     </td>
-                    <td>
-                      {r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
-                    </td>
+                    <td>{`₱${Number(r.outstanding_balance || r.amount_to_pay || 0).toLocaleString()}`}</td>
+                    <td>{`₱${Number(r.remaining_balance || 0).toLocaleString()}`}</td>
                     <td>
                       <span
                         className={`pr-status-badge pr-status-${
-                          r.is_read ? "reminded" : "pending"
+                          dueStateBadgeClass(r.due_state)
                         }`}
                       >
-                        {r.is_read ? "Reminded" : "Pending"}
+                        {dueStateLabel(r.due_state)}
                       </span>
                     </td>
                     <td>
@@ -385,29 +381,22 @@ const PaymentReminders = () => {
                         className="pr-btn-send"
                         onClick={() => sendReminder(r)}
                         disabled={
-                          !r.transaction ||
-                          sendingId === r.transaction ||
+                          !r.transaction_id ||
+                          sendingId === r.transaction_id ||
                           !canSendReminderForTransaction(r)
                         }
                         title={
-                          !r.transaction
+                          !r.transaction_id
                             ? "No linked transaction"
-                            : sendingId === r.transaction
+                            : sendingId === r.transaction_id
                             ? "Sending..."
                             : !canSendReminderForTransaction(r)
-                            ? (() => {
-                                const txStatus = String(r.transaction_status || '').toUpperCase();
-                                const outstanding = r.outstanding_balance || r.amount_to_pay || 0;
-                                if (outstanding <= 0) return "No outstanding balance";
-                                if (!['PENDING', 'OVERDUE'].includes(txStatus)) return `Cannot send for ${txStatus} status`;
-                                if (!isDueForReminder(r.transaction_due_date)) return "Due date is in the future";
-                                return "Not eligible for reminder";
-                              })()
+                            ? "Only due/overdue PENDING transactions are eligible"
                             : "Send payment reminder"
                         }
                       >
                         <Send size={16} />{" "}
-                        {sendingId === r.transaction ? "Sending..." : "Send"}
+                        {sendingId === r.transaction_id ? "Sending..." : "Send"}
                       </button>
                     </td>
                   </tr>
@@ -416,7 +405,7 @@ const PaymentReminders = () => {
                 <tr>
                   <td colSpan="7" className="pr-no-data">
                     <AlertCircle size={24} />
-                    <p>No reminders found</p>
+                    <p>No student ledgers with due balances found</p>
                   </td>
                 </tr>
               )}

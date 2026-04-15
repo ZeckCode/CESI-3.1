@@ -4,7 +4,7 @@ from reminders.views import send_upcoming_payment_due_reminders
 
 
 class Command(BaseCommand):
-    help = "Send automatic payment reminder emails for bills due in N days."
+    help = "Send automatic payment reminders exactly 7 days before each student's nearest upcoming due date."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -16,6 +16,14 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         days_before = options["days_before"]
+
+        if days_before != 7:
+            self.stdout.write(
+                self.style.WARNING(
+                    "Ignoring --days-before value. Auto reminder policy is fixed to 7 days before nearest upcoming due date."
+                )
+            )
+
         result = send_upcoming_payment_due_reminders(days_before=days_before)
 
         self.stdout.write(

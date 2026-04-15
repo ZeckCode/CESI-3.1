@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Calendar, CheckCircle, XCircle, Clock, AlertCircle, 
   ChevronLeft, ChevronRight, X, List, LayoutGrid, Info
 } from 'lucide-react';
 import "../StudentWebsiteCSS/Attendance.css";
 import { apiFetch } from "../api/apiFetch";
+import Toast from "../Global/Toast";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
@@ -47,6 +48,19 @@ const Attendance = () => {
   const [filterSubject, setFilterSubject] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [subjectOptions, setSubjectOptions] = useState([]);
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
   
   // Calendar navigation
   const today = new Date();
@@ -78,12 +92,13 @@ const Attendance = () => {
         }
       } catch (err) {
         console.error("Attendance fetch error:", err);
+        addToast("Attendance Error", "Failed to load attendance data. Please try again.", "error");
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [currentMonth, currentYear, filterSubject]);
+  }, [currentMonth, currentYear, filterSubject, addToast]);
 
   // Fetch daily detail when a date is clicked
   const handleDateClick = async (dateStr) => {
@@ -96,6 +111,7 @@ const Attendance = () => {
       }
     } catch (err) {
       console.error("Daily detail fetch error:", err);
+      addToast("Detail Error", "Failed to load daily attendance details.", "error");
     } finally {
       setDetailLoading(false);
     }
@@ -303,6 +319,83 @@ const Attendance = () => {
     });
   }, [dailyDetail]);
 
+  if (loading) {
+    return (
+      <main className="student-attendance-main">
+        <section className="sa-section">
+          <div className="sa-stats-grid">
+            {[...Array(6)].map((_, idx) => (
+              <div key={idx} className="sa-stat-card saSkel__statCard">
+                <div className="sa-stat-header">
+                  <div className="saSkel sa-shimmer saSkel__line saSkel__line--statLabel" />
+                  <div className="saSkel sa-shimmer saSkel__icon" />
+                </div>
+                <div className="saSkel sa-shimmer saSkel__line saSkel__line--statValue" />
+                <div className="saSkel sa-shimmer saSkel__line saSkel__line--statChange" />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="sa-section">
+          <div className="sa-insights-panel">
+            <div className="sa-insights-header">
+              <div className="saSkel sa-shimmer saSkel__line saSkel__line--title" />
+              <div className="saSkel sa-shimmer saSkel__line saSkel__line--subtitle" />
+            </div>
+            <div className="sa-insights-grid">
+              {[...Array(3)].map((_, idx) => (
+                <article key={idx} className="sa-insight-card">
+                  <div className="saSkel sa-shimmer saSkel__line saSkel__line--insightLabel" />
+                  <div className="saSkel sa-shimmer saSkel__line saSkel__line--insightValue" />
+                  <div className="saSkel sa-shimmer saSkel__line saSkel__line--insightNote" />
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="sa-section">
+          <div className="sa-section-header">
+            <div>
+              <div className="saSkel sa-shimmer saSkel__line saSkel__line--sectionSub" />
+            </div>
+            <div className="sa-header-actions">
+              <div className="saSkel sa-shimmer saSkel__toggle" />
+            </div>
+          </div>
+        </section>
+
+        <section className="sa-section">
+          <div className="sa-filter-bar saSkel__filterBar">
+            <div className="saSkel sa-shimmer saSkel__line saSkel__line--filter" />
+            <div className="saSkel sa-shimmer saSkel__line saSkel__line--filter" />
+          </div>
+        </section>
+
+        <section className="sa-section">
+          <div className="sa-calendar-container saSkel__calendarContainer">
+            <div className="sa-calendar-header">
+              <div className="saSkel sa-shimmer saSkel__navBtn" />
+              <div className="saSkel sa-shimmer saSkel__line saSkel__line--month" />
+              <div className="saSkel sa-shimmer saSkel__navBtn" />
+            </div>
+
+            <div className="sa-calendar-grid">
+              {[...Array(7)].map((_, idx) => (
+                <div key={`head-${idx}`} className="saSkel sa-shimmer saSkel__line saSkel__line--dayHeader" />
+              ))}
+              {[...Array(35)].map((_, idx) => (
+                <div key={`cell-${idx}`} className="saSkel sa-shimmer saSkel__calendarCell" />
+              ))}
+            </div>
+          </div>
+        </section>
+        <Toast toasts={toasts} onDismiss={dismissToast} />
+      </main>
+    );
+  }
+
   return (
     <main className="student-attendance-main">
       {/* Stats Overview */}
@@ -507,9 +600,7 @@ const Attendance = () => {
       </section>
 
       {/* Main Content */}
-      {loading ? (
-        <div className="sa-loading">Loading attendance data...</div>
-      ) : view === "calendar" ? (
+      {view === "calendar" ? (
         /* CALENDAR VIEW */
         <section className="sa-section">
           <div className="sa-calendar-container">
@@ -686,6 +777,7 @@ const Attendance = () => {
           </div>
         </div>
       )}
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </main>
   );
 };

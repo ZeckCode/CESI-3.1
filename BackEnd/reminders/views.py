@@ -110,7 +110,7 @@ def can_send_reminder_for_transaction(transaction):
     Check if a transaction is eligible to receive a payment reminder.
     Requirements:
     1. Must be a DEBIT entry
-    2. Status must be PENDING or OVERDUE (not PARTIAL or PAID)
+    2. Status must be PENDING, OVERDUE, or PARTIAL (not PAID)
     3. Must have outstanding balance (debit > credit)
     4. Due date must be <= today
     """
@@ -121,9 +121,9 @@ def can_send_reminder_for_transaction(transaction):
     if getattr(transaction, "entry_type", "") != "DEBIT":
         return False
     
-    # Status must be PENDING or OVERDUE
+    # Status must be PENDING, OVERDUE, or PARTIAL
     status = str(getattr(transaction, "status", "") or "").upper()
-    if status not in ["PENDING", "OVERDUE"]:
+    if status not in ["PENDING", "OVERDUE", "PARTIAL"]:
         return False
     
     # Must have outstanding balance
@@ -241,13 +241,41 @@ def _build_upcoming_payment_reminder_email_message(*, transaction, due_date, day
 
 
 def send_upcoming_payment_due_reminders(*, days_before=7, sender=None, target_date=None):
-    reminder_date = target_date or (timezone.localdate() + timedelta(days=days_before))
+    # Auto reminder policy: send exactly 1 week before nearest upcoming due date.
+    days_before = 7
+    today = timezone.localdate()
+    reminder_date = target_date or (today + timedelta(days=days_before))
 
-    transactions = Transaction.objects.select_related("parent").filter(
-        entry_type="DEBIT",
-        due_date=reminder_date,
-        transaction_type="TUITION",
-    ).exclude(status="PAID")
+    base_transactions = (
+        Transaction.objects.select_related("parent", "enrollment")
+        .filter(
+            entry_type="DEBIT",
+            due_date__isnull=False,
+            transaction_type="TUITION",
+            parent__isnull=False,
+            due_date__gte=today,
+            status__in=["PENDING", "OVERDUE", "PARTIAL"],
+        )
+        .exclude(status="PAID")
+        .order_by("due_date", "id")
+    )
+
+    grouped = {}
+    for tx in base_transactions:
+        if _compute_outstanding_balance(tx) <= 0:
+            continue
+        key = tx.enrollment_id or f"{tx.parent_id}:{(tx.student_number_snapshot or tx.student_name or '').strip().lower()}"
+        grouped.setdefault(key, []).append(tx)
+
+    transactions = []
+    for tx_group in grouped.values():
+        nearest = _nearest_due_transaction(tx_group, today)
+        if not nearest:
+            continue
+
+        # Trigger only when the nearest upcoming due date is exactly 7 days away.
+        if nearest.due_date == reminder_date:
+            transactions.append(nearest)
 
     created_count = 0
     duplicate_count = 0
@@ -411,6 +439,108 @@ def _resolve_student_recipient(student_id=None, student_number=None):
     return None, None
 
 
+def _compute_parent_student_balance(parent, student_name):
+    totals = Transaction.objects.filter(
+        parent=parent,
+        student_name=student_name,
+    ).aggregate(
+        total_debit=Sum("debit"),
+        total_credit=Sum("credit"),
+    )
+    total_debit = Decimal(str(totals.get("total_debit") or 0))
+    total_credit = Decimal(str(totals.get("total_credit") or 0))
+    balance = total_debit - total_credit
+    return balance if balance > 0 else Decimal("0.00")
+
+
+def _nearest_due_transaction(transactions, today):
+    upcoming = [tx for tx in transactions if tx.due_date and tx.due_date >= today]
+    if upcoming:
+        return min(upcoming, key=lambda tx: (tx.due_date, tx.id))
+
+    overdue = [tx for tx in transactions if tx.due_date and tx.due_date < today]
+    if overdue:
+        return max(overdue, key=lambda tx: (tx.due_date, tx.id))
+
+    return None
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def payment_ledger_nearest_due(request):
+    if not is_admin(request.user):
+        return Response(
+            {"detail": "Only admin can view payment reminder ledger."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    today = timezone.localdate()
+    base_qs = (
+        Transaction.objects.select_related("parent", "enrollment")
+        .filter(
+            entry_type="DEBIT",
+            parent__isnull=False,
+            due_date__isnull=False,
+        )
+        .exclude(status="PAID")
+        .order_by("due_date", "id")
+    )
+
+    grouped = {}
+    for tx in base_qs:
+        tx_outstanding = _compute_outstanding_balance(tx)
+        if tx_outstanding <= 0:
+            continue
+
+        key = tx.enrollment_id or f"{tx.parent_id}:{(tx.student_number_snapshot or tx.student_name or '').strip().lower()}"
+        grouped.setdefault(key, []).append(tx)
+
+    rows = []
+    for tx_group in grouped.values():
+        chosen = _nearest_due_transaction(tx_group, today)
+        if not chosen:
+            continue
+
+        if chosen.enrollment_id:
+            remaining_balance = get_enrollment_balance(chosen.enrollment)
+        else:
+            remaining_balance = _compute_parent_student_balance(chosen.parent, chosen.student_name)
+
+        if remaining_balance <= 0:
+            continue
+
+        due_date = chosen.due_date
+        if due_date < today:
+            due_state = "overdue"
+        elif due_date == today:
+            due_state = "due_today"
+        else:
+            due_state = "upcoming"
+
+        rows.append(
+            {
+                "student_name": chosen.student_name or "—",
+                "student_number": chosen.student_number_snapshot or "",
+                "parent_name": chosen.parent.email or chosen.parent.username,
+                "enrollment_id": chosen.enrollment_id,
+                "transaction_id": chosen.id,
+                "reference_number": chosen.reference_number,
+                "transaction_type": chosen.transaction_type,
+                "item": chosen.item,
+                "status": chosen.status,
+                "due_date": due_date,
+                "amount_to_pay": chosen.amount,
+                "outstanding_balance": _compute_outstanding_balance(chosen),
+                "remaining_balance": remaining_balance,
+                "due_state": due_state,
+                "can_send_payment_reminder": can_send_reminder_for_transaction(chosen),
+            }
+        )
+
+    rows.sort(key=lambda row: (row["due_date"], row["student_name"].lower()))
+    return Response(rows)
+
+
 class ReminderListCreateView(generics.ListCreateAPIView):
     serializer_class = ReminderSerializer
     permission_classes = [IsAuthenticated]
@@ -521,9 +651,9 @@ def send_payment_reminder(request, transaction_id):
                 {"detail": "This transaction has no outstanding balance."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        elif tx_status not in ["PENDING", "OVERDUE"]:
+        elif tx_status not in ["PENDING", "OVERDUE", "PARTIAL"]:
             return Response(
-                {"detail": f"Cannot send reminder for {tx_status} status. Only PENDING and OVERDUE transactions can receive reminders."},
+                {"detail": f"Cannot send reminder for {tx_status} status. Only PENDING, OVERDUE, and PARTIAL transactions can receive reminders."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         else:
@@ -621,10 +751,33 @@ def send_bulk_payment_reminders(request):
     transactions = Transaction.objects.select_related("parent").filter(
         entry_type="DEBIT",
         parent__isnull=False,
-        status__in=["PENDING", "OVERDUE"],
+        status__in=["PENDING", "OVERDUE", "PARTIAL"],
         due_date__isnull=False,
         due_date__lte=today,
     )
+
+    selected_ids = request.data.get("transaction_ids") if hasattr(request, "data") else None
+    if selected_ids is not None:
+        if not isinstance(selected_ids, list):
+            return Response(
+                {"detail": "transaction_ids must be an array of transaction IDs."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        normalized_ids = []
+        for raw_id in selected_ids:
+            try:
+                normalized_ids.append(int(raw_id))
+            except (TypeError, ValueError):
+                continue
+
+        if not normalized_ids:
+            return Response(
+                {"detail": "No valid transaction IDs were provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        transactions = transactions.filter(id__in=normalized_ids)
 
     processed_count = 0
     created_count = 0

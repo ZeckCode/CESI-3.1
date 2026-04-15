@@ -766,6 +766,132 @@
   color: #ef4444;
 }
 
+/* Skeleton loading */
+.saSkel {
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.sa-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.sa-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  animation: saShimmerMove 1.2s infinite;
+}
+
+@keyframes saShimmerMove {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.saSkel__line {
+  height: 0.72rem;
+}
+
+.saSkel__statCard {
+  border-left-color: #bfdbfe;
+}
+
+.saSkel__icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 0.5rem;
+}
+
+.saSkel__line--statLabel {
+  width: 46%;
+}
+
+.saSkel__line--statValue {
+  width: 55%;
+  height: 1.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.saSkel__line--statChange {
+  width: 72%;
+}
+
+.saSkel__line--title {
+  width: 200px;
+  height: 1rem;
+}
+
+.saSkel__line--subtitle {
+  width: 280px;
+  max-width: 100%;
+}
+
+.saSkel__line--insightLabel {
+  width: 42%;
+  margin-bottom: 0.7rem;
+}
+
+.saSkel__line--insightValue {
+  width: 58%;
+  height: 1.3rem;
+  margin-bottom: 0.55rem;
+}
+
+.saSkel__line--insightNote {
+  width: 92%;
+}
+
+.saSkel__line--sectionSub {
+  width: 120px;
+  margin-top: 0.25rem;
+}
+
+.saSkel__toggle {
+  width: 220px;
+  height: 48px;
+  border-radius: 0.75rem;
+  background: #dbeafe;
+}
+
+.saSkel__filterBar {
+  background: #f8fafc;
+}
+
+.saSkel__line--filter {
+  width: 170px;
+  height: 38px;
+  border-radius: 0.5rem;
+}
+
+.saSkel__calendarContainer {
+  min-height: 380px;
+}
+
+.saSkel__navBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 0.5rem;
+}
+
+.saSkel__line--month {
+  width: 180px;
+  height: 1rem;
+}
+
+.saSkel__line--dayHeader {
+  height: 0.72rem;
+  margin: 0.5rem 0;
+}
+
+.saSkel__calendarCell {
+  border-radius: 0.5rem;
+  min-height: 50px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .student-attendance-main {
@@ -792,6 +918,10 @@
   .sa-stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .saSkel__toggle {
+    width: 100%;
+  }
 }
 
 /* Mobile: table to cards */
@@ -802,6 +932,14 @@
 
   .sa-calendar-cell {
     min-height: 40px;
+  }
+
+  .saSkel__calendarCell {
+    min-height: 40px;
+  }
+
+  .saSkel__line--filter {
+    width: 140px;
   }
 
   .sa-day-number {

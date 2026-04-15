@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api/apiFetch";
 import "../StudentWebsiteCSS/ProofOfPayment.css";
+import Toast from "../Global/Toast";
 
 const formatCurrency = (value) =>
   `₱${Number(value || 0).toLocaleString("en-PH", {
@@ -34,9 +35,8 @@ export default function ProofOfPayment() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
   const [studentData, setStudentData] = useState(null);
+  const [toasts, setToasts] = useState([]);
   const [formData, setFormData] = useState({
     reference_number: "",
     description: "",
@@ -44,6 +44,18 @@ export default function ProofOfPayment() {
     billed_item: "PAYMENT",
     proof_image: null,
   });
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const fetchStudentProfile = useCallback(async () => {
     try {
@@ -61,8 +73,9 @@ export default function ProofOfPayment() {
       console.log("Could not fetch profile from endpoints");
     } catch (err) {
       console.error("Error fetching profile:", err);
+      addToast("Profile Warning", "Could not load your profile details.", "warning");
     }
-  }, []);
+  }, [addToast]);
 
   const fetchPayments = useCallback(async () => {
     try {
@@ -77,11 +90,11 @@ export default function ProofOfPayment() {
       setPayments(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching payments:", err);
-      setError(err.message || "Failed to load payment proofs");
+      addToast("Load Error", err.message || "Failed to load payment proofs", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [addToast]);
 
   useEffect(() => {
     fetchPayments();
@@ -118,17 +131,16 @@ export default function ProofOfPayment() {
     if (file) {
       const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/heic"];
       if (!validTypes.includes(file.type)) {
-        setError("Please upload a valid image file (JPEG, PNG, or HEIC)");
+        addToast("Invalid File", "Please upload a valid image file (JPEG, PNG, or HEIC)", "error");
         return;
       }
 
       if (file.size > 5 * 1024 * 1024) {
-        setError("File size must be less than 5MB");
+        addToast("File Too Large", "File size must be less than 5MB", "error");
         return;
       }
 
       setFormData((prev) => ({ ...prev, proof_image: file }));
-      setError(null);
     }
   };
 
@@ -136,33 +148,32 @@ export default function ProofOfPayment() {
     e.preventDefault();
 
     if (!formData.reference_number.trim()) {
-      setError("Reference number is required");
+      addToast("Missing Field", "Reference number is required", "warning");
       return;
     }
 
     if (!/^\d+$/.test(formData.reference_number)) {
-      setError("Reference number must contain only numbers");
+      addToast("Invalid Reference", "Reference number must contain only numbers", "warning");
       return;
     }
 
     if (!formData.amount || Number(formData.amount) <= 0) {
-      setError("Amount is required and must be greater than 0");
+      addToast("Invalid Amount", "Amount is required and must be greater than 0", "warning");
       return;
     }
 
     if (!formData.description.trim()) {
-      setError("Description is required");
+      addToast("Missing Field", "Description is required", "warning");
       return;
     }
 
     if (!formData.proof_image) {
-      setError("Proof of payment image is required");
+      addToast("Missing File", "Proof of payment image is required", "warning");
       return;
     }
 
     try {
       setSubmitting(true);
-      setError(null);
 
       const formDataToSend = new FormData();
       formDataToSend.append("reference_number", formData.reference_number);
@@ -185,7 +196,11 @@ export default function ProofOfPayment() {
         );
       }
 
-      setSuccess("Payment proof submitted successfully! Waiting for admin approval.");
+      addToast(
+        "Submission Successful",
+        "Payment proof submitted successfully. Waiting for admin approval.",
+        "success"
+      );
       setFormData({
         reference_number: "",
         description: "",
@@ -198,10 +213,9 @@ export default function ProofOfPayment() {
       if (fileInput) fileInput.value = "";
 
       fetchPayments();
-      setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
       console.error("Error submitting payment:", err);
-      setError(err.message || "Failed to submit payment proof");
+      addToast("Submission Failed", err.message || "Failed to submit payment proof", "error");
     } finally {
       setSubmitting(false);
     }
@@ -229,14 +243,56 @@ export default function ProofOfPayment() {
     return imagePath;
   };
 
+  if (loading) {
+    return (
+      <div className="proof-wrapper">
+        <div className="proof-content">
+          <div className="proof-form-card proofSkel__card">
+            <div className="proofSkel proof-shimmer proofSkel__line proofSkel__line--title" />
+            {[...Array(6)].map((_, idx) => (
+              <div key={idx} className="form-group">
+                <div className="proofSkel proof-shimmer proofSkel__line proofSkel__line--label" />
+                <div className="proofSkel proof-shimmer proofSkel__field" />
+              </div>
+            ))}
+            <div className="proofSkel proof-shimmer proofSkel__submit" />
+          </div>
+
+          <div className="proof-history proofSkel__card">
+            <div className="proofSkel proof-shimmer proofSkel__line proofSkel__line--historyTitle" />
+            <div className="proof-list">
+              {[...Array(3)].map((_, idx) => (
+                <div key={idx} className="proof-item proofSkel__item">
+                  <div className="proof-item-header">
+                    <div className="proofSkel proof-shimmer proofSkel__line proofSkel__line--ref" />
+                    <div className="proofSkel proof-shimmer proofSkel__pill" />
+                  </div>
+                  <div className="proof-item-details">
+                    {[...Array(4)].map((__, detailIdx) => (
+                      <div
+                        key={detailIdx}
+                        className="proofSkel proof-shimmer proofSkel__line proofSkel__line--detail"
+                      />
+                    ))}
+                  </div>
+                  <div className="proof-image-container">
+                    <div className="proofSkel proof-shimmer proofSkel__line proofSkel__line--imageLink" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <Toast toasts={toasts} onDismiss={dismissToast} />
+      </div>
+    );
+  }
+
   return (
     <div className="proof-wrapper">
       <div className="proof-content">
         <div className="proof-form-card">
           <h3 className="form-title">Submit New Proof of Payment</h3>
-
-          {error && <div className="proof-error-message">{error}</div>}
-          {success && <div className="proof-success-message">{success}</div>}
 
           <form onSubmit={handleSubmit} className="proof-form">
             <div className="form-group">
@@ -421,6 +477,7 @@ export default function ProofOfPayment() {
           )}
         </div>
       </div>
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

@@ -139,9 +139,9 @@ const canSendReminderForTransaction = (tx) => {
   if (!tx || tx.entry_type !== 'DEBIT') return false;
 
   // Backend reminder endpoint accepts only transactions explicitly marked
-  // as PENDING/OVERDUE.
+  // as PENDING/OVERDUE/PARTIAL.
   const status = String(tx.status || '').toUpperCase();
-  if (!['PENDING', 'OVERDUE'].includes(status)) return false;
+  if (!['PENDING', 'OVERDUE', 'PARTIAL'].includes(status)) return false;
 
   if (!isDueForReminder(tx.due_date || tx.transaction_date)) return false;
 
@@ -1312,7 +1312,7 @@ const TransactionHistory = () => {
     const reminderQueue = groupedTransactions.filter(
       (group) =>
         Number(group.balance || 0) > 0 &&
-        getGroupStatuses(group).some((status) => ['PENDING', 'OVERDUE'].includes(status))
+        getGroupStatuses(group).some((status) => ['PENDING', 'OVERDUE', 'PARTIAL'].includes(status))
     ).length;
 
     const advancePool = groupedTransactions.reduce(
