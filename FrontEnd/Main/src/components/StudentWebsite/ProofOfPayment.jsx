@@ -348,6 +348,7 @@ export default function ProofOfPayment() {
                 name="amount"
                 value={formData.amount}
                 onChange={handleInputChange}
+                onWheel={(e) => e.currentTarget.blur()}
                 className="form-input"
                 placeholder="Enter amount paid"
                 min="0"

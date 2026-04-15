@@ -2810,6 +2810,7 @@ const openIdGenerator = (row) => {
                 min={Number(approveMinimumAmount || 0)}
                 value={approveAmount}
                 onChange={(e) => setApproveAmount(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
                 placeholder="Please confirm the payment amount before approval"
                 className="approve-enrollment-panel__input"
               />

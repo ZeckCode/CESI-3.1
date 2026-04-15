@@ -2115,6 +2115,7 @@ const TransactionHistory = () => {
                     min="0"
                     value={formData.amount}
                     onChange={handleFormChange}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="th-form-input"
                     placeholder="0.00"
                   />
@@ -2282,6 +2283,7 @@ const TransactionHistory = () => {
                     min="0"
                     value={payForm.amount}
                     onChange={handlePayFormChange}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="th-form-input"
                     placeholder="0.00"
                   />
@@ -2412,6 +2414,7 @@ const TransactionHistory = () => {
                     min="0"
                     value={refundForm.amount}
                     onChange={handleRefundFormChange}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="th-form-input"
                     placeholder="0.00"
                   />
