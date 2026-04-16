@@ -106,7 +106,11 @@ const StepPayment = ({
                   paymentAmount: e.target.value,
                 }))
               }
-              placeholder={`Please pay at least ₱${formatMoney(minimumPayment)} before submitting enrollment`}
+              placeholder={
+                minimumPayment > 0
+                  ? `Please pay at least ₱${formatMoney(minimumPayment)} before submitting enrollment`
+                  : "Enter payment amount"
+              }
             />
             {minimumPayment > 0 ? (
               <div className="tuition-row" style={{ marginTop: 8 }}>

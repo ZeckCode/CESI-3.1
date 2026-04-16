@@ -211,6 +211,46 @@ export default function EnrollmentManagement() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const formatApiErrorMessage = useCallback((payload, fallback = "Request failed.") => {
+    if (!payload) return fallback;
+
+    if (typeof payload === "string") {
+      const cleaned = payload.trim();
+      return cleaned || fallback;
+    }
+
+    if (Array.isArray(payload)) {
+      const first = payload.find((item) => item !== null && item !== undefined);
+      if (first === undefined) return fallback;
+      return formatApiErrorMessage(first, fallback);
+    }
+
+    if (typeof payload !== "object") {
+      return String(payload);
+    }
+
+    if (payload.detail) {
+      return String(payload.detail);
+    }
+
+    if (payload.non_field_errors) {
+      return formatApiErrorMessage(payload.non_field_errors, fallback);
+    }
+
+    const firstEntry = Object.entries(payload).find(([, value]) => value !== null && value !== undefined);
+    if (!firstEntry) return fallback;
+
+    const [rawKey, rawValue] = firstEntry;
+    const message = formatApiErrorMessage(rawValue, fallback);
+    const key = String(rawKey || "").replace(/_/g, " ").trim();
+
+    if (!key || key === "detail" || key === "non field errors") {
+      return message;
+    }
+
+    return `${key}: ${message}`;
+  }, []);
+
   const window_ = useMemo(() => computeEnrollmentWindow(settings), [settings]);
 
     const fetchEnrollments = useCallback(async () => {
@@ -435,11 +475,28 @@ export default function EnrollmentManagement() {
     const e = row?.raw || {};
     const normalizedGradeLevel = normalizeSectionGrade(e.grade_level);
     const { next } = getNextGrade(normalizedGradeLevel);
-    const hasSection = Boolean(
-      e?.section || e?.section_name || e?.section_details?.id || e?.section_details?.name
-    );
+    const sectionIdCandidate =
+      e?.section?.id ??
+      e?.section_id ??
+      e?.section_details?.id ??
+      e?.section;
+    const parsedSectionId = Number(sectionIdCandidate);
+    const hasSectionId = Number.isFinite(parsedSectionId) && parsedSectionId > 0;
+    const hasSectionName = [
+      e?.section_name,
+      e?.section_details?.name,
+      e?.section?.name,
+      row?.sectionName,
+    ].some((name) => {
+      const cleaned = String(name || "").trim();
+      return cleaned && cleaned !== "—" && cleaned.toLowerCase() !== "no section";
+    });
+    const hasSection = hasSectionId || hasSectionName;
     const totalSubjects = Number(row?.gradeProgress?.totalSubjects || 0);
     const gradedSubjects = Number(row?.gradeProgress?.gradedSubjects || 0);
+    const gradeStatus = String(row?.gradeProgress?.status || "").toLowerCase();
+    const hasGradeProgressData =
+      totalSubjects > 0 || gradedSubjects > 0 || ["completed", "partial", "pending"].includes(gradeStatus);
     const hasParentUser = Boolean(e?.parent_user);
     const hasPortalPassword = e?.parent_user_has_password === true;
 
@@ -474,25 +531,25 @@ export default function EnrollmentManagement() {
 
     // Promotion is determined by actual completion checks below, not student_type.
 
-    if (!hasSection) {
+    if (!hasSection && !hasGradeProgressData) {
       return {
         ready: false,
-        reason: "No section assigned - set section first before promotion",
+        reason: "No section/grade-monitoring mapping found yet. Assign section or encode grades before promotion.",
         status: "ineligible",
         icon: "clock",
       };
     }
 
-    if (totalSubjects <= 0) {
+    if (hasGradeProgressData && totalSubjects <= 0 && gradedSubjects <= 0) {
       return {
         ready: false,
-        reason: "No subjects assigned for this student/section",
+        reason: "No subjects found in grade monitoring for this student/section",
         status: "ineligible",
         icon: "clock",
       };
     }
 
-    if (gradedSubjects <= 0) {
+    if (hasGradeProgressData && gradedSubjects <= 0) {
       return {
         ready: false,
         reason: "All subject grades are 0 or not encoded yet",
@@ -534,10 +591,10 @@ export default function EnrollmentManagement() {
     }
 
     // Check if all required grade entries are completed (Q4 monitoring source)
-    if (row.gradeProgress && row.gradeProgress.totalSubjects > 0 && row.gradeProgress.status !== "completed") {
+    if (hasGradeProgressData && totalSubjects > 0 && gradeStatus !== "completed") {
       return {
         ready: false,
-        reason: `Grades are ${row.gradeProgress.status || "pending"} (${row.gradeProgress.gradedSubjects}/${row.gradeProgress.totalSubjects} subjects graded)`,
+        reason: `Grades are ${gradeStatus || "pending"} (${gradedSubjects}/${totalSubjects} subjects graded)`,
         status: "ineligible",
         icon: "clock",
       };
@@ -554,9 +611,13 @@ export default function EnrollmentManagement() {
     }
 
     // All checks passed - Student meets all promotion standards
+    const monitorSuffix = hasGradeProgressData
+      ? ""
+      : " (grade monitoring data not available, proceeded with payment/status checks)";
+
     return {
       ready: true,
-      reason: `✓ All standards met - Ready to promote to ${next}`,
+      reason: `✓ All standards met - Ready to promote to ${next}${monitorSuffix}`,
       status: "ready",
       icon: "arrow-up",
     };
@@ -911,7 +972,7 @@ export default function EnrollmentManagement() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        addToast("Save Failed", JSON.stringify(data), "error");
+        addToast("Save Failed", formatApiErrorMessage(data, "Failed to save settings."), "error");
         return;
       }
 
@@ -953,7 +1014,7 @@ export default function EnrollmentManagement() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        addToast("Reset Failed", JSON.stringify(data), "error");
+        addToast("Reset Failed", formatApiErrorMessage(data, "Failed to reset settings."), "error");
         return;
       }
 
@@ -1396,7 +1457,7 @@ const handleApproveModal = async () => {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        addToast("Save Failed", JSON.stringify(data), "error");
+        addToast("Save Failed", formatApiErrorMessage(data, "Could not update academic year."), "error");
         return;
       }
 
@@ -1583,7 +1644,7 @@ const handleApproveModal = async () => {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        addToast("Save Failed", JSON.stringify(data), "error");
+        addToast("Save Failed", formatApiErrorMessage(data, "Could not save enrollment."), "error");
         return;
       }
 

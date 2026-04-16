@@ -26,7 +26,7 @@ def get_required_enrollment_payment(tuition, payment_mode, student_type):
     assessment = Decimal(str(tuition.assessment or 0)) if is_new_student else Decimal("0")
 
     if payment_mode == "cash":
-        return (Decimal(str(tuition.total_cash or 0)) + assessment) / Decimal("2")
+        return Decimal("0")
 
     if payment_mode == "installment":
         return Decimal(str(tuition.initial or 0)) + assessment
@@ -268,7 +268,7 @@ class EnrollmentCreateSerializer(SafeModelSerializer):
 
         attrs.pop("website", None)
 
-        payment_amount = attrs.get("payment_amount")
+        payment_amount = merged_value("payment_amount")
 
         if is_create:
             required = [
@@ -394,7 +394,13 @@ class EnrollmentCreateSerializer(SafeModelSerializer):
         student_type = merged_value("student_type")
         grade_level = merged_value("grade_level")
 
-        if payment_method == "online":
+        requires_online_amount = (
+            is_create
+            or attrs.get("payment_method") == "online"
+            or "payment_amount" in attrs
+        )
+
+        if payment_method == "online" and requires_online_amount:
             amount_value = Decimal(str(payment_amount or 0))
             if amount_value <= 0:
                 raise serializers.ValidationError({

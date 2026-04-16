@@ -17,7 +17,7 @@ export const getRequiredEnrollmentPayment = (tuition, paymentMode, studentType) 
   const assessment = isNewStudent ? Number(tuition.assessment || 0) : 0;
 
   if (paymentMode === "cash") {
-    return (Number(tuition.total_cash || 0) + assessment) / 2;
+    return 0;
   }
 
   if (paymentMode === "installment") {
