@@ -113,6 +113,54 @@ const getSectionRoomId = (section) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const getSectionSchoolYearId = (section) => {
+  if (!section) return null;
+  const raw = section.school_year;
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'object') {
+    const nestedId = Number(raw.id);
+    return Number.isFinite(nestedId) ? nestedId : null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getScheduleSectionId = (schedule) => {
+  if (!schedule) return null;
+  const raw = schedule.section;
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'object') {
+    const nestedId = Number(raw.id);
+    return Number.isFinite(nestedId) ? nestedId : null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getScheduleTeacherUserId = (schedule) => {
+  if (!schedule) return null;
+  const raw = schedule.teacher;
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'object') {
+    const nestedId = Number(raw.id);
+    return Number.isFinite(nestedId) ? nestedId : null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getScheduleSchoolYearId = (schedule) => {
+  if (!schedule) return null;
+  const raw = schedule.school_year;
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'object') {
+    const nestedId = Number(raw.id);
+    return Number.isFinite(nestedId) ? nestedId : null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const getSectionCapacityLimit = (section, rooms) => {
   const roomId = getSectionRoomId(section);
   const linkedRoom = roomId
@@ -126,6 +174,46 @@ const getSectionCapacityLimit = (section, rooms) => {
   if (Number.isFinite(sectionCapacity) && sectionCapacity > 0) return sectionCapacity;
 
   return 40;
+};
+
+const formatSectionApiError = (payload, fallback = 'Request failed.') => {
+  if (!payload) return fallback;
+
+  if (typeof payload === 'string') {
+    return payload.trim() || fallback;
+  }
+
+  if (typeof payload !== 'object') {
+    return fallback;
+  }
+
+  if (payload.detail) {
+    return String(payload.detail);
+  }
+
+  const priorityKeys = ['adviser', 'room', 'grade_level', 'name', 'school_year', 'non_field_errors'];
+  for (const key of priorityKeys) {
+    const value = payload[key];
+    if (Array.isArray(value) && value.length > 0) {
+      return value.map((item) => String(item)).join(' ');
+    }
+    if (typeof value === 'string' && value.trim()) {
+      return value;
+    }
+  }
+
+  const firstEntry = Object.entries(payload).find(([, value]) => value !== null && value !== undefined);
+  if (firstEntry) {
+    const [field, value] = firstEntry;
+    if (Array.isArray(value) && value.length > 0) {
+      return `${field}: ${value.map((item) => String(item)).join(' ')}`;
+    }
+    if (typeof value === 'string' && value.trim()) {
+      return `${field}: ${value}`;
+    }
+  }
+
+  return fallback;
 };
 
 const gradeRoomPrefix = (gradeLevel) => {
@@ -762,13 +850,118 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
     }
   };
 
-  const teacherProfiles = teachers
-    .filter((t) => t.teacher_profile)
-    .map((t) => ({
-      userId: t.id,
-      profileId: t.teacher_profile.id,
-      username: t.username,
-    }));
+  const teacherProfiles = useMemo(
+    () =>
+      teachers
+        .filter((t) => t.teacher_profile)
+        .map((t) => ({
+          userId: t.id,
+          profileId: t.teacher_profile.id,
+          username: t.username,
+        })),
+    [teachers]
+  );
+
+  const currentEditSection = useMemo(() => {
+    if (!editId) return null;
+    return sections.find((sec) => Number(sec.id) === Number(editId)) || null;
+  }, [sections, editId]);
+
+  const eligibleAdviserUserIds = useMemo(() => {
+    const eligible = new Set();
+    if (!currentEditSection) return eligible;
+
+    const sectionId = Number(currentEditSection.id);
+    const sectionSchoolYearId = getSectionSchoolYearId(currentEditSection);
+
+    schedules.forEach((schedule) => {
+      const scheduleSectionId = getScheduleSectionId(schedule);
+      const teacherUserId = getScheduleTeacherUserId(schedule);
+      const scheduleSchoolYearId = getScheduleSchoolYearId(schedule);
+
+      if (!Number.isFinite(scheduleSectionId) || !Number.isFinite(teacherUserId)) {
+        return;
+      }
+
+      if (scheduleSectionId !== sectionId) {
+        return;
+      }
+
+      if (sectionSchoolYearId !== null) {
+        if (!Number.isFinite(scheduleSchoolYearId) || scheduleSchoolYearId !== sectionSchoolYearId) {
+          return;
+        }
+      }
+
+      eligible.add(teacherUserId);
+    });
+
+    return eligible;
+  }, [currentEditSection, schedules]);
+
+  const occupiedAdviserIds = useMemo(() => {
+    const occupied = new Set();
+    sections.forEach((sec) => {
+      if (Number(sec.id) === Number(editId)) return;
+      const adviserId = Number(sec.adviser);
+      if (Number.isFinite(adviserId)) {
+        occupied.add(adviserId);
+      }
+    });
+    return occupied;
+  }, [sections, editId]);
+
+  const adviserOptions = useMemo(
+    () =>
+      teacherProfiles.map((teacher) => {
+        const isCurrentSelection = String(form.adviser || '') === String(teacher.profileId);
+        const isOccupied = occupiedAdviserIds.has(Number(teacher.profileId)) && !isCurrentSelection;
+        const isEligibleForSection =
+          !!currentEditSection && eligibleAdviserUserIds.has(Number(teacher.userId));
+        const isDisabled = isOccupied || !isEligibleForSection;
+        const reason = isOccupied
+          ? 'Already adviser'
+          : !isEligibleForSection
+          ? currentEditSection
+            ? 'No schedule in this section/year'
+            : 'Assign after schedules exist'
+          : '';
+
+        return {
+          ...teacher,
+          isOccupied,
+          isEligibleForSection,
+          isDisabled,
+          reason,
+        };
+      }),
+    [teacherProfiles, occupiedAdviserIds, form.adviser, currentEditSection, eligibleAdviserUserIds]
+  );
+
+  const occupiedRoomIds = useMemo(() => {
+    const occupied = new Set();
+    sections.forEach((sec) => {
+      if (Number(sec.id) === Number(editId)) return;
+      const roomId = getSectionRoomId(sec);
+      if (roomId !== null && roomId !== undefined) {
+        occupied.add(Number(roomId));
+      }
+    });
+    return occupied;
+  }, [sections, editId]);
+
+  const availableRooms = useMemo(() => {
+    const selectedRoomId = Number(form.room);
+
+    return rooms.filter((room) => {
+      const roomId = Number(room.id);
+      if (!Number.isFinite(roomId)) return false;
+
+      const isCurrentRoom = Number.isFinite(selectedRoomId) && selectedRoomId === roomId;
+      const isUnused = !occupiedRoomIds.has(roomId);
+      return (room.is_active || isCurrentRoom) && (isCurrentRoom || isUnused);
+    });
+  }, [rooms, occupiedRoomIds, form.room]);
 
   const openNew = () => {
     setEditId(null);
@@ -794,38 +987,60 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
       setError('Section name is required.');
       return;
     }
-    if (form.grade_level === '' || !form.grade_level) {
-      setError('Grade level is required. Please select a valid grade level from the dropdown.');
-      return;
+
+    if (!editId) {
+      if (form.grade_level === '' || !form.grade_level) {
+        setError('Grade level is required. Please select a valid grade level from the dropdown.');
+        return;
+      }
+      const validGradeLevels = GRADE_LEVELS.map((g) => String(g.value));
+      if (!validGradeLevels.includes(String(form.grade_level))) {
+        setError('Invalid grade level selected. Please choose from the available options.');
+        return;
+      }
+
+      if (form.adviser) {
+        setError('Assign adviser after creating the section and adding schedule entries for that teacher.');
+        return;
+      }
     }
-    const validGradeLevels = GRADE_LEVELS.map((g) => String(g.value));
-    if (!validGradeLevels.includes(String(form.grade_level))) {
-      setError('Invalid grade level selected. Please choose from the available options.');
-      return;
+
+    if (editId && form.adviser) {
+      const selectedAdviser = adviserOptions.find(
+        (option) => String(option.profileId) === String(form.adviser)
+      );
+      if (selectedAdviser && !selectedAdviser.isEligibleForSection) {
+        setError('Selected adviser must have at least one schedule in this section and school year.');
+        return;
+      }
     }
+
     setSaving(true);
     setError('');
     try {
       const payload = {
         name: form.name,
-        grade_level: String(form.grade_level),
         adviser: form.adviser ? Number(form.adviser) : null,
         room: form.room ? Number(form.room) : null,
       };
+      if (!editId) {
+        payload.grade_level = String(form.grade_level);
+      }
+
       const url = editId ? `/api/accounts/sections/${editId}/` : '/api/accounts/sections/';
       const r = await apiFetch(url, {
-        method: editId ? 'PUT' : 'POST',
+        method: editId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       if (!r.ok) {
-        const e = await r.json().catch(() => ({}));
-        throw new Error(e.detail || JSON.stringify(e));
+        const e = await r.json().catch(() => null);
+        throw new Error(formatSectionApiError(e, `Save failed (${r.status})`));
       }
       setShowForm(false);
       await onRefresh();
     } catch (e) {
-      setError(e.message);
+      setError(e.message || 'Failed to save section.');
     } finally {
       setSaving(false);
     }
@@ -1011,20 +1226,27 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
               />
             </div>
 
-            <div className="admin-form-group">
-              <label>Grade Level *</label>
-              <select
-                value={form.grade_level}
-                onChange={(e) => setForm({ ...form, grade_level: e.target.value })}
-              >
-                <option value="">Select…</option>
-                {GRADE_LEVELS.map((g) => (
-                  <option key={g.value} value={g.value}>
-                    {g.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {!editId ? (
+              <div className="admin-form-group">
+                <label>Grade Level *</label>
+                <select
+                  value={form.grade_level}
+                  onChange={(e) => setForm({ ...form, grade_level: e.target.value })}
+                >
+                  <option value="">Select…</option>
+                  {GRADE_LEVELS.map((g) => (
+                    <option key={g.value} value={g.value}>
+                      {g.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="admin-form-group">
+                <label>Grade Level</label>
+                <input type="text" value={gradeLabel(form.grade_level)} readOnly />
+              </div>
+            )}
 
             <div className="admin-form-group">
               <label>Homeroom Teacher (Adviser)</label>
@@ -1033,12 +1255,22 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
                 onChange={(e) => setForm({ ...form, adviser: e.target.value })}
               >
                 <option value="">— None —</option>
-                {teacherProfiles.map((t) => (
-                  <option key={t.profileId} value={t.profileId}>
-                    {t.username}
+                {adviserOptions.map((t) => (
+                  <option key={t.profileId} value={t.profileId} disabled={t.isDisabled}>
+                    {t.username}{t.reason ? ` (${t.reason})` : ''}
                   </option>
                 ))}
               </select>
+              {!editId && (
+                <small style={{ color: '#64748b' }}>
+                  Adviser assignment is available after schedules are created for this section.
+                </small>
+              )}
+              {editId && adviserOptions.every((option) => !option.isEligibleForSection) && (
+                <small style={{ color: '#64748b' }}>
+                  No eligible advisers yet. Add at least one schedule entry in this section and school year.
+                </small>
+              )}
             </div>
 
             <div className="admin-form-group">
@@ -1048,14 +1280,17 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
                 onChange={(e) => setForm({ ...form, room: e.target.value })}
               >
                 <option value="">— None —</option>
-                {rooms
-                  .filter((room) => room.is_active)
-                  .map((room) => (
-                    <option key={room.id} value={room.id}>
-                      {room.code}
-                    </option>
-                  ))}
+                {availableRooms.map((room) => (
+                  <option key={room.id} value={room.id}>
+                    {room.code}
+                  </option>
+                ))}
               </select>
+              {availableRooms.length === 0 && (
+                <small style={{ color: '#64748b' }}>
+                  No available rooms. Create a new room or unassign one from another section.
+                </small>
+              )}
             </div>
 
             <div className="admin-form-actions">
@@ -1131,7 +1366,7 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
 
               <div className="admin-class-card-body">
                 <div className="admin-info-row">
-                  <span className="label">Homeroom:</span>
+                  <span className="label">Adviser:</span>
                   <span className="value">
                     {sec.adviser_name || <em style={{ color: '#94a3b8' }}>Unassigned</em>}
                   </span>

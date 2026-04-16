@@ -435,7 +435,6 @@ export default function EnrollmentManagement() {
     const e = row?.raw || {};
     const normalizedGradeLevel = normalizeSectionGrade(e.grade_level);
     const { next } = getNextGrade(normalizedGradeLevel);
-    const studentType = String(e.student_type || "").trim().toLowerCase();
     const hasSection = Boolean(
       e?.section || e?.section_name || e?.section_details?.id || e?.section_details?.name
     );
@@ -473,15 +472,7 @@ export default function EnrollmentManagement() {
       };
     }
 
-    // Fresh enrollees are never promotion candidates.
-    if (["new", "new_student", "fresh", "fresh_enrollee", "fresh_enrollee_student"].includes(studentType)) {
-      return {
-        ready: false,
-        reason: "Fresh enrollee detected - only returning students can be promoted",
-        status: "ineligible",
-        icon: "clock",
-      };
-    }
+    // Promotion is determined by actual completion checks below, not student_type.
 
     if (!hasSection) {
       return {
