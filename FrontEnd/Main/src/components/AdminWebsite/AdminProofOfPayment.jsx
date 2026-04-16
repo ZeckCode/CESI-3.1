@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api/apiFetch";
+import Pagination from "./Pagination";
 import "../AdminWebsiteCSS/AdminProofOfPayment.css";
 import { Check, X, Eye, XCircle } from "lucide-react";
 
@@ -56,6 +57,8 @@ export default function AdminProofOfPayment() {
   const [showModal, setShowModal] = useState(false);
   const [actionType, setActionType] = useState("");
   const [imageOverlay, setImageOverlay] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const fetchPayments = useCallback(async () => {
     try {
@@ -101,6 +104,16 @@ export default function AdminProofOfPayment() {
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [payments.length]);
+
+  const totalPages = Math.max(1, Math.ceil(payments.length / ITEMS_PER_PAGE));
+  const paginatedPayments = payments.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const getStudentDisplayName = (payment) => {
     if (payment.student_name) {
@@ -241,118 +254,128 @@ export default function AdminProofOfPayment() {
             <p>No proof of payment submissions found.</p>
           </div>
         ) : (
-          <div className="admin-proof-table-wrapper">
-            <div className="admin-proof-table-container">
-              <div className="admin-proof-table-scroll-hint">← Swipe to scroll →</div>
-              <table className="admin-proof-table">
-                <thead>
-                  <tr>
-                    <th>Reference Number</th>
-                    <th>Student</th>
-                    <th>Amount</th>
-                    <th>Bill Type</th>
-                    <th>Type</th>
-                    <th>Submitted Date</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map((payment) => (
-                    <tr key={payment.id}>
-                    <td data-label="Reference Number">{payment.reference_number}</td>
-                    <td data-label="Student">
-                      <div className="admin-proof-student-name">
-                        {getStudentDisplayName(payment)}
-                      </div>
-                      {payment.student_grade && (
-                        <div className="admin-proof-student-grade">
-                          {payment.student_grade}
-                        </div>
-                      )}
-                    </td>
-                    <td data-label="Amount">{formatCurrency(payment.amount)}</td>
-                    <td data-label="Bill Type">{billTypeLabel(payment.billed_item)}</td>
-                    <td data-label="Type">
-                      {payment.is_enrollment_payment ? (
-                        <span
-                          style={{
-                            background: "#e0e7ff",
-                            color: "#4338ca",
-                            padding: "4px 8px",
-                            borderRadius: "12px",
-                            fontSize: "11px",
-                            fontWeight: "500",
-                          }}
-                        >
-                          Enrollment Fee
-                        </span>
-                      ) : (
-                        <span
-                          style={{
-                            background: "#f3e8ff",
-                            color: "#6b21a5",
-                            padding: "4px 8px",
-                            borderRadius: "12px",
-                            fontSize: "11px",
-                            fontWeight: "500",
-                          }}
-                        >
-                          Installment
-                        </span>
-                      )}
-                    </td>
-                    <td data-label="Submitted Date">{formatDate(payment.submitted_date || payment.created_at)}</td>
-                    <td data-label="Status">
-                      <span
-                        className={`admin-proof-status-badge admin-proof-status-${payment.status || "pending"}`}
-                        style={statusPillStyle(payment.status)}
-                      >
-                        {payment.status || "PENDING"}
-                      </span>
-                    </td>
-                    <td data-label="Actions">
-                      <div className="admin-proof-actions-icons">
-                        <button
-                          className="action-icon"
-                          onClick={() => openActionModal(payment, "view")}
-                          title="View"
-                        >
-                          <Eye size={18} />
-                        </button>
-                      {payment.status === "pending" ? (
-                        <>
-                          <button
-                            className="action-icon approve-icon"
-                            onClick={() => openActionModal(payment, "approve")}
-                            title="Approve"
+          <>
+            <div className="admin-proof-table-wrapper">
+              <div className="admin-proof-table-container">
+                <div className="admin-proof-table-scroll-hint">← Swipe to scroll →</div>
+                <table className="admin-proof-table">
+                  <thead>
+                    <tr>
+                      <th>Reference Number</th>
+                      <th>Student</th>
+                      <th>Amount</th>
+                      <th>Bill Type</th>
+                      <th>Type</th>
+                      <th>Submitted Date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedPayments.map((payment) => (
+                      <tr key={payment.id}>
+                        <td data-label="Reference Number">{payment.reference_number}</td>
+                        <td data-label="Student">
+                          <div className="admin-proof-student-name">
+                            {getStudentDisplayName(payment)}
+                          </div>
+                          {payment.student_grade && (
+                            <div className="admin-proof-student-grade">
+                              {payment.student_grade}
+                            </div>
+                          )}
+                        </td>
+                        <td data-label="Amount">{formatCurrency(payment.amount)}</td>
+                        <td data-label="Bill Type">{billTypeLabel(payment.billed_item)}</td>
+                        <td data-label="Type">
+                          {payment.is_enrollment_payment ? (
+                            <span
+                              style={{
+                                background: "#e0e7ff",
+                                color: "#4338ca",
+                                padding: "4px 8px",
+                                borderRadius: "12px",
+                                fontSize: "11px",
+                                fontWeight: "500",
+                              }}
+                            >
+                              Enrollment Fee
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                background: "#f3e8ff",
+                                color: "#6b21a5",
+                                padding: "4px 8px",
+                                borderRadius: "12px",
+                                fontSize: "11px",
+                                fontWeight: "500",
+                              }}
+                            >
+                              Installment
+                            </span>
+                          )}
+                        </td>
+                        <td data-label="Submitted Date">{formatDate(payment.submitted_date || payment.created_at)}</td>
+                        <td data-label="Status">
+                          <span
+                            className={`admin-proof-status-badge admin-proof-status-${payment.status || "pending"}`}
+                            style={statusPillStyle(payment.status)}
                           >
-                            <Check size={18} />
-                          </button>
-                          <button
-                            className="action-icon reject-icon"
-                            onClick={() => openActionModal(payment, "reject")}
-                            title="Reject"
-                          >
-                            <X size={18} />
-                          </button>
-                        </>
-                      ) : (
-                        <span className={`admin-proof-reviewed ${payment.status}`}>
-                          {payment.status === "approved" ? <Check size={14} /> : <X size={14} />}
-                          <span>
-                            {payment.status === "approved" ? " Approved" : " Rejected"}
+                            {payment.status || "PENDING"}
                           </span>
-                        </span>
-                      )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        </td>
+                        <td data-label="Actions">
+                          <div className="admin-proof-actions-icons">
+                            <button
+                              className="action-icon"
+                              onClick={() => openActionModal(payment, "view")}
+                              title="View"
+                            >
+                              <Eye size={18} />
+                            </button>
+                            {payment.status === "pending" ? (
+                              <>
+                                <button
+                                  className="action-icon approve-icon"
+                                  onClick={() => openActionModal(payment, "approve")}
+                                  title="Approve"
+                                >
+                                  <Check size={18} />
+                                </button>
+                                <button
+                                  className="action-icon reject-icon"
+                                  onClick={() => openActionModal(payment, "reject")}
+                                  title="Reject"
+                                >
+                                  <X size={18} />
+                                </button>
+                              </>
+                            ) : (
+                              <span className={`admin-proof-reviewed ${payment.status}`}>
+                                {payment.status === "approved" ? <Check size={14} /> : <X size={14} />}
+                                <span>
+                                  {payment.status === "approved" ? " Approved" : " Rejected"}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={payments.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+            />
+          </>
         )}
 
         {showModal && (

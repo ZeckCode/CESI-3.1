@@ -10,6 +10,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
+import Pagination from "./Pagination";
 import Toast from "../Global/Toast";
 import "../AdminWebsiteCSS/PaymentReminders.css";
 
@@ -36,10 +37,13 @@ const PaymentReminders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [ledgerRows, setLedgerRows] = useState([]);
+  const [reminderSummary, setReminderSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sendingId, setSendingId] = useState(null);
   const [sendingBulk, setSendingBulk] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const addToast = useCallback((title, message, type = "warning") => {
     const id = Date.now() + Math.random();
@@ -61,10 +65,17 @@ const PaymentReminders = () => {
       if (!res.ok) throw new Error("Failed to load payment ledger");
 
       const data = await res.json();
-      setLedgerRows(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        setLedgerRows(data);
+        setReminderSummary(null);
+      } else {
+        setLedgerRows(Array.isArray(data?.rows) ? data.rows : []);
+        setReminderSummary(data?.summary || null);
+      }
     } catch (err) {
       console.error("Error loading payment ledger:", err);
       setLedgerRows([]);
+      setReminderSummary(null);
     } finally {
       setLoading(false);
     }
@@ -73,6 +84,10 @@ const PaymentReminders = () => {
   useEffect(() => {
     loadReminders();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [ledgerRows.length, filterStatus, searchTerm]);
 
   const filteredRows = useMemo(() => {
     return ledgerRows.filter((r) => {
@@ -97,7 +112,7 @@ const PaymentReminders = () => {
   }, 0);
 
   const studentsWithBalance = ledgerRows.filter((r) => Number(r.remaining_balance || 0) > 0).length;
-  const overdueCount = ledgerRows.filter((r) => r.due_state === "overdue" && !r.is_paid_already).length;
+  const overdueCount = reminderSummary?.overdue_transactions ?? ledgerRows.filter((r) => r.due_state === "overdue" && !r.is_paid_already).length;
 
   const dueWithin7Days = useMemo(() => {
     const today = new Date();
@@ -112,6 +127,12 @@ const PaymentReminders = () => {
       return due >= today && due <= sevenDays;
     }).length;
   }, [ledgerRows]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
+  const paginatedRows = useMemo(
+    () => filteredRows.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
+    [filteredRows, currentPage]
+  );
 
   const renderSkeletonRows = (columnCount) =>
     Array.from({ length: REMINDER_SKELETON_ROWS }).map((_, rowIdx) => (
@@ -358,7 +379,7 @@ const PaymentReminders = () => {
               {loading ? (
                 renderSkeletonRows(8)
               ) : filteredRows.length > 0 ? (
-                filteredRows.map((r) => (
+                paginatedRows.map((r) => (
                   <tr
                     key={`${r.enrollment_id || "none"}-${r.transaction_id}`}
                     className={hoveredRow === r.transaction_id ? "pr-row-hover" : ""}
@@ -435,6 +456,16 @@ const PaymentReminders = () => {
             </tbody>
           </table>
         </div>
+
+        {!loading && filteredRows.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredRows.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
+        )}
       </section>
       <Toast toasts={toasts} dismissToast={dismissToast} />
     </main>

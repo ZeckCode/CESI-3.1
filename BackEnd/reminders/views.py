@@ -787,6 +787,37 @@ def payment_ledger_nearest_due(request):
         )
 
     rows.sort(key=lambda row: (row["due_date"], row["student_name"].lower()))
+
+    overdue_transactions = sum(
+        1
+        for tx in prefetch_qs
+        if getattr(tx, "entry_type", "") == "DEBIT"
+        and _compute_outstanding_balance(tx) > 0
+        and getattr(tx, "due_date", None)
+        and tx.due_date < today
+    )
+    due_today_transactions = sum(
+        1
+        for tx in prefetch_qs
+        if getattr(tx, "entry_type", "") == "DEBIT"
+        and _compute_outstanding_balance(tx) > 0
+        and getattr(tx, "due_date", None)
+        and tx.due_date == today
+    )
+    upcoming_transactions = sum(
+        1
+        for tx in prefetch_qs
+        if getattr(tx, "entry_type", "") == "DEBIT"
+        and _compute_outstanding_balance(tx) > 0
+        and getattr(tx, "due_date", None)
+        and tx.due_date > today
+    )
+    paid_transactions = sum(
+        1
+        for tx in prefetch_qs
+        if getattr(tx, "entry_type", "") == "DEBIT"
+        and _compute_outstanding_balance(tx) <= 0
+    )
     logger.info(
         "[PAYMENT_REMINDER_CHECK] ledger_nearest_due rows=%s overdue=%s due_today=%s upcoming=%s paid=%s",
         len(rows),
@@ -795,7 +826,18 @@ def payment_ledger_nearest_due(request):
         sum(1 for row in rows if row.get("due_state") == "upcoming"),
         sum(1 for row in rows if row.get("due_state") == "paid"),
     )
-    return Response(rows)
+    return Response(
+        {
+            "rows": rows,
+            "summary": {
+                "overdue_transactions": overdue_transactions,
+                "due_today_transactions": due_today_transactions,
+                "upcoming_transactions": upcoming_transactions,
+                "paid_transactions": paid_transactions,
+                "visible_rows": len(rows),
+            },
+        }
+    )
 
 
 class ReminderListCreateView(generics.ListCreateAPIView):
