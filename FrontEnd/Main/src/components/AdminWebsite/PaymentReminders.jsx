@@ -201,6 +201,7 @@ const PaymentReminders = () => {
     try {
       const res = await apiFetch('/api/reminders/payments/send-bulk/', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transaction_ids: selectedTransactionIds }),
       });
 
