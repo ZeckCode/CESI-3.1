@@ -148,6 +148,32 @@ const canSendReminderForTransaction = (tx) => {
   return Number(tx.debit || 0) > Number(tx.credit || 0);
 };
 
+const reminderStatusRank = (tx) => {
+  const status = String(tx?._effectiveStatus || tx?.status || '').toUpperCase();
+
+  if (status === 'OVERDUE') return 0;
+  if (status === 'PARTIAL') return 1;
+  if (status === 'PENDING') return 2;
+  return 3;
+};
+
+const getReminderCandidatesForGroup = (group) => {
+  return (group?.rows || [])
+    .filter((tx) => canSendReminderForTransaction(tx))
+    .slice()
+    .sort((a, b) => {
+      const rankCompare = reminderStatusRank(a) - reminderStatusRank(b);
+      if (rankCompare !== 0) return rankCompare;
+
+      const dateA = String(a?.due_date || a?.transaction_date || '');
+      const dateB = String(b?.due_date || b?.transaction_date || '');
+      const dateCompare = dateA.localeCompare(dateB);
+      if (dateCompare !== 0) return dateCompare;
+
+      return Number(a.id || 0) - Number(b.id || 0);
+    });
+};
+
 const TransactionHistory = () => {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState([]);
@@ -561,19 +587,47 @@ const TransactionHistory = () => {
     }
   };
 
-  const sendReminder = async (transactionId) => {
-    setSendingReminderId(transactionId);
-    try {
-      const res = await apiFetch(`/api/reminders/payments/${transactionId}/send/`, { method: 'POST' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || 'Failed to send reminder.');
-      addToast('Success', data.detail || 'Payment reminder sent successfully!', 'success');
-    } catch (err) {
-      console.error('Error sending reminder:', err);
-      addToast('Error', err.message || 'Failed to send reminder.', 'error');
-    } finally {
-      setSendingReminderId(null);
+  const sendReminder = async (reminderTargets) => {
+    const candidates = (Array.isArray(reminderTargets) ? reminderTargets : [reminderTargets]).filter(Boolean);
+
+    if (candidates.length === 0) {
+      addToast('Blocked', 'No reminder-eligible transaction was found for this row.', 'warning');
+      return;
     }
+
+    let lastError = null;
+
+    for (const candidate of candidates) {
+      setSendingReminderId(candidate.id);
+      try {
+        const res = await apiFetch(`/api/reminders/payments/${candidate.id}/send/`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) throw new Error(data.detail || 'Failed to send reminder.');
+
+        addToast('Success', data.detail || 'Payment reminder sent successfully!', 'success');
+        return;
+      } catch (err) {
+        console.error('Error sending reminder:', err);
+        lastError = err;
+
+        const errorText = String(err?.message || '').toLowerCase();
+        const isRetryable =
+          errorText.includes('no outstanding balance') ||
+          errorText.includes('not eligible') ||
+          errorText.includes('cannot send reminder') ||
+          errorText.includes('failed to send reminder');
+
+        if (!isRetryable) {
+          addToast('Error', err.message || 'Failed to send reminder.', 'error');
+          return;
+        }
+      } finally {
+        setSendingReminderId(null);
+      }
+    }
+
+    addToast('Blocked', lastError?.message || 'No eligible transaction could receive a reminder.', 'warning');
   };
 
   const sendBulkReminders = async () => {
@@ -1073,11 +1127,9 @@ const TransactionHistory = () => {
   );
 
   const isReminderEligible = (group) =>
-    Number(group.balance || 0) > 0 &&
-    (group.rows || []).some((tx) => canSendReminderForTransaction(tx));
+    Number(group.balance || 0) > 0 && getReminderCandidatesForGroup(group).length > 0;
 
-  const getReminderTargetForGroup = (group) =>
-    (group?.rows || []).find((tx) => canSendReminderForTransaction(tx)) || null;
+  const getReminderTargetForGroup = (group) => getReminderCandidatesForGroup(group)[0] || null;
 
   const getAdvanceCredit = useCallback((group) =>
     (group?.rows || []).reduce((sum, tx) => {
@@ -1805,7 +1857,7 @@ const TransactionHistory = () => {
                           {isReminderEligible(group) && (
                             <button
                               className="th-action-btn th-reminder-btn"
-                              onClick={() => reminderTarget && sendReminder(reminderTarget.id)}
+                              onClick={() => reminderTarget && sendReminder(getReminderCandidatesForGroup(group))}
                               title="Send Reminder"
                               disabled={!reminderTarget || sendingReminderId === reminderTarget.id}
                             >
@@ -1886,7 +1938,7 @@ const TransactionHistory = () => {
                                           {canSendReminderForTransaction(tx) && (
                                               <button
                                                 className="th-action-btn th-reminder-btn"
-                                                onClick={() => sendReminder(tx.id)}
+                                                onClick={() => sendReminder([tx])}
                                                 title="Send Reminder"
                                                 disabled={sendingReminderId === tx.id}
                                               >

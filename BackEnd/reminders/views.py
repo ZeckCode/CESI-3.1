@@ -453,13 +453,13 @@ def _compute_parent_student_balance(parent, student_name):
 
 
 def _nearest_due_transaction(transactions, today):
-    upcoming = [tx for tx in transactions if tx.due_date and tx.due_date >= today]
-    if upcoming:
-        return min(upcoming, key=lambda tx: (tx.due_date, tx.id))
-
     overdue = [tx for tx in transactions if tx.due_date and tx.due_date < today]
     if overdue:
         return max(overdue, key=lambda tx: (tx.due_date, tx.id))
+
+    upcoming = [tx for tx in transactions if tx.due_date and tx.due_date >= today]
+    if upcoming:
+        return min(upcoming, key=lambda tx: (tx.due_date, tx.id))
 
     return None
 
