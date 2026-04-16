@@ -25,6 +25,11 @@ from finance.models import Transaction
 
 from decimal import Decimal
 from finance.models import Transaction, ProofOfPayment
+from finance.utils import (
+    BILLING_DEBIT_ITEMS,
+    normalize_transaction_item,
+    recompute_transaction_statuses_for_enrollment,
+)
 from enrollment.models import Enrollment
 
 
@@ -120,6 +125,11 @@ def can_send_reminder_for_transaction(transaction):
     # Must be DEBIT
     if getattr(transaction, "entry_type", "") != "DEBIT":
         return False
+
+    # Must be an unpaid billing debit row, not non-billing adjustments.
+    tx_item = normalize_transaction_item(getattr(transaction, "item", ""))
+    if tx_item not in BILLING_DEBIT_ITEMS:
+        return False
     
     # Status must be PENDING, OVERDUE, or PARTIAL
     status = str(getattr(transaction, "status", "") or "").upper()
@@ -148,6 +158,54 @@ def can_send_reminder_for_transaction(transaction):
         return False
     
     return True
+
+
+def _refresh_ledger_statuses_for_transactions(transactions):
+    enrollment_ids = {
+        tx.enrollment_id for tx in transactions if getattr(tx, "enrollment_id", None)
+    }
+
+    if not enrollment_ids:
+        return
+
+    enrollments = Enrollment.objects.filter(id__in=enrollment_ids)
+    for enrollment in enrollments:
+        recompute_transaction_statuses_for_enrollment(enrollment)
+
+
+def _resolve_best_reminder_target(transaction, today):
+    if not transaction:
+        return None
+
+    if transaction.enrollment_id:
+        recompute_transaction_statuses_for_enrollment(transaction.enrollment)
+
+        candidates = list(
+            Transaction.objects.select_related("parent", "enrollment")
+            .filter(
+                enrollment=transaction.enrollment,
+                entry_type="DEBIT",
+                due_date__isnull=False,
+                parent__isnull=False,
+                status__in=["PENDING", "OVERDUE", "PARTIAL"],
+            )
+            .order_by("due_date", "id")
+        )
+        return _nearest_due_transaction(candidates, today)
+
+    candidates = list(
+        Transaction.objects.select_related("parent", "enrollment")
+        .filter(
+            parent=transaction.parent,
+            student_name=transaction.student_name,
+            entry_type="DEBIT",
+            due_date__isnull=False,
+            status__in=["PENDING", "OVERDUE", "PARTIAL"],
+        )
+        .order_by("due_date", "id")
+    )
+
+    return _nearest_due_transaction(candidates, today)
 
 
 def create_reminder_once(
@@ -338,14 +396,29 @@ def send_upcoming_payment_due_reminders(*, days_before=7, sender=None, target_da
     }
 
 
-def _build_payment_reminder_email_message(*, transaction, amount, status_value, due_date, body):
+def _build_payment_reminder_email_message(
+    *,
+    transaction,
+    amount,
+    status_value,
+    due_date,
+    body,
+    ledger_total_debit=None,
+    ledger_total_paid=None,
+    ledger_total_balance=None,
+):
     student_name = getattr(transaction, "student_name", "your child")
     reference_number = getattr(transaction, "reference_number", "N/A")
     transaction_type = getattr(transaction, "transaction_type", "Payment")
 
     amount_due = Decimal(str(amount or transaction.debit or transaction.amount or 0))
-    balance_due = Decimal(str(transaction.debit or transaction.amount or 0)) - Decimal(str(transaction.credit or 0))
-    balance_due = balance_due if balance_due > 0 else Decimal("0.00")
+    balance_due = Decimal(str(ledger_total_balance if ledger_total_balance is not None else 0))
+    if balance_due <= 0:
+        balance_due = Decimal(str(transaction.debit or transaction.amount or 0)) - Decimal(str(transaction.credit or 0))
+        balance_due = balance_due if balance_due > 0 else Decimal("0.00")
+
+    total_billed = Decimal(str(ledger_total_debit if ledger_total_debit is not None else 0))
+    total_paid = Decimal(str(ledger_total_paid if ledger_total_paid is not None else 0))
 
     status_text = str(status_value).upper()
     lines = [
@@ -359,7 +432,9 @@ def _build_payment_reminder_email_message(*, transaction, amount, status_value, 
         f"Student Name     : {student_name}",
         f"Billing Category : {transaction_type}",
         f"Reference Number : {reference_number}",
-        f"Amount Due       : ₱{amount_due}",
+        f"Current Billing Due: ₱{amount_due}",
+        f"Total Billed     : ₱{total_billed}",
+        f"Total Paid       : ₱{total_paid}",
         f"Balance Remaining: ₱{balance_due}",
         f"Current Status   : {status_text}",
     ]
@@ -452,6 +527,31 @@ def _compute_parent_student_balance(parent, student_name):
     return balance if balance > 0 else Decimal("0.00")
 
 
+def _compute_ledger_totals_for_transaction(transaction):
+    if not transaction:
+        return Decimal("0.00"), Decimal("0.00"), Decimal("0.00")
+
+    if transaction.enrollment_id:
+        totals = Transaction.objects.filter(enrollment=transaction.enrollment).aggregate(
+            total_debit=Sum("debit"),
+            total_credit=Sum("credit"),
+        )
+    else:
+        totals = Transaction.objects.filter(
+            parent=transaction.parent,
+            student_name=transaction.student_name,
+        ).aggregate(
+            total_debit=Sum("debit"),
+            total_credit=Sum("credit"),
+        )
+
+    total_debit = Decimal(str(totals.get("total_debit") or 0))
+    total_credit = Decimal(str(totals.get("total_credit") or 0))
+    balance = total_debit - total_credit
+    payable_balance = balance if balance > 0 else Decimal("0.00")
+    return total_debit, total_credit, payable_balance
+
+
 def _nearest_due_transaction(transactions, today):
     overdue = [tx for tx in transactions if tx.due_date and tx.due_date < today]
     if overdue:
@@ -474,6 +574,18 @@ def payment_ledger_nearest_due(request):
         )
 
     today = timezone.localdate()
+    prefetch_qs = list(
+        Transaction.objects.select_related("parent", "enrollment")
+        .filter(
+            entry_type="DEBIT",
+            parent__isnull=False,
+            due_date__isnull=False,
+        )
+        .order_by("due_date", "id")
+    )
+
+    _refresh_ledger_statuses_for_transactions(prefetch_qs)
+
     base_qs = (
         Transaction.objects.select_related("parent", "enrollment")
         .filter(
@@ -500,10 +612,7 @@ def payment_ledger_nearest_due(request):
         if not chosen:
             continue
 
-        if chosen.enrollment_id:
-            remaining_balance = get_enrollment_balance(chosen.enrollment)
-        else:
-            remaining_balance = _compute_parent_student_balance(chosen.parent, chosen.student_name)
+        ledger_total_debit, ledger_total_paid, remaining_balance = _compute_ledger_totals_for_transaction(chosen)
 
         is_paid_already = remaining_balance <= 0 or _compute_outstanding_balance(chosen) <= 0
 
@@ -517,7 +626,7 @@ def payment_ledger_nearest_due(request):
         else:
             due_state = "upcoming"
 
-        rows.append(
+        row_payload = (
             {
                 "student_name": chosen.student_name or "—",
                 "student_number": chosen.student_number_snapshot or "",
@@ -538,8 +647,31 @@ def payment_ledger_nearest_due(request):
                 "can_send_payment_reminder": (not is_paid_already) and can_send_reminder_for_transaction(chosen),
             }
         )
+        rows.append(row_payload)
+
+        logger.info(
+            "[PAYMENT_REMINDER_CHECK] ledger_row tx_id=%s student=%s due_state=%s can_send=%s tx_debit=%s tx_credit=%s tx_outstanding=%s ledger_total_debit=%s ledger_total_paid=%s ledger_total_balance=%s",
+            chosen.id,
+            chosen.student_name,
+            due_state,
+            row_payload["can_send_payment_reminder"],
+            getattr(chosen, "debit", None),
+            getattr(chosen, "credit", None),
+            row_payload["outstanding_balance"],
+            ledger_total_debit,
+            ledger_total_paid,
+            remaining_balance,
+        )
 
     rows.sort(key=lambda row: (row["due_date"], row["student_name"].lower()))
+    logger.info(
+        "[PAYMENT_REMINDER_CHECK] ledger_nearest_due rows=%s overdue=%s due_today=%s upcoming=%s paid=%s",
+        len(rows),
+        sum(1 for row in rows if row.get("due_state") == "overdue"),
+        sum(1 for row in rows if row.get("due_state") == "due_today"),
+        sum(1 for row in rows if row.get("due_state") == "upcoming"),
+        sum(1 for row in rows if row.get("due_state") == "paid"),
+    )
     return Response(rows)
 
 
@@ -641,12 +773,39 @@ def send_payment_reminder(request, transaction_id):
             status=status.HTTP_404_NOT_FOUND
         )
 
+    today = timezone.localdate()
+    target_transaction = _resolve_best_reminder_target(transaction, today=today)
+    if target_transaction:
+        if target_transaction.id != transaction.id:
+            logger.info(
+                "[PAYMENT_REMINDER_CHECK] retarget single tx request_id=%s target_id=%s enrollment_id=%s status=%s due_date=%s",
+                transaction.id,
+                target_transaction.id,
+                target_transaction.enrollment_id,
+                target_transaction.status,
+                target_transaction.due_date,
+            )
+        transaction = target_transaction
+
     recipient = transaction.parent
     
     # Check if transaction is eligible for reminder
     if not can_send_reminder_for_transaction(transaction):
         outstanding_balance = _compute_outstanding_balance(transaction)
         tx_status = str(getattr(transaction, "status", "") or "").upper()
+        ledger_total_debit, ledger_total_paid, ledger_total_balance = _compute_ledger_totals_for_transaction(transaction)
+        logger.warning(
+            "[PAYMENT_REMINDER_CHECK] blocked single tx_id=%s status=%s due_date=%s debit=%s credit=%s outstanding=%s ledger_total_debit=%s ledger_total_paid=%s ledger_total_balance=%s",
+            transaction.id,
+            tx_status,
+            getattr(transaction, "due_date", None),
+            getattr(transaction, "debit", None),
+            getattr(transaction, "credit", None),
+            outstanding_balance,
+            ledger_total_debit,
+            ledger_total_paid,
+            ledger_total_balance,
+        )
         
         if outstanding_balance <= 0:
             return Response(
@@ -666,7 +825,6 @@ def send_payment_reminder(request, transaction_id):
 
     outstanding_balance = _compute_outstanding_balance(transaction)
 
-    today = timezone.localdate()
     event_type, status_value, notice_label = _resolve_payment_notice_type(transaction, today=today)
     due_date = getattr(transaction, "due_date", None)
     transaction_type = getattr(transaction, "transaction_type", "Payment")
@@ -688,12 +846,17 @@ def send_payment_reminder(request, transaction_id):
             "account is pending and due for settlement."
         )
 
+    ledger_total_debit, ledger_total_paid, ledger_total_balance = _compute_ledger_totals_for_transaction(transaction)
+
     message = _build_payment_reminder_email_message(
         transaction=transaction,
         amount=outstanding_balance,
         status_value=status_value,
         due_date=due_date,
         body=body,
+        ledger_total_debit=ledger_total_debit,
+        ledger_total_paid=ledger_total_paid,
+        ledger_total_balance=ledger_total_balance,
     )
 
     reminder, created = create_reminder_once(
@@ -708,6 +871,18 @@ def send_payment_reminder(request, transaction_id):
     )
 
     emailed = _send_payment_reminder_email(recipient=recipient, title=title, message=message)
+    logger.info(
+        "[PAYMENT_REMINDER_CHECK] sent single tx_id=%s created=%s emailed=%s status=%s due_date=%s outstanding=%s ledger_total_debit=%s ledger_total_paid=%s ledger_total_balance=%s",
+        transaction.id,
+        created,
+        emailed,
+        status_value,
+        due_date,
+        outstanding_balance,
+        ledger_total_debit,
+        ledger_total_paid,
+        ledger_total_balance,
+    )
 
     return Response(
         {
@@ -750,13 +925,15 @@ def send_bulk_payment_reminders(request):
         )
 
     today = timezone.localdate()
-    transactions = Transaction.objects.select_related("parent").filter(
+    transactions = Transaction.objects.select_related("parent", "enrollment").filter(
         entry_type="DEBIT",
         parent__isnull=False,
         status__in=["PENDING", "OVERDUE", "PARTIAL"],
         due_date__isnull=False,
         due_date__lte=today,
     )
+
+    _refresh_ledger_statuses_for_transactions(transactions)
 
     selected_ids = request.data.get("transaction_ids") if hasattr(request, "data") else None
     if selected_ids is not None:
@@ -790,11 +967,34 @@ def send_bulk_payment_reminders(request):
     skipped_count = 0
     error_count = 0
 
+    processed_target_ids = set()
+
     for transaction in transactions:
         processed_count += 1
         try:
+            target_transaction = _resolve_best_reminder_target(transaction, today=today)
+            if target_transaction:
+                transaction = target_transaction
+
+            if transaction.id in processed_target_ids:
+                duplicate_count += 1
+                continue
+            processed_target_ids.add(transaction.id)
+
             # Extra validation to ensure transaction is still eligible
             if not can_send_reminder_for_transaction(transaction):
+                ledger_total_debit, ledger_total_paid, ledger_total_balance = _compute_ledger_totals_for_transaction(transaction)
+                logger.warning(
+                    "[PAYMENT_REMINDER_CHECK] blocked bulk tx_id=%s status=%s due_date=%s debit=%s credit=%s ledger_total_debit=%s ledger_total_paid=%s ledger_total_balance=%s",
+                    transaction.id,
+                    getattr(transaction, "status", None),
+                    getattr(transaction, "due_date", None),
+                    getattr(transaction, "debit", None),
+                    getattr(transaction, "credit", None),
+                    ledger_total_debit,
+                    ledger_total_paid,
+                    ledger_total_balance,
+                )
                 skipped_count += 1
                 continue
             
@@ -820,12 +1020,17 @@ def send_bulk_payment_reminders(request):
                     f"{transaction_type} account is pending and due for settlement."
                 )
 
+            ledger_total_debit, ledger_total_paid, ledger_total_balance = _compute_ledger_totals_for_transaction(transaction)
+
             email_message = _build_payment_reminder_email_message(
                 transaction=transaction,
                 amount=outstanding_balance,
                 status_value=status_value,
                 due_date=due_date,
                 body=body,
+                ledger_total_debit=ledger_total_debit,
+                ledger_total_paid=ledger_total_paid,
+                ledger_total_balance=ledger_total_balance,
             )
 
             reminder, created = create_reminder_once(

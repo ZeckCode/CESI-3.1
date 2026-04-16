@@ -409,14 +409,30 @@ class TransactionListCreate(generics.ListCreateAPIView):
         enrollment_id = self.request.query_params.get('enrollment_id', '').strip()
         
         if search:
-            qs = qs.filter(
+            identity_match = (
                 Q(student_name__icontains=search)
-                | Q(reference_number__icontains=search)
                 | Q(parent__profile__student_first_name__icontains=search)
                 | Q(parent__profile__student_last_name__icontains=search)
                 | Q(parent__profile__student_number__icontains=search)
-                | Q(item__icontains=search)
-            ).distinct()
+                | Q(student_number_snapshot__icontains=search)
+                | Q(enrollment__student_number__icontains=search)
+                | Q(enrollment__first_name__icontains=search)
+                | Q(enrollment__last_name__icontains=search)
+            )
+            row_match = identity_match | Q(reference_number__icontains=search) | Q(item__icontains=search)
+
+            matched_enrollment_ids = list(
+                Transaction.objects.filter(identity_match, enrollment_id__isnull=False)
+                .values_list('enrollment_id', flat=True)
+                .distinct()
+            )
+
+            if matched_enrollment_ids:
+                qs = qs.filter(
+                    Q(enrollment_id__in=matched_enrollment_ids) | row_match
+                ).distinct()
+            else:
+                qs = qs.filter(row_match).distinct()
             
         if enrollment_id:
             qs = qs.filter(enrollment_id=enrollment_id)

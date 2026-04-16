@@ -138,6 +138,9 @@ const isDueForReminder = (dueDate) => {
 const canSendReminderForTransaction = (tx) => {
   if (!tx || tx.entry_type !== 'DEBIT') return false;
 
+  const itemKey = String(tx.item || '').toUpperCase();
+  if (!BILLING_DEBIT_ITEMS.has(itemKey)) return false;
+
   // Backend reminder endpoint accepts only transactions explicitly marked
   // as PENDING/OVERDUE/PARTIAL.
   const status = String(tx._effectiveStatus || tx.status || '').toUpperCase();
