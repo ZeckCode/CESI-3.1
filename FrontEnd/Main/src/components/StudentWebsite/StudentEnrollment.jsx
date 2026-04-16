@@ -370,6 +370,7 @@ export default function StudentReenrollment() {
     const currentGradeCode = studentInfo.gradeCode;
     const nextGrade = NEXT_GRADE_MAP[currentGradeCode] || null;
     const hasBalance = outstandingBalance > 0;
+    const hasNoAssignedSubjects = gradeSummary.totalSubjects === 0;
     const hasIncompleteGrades = gradeSummary.incompleteSubjects > 0;
     const hasFailingGrades = gradeSummary.failedSubjects > 0;
 
@@ -405,6 +406,21 @@ export default function StudentReenrollment() {
             maximumFractionDigits: 2,
           }
         )}. Please settle it before enrolling.`,
+      };
+    }
+
+    if (hasNoAssignedSubjects) {
+      return {
+        eligible: false,
+        badge: "Not Eligible",
+        color: "#92400e",
+        bg: "#fffbeb",
+        border: "#fcd34d",
+        nextGrade,
+        financeNote: "No existing balance",
+        academicNote: "No subjects assigned yet",
+        message:
+          "You are not eligible to enroll yet because no subjects have been assigned.",
       };
     }
 
@@ -748,6 +764,21 @@ export default function StudentReenrollment() {
           <div>
             <strong>Academic Check:</strong> {eligibility.academicNote}
           </div>
+          {gradeSummary.totalSubjects === 0 && (
+            <div
+              style={{
+                marginTop: "4px",
+                padding: "10px 12px",
+                borderRadius: "10px",
+                background: "#fff7ed",
+                border: "1px solid #fdba74",
+                color: "#9a3412",
+                fontWeight: 600,
+              }}
+            >
+              No subjects are assigned yet, so reenrollment remains blocked until the academic record is available.
+            </div>
+          )}
         </div>
       </div>
 

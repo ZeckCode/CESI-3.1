@@ -1859,11 +1859,13 @@ def my_reenrollment_eligibility(request):
 
     grade6_completed = current_grade == "grade6"
     has_balance = outstanding_balance > 0
+    has_no_assigned_subjects = total_subjects == 0
     has_incomplete_grades = incomplete_subjects > 0
     has_failing_grades = failed_subjects > 0
 
     eligible = not (
         has_balance
+        or has_no_assigned_subjects
         or has_incomplete_grades
         or has_failing_grades
         or grade6_completed
@@ -1873,6 +1875,8 @@ def my_reenrollment_eligibility(request):
         message = "Congratulations! You already completed Grade 6. No further re-enrollment is needed."
     elif has_balance:
         message = f"You still have an outstanding balance of ₱{outstanding_balance:,.2f}."
+    elif has_no_assigned_subjects:
+        message = "You are not eligible to re-enroll yet because no subjects have been assigned."
     elif has_incomplete_grades:
         message = "You have incomplete grades. Please wait until all subjects have final grades."
     elif has_failing_grades:
@@ -1888,6 +1892,7 @@ def my_reenrollment_eligibility(request):
         "next_grade": next_grade,
         "outstanding_balance": float(outstanding_balance),
         "has_balance": has_balance,
+        "has_no_assigned_subjects": has_no_assigned_subjects,
         "has_incomplete_grades": has_incomplete_grades,
         "has_failing_grades": has_failing_grades,
         "grade6_completed": grade6_completed,
