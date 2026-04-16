@@ -20,6 +20,103 @@ const formatCurrency = (value) => {
   return `₱${amount.toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
 };
 
+const GRADE_LEVEL_MAP = {
+  prek: 'Pre Kinder',
+  'pre-k': 'Pre Kinder',
+  'pre k': 'Pre Kinder',
+  'pre kinder': 'Pre Kinder',
+  'pre-kinder': 'Pre Kinder',
+  prekindergarten: 'Pre Kinder',
+  kinder: 'Kinder',
+  kindergarten: 'Kinder',
+  grade1: 'Grade 1',
+  'grade 1': 'Grade 1',
+  grade2: 'Grade 2',
+  'grade 2': 'Grade 2',
+  grade3: 'Grade 3',
+  'grade 3': 'Grade 3',
+  grade4: 'Grade 4',
+  'grade 4': 'Grade 4',
+  grade5: 'Grade 5',
+  'grade 5': 'Grade 5',
+  grade6: 'Grade 6',
+  'grade 6': 'Grade 6',
+};
+
+const buildHistoryStats = (records = []) => {
+  const validRecords = Array.isArray(records) ? records : [];
+  const finalGrades = validRecords
+    .map((record) => Number(record.final_grade))
+    .filter((value) => !Number.isNaN(value));
+
+  return {
+    totalRecords: validRecords.length,
+    uniqueStudents: new Set(
+      validRecords.map((record) => record.student_id || record.student || record.student_username || record.student_number)
+    ).size,
+    schoolYears: new Set(validRecords.map((record) => record.school_year).filter(Boolean)).size,
+    averageFinal: finalGrades.length
+      ? (finalGrades.reduce((sum, value) => sum + value, 0) / finalGrades.length).toFixed(2)
+      : '—',
+  };
+};
+
+const buildAttendanceStats = (records = []) => {
+  const validRecords = Array.isArray(records) ? records : [];
+
+  return {
+    total_records: validRecords.length,
+    present: validRecords.filter((record) => record.status === 'PRESENT').length,
+    absent: validRecords.filter((record) => record.status === 'ABSENT').length,
+    late: validRecords.filter((record) => record.status === 'LATE').length,
+    excused: validRecords.filter((record) => record.status === 'EXCUSED').length,
+  };
+};
+
+const getAttendanceQuery = (schoolYear) => {
+  if (!schoolYear?.start_date || !schoolYear?.end_date) {
+    return '';
+  }
+
+  return `?start_date=${encodeURIComponent(schoolYear.start_date)}&end_date=${encodeURIComponent(schoolYear.end_date)}`;
+};
+
+const REPORT_STORAGE_KEY = 'generatedReports';
+const STORED_REPORT_LIMIT = 30;
+const STORED_ARRAY_LIMIT = 25;
+
+const limitArrayField = (value) => (Array.isArray(value) ? value.slice(0, STORED_ARRAY_LIMIT) : value);
+
+const toStorageSafeReports = (reports = []) =>
+  reports.slice(0, STORED_REPORT_LIMIT).map((report) => {
+    const data = report?.data || {};
+
+    return {
+      ...report,
+      data: {
+        ...data,
+        enrollments: limitArrayField(data.enrollments),
+        sections: limitArrayField(data.sections),
+        teachers: limitArrayField(data.teachers),
+        transactions: limitArrayField(data.transactions),
+        attendanceRecords: limitArrayField(data.attendanceRecords),
+        historyRecords: limitArrayField(data.historyRecords),
+      },
+    };
+  });
+
+const toStorageMetaReports = (reports = []) =>
+  reports.slice(0, STORED_REPORT_LIMIT).map((report) => ({
+    id: report.id,
+    name: report.name,
+    type: report.type,
+    date: report.date,
+    period: report.period,
+    format: report.format,
+    // Keep an empty data object so older cached entries never break report rendering paths.
+    data: {},
+  }));
+
 let pdfFontReady;
 
 const ensurePdfFont = async (doc) => {
@@ -57,7 +154,12 @@ const normalizeGradeLevel = (value) => {
     return null;
   }
 
-  const normalized = String(value).trim().toLowerCase().replace(/\s+/g, ' ');
+  const normalized = String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[_.-]+/g, ' ')
+    .replace(/\s+/g, ' ');
+
   const gradeMap = {
     prek: -1,
     'pre-k': -1,
@@ -88,6 +190,24 @@ const normalizeGradeLevel = (value) => {
     6: 6,
   };
 
+  const preKinderMatch = normalized.match(/\b(pre\s*k(?:inder)?|pre\s*kinder|prekindergarten)\b/);
+  if (preKinderMatch) {
+    return -1;
+  }
+
+  const kinderMatch = normalized.match(/\b(kinder(?:garten)?)\b/);
+  if (kinderMatch) {
+    return 0;
+  }
+
+  const gradeMatch = normalized.match(/\b(?:grade\s*)?(\d)\b/);
+  if (gradeMatch) {
+    const gradeNumber = Number(gradeMatch[1]);
+    if (gradeNumber >= 1 && gradeNumber <= 6) {
+      return gradeNumber;
+    }
+  }
+
   if (Object.prototype.hasOwnProperty.call(gradeMap, normalized)) {
     return gradeMap[normalized];
   }
@@ -101,7 +221,9 @@ const formatGradeLevel = (value) => {
   if (normalized === -1) return 'Pre Kinder';
   if (normalized === 0) return 'Kinder';
   if (normalized > 0) return `Grade ${normalized}`;
-  return String(value || '—').trim() || '—';
+
+  const rawValue = String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return GRADE_LEVEL_MAP[rawValue] || String(value || '—').trim() || '—';
 };
 
 const formatStudentName = (record) => {
@@ -132,6 +254,7 @@ const Reports = () => {
   const [dateRange, setDateRange] = useState('all');
   const [generatedReports, setGeneratedReports] = useState([]);
   const [currentAcademicYear, setCurrentAcademicYear] = useState('');
+  const [activeSchoolYear, setActiveSchoolYear] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -206,10 +329,14 @@ const Reports = () => {
 
   // Load saved reports from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('generatedReports');
+    const saved = localStorage.getItem(REPORT_STORAGE_KEY);
     if (saved) {
       try {
-        setGeneratedReports(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        const normalized = Array.isArray(parsed)
+          ? parsed.map((report) => ({ ...report, data: report?.data || {} }))
+          : [];
+        setGeneratedReports(normalized);
       } catch (e) {
         console.error('Failed to load saved reports', e);
       }
@@ -219,26 +346,63 @@ const Reports = () => {
   // Save reports to localStorage
   useEffect(() => {
     if (generatedReports.length > 0) {
-      localStorage.setItem('generatedReports', JSON.stringify(generatedReports));
+      try {
+        localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(toStorageSafeReports(generatedReports)));
+      } catch (error) {
+        const isQuotaError =
+          error?.name === 'QuotaExceededError' ||
+          error?.code === 22 ||
+          error?.code === 1014;
+
+        if (!isQuotaError) {
+          console.error('Failed to persist generated reports', error);
+          return;
+        }
+
+        try {
+          localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(toStorageMetaReports(generatedReports)));
+          console.warn('Report cache exceeded localStorage quota; saved report metadata only.');
+        } catch (fallbackError) {
+          console.error('Failed to persist report metadata fallback', fallbackError);
+        }
+      }
     }
   }, [generatedReports]);
 
   // Fetch academic year
-  const fetchAcademicYear = async () => {
+  const fetchAcademicYear = useCallback(async () => {
+    let academicYear = getCurrentAcademicYear();
+    let schoolYear = null;
+
     try {
       const res = await apiFetch('/api/enrollment-settings/');
       const data = await res.json();
-      setCurrentAcademicYear(data.academic_year || getCurrentAcademicYear());
+      academicYear = data.academic_year || academicYear;
     } catch (error) {
       console.error('Error fetching academic year:', error);
-      setCurrentAcademicYear(getCurrentAcademicYear());
     }
-  };
+
+    try {
+      const schoolYearRes = await apiFetch('/api/classmanagement/school-years/active/');
+      if (schoolYearRes.ok) {
+        schoolYear = await schoolYearRes.json();
+      }
+    } catch (error) {
+      console.warn('Error fetching active school year:', error);
+    }
+
+    setCurrentAcademicYear(academicYear);
+    setActiveSchoolYear(schoolYear);
+
+    return { academicYear, schoolYear };
+  }, []);
 
   // Fetch all data
-  const refreshAllData = async () => {
+  const refreshAllData = useCallback(async () => {
     setRefreshing(true);
     try {
+      const { schoolYear } = await fetchAcademicYear();
+
       const enrollRes = await apiFetch('/api/enrollments/');
       const enrollData = await enrollRes.json();
       const enrollList = Array.isArray(enrollData) ? enrollData : [];
@@ -293,35 +457,19 @@ const Reports = () => {
       const transData = await transRes.json();
       setTransactions(Array.isArray(transData) ? transData : []);
       
-      const today = new Date().toISOString().split('T')[0];
-      const attendRes = await apiFetch(`/api/attendance/records/?date=${today}`);
+      const attendRes = await apiFetch(`/api/attendance/records/${getAttendanceQuery(schoolYear)}`);
       const attendData = await attendRes.json();
       const attendList = Array.isArray(attendData) ? attendData : [];
       setAttendanceRecords(attendList);
-      
-      const present = attendList.filter(r => r.status === 'PRESENT').length;
-      const absent = attendList.filter(r => r.status === 'ABSENT').length;
-      const late = attendList.filter(r => r.status === 'LATE').length;
-      const excused = attendList.filter(r => r.status === 'EXCUSED').length;
-      setAttendanceStats({
-        total_records: attendList.length,
-        present, absent, late, excused
-      });
+      setAttendanceStats(buildAttendanceStats(attendList));
       
       try {
         const historyRes = await apiFetch('/api/grades/academic-history/');
         const historyData = await historyRes.json();
         const historyList = Array.isArray(historyData) ? historyData : [];
         setHistoryRecords(historyList);
-        
-        const finalGrades = historyList.map(r => Number(r.final_grade)).filter(v => !isNaN(v));
-        const averageFinal = finalGrades.length ? (finalGrades.reduce((sum, v) => sum + v, 0) / finalGrades.length).toFixed(2) : '—';
-        setHistoryStats({
-          totalRecords: historyList.length,
-          uniqueStudents: new Set(historyList.map(r => r.student)).size,
-          schoolYears: new Set(historyList.map(r => r.school_year)).size,
-          averageFinal: averageFinal
-        });
+
+        setHistoryStats(buildHistoryStats(historyList));
       } catch (e) {
         console.warn('History endpoint failed:', e);
       }
@@ -332,7 +480,7 @@ const Reports = () => {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [fetchAcademicYear]);
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -341,7 +489,7 @@ const Reports = () => {
       setLoading(false);
     };
     fetchAllData();
-  }, []);
+  }, [refreshAllData]);
 
   const openPrintView = async (report) => {
     const doc = new jsPDF('landscape');
@@ -355,6 +503,15 @@ const Reports = () => {
       averageFinal: report.data.averageFinal || '—',
     };
 
+    let attendanceRecordsForExport = report.data.attendanceRecords || [];
+    let attendanceSummaryForExport = report.data.attendanceStats || {
+      total_records: report.data.total_records || 0,
+      present: report.data.present || 0,
+      absent: report.data.absent || 0,
+      late: report.data.late || 0,
+      excused: report.data.excused || 0,
+    };
+
     if (report.type === 'history' || report.type === 'all') {
       try {
         const historyRes = await apiFetch('/api/grades/academic-history/');
@@ -364,6 +521,26 @@ const Reports = () => {
         historySummaryForExport = buildHistoryStats(liveHistoryRecords);
       } catch (error) {
         console.warn('Failed to refresh academic history for export:', error);
+      }
+    }
+
+    if (report.type === 'attendance' || report.type === 'all') {
+      try {
+        let activeSchoolYearForExport = activeSchoolYear;
+        if (!activeSchoolYearForExport?.start_date || !activeSchoolYearForExport?.end_date) {
+          const schoolYearRes = await apiFetch('/api/classmanagement/school-years/active/');
+          if (schoolYearRes.ok) {
+            activeSchoolYearForExport = await schoolYearRes.json();
+          }
+        }
+
+        const attendanceRes = await apiFetch(`/api/attendance/records/${getAttendanceQuery(activeSchoolYearForExport)}`);
+        const attendanceData = await attendanceRes.json();
+        const liveAttendanceRecords = Array.isArray(attendanceData) ? attendanceData : [];
+        attendanceRecordsForExport = liveAttendanceRecords;
+        attendanceSummaryForExport = buildAttendanceStats(liveAttendanceRecords);
+      } catch (error) {
+        console.warn('Failed to refresh attendance for export:', error);
       }
     }
     
@@ -421,11 +598,11 @@ const Reports = () => {
     }
     else if (report.type === 'attendance') {
       summaryData = [
-        ['Total Records', report.data.total_records || 0],
-        ['Present', report.data.present || 0],
-        ['Absent', report.data.absent || 0],
-        ['Late', report.data.late || 0],
-        ['Excused', report.data.excused || 0],
+        ['Total Records', attendanceSummaryForExport.total_records || 0],
+        ['Present', attendanceSummaryForExport.present || 0],
+        ['Absent', attendanceSummaryForExport.absent || 0],
+        ['Late', attendanceSummaryForExport.late || 0],
+        ['Excused', attendanceSummaryForExport.excused || 0],
       ];
     }
     else if (report.type === 'history') {
@@ -551,9 +728,9 @@ const Reports = () => {
         margin: { left: 14, right: 14 },
       });
     }
-    else if (report.type === 'attendance' && report.data.attendanceRecords?.length > 0) {
+    else if (report.type === 'attendance' && attendanceRecordsForExport?.length > 0) {
       doc.text('Attendance Record Details', 14, startY);
-      const tableData = report.data.attendanceRecords.map(a => [
+      const tableData = attendanceRecordsForExport.map(a => [
         formatStudentName(a),
         a.student_number || a.student?.student_number || '—',
         formatGradeLevel(a.grade_level || a.student?.grade_level),
@@ -640,13 +817,13 @@ const Reports = () => {
         startY = doc.lastAutoTable.finalY + 15;
       }
       
-      if (report.data.attendanceRecords?.length > 0) {
+      if (attendanceRecordsForExport?.length > 0) {
         if (startY > 250) { doc.addPage(); startY = 20; }
         doc.text('Attendance Records', 14, startY);
         autoTable(doc, {
           startY: startY + 5,
           head: [['Student', 'Section', 'Subject', 'Status', 'Date']],
-          body: report.data.attendanceRecords.slice(0, 20).map(a => [
+          body: attendanceRecordsForExport.slice(0, 20).map(a => [
             formatStudentName(a),
             a.section_name || a.section?.name || '—',
             a.subject_name || a.subject?.name || '—',
@@ -694,7 +871,8 @@ const Reports = () => {
     const pdfBlob = doc.output('blob');
     const pdfUrl = URL.createObjectURL(pdfBlob);
     window.open(pdfUrl, '_blank');
-    setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
+    // Keep the blob URL alive long enough for large reports to fully load in a new tab.
+    setTimeout(() => URL.revokeObjectURL(pdfUrl), 120000);
   };
 
   const getPeriodLabel = () => {

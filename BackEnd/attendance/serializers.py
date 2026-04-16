@@ -1,9 +1,48 @@
 from rest_framework import serializers
 from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
 from django.db.models import Q
+import re
 from .models import AttendanceRecord
 from accounts.models import Section
 from enrollment.models import Enrollment
+
+
+def _normalize_grade_level(value):
+    if value is None or value == "":
+        return None
+
+    normalized = str(value).strip().lower().replace("_", " ").replace("-", " ")
+    normalized = " ".join(normalized.split())
+
+    if any(token in normalized for token in ["pre kinder", "pre k", "prek", "prekindergarten"]):
+        return -1
+
+    if "kinder" in normalized:
+        return 0
+
+    match = re.search(r"(?:grade\s*)?(\d)", normalized)
+    if match:
+                grade_number = int(match.group(1))
+                if 1 <= grade_number <= 6:
+          return grade_number
+
+    try:
+        numeric = int(normalized)
+    except (TypeError, ValueError):
+        return None
+
+    return numeric if 0 <= numeric <= 6 else None
+
+
+def _format_grade_level(value):
+    normalized = _normalize_grade_level(value)
+    if normalized == -1:
+        return "Pre Kinder"
+    if normalized == 0:
+        return "Kinder"
+    if normalized is not None:
+        return f"Grade {normalized}"
+    return str(value).strip() if value is not None else None
 
 
 class AttendanceRecordSerializer(SafeModelSerializer):
@@ -104,11 +143,7 @@ class AttendanceRecordSerializer(SafeModelSerializer):
 
     def get_grade_level(self, obj):
         gl = getattr(obj.section, "grade_level", None)
-        if gl == 0:
-            return "Kinder"
-        if gl is not None:
-            return f"Grade {gl}"
-        return "—"
+        return _format_grade_level(gl) or "—"
 
     def get_subject_code(self, obj):
         if obj.subject:
