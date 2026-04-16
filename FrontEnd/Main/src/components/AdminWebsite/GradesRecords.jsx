@@ -1707,7 +1707,6 @@ const GradesRecords = () => {
                         <td data-label="Student" className="gr-student-name">
                           <div className="gr-stack">
                             <span>{student.student_name}</span>
-                            <span className="gr-muted">@{student.student_username}</span>
                           </div>
                         </td>
                         <td data-label="Grade Level">
