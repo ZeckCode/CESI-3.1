@@ -10,7 +10,7 @@ export const PROMOTION_FILTER_OPTIONS = [
   { value: "All", label: "All Promotion Status" },
   { value: "ready", label: "Eligible - Ready to Promote" },
   { value: "ineligible", label: "Ineligible" },
-  { value: "completed", label: "Completed - Max Grade" },
+  { value: "completed", label: "Completed - Grade 6" },
 ];
 
 export const DOCUMENT_TYPE_OPTIONS = [

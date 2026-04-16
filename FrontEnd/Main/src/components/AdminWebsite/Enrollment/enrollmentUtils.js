@@ -243,7 +243,7 @@ export const validateBirthDate = (yyyyMMdd) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  if (bd >= today) return "Birth date must be in the past.";
+  if (bd >= today) return "Invalid birth date.";
 
   const age = calcAge(yyyyMMdd);
   if (age < 3) return "Student must be at least 3 years old.";

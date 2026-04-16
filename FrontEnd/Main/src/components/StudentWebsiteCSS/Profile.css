@@ -365,14 +365,80 @@
   letter-spacing: 0.5px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .details-header.guardian-header {
   background: linear-gradient(135deg, var(--success), #059669);
 }
 
+.details-header-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.section-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.section-toggle-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+
+.section-toggle-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .details-body {
   padding: 1rem 1.5rem;
+}
+
+.collapsible-body {
+  animation: profileSectionReveal 0.18s ease-out;
+}
+
+@keyframes profileSectionReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.transfer-status-summary {
+  margin-bottom: 0.75rem;
+}
+
+.transfer-locked-message {
+  margin-top: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  border: 1px solid var(--border);
 }
 
 .info-entry {
@@ -572,6 +638,15 @@ textarea.entry-input {
 
   .header-actions button {
     flex: 1;
+    justify-content: center;
+  }
+
+  .details-header {
+    align-items: flex-start;
+  }
+
+  .section-toggle-btn {
+    width: 100%;
     justify-content: center;
   }
 

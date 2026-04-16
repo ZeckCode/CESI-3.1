@@ -467,7 +467,7 @@ export default function EnrollmentManagement() {
 
       return {
         ready: false,
-        reason: "Completed Grade 6 - Cannot promote further",
+        reason: "Student is already at the highest grade level (Grade 6) and cannot be promoted further",
         status: "completed",
         icon: "check",
       };

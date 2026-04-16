@@ -1049,7 +1049,7 @@ export default function StudentReenrollment() {
           </div>
 
           <div className="details-header" style={{ marginTop: "18px" }}>
-            enrollment Documents
+            Enrollment Documents
           </div>
 
           <div className="info-entry entry-border edit-mode">

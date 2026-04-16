@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
-import { Camera, Edit3, X, Check, User, AlertCircle, Eye, EyeOff } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { ChevronDown, ChevronUp, Edit3, X, Check, User, AlertCircle, Eye, EyeOff } from "lucide-react";
 import "../StudentWebsiteCSS/Profile.css";
 import { getToken } from "../Auth/auth";
+import Toast from "../Global/Toast";
 
 const API_BASE = "";
 
@@ -15,6 +16,34 @@ const UPDATE_ENDPOINTS = [
 ];
 
 const TRANSFER_REQUEST_ENDPOINT = "/api/accounts/me/transfer-request/";
+
+const PASSWORD_RULES = [
+  {
+    pattern: /.{8,}/,
+    message: "New password must be at least 8 characters.",
+  },
+  {
+    pattern: /[A-Z]/,
+    message: "New password must include at least one uppercase letter.",
+  },
+  {
+    pattern: /[a-z]/,
+    message: "New password must include at least one lowercase letter.",
+  },
+  {
+    pattern: /\d/,
+    message: "New password must include at least one number.",
+  },
+  {
+    pattern: /[@$!%*?&._-]/,
+    message: "New password must include at least one special character (@$!%*?&._-).",
+  },
+];
+
+const getPasswordValidationError = (password) => {
+  const failedRule = PASSWORD_RULES.find((rule) => !rule.pattern.test(password));
+  return failedRule ? failedRule.message : "";
+};
 
 const gradeLabelFromProfile = (raw) => {
   if (raw == null) return "—";
@@ -163,6 +192,7 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [toasts, setToasts] = useState([]);
   const [editForm, setEditForm] = useState({});
   const [accountForm, setAccountForm] = useState({
     username: "",
@@ -179,7 +209,8 @@ const Profile = () => {
     confirm: false,
   });
   const [requestingTransfer, setRequestingTransfer] = useState(false);
-  const [showTransferRequestForm, setShowTransferRequestForm] = useState(false);
+  const [accountSectionOpen, setAccountSectionOpen] = useState(false);
+  const [transferSectionOpen, setTransferSectionOpen] = useState(false);
   const [transferRequestForm, setTransferRequestForm] = useState({
     transfer_reason: "",
     destination_school_name: "",
@@ -189,6 +220,18 @@ const Profile = () => {
     transfer_notes: "",
   });
   const fileInputRef = useRef(null);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const loadProfile = async () => {
     try {
@@ -296,19 +339,6 @@ const Profile = () => {
     }
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setAvatarFile(file);
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setAvatarPreview(reader.result);
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleEditChange = (field, value) => {
     setEditForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -339,9 +369,10 @@ const Profile = () => {
       setIsEditing(false);
       setAvatarFile(null);
       setAvatarPreview(null);
+      addToast("Success", "Profile updated successfully.", "success");
     } catch (e) {
       console.error("Error saving profile:", e);
-      setError(e.message || "Failed to save profile.");
+      addToast("Error", e.message || "Failed to save profile.", "error");
     } finally {
       setSaving(false);
     }
@@ -381,29 +412,30 @@ const Profile = () => {
     const hasPasswordUpdate = currentPassword || newPassword || confirmPassword;
 
     if (!username) {
-      setError("Username cannot be empty.");
+      addToast("Validation Error", "Username cannot be empty.", "error");
       return;
     }
 
     if (hasPasswordUpdate) {
       if (!currentPassword) {
-        setError("Current password is required.");
+        addToast("Validation Error", "Current password is required.", "error");
         return;
       }
       if (!newPassword) {
-        setError("New password is required.");
+        addToast("Validation Error", "New password is required.", "error");
         return;
       }
-      if (newPassword.length < 8) {
-        setError("New password must be at least 8 characters.");
+      const passwordValidationError = getPasswordValidationError(newPassword);
+      if (passwordValidationError) {
+        addToast("Validation Error", passwordValidationError, "error");
         return;
       }
       if (!confirmPassword) {
-        setError("Please confirm the new password.");
+        addToast("Validation Error", "Please confirm the new password.", "error");
         return;
       }
       if (newPassword !== confirmPassword) {
-        setError("New password and confirmation do not match.");
+        addToast("Validation Error", "New password and confirmation do not match.", "error");
         return;
       }
     }
@@ -423,6 +455,8 @@ const Profile = () => {
 
       await tryUpdateEndpoints(formData);
       await loadProfile();
+      addToast("Success", "Account settings saved successfully.", "success");
+      setAccountSectionOpen(false);
       setAccountForm((prev) => ({
         ...prev,
         current_password: "",
@@ -430,13 +464,26 @@ const Profile = () => {
         confirm_password: "",
       }));
     } catch (e) {
-      setError(e.message || "Failed to save account settings.");
+      addToast("Error", e.message || "Failed to save account settings.", "error");
     } finally {
       setAccountSaving(false);
     }
   };
 
   const handleSubmitTransferRequest = async () => {
+    const reason = (transferRequestForm.transfer_reason || "").trim();
+    const destinationSchool = (transferRequestForm.destination_school_name || "").trim();
+
+    if (!reason) {
+      addToast("Validation Error", "Reason for transfer is required.", "error");
+      return;
+    }
+
+    if (!destinationSchool) {
+      addToast("Validation Error", "Destination school name is required.", "error");
+      return;
+    }
+
     setRequestingTransfer(true);
     setError("");
     try {
@@ -461,7 +508,7 @@ const Profile = () => {
       }
 
       await loadProfile();
-      setShowTransferRequestForm(false);
+      setTransferSectionOpen(false);
       setTransferRequestForm({
         transfer_reason: "",
         destination_school_name: "",
@@ -470,16 +517,20 @@ const Profile = () => {
         transfer_reference_number: "",
         transfer_notes: "",
       });
+      addToast("Success", "Transfer request submitted successfully.", "success");
     } catch (e) {
-      setError(e.message || "Failed to submit transfer request.");
+      addToast("Error", e.message || "Failed to submit transfer request.", "error");
     } finally {
       setRequestingTransfer(false);
     }
   };
 
+  const toastLayer = <Toast toasts={toasts} onDismiss={dismissToast} />;
+
   if (loading) {
     return (
       <div className="profile-content">
+        {toastLayer}
         <div className="profile-hero-card profileSkel__card">
           <div className="hero-main-info">
             <div className="profileSkel profile-shimmer profileSkel__avatar" />
@@ -536,6 +587,7 @@ const Profile = () => {
   if (!data) {
     return (
       <div className="profile-content">
+        {toastLayer}
         <div className="error-message">{error || "Profile not found."}</div>
       </div>
     );
@@ -544,6 +596,7 @@ const Profile = () => {
   if (data.role !== "PARENT_STUDENT") {
     return (
       <div className="profile-content">
+        {toastLayer}
         <div className="error-message">Forbidden: not a student account.</div>
       </div>
     );
@@ -568,13 +621,13 @@ const Profile = () => {
   };
 
   const statusMessage = getStatusMessage();
-  const isDropped = String(studentData.status).toUpperCase() === 'DROPPED';
   const transferPending = transferStatus === "PENDING";
   const transferApproved = transferStatus === "APPROVED";
   const canRequestTransfer = !transferPending && !transferApproved;
 
   return (
     <div className="profile-content">
+      {toastLayer}
       {error ? <div className="error-message">{error}</div> : null}
       
       {statusMessage && (
@@ -690,66 +743,102 @@ const Profile = () => {
         </div>
       </div>
 
-      <section className="details-card" style={{ marginBottom: "1.5rem" }}>
+      <section className="details-card collapsible-card" style={{ marginBottom: "1.5rem" }}>
         <div className="details-header">
-          <i className="bi bi-gear-fill me-2"></i>
-          Account Settings
+          <span className="details-header-title">
+            <i className="bi bi-gear-fill me-2"></i>
+            Account Settings
+          </span>
+          <button
+            type="button"
+            className="section-toggle-btn"
+            onClick={() => setAccountSectionOpen((prev) => !prev)}
+          >
+            {accountSectionOpen ? (
+              <>
+                <ChevronUp size={16} /> Hide
+              </>
+            ) : (
+              <>
+                <ChevronDown size={16} /> Update Settings
+              </>
+            )}
+          </button>
         </div>
-        <div className="details-body">
-          <EditRow
-            label="Username"
-            value={accountForm.username}
-            onChange={(v) => handleAccountChange("username", v)}
-          />
-          <EditRow
-            label="Current Password"
-            value={accountForm.current_password}
-            onChange={(v) => handleAccountChange("current_password", v)}
-            type={showAccountPassword.current ? "text" : "password"}
-            showToggle
-            onToggleVisibility={() => toggleAccountPasswordVisibility("current")}
-            isVisible={showAccountPassword.current}
-          />
-          <EditRow
-            label="New Password"
-            value={accountForm.new_password}
-            onChange={(v) => handleAccountChange("new_password", v)}
-            type={showAccountPassword.next ? "text" : "password"}
-            showToggle
-            onToggleVisibility={() => toggleAccountPasswordVisibility("next")}
-            isVisible={showAccountPassword.next}
-          />
-          <EditRow
-            label="Confirm New Password"
-            value={accountForm.confirm_password}
-            onChange={(v) => handleAccountChange("confirm_password", v)}
-            type={showAccountPassword.confirm ? "text" : "password"}
-            showToggle
-            onToggleVisibility={() => toggleAccountPasswordVisibility("confirm")}
-            isVisible={showAccountPassword.confirm}
-            isLast
-          />
-          <div className="header-actions" style={{ marginTop: "12px", justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              className="btn-save"
-              onClick={handleSaveAccountSettings}
-              disabled={accountSaving}
-            >
-              <Check size={16} /> {accountSaving ? "Saving..." : "Save Account"}
-            </button>
+        {accountSectionOpen ? (
+          <div className="details-body collapsible-body">
+            <EditRow
+              label="Username"
+              value={accountForm.username}
+              onChange={(v) => handleAccountChange("username", v)}
+            />
+            <EditRow
+              label="Current Password"
+              value={accountForm.current_password}
+              onChange={(v) => handleAccountChange("current_password", v)}
+              type={showAccountPassword.current ? "text" : "password"}
+              showToggle
+              onToggleVisibility={() => toggleAccountPasswordVisibility("current")}
+              isVisible={showAccountPassword.current}
+            />
+            <EditRow
+              label="New Password"
+              value={accountForm.new_password}
+              onChange={(v) => handleAccountChange("new_password", v)}
+              type={showAccountPassword.next ? "text" : "password"}
+              showToggle
+              onToggleVisibility={() => toggleAccountPasswordVisibility("next")}
+              isVisible={showAccountPassword.next}
+            />
+            <EditRow
+              label="Confirm New Password"
+              value={accountForm.confirm_password}
+              onChange={(v) => handleAccountChange("confirm_password", v)}
+              type={showAccountPassword.confirm ? "text" : "password"}
+              showToggle
+              onToggleVisibility={() => toggleAccountPasswordVisibility("confirm")}
+              isVisible={showAccountPassword.confirm}
+              isLast
+            />
+            <div className="header-actions" style={{ marginTop: "12px", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="btn-save"
+                onClick={handleSaveAccountSettings}
+                disabled={accountSaving}
+              >
+                <Check size={16} /> {accountSaving ? "Saving..." : "Save Account"}
+              </button>
+            </div>
           </div>
-        </div>
+        ) : null}
       </section>
 
-      <section className="details-card" style={{ marginBottom: "1.5rem" }}>
+      <section className="details-card collapsible-card" style={{ marginBottom: "1.5rem" }}>
         <div className="details-header">
-          <i className="bi bi-send me-2"></i>
-          Transfer Request
+          <span className="details-header-title">
+            <i className="bi bi-send me-2"></i>
+            Transfer Request
+          </span>
+          <button
+            type="button"
+            className="section-toggle-btn"
+            onClick={() => setTransferSectionOpen((prev) => !prev)}
+          >
+            {transferSectionOpen ? (
+              <>
+                <ChevronUp size={16} /> Hide
+              </>
+            ) : (
+              <>
+                <ChevronDown size={16} /> Request Transfer
+              </>
+            )}
+          </button>
         </div>
-        <div className="details-body">
-          {!showTransferRequestForm ? (
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+        {transferSectionOpen ? (
+          <div className="details-body collapsible-body">
+            <div className="transfer-status-summary">
               <div>
                 <div className="entry-label">Current transfer status</div>
                 <div className="entry-value">{transferStatus}</div>
@@ -757,70 +846,79 @@ const Profile = () => {
                   Note: Request is blocked once 2nd quarter grades exist.
                 </div>
               </div>
-              <button
-                type="button"
-                className="edit-profile-btn"
-                onClick={() => setShowTransferRequestForm(true)}
-                disabled={!canRequestTransfer}
-              >
-                Request Transfer
-              </button>
             </div>
-          ) : (
-            <>
-              <EditRow
-                label="Reason for Transfer *"
-                value={transferRequestForm.transfer_reason}
-                onChange={(v) => handleTransferRequestChange("transfer_reason", v)}
-              />
-              <EditRow
-                label="Destination School Name *"
-                value={transferRequestForm.destination_school_name}
-                onChange={(v) => handleTransferRequestChange("destination_school_name", v)}
-              />
-              <EditRow
-                label="Destination School Address"
-                value={transferRequestForm.destination_school_address}
-                onChange={(v) => handleTransferRequestChange("destination_school_address", v)}
-              />
-              <EditRow
-                label="Destination School Contact"
-                value={transferRequestForm.destination_school_contact}
-                onChange={(v) => handleTransferRequestChange("destination_school_contact", v)}
-              />
-              <EditRow
-                label="Reference Number"
-                value={transferRequestForm.transfer_reference_number}
-                onChange={(v) => handleTransferRequestChange("transfer_reference_number", v)}
-              />
-              <EditRow
-                label="Additional Notes"
-                value={transferRequestForm.transfer_notes}
-                onChange={(v) => handleTransferRequestChange("transfer_notes", v)}
-                textarea
-                isLast
-              />
-              <div className="header-actions" style={{ marginTop: "12px" }}>
-                <button
-                  type="button"
-                  className="btn-cancel"
-                  onClick={() => setShowTransferRequestForm(false)}
-                  disabled={requestingTransfer}
-                >
-                  <X size={16} /> Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn-save"
-                  onClick={handleSubmitTransferRequest}
-                  disabled={requestingTransfer}
-                >
-                  <Check size={16} /> {requestingTransfer ? "Submitting..." : "Submit Request"}
-                </button>
+            {!canRequestTransfer ? (
+              <div className="transfer-locked-message">
+                A transfer request is already pending or approved, so this section is locked.
               </div>
-            </>
-          )}
-        </div>
+            ) : (
+              <>
+                <EditRow
+                  label="Reason for Transfer *"
+                  value={transferRequestForm.transfer_reason}
+                  onChange={(v) => handleTransferRequestChange("transfer_reason", v)}
+                />
+                <EditRow
+                  label="Destination School Name *"
+                  value={transferRequestForm.destination_school_name}
+                  onChange={(v) => handleTransferRequestChange("destination_school_name", v)}
+                />
+                <EditRow
+                  label="Destination School Address"
+                  value={transferRequestForm.destination_school_address}
+                  onChange={(v) => handleTransferRequestChange("destination_school_address", v)}
+                />
+                <EditRow
+                  label="Destination School Contact"
+                  value={transferRequestForm.destination_school_contact}
+                  onChange={(v) => handleTransferRequestChange("destination_school_contact", v)}
+                />
+                <EditRow
+                  label="Reference Number"
+                  value={transferRequestForm.transfer_reference_number}
+                  onChange={(v) => handleTransferRequestChange("transfer_reference_number", v)}
+                />
+                <EditRow
+                  label="Additional Notes"
+                  value={transferRequestForm.transfer_notes}
+                  onChange={(v) => handleTransferRequestChange("transfer_notes", v)}
+                  textarea
+                  isLast
+                />
+                <div className="header-actions" style={{ marginTop: "12px" }}>
+                  <button
+                    type="button"
+                    className="btn-cancel"
+                    onClick={() => setTransferSectionOpen(false)}
+                    disabled={requestingTransfer}
+                  >
+                    <X size={16} /> Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-save"
+                    onClick={handleSubmitTransferRequest}
+                    disabled={requestingTransfer}
+                  >
+                    <Check size={16} /> {requestingTransfer ? "Submitting..." : "Submit Request"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="details-body collapsible-body">
+            <div className="transfer-status-summary">
+              <div>
+                <div className="entry-label">Current transfer status</div>
+                <div className="entry-value">{transferStatus}</div>
+                <div className="entry-label" style={{ marginTop: "6px" }}>
+                  Note: Request is blocked once 2nd quarter grades exist.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       <div className="profile-details-grid">

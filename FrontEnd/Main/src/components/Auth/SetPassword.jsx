@@ -46,6 +46,12 @@ function validateRule(password, ruleId) {
   return PASSWORD_RULES[ruleId]?.pattern.test(password) || false;
 }
 
+function getFailedRuleLabels(password) {
+  return Object.values(PASSWORD_RULES)
+    .filter((rule) => !rule.pattern.test(password || ""))
+    .map((rule) => rule.label);
+}
+
 function getPasswordErrors(password, password2) {
   const errors = [];
 
@@ -54,12 +60,11 @@ function getPasswordErrors(password, password2) {
     return errors;
   }
 
-  const failedRules = Object.values(PASSWORD_RULES).filter(
-    (rule) => !rule.pattern.test(password)
-  );
+  const failedRules = getFailedRuleLabels(password);
 
   if (failedRules.length > 0) {
-    errors.push("Password does not meet the required strength.");
+    errors.push("Password must include:");
+    failedRules.forEach((rule) => errors.push(`- ${rule}`));
   }
 
   if (!password2) {
@@ -103,13 +108,15 @@ export default function SetPassword() {
     setMsg("");
     setTouched({ password: true, password2: true });
 
+    const failedRules = getFailedRuleLabels(password);
+
     if (!uidb64 || !token) {
       setMsg("Invalid password setup link.");
       return;
     }
 
     if (!allRulesPassed) {
-      setMsg("Please complete all password requirements.");
+      setMsg(`Please complete password requirements: ${failedRules.join(", ")}.`);
       return;
     }
 
