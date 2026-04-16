@@ -22,9 +22,9 @@ def _normalize_grade_level(value):
 
     match = re.search(r"(?:grade\s*)?(\d)", normalized)
     if match:
-                grade_number = int(match.group(1))
-                if 1 <= grade_number <= 6:
-          return grade_number
+        grade_number = int(match.group(1))
+        if 1 <= grade_number <= 6:
+            return grade_number
 
     try:
         numeric = int(normalized)

@@ -442,6 +442,25 @@ const TransactionHistory = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const toDateOnly = (value) => {
+    if (!value) return '';
+    const raw = String(value).trim();
+    if (!raw) return '';
+
+    const datePart = raw.includes('T') ? raw.split('T')[0] : raw.slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : '';
+  };
+
+  const editDueDateMin = useMemo(() => {
+    if (!editingTxn) return '';
+
+    return toDateOnly(
+      editingTxn.date_posted ||
+      editingTxn.created_at ||
+      editingTxn.transaction_date
+    );
+  }, [editingTxn]);
+
   const openModal = () => {
     setEditingTxn(null);
     setFormData({ ...EMPTY_FORM });
@@ -511,6 +530,12 @@ const TransactionHistory = () => {
 
     if (!formData.amount || Number(formData.amount) <= 0) {
       setFormError('Please enter a valid amount.');
+      return;
+    }
+
+    const dueDateValue = toDateOnly(formData.due_date);
+    if (editingTxn && dueDateValue && editDueDateMin && dueDateValue < editDueDateMin) {
+      setFormError(`Due date cannot be earlier than the posted/created date (${editDueDateMin}).`);
       return;
     }
 
@@ -898,22 +923,22 @@ const TransactionHistory = () => {
     return String(s).toLowerCase();
   };
 
-  const getGroupStatuses = (group) => {
+  const getGroupStatuses = useCallback((group) => {
     if (Array.isArray(group?.account_statuses) && group.account_statuses.length > 0) {
       return group.account_statuses;
     }
 
     return group?.account_status ? [group.account_status] : [];
-  };
+  }, []);
 
-  const getDisplayGroupStatuses = (group) => {
+  const getDisplayGroupStatuses = useCallback((group) => {
     const statuses = getGroupStatuses(group)
       .map((status) => String(status || '').toUpperCase())
       .filter(Boolean)
       .map((status) => (status === 'PENDING' ? 'PARTIAL' : status));
 
     return Array.from(new Set(statuses));
-  };
+  }, [getGroupStatuses]);
 
   const sortLedgerRows = useCallback((a, b) => {
     const rankA = String(a?.entry_type || '').toUpperCase() === 'CREDIT' ? 1 : 0;
@@ -1121,7 +1146,7 @@ const TransactionHistory = () => {
     return groupedTransactions.filter(
       (group) => getDisplayGroupStatuses(group).includes(selectedStatus)
     );
-  }, [groupedTransactions, filterStatus]);
+  }, [groupedTransactions, filterStatus, getDisplayGroupStatuses]);
 
   const txnTotalPages = Math.max(1, Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE));
   const paginatedTransactions = useMemo(
@@ -1390,7 +1415,9 @@ const TransactionHistory = () => {
 
   const requestStatusClass = (value) => String(value || '').toLowerCase();
 
-  const canProcessRequest = (req) => req.status === 'APPROVED';
+  const isRequestActionDone = (req) => String(req?.status || '').trim().toUpperCase() !== 'PENDING';
+
+  const canProcessRequest = (req) => String(req?.status || '').trim().toUpperCase() === 'APPROVED';
 
   const initialAssessmentPaidForEditingEnrollment = useMemo(() => {
     if (!editingTxn) return true;
@@ -1447,12 +1474,41 @@ const TransactionHistory = () => {
     );
 
     const pendingRequests = advanceRequests.filter(
-      (req) => String(req.status || '').toUpperCase() === 'PENDING'
+      (req) => String(req.status || '').trim().toUpperCase() === 'PENDING'
     ).length;
 
     const approvedRequests = advanceRequests.filter(
-      (req) => String(req.status || '').toUpperCase() === 'APPROVED'
+      (req) => String(req.status || '').trim().toUpperCase() === 'APPROVED'
     ).length;
+
+    const finalizedRequests = advanceRequests.filter((req) => {
+      const status = String(req.status || '').trim().toUpperCase();
+      return status === 'PROCESSED' || status === 'REJECTED';
+    }).length;
+
+    const openRequestQueue = pendingRequests + approvedRequests;
+
+    const finalizedLabel =
+      finalizedRequests === 1
+        ? '1 finalized request'
+        : `${finalizedRequests} finalized requests`;
+
+    const openQueueLabel =
+      openRequestQueue === 1
+        ? '1 open request'
+        : `${openRequestQueue} open requests`;
+
+    const approvedQueueLabel =
+      approvedRequests === 1
+        ? '1 approved awaiting processing'
+        : `${approvedRequests} approved awaiting processing`;
+
+    const pendingQueueLabel =
+      pendingRequests === 1
+        ? '1 pending approval'
+        : `${pendingRequests} pending approval`;
+
+    const requestQueueSummary = `${openQueueLabel}: ${pendingQueueLabel}, ${approvedQueueLabel}. ${finalizedLabel}.`;
 
     return [
       {
@@ -1469,9 +1525,7 @@ const TransactionHistory = () => {
         title: 'Action Queue',
         body: `${reminderQueue} ledger${
           reminderQueue === 1 ? '' : 's'
-        } are reminder-eligible. Advance/refund queue has ${pendingRequests} pending and ${approvedRequests} approved request${
-          approvedRequests === 1 ? '' : 's'
-        }.`,
+        } are reminder-eligible. Advance/refund queue: ${requestQueueSummary}`,
       },
       {
         title: 'Advance Credit Signal',
@@ -1487,6 +1541,8 @@ const TransactionHistory = () => {
     stats.outstanding_balance,
     groupedTransactions,
     advanceRequests,
+    getDisplayGroupStatuses,
+    getGroupStatuses,
     getRefundableAmount,
   ]);
 
@@ -2070,12 +2126,12 @@ const TransactionHistory = () => {
                         value={requestRemarks[req.id] ?? req.admin_remarks ?? ''}
                         onChange={(e) => handleRequestRemarksChange(req.id, e.target.value)}
                         className="th-form-input"
-                        placeholder="Admin remarks..."
-                        disabled={processingRequestId === req.id}
+                        placeholder={isRequestActionDone(req) ? 'Remarks locked after action.' : 'Admin remarks...'}
+                        disabled={processingRequestId === req.id || isRequestActionDone(req)}
                       />
                     </td>
                     <td className="th-actions-cell" style={{ whiteSpace: 'nowrap' }}>
-                      {req.status !== 'REJECTED' && req.status !== 'PROCESSED' && (
+                      {String(req.status || '').trim().toUpperCase() === 'PENDING' && (
                         <button
                           className="th-action-btn th-pay-btn"
                           onClick={() => handleAdvanceRequestAction(req.id, 'APPROVE')}
@@ -2310,11 +2366,17 @@ const TransactionHistory = () => {
                     value={formData.due_date}
                     onChange={handleFormChange}
                     className="th-form-input"
+                    min={editingTxn && editDueDateMin ? editDueDateMin : undefined}
                     disabled={lockMonthlyDueDate}
                   />
                   {lockMonthlyDueDate && (
                     <p className="th-auto-ref-note">
                       Monthly due date is locked until Initial and Assessment are PAID.
+                    </p>
+                  )}
+                  {!lockMonthlyDueDate && editingTxn && editDueDateMin && (
+                    <p className="th-auto-ref-note">
+                      Due date cannot be earlier than posted/created date: {editDueDateMin}.
                     </p>
                   )}
                 </div>
