@@ -125,6 +125,8 @@ export default function EnrollmentManagement() {
   const [formData, setFormData] = useState(emptyForm());
   const [modalStatus, setModalStatus] = useState(null);
   const [editingAcademicYear, setEditingAcademicYear] = useState(false);
+  const [isPromoteFlow, setIsPromoteFlow] = useState(false);
+  const [promoteSourceParentUserId, setPromoteSourceParentUserId] = useState(null);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -183,6 +185,7 @@ export default function EnrollmentManagement() {
   const [preApproveChecked, setPreApproveChecked] = useState(false);
   const [approveAmount, setApproveAmount] = useState("");
   const [approveMinimumAmount, setApproveMinimumAmount] = useState(0);
+  const [approveCashFullAmount, setApproveCashFullAmount] = useState(0);
   const [approveRemarks, setApproveRemarks] = useState("");
   const [approveSubmitting, setApproveSubmitting] = useState(false);
   const [approvePaymentMethod, setApprovePaymentMethod] = useState("CASH");
@@ -858,6 +861,8 @@ export default function EnrollmentManagement() {
     const addr = splitAddress(e.address || "");
     const religionFields = mapReligionToForm(e.religion);
     setEditingId(e.id);
+    setIsPromoteFlow(false);
+    setPromoteSourceParentUserId(null);
     setModalMode(mode);
     setModalStatus(e.status || "PENDING");
     setEditingAcademicYear(false);
@@ -910,6 +915,8 @@ export default function EnrollmentManagement() {
 
   const openCreateModal = () => {
     setEditingId(null);
+    setIsPromoteFlow(false);
+    setPromoteSourceParentUserId(null);
     setModalMode("edit");
     setModalStatus(null);
     setEditingAcademicYear(false);
@@ -921,6 +928,8 @@ export default function EnrollmentManagement() {
     setModalOpen(false);
     setModalMode("view");
     setEditingId(null);
+    setIsPromoteFlow(false);
+    setPromoteSourceParentUserId(null);
     setModalStatus(null);
     setEditingAcademicYear(false);
     setDocUploadFile(null);
@@ -1122,10 +1131,23 @@ export default function EnrollmentManagement() {
     return;
   }
 
-  if (amountNum < Number(approveMinimumAmount || 0)) {
+  const paymentMode = String(row?.raw?.payment_mode || "").trim().toLowerCase();
+  const isCashPaymentMode = paymentMode === "cash";
+  const requiredCashAmount = Number(approveCashFullAmount || 0);
+
+  if (!isCashPaymentMode && amountNum < Number(approveMinimumAmount || 0)) {
     addToast(
       "Minimum Initial Payment Required",
       `Approved amount must be at least Php ${Number(approveMinimumAmount || 0).toFixed(2)} for this grade level.`,
+      "error"
+    );
+    return;
+  }
+
+  if (isCashPaymentMode && requiredCashAmount > 0 && Math.abs(amountNum - requiredCashAmount) > 0.009) {
+    addToast(
+      "Full Payment Required",
+      `Cash mode requires full payment of Php ${requiredCashAmount.toFixed(2)}.`,
       "error"
     );
     return;
@@ -1255,6 +1277,7 @@ export default function EnrollmentManagement() {
     setApproveTargetRow(row);
     setApproveRemarks("");
     setApproveMinimumAmount(0);
+    setApproveCashFullAmount(0);
 
     const gradeKey = String(row?.raw?.grade_level || "").trim();
     if (gradeKey) {
@@ -1267,13 +1290,16 @@ export default function EnrollmentManagement() {
           const paymentMode = String(row?.raw?.payment_mode || "").trim().toLowerCase();
 
           if (paymentMode === "cash") {
-            setApproveMinimumAmount((Number(cfg?.total_cash || 0) + assessment) / 2);
+            setApproveMinimumAmount(0);
+            setApproveCashFullAmount(Number(cfg?.total_cash || 0) + assessment);
           } else {
             setApproveMinimumAmount(Number(cfg?.initial || 0) + assessment);
+            setApproveCashFullAmount(0);
           }
         }
       } catch {
         setApproveMinimumAmount(0);
+        setApproveCashFullAmount(0);
       }
     }
 
@@ -1289,6 +1315,7 @@ export default function EnrollmentManagement() {
     setApproveTargetRow(null);
     setApproveAmount("");
     setApproveMinimumAmount(0);
+    setApproveCashFullAmount(0);
     setApproveRemarks("");
   };
 
@@ -1504,6 +1531,8 @@ const handleApproveModal = async () => {
     const religionFields = mapReligionToForm(e.religion);
 
     setEditingId(e.id);
+    setIsPromoteFlow(true);
+    setPromoteSourceParentUserId(e?.parent_user || null);
     setModalMode("edit");
     setModalStatus(null);
     setEditingAcademicYear(false);
@@ -1631,13 +1660,18 @@ const handleApproveModal = async () => {
       },
     };
 
-    const url = editingId
-      ? `/api/enrollments/${editingId}/`
-      : "/api/enrollments/";
+    if (isPromoteFlow && promoteSourceParentUserId) {
+      payload.parent_user = promoteSourceParentUserId;
+    }
+
+    const shouldCreateEnrollment = !editingId || isPromoteFlow;
+    const url = shouldCreateEnrollment
+      ? "/api/enrollments/"
+      : `/api/enrollments/${editingId}/`;
 
     try {
       const res = await apiFetch(url, {
-        method: editingId ? "PATCH" : "POST",
+        method: shouldCreateEnrollment ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
@@ -1649,6 +1683,58 @@ const handleApproveModal = async () => {
       }
 
       await fetchEnrollments();
+
+      if (editingId && isPromoteFlow) {
+        let promotedData = data;
+        const promotedEnrollmentId = Number(data?.id) > 0 ? data.id : null;
+
+        if (!promotedData || typeof promotedData !== "object" || !promotedData.id) {
+          const fallbackId = promotedEnrollmentId || editingId;
+          const refreshedRes = await apiFetch(`/api/enrollments/${fallbackId}/`);
+          promotedData = await refreshedRes.json().catch(() => null);
+        }
+
+        const promotedId = Number(promotedData?.id) > 0 ? promotedData.id : (promotedEnrollmentId || editingId);
+        const promotedRaw = promotedData && typeof promotedData === "object"
+          ? promotedData
+          : {
+              id: promotedId,
+              first_name: payload.first_name,
+              last_name: payload.last_name,
+              birth_date: payload.birth_date,
+              education_level: payload.education_level,
+              student_type: payload.student_type,
+              grade_level: payload.grade_level,
+              academic_year: payload.academic_year,
+              payment_mode: payload.payment_mode,
+              payment_method: payload.payment_method,
+              lrn: payload.lrn,
+            };
+
+        const promotedRow = {
+          id: promotedId,
+          raw: promotedRaw,
+          studentName: `${promotedRaw.first_name || ""} ${promotedRaw.last_name || ""}`.trim(),
+          gradeLevel: gradeLabel(promotedRaw.grade_level),
+          academicYear: promotedRaw.academic_year || "",
+          paymentMode: promotedRaw.payment_mode || "—",
+          paymentMethod: promotedRaw.payment_method || "—",
+          submittedPaymentAmount: promotedRaw.payment_amount ?? null,
+          paymentProof: proofs.find((p) => p.enrollment_id === promotedId) || null,
+        };
+
+        closeModal();
+
+        setTimeout(() => {
+          openPreApproveConfirm(promotedRow);
+        }, 0);
+        addToast(
+          "Promotion Saved",
+          "Review payment details and approve the promoted enrollment.",
+          "success"
+        );
+        return;
+      }
 
       if (!editingId) {
         addToast(
@@ -2869,6 +2955,11 @@ const openIdGenerator = (row) => {
               {Number(approveMinimumAmount || 0) > 0 ? (
                 <div className="approve-enrollment-panel__meta-label" style={{ marginTop: 6 }}>
                   Minimum required amount: Php {Number(approveMinimumAmount).toFixed(2)}
+                </div>
+              ) : null}
+              {String(approveTargetRow?.raw?.payment_mode || "").trim().toLowerCase() === "cash" && Number(approveCashFullAmount || 0) > 0 ? (
+                <div className="approve-enrollment-panel__meta-label" style={{ marginTop: 6 }}>
+                  Cash mode full payment required: Php {Number(approveCashFullAmount).toFixed(2)}
                 </div>
               ) : null}
             </div>

@@ -1628,25 +1628,38 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             is_active=True,
             status="active",
         ).first()
-        minimum_initial_payment = Decimal(str(tuition.initial or 0)) if tuition else Decimal("0")
-        
-        # For new students, include assessment fee in minimum payment requirement
         is_new_student = (enrollment.student_type or "").strip().lower() == "new"
         assessment_fee = Decimal(str(tuition.assessment or 0)) if (tuition and is_new_student) else Decimal("0")
-        minimum_total_payment = minimum_initial_payment + assessment_fee
 
-        if minimum_total_payment > 0 and approved_amount < minimum_total_payment:
-            return Response(
-                {
-                    "detail": (
-                        f"Approved amount (Php {approved_amount:.2f}) is below the required "
-                        f"initial payment for {grade_code} (Php {minimum_initial_payment:.2f})"
-                        + (f" + assessment fee (Php {assessment_fee:.2f})" if assessment_fee > 0 else "")
-                        + f" = Total (Php {minimum_total_payment:.2f})."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        payment_mode = (enrollment.payment_mode or "").strip().lower()
+        if payment_mode == "installment":
+            minimum_initial_payment = Decimal(str(tuition.initial or 0)) if tuition else Decimal("0")
+            minimum_total_payment = minimum_initial_payment + assessment_fee
+
+            if minimum_total_payment > 0 and approved_amount < minimum_total_payment:
+                return Response(
+                    {
+                        "detail": (
+                            f"Approved amount (Php {approved_amount:.2f}) is below the required "
+                            f"initial payment for {grade_code} (Php {minimum_initial_payment:.2f})"
+                            + (f" + assessment fee (Php {assessment_fee:.2f})" if assessment_fee > 0 else "")
+                            + f" = Total (Php {minimum_total_payment:.2f})."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        elif payment_mode == "cash":
+            required_cash_total = (Decimal(str(tuition.total_cash or 0)) if tuition else Decimal("0")) + assessment_fee
+            if required_cash_total > 0 and approved_amount != required_cash_total:
+                return Response(
+                    {
+                        "detail": (
+                            f"Cash mode requires full payment of Php {required_cash_total:.2f} "
+                            f"for {grade_code}. Approved amount was Php {approved_amount:.2f}."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         required_missing = []
 
@@ -1703,6 +1716,24 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         email_error = None
 
         with transaction.atomic():
+            if enrollment.parent_user_id:
+                previous_active = (
+                    Enrollment.objects.filter(parent_user=enrollment.parent_user, status="ACTIVE")
+                    .exclude(pk=enrollment.pk)
+                    .order_by("-created_at", "-id")
+                    .first()
+                )
+
+                if previous_active:
+                    previous_active.status = "COMPLETED"
+                    previous_active.completed_at = timezone.now()
+                    previous_active.remarks = (
+                        f"{(previous_active.remarks or '').strip()} | AUTO-COMPLETED AFTER NEW ENROLLMENT APPROVAL"
+                    ).strip(" |")
+                    previous_active.save(
+                        update_fields=["status", "completed_at", "remarks", "updated_at"]
+                    )
+
             
             if enrollment.section_id is None:
                 section_level = self._grade_code_to_section_level(grade_code)
