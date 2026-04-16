@@ -90,6 +90,89 @@ def send_paid_notification(request, transaction_id):
         },
         status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED,
     )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def send_onsite_payment_notification(request, transaction_id):
+    """Send payment notification to student for onsite payment"""
+    if not is_admin(request.user):
+        return Response(
+            {"detail": "Only admin can send payment notifications."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        transaction = Transaction.objects.select_related("parent", "enrollment").get(pk=transaction_id)
+    except Transaction.DoesNotExist:
+        return Response(
+            {"detail": "Transaction not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Get student email
+    student_email = _get_student_email(transaction)
+    if not student_email:
+        return Response(
+            {"detail": "Student email not found."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    student_name = getattr(transaction, "student_name", "Student")
+    amount = Decimal(str(transaction.credit or transaction.amount or 0))
+    reference_number = getattr(transaction, "reference_number", "N/A")
+    payment_method = getattr(transaction, "payment_method", "Onsite")
+
+    title = "Payment Confirmation - Onsite Payment Received"
+    message = (
+        f"Dear {student_name},\n\n"
+        f"Thank you for your payment made at our school office.\n\n"
+        f"Payment Details:\n"
+        f"Reference Number: {reference_number}\n"
+        f"Amount Paid: ₱{amount}\n"
+        f"Payment Method: {payment_method}\n"
+        f"Payment Date: {transaction.transaction_date or 'Today'}\n\n"
+        f"Your payment has been successfully recorded in our system.\n"
+        f"Please keep this reference number for your records.\n\n"
+        f"You can view your updated account balance and payment history in the Student Portal.\n\n"
+        f"Thank you for your prompt payment!\n\n"
+        f"Best regards,\n"
+        f"Caloocan Evangelical School Inc.\n"
+        f"Finance Office"
+    ).strip()
+
+    student_recipient = _resolve_student_recipient(student_number=getattr(transaction, "student_number", None))
+    
+    reminder, created = create_reminder_once(
+        recipient=student_recipient,
+        sender=request.user,
+        title=title,
+        message=message,
+        reminder_type="PAYMENT",
+        event_type="PAYMENT_RECEIVED_ONSITE",
+        transaction=transaction,
+        reference_date=transaction.transaction_date or timezone.localdate(),
+    )
+
+    # Send email to student
+    emailed = _send_onsite_payment_notification_email(
+        student_email=student_email,
+        student_name=student_name,
+        title=title,
+        message=message,
+    )
+
+    return Response(
+        {
+            "detail": "Onsite payment notification sent to student successfully." if created else "Onsite payment notification already exists.",
+            "reminder": ReminderSerializer(reminder).data if reminder else None,
+            "created": created,
+            "emailed": emailed,
+        },
+        status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED,
+    )
+
+
 User = get_user_model()
 
 
@@ -98,6 +181,46 @@ def is_admin(user):
         getattr(user, "is_staff", False)
         or getattr(user, "role", "").upper() == "ADMIN"
     )
+
+
+def _get_student_email(transaction):
+    """Get student email from transaction enrollment or student number"""
+    # Try to get from enrollment relationship
+    if transaction.enrollment and transaction.enrollment.student:
+        student_email = getattr(transaction.enrollment.student, "email", "")
+        if student_email:
+            return student_email
+    
+    # Try to get from student number
+    student_number = getattr(transaction, "student_number", None)
+    if student_number:
+        try:
+            profile = UserProfile.objects.select_related("user").get(student_number=student_number)
+            return getattr(profile.user, "email", "")
+        except UserProfile.DoesNotExist:
+            pass
+    
+    return None
+
+
+def _send_onsite_payment_notification_email(*, student_email, student_name, title, message):
+    """Send onsite payment notification email to student"""
+    if not student_email:
+        return False
+
+    try:
+        send_mail(
+            subject=title,
+            message=message,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost"),
+            recipient_list=[student_email],
+            fail_silently=False,
+        )
+        return True
+    except Exception:
+        logger.exception("Failed to send onsite payment notification email to %s", student_email)
+        return False
+
 
 def get_enrollment_balance(enrollment):
     totals = Transaction.objects.filter(enrollment=enrollment).aggregate(
