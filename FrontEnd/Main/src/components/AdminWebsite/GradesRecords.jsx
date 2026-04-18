@@ -743,7 +743,6 @@ const GradesRecords = () => {
           Subject: row.subject_name,
           'Subject Code': row.subject_code || '—',
           'Final Grade': row.final_grade ?? '—',
-          Remarks: row.remarks || '—',
           Teacher: row.teacher_name || '—',
         }));
       } else if (activeTab === 'attendance') {
@@ -853,7 +852,6 @@ const GradesRecords = () => {
           Subject: row.subject_name,
           'Subject Code': row.subject_code || '—',
           'Final Grade': row.final_grade ?? '—',
-          Remarks: row.remarks || '—',
           Teacher: row.teacher_name || '—',
         }));
 
@@ -866,7 +864,6 @@ const GradesRecords = () => {
           { header: 'Subject', key: 'Subject', width: 20 },
           { header: 'Subject Code', key: 'Subject Code', width: 12 },
           { header: 'Final Grade', key: 'Final Grade', width: 12 },
-          { header: 'Remarks', key: 'Remarks', width: 15 },
           { header: 'Teacher', key: 'Teacher', width: 15 },
         ], historyData);
 
@@ -1110,12 +1107,11 @@ const GradesRecords = () => {
         Subject: row.subject_name,
         'Subject Code': row.subject_code || '—',
         'Final Grade': row.final_grade ?? '—',
-        Remarks: row.remarks || '—',
         Teacher: row.teacher_name || '—',
       }));
 
-      const headers = ['SCHOOL YEAR', 'STUDENT NAME', 'STUDENT NUMBER', 'GRADE LEVEL', 'SECTION', 'SUBJECT', 'SUBJECT CODE', 'FINAL GRADE', 'REMARKS', 'TEACHER'];
-      const keys = ['School Year', 'Student Name', 'Student Number', 'Grade Level', 'Section', 'Subject', 'Subject Code', 'Final Grade', 'Remarks', 'Teacher'];
+      const headers = ['SCHOOL YEAR', 'STUDENT NAME', 'STUDENT NUMBER', 'GRADE LEVEL', 'SECTION', 'SUBJECT', 'SUBJECT CODE', 'FINAL GRADE', 'TEACHER'];
+      const keys = ['School Year', 'Student Name', 'Student Number', 'Grade Level', 'Section', 'Subject', 'Subject Code', 'Final Grade', 'Teacher'];
 
       const rows = historyData.map(row => keys.map(key => row[key]));
 
@@ -1129,7 +1125,7 @@ const GradesRecords = () => {
       const getColWidth = (idx) => {
         if (idx === 0) return schoolYearWidth;
         if (idx === 1) return studentNameWidth;
-        if (idx === 9) return teacherWidth;
+        if (idx === 8) return teacherWidth;
         return otherColWidth;
       };
 
@@ -1212,8 +1208,8 @@ const GradesRecords = () => {
           }
           const colW = getColWidth(colIdx);
 
-          // Left align Student Name (1) and Teacher (9), center align School Year (0), center align others
-          if (colIdx === 1 || colIdx === 9) {
+          // Left align Student Name (1) and Teacher (8), center align School Year (0), center align others
+          if (colIdx === 1 || colIdx === 8) {
             doc.text(String(cell), xPos + 2, yPos + 5, { maxWidth: colW - 4 });
           } else {
             const centerX = xPos + colW / 2;
@@ -1847,13 +1843,6 @@ const GradesRecords = () => {
                                     ) : (
                                       <span className="gr-muted">—</span>
                                     )}
-                                    <span
-                                      className={`gr-status-badge gr-status-${String(
-                                        subject.remarks || ''
-                                      ).toLowerCase() || 'pending'}`}
-                                    >
-                                      {subject.remarks || '—'}
-                                    </span>
                                     <span className="gr-muted">
                                       {subject.teacher_name || '—'}
                                     </span>
@@ -1984,7 +1973,6 @@ const GradesRecords = () => {
             { key: 'Subject', label: 'SUBJECT', align: 'center' },
             { key: 'Subject Code', label: 'SUBJECT CODE', align: 'center' },
             { key: 'Final Grade', label: 'FINAL GRADE', align: 'center' },
-            { key: 'Remarks', label: 'REMARKS', align: 'center' },
             { key: 'Teacher', label: 'TEACHER', align: 'left' },
           ] : [
             { key: 'Date', label: 'DATE', align: 'left' },

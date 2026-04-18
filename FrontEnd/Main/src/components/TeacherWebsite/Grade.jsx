@@ -87,6 +87,17 @@ const CATEGORIES = [
   { key: "EXAM", label: "Exams", color: "#ef4444" },
 ];
 
+const toFiniteNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const clampNumber = (value, min, max) => {
+  const n = toFiniteNumber(value);
+  if (n === null) return null;
+  return Math.min(max, Math.max(min, n));
+};
+
 const getStudentKey = (student) => {
   if (!student) return "";
 
@@ -508,25 +519,25 @@ const Grade = () => {
   const getScore = (studentKey, itemId, studentId) => {
     if (studentKey) {
       const value = scoresByKey.get(`${studentKey}|${itemId}`);
-      if (value != null) return Number(value);
+      if (value != null) return toFiniteNumber(value);
     }
 
     const idValue = studentId != null ? String(studentId) : "";
     if (!idValue) return null;
     const value = scoresById.get(`${idValue}|${itemId}`);
-    return value != null ? Number(value) : null;
+    return value != null ? toFiniteNumber(value) : null;
   };
 
   const getCS = (studentKey, studentId) => {
     if (studentKey) {
       const value = classStandingsByKey.get(studentKey);
-      if (value != null) return Number(value);
+      if (value != null) return toFiniteNumber(value);
     }
 
     const idValue = studentId != null ? String(studentId) : "";
     if (!idValue) return null;
     const value = classStandingsById.get(idValue);
-    return value != null ? Number(value) : null;
+    return value != null ? toFiniteNumber(value) : null;
   };
 
   const categoryAvg = (studentKey, studentId, cat) => {
@@ -538,36 +549,67 @@ const Grade = () => {
     let hasAny = false;
 
     catItems.forEach((item) => {
-      const s = getScore(studentKey, item.id, studentId);
-      if (s !== null && s !== undefined && s !== "") {
-        totalEarned += Number(s);
-        totalPossible += Number(item.total_score || 0);
-        hasAny = true;
-      }
+      const possible = toFiniteNumber(item.total_score);
+      if (possible === null || possible <= 0) return;
+
+      const rawScore = getScore(studentKey, item.id, studentId);
+      if (rawScore === null || rawScore === undefined || rawScore === "") return;
+
+      // Guard against stale/outlier persisted values that can make averages exceed 100.
+      const safeScore = clampNumber(rawScore, 0, possible);
+      if (safeScore === null) return;
+
+      totalEarned += safeScore;
+      totalPossible += possible;
+      hasAny = true;
     });
 
     if (!hasAny) return null;
-    return totalPossible > 0 ? (totalEarned / totalPossible) * 100 : 0;
+    if (totalPossible <= 0) return null;
+
+    const pct = (totalEarned / totalPossible) * 100;
+    return clampNumber(pct, 0, 100);
   };
 
   const quarterGrade = (studentKey, studentId) => {
     const actAvg = categoryAvg(studentKey, studentId, "ACTIVITY");
     const quizAvg = categoryAvg(studentKey, studentId, "QUIZ");
     const examAvg = categoryAvg(studentKey, studentId, "EXAM");
-    const cs = getCS(studentKey, studentId);
+    const cs = clampNumber(getCS(studentKey, studentId), 0, 100);
 
     const parts = [];
-    if (actAvg !== null) parts.push({ avg: Number(actAvg), w: Number(weights.activity_weight) || 0 });
-    if (quizAvg !== null) parts.push({ avg: Number(quizAvg), w: Number(weights.quiz_weight) || 0 });
-    if (examAvg !== null) parts.push({ avg: Number(examAvg), w: Number(weights.exam_weight) || 0 });
-    if (cs !== null) parts.push({ avg: Number(cs), w: Number(weights.class_standing_weight) || 0 });
+    if (actAvg !== null) {
+      parts.push({
+        avg: clampNumber(actAvg, 0, 100),
+        w: Math.max(0, toFiniteNumber(weights.activity_weight) ?? 0),
+      });
+    }
+    if (quizAvg !== null) {
+      parts.push({
+        avg: clampNumber(quizAvg, 0, 100),
+        w: Math.max(0, toFiniteNumber(weights.quiz_weight) ?? 0),
+      });
+    }
+    if (examAvg !== null) {
+      parts.push({
+        avg: clampNumber(examAvg, 0, 100),
+        w: Math.max(0, toFiniteNumber(weights.exam_weight) ?? 0),
+      });
+    }
+    if (cs !== null) {
+      parts.push({
+        avg: cs,
+        w: Math.max(0, toFiniteNumber(weights.class_standing_weight) ?? 0),
+      });
+    }
 
     if (!parts.length) return null;
 
     const totalW = parts.reduce((s, p) => s + p.w, 0);
-    if (totalW === 0) return null;
+    if (totalW <= 0) return null;
 
-    return parts.reduce((s, p) => s + p.avg * p.w, 0) / totalW;
+    const weighted = parts.reduce((s, p) => s + p.avg * p.w, 0) / totalW;
+    return clampNumber(weighted, 0, 100);
   };
 
   const handleAddItem = async (category) => {
@@ -743,7 +785,6 @@ const Grade = () => {
       });
 
       const data = await safeParseJson(res);
-      const previewData = data || {};
 
       if (!res.ok) {
         addToast("Save Failed", getApiErrorMessage(data, "Failed to save score."), "error");
@@ -908,6 +949,7 @@ const Grade = () => {
 
       const res = await apiFetch(`${API}/api/grades/publish-history/?${params.toString()}`);
       const data = await safeParseJson(res);
+      const previewData = data || {};
 
       if (!res.ok) {
         if (res.status === 401) {
@@ -1049,9 +1091,6 @@ const Grade = () => {
           const qg = quarterGrade(studentKey, studentId);
           row["Quarter Grade"] = qg !== null ? qg.toFixed(2) : "–";
 
-          // Add Status
-          row["Status"] = qg !== null ? (qg >= 75 ? "PASSED" : "FAILED") : "–";
-
           return row;
         } catch (err) {
           console.error("Error building grade row for student:", student.student_name, err);
@@ -1083,8 +1122,7 @@ const Grade = () => {
       // Add remaining columns
       columns.push(
         { key: "Class Standing", label: "Class Standing" },
-        { key: "Quarter Grade", label: "Quarter Grade" },
-        { key: "Status", label: "Status" }
+        { key: "Quarter Grade", label: "Quarter Grade" }
       );
 
       // Set preview data and columns
@@ -1473,13 +1511,12 @@ const Grade = () => {
                 )}
                 <th className="ge__th ge__th--score">CS</th>
                 <th className="ge__th">Quarter Grade</th>
-                <th className="ge__th">Remarks</th>
               </tr>
             </thead>
             <tbody>
               {displayStudents.length === 0 && (
                 <tr>
-                  <td className="ge__td" colSpan={items.length + 4}>
+                  <td className="ge__td" colSpan={items.length + 3}>
                     {selectedSection
                       ? "No students enrolled in this section."
                       : "No section selected."}
@@ -1544,20 +1581,6 @@ const Grade = () => {
                           }`}
                         >
                           {qg.toFixed(1)}
-                        </span>
-                      ) : (
-                        <span className="ge__scoreEmpty">–</span>
-                      )}
-                    </td>
-
-                    <td className="ge__td">
-                      {qg !== null ? (
-                        <span
-                          className={`ge__badge ${
-                            qg >= 75 ? "ge__badge--pass" : "ge__badge--fail"
-                          }`}
-                        >
-                          {qg >= 75 ? "PASSED" : "FAILED"}
                         </span>
                       ) : (
                         <span className="ge__scoreEmpty">–</span>
@@ -1912,7 +1935,6 @@ const Grade = () => {
           { key: "Exam %", label: "Exam %" },
           { key: "Class Standing", label: "Class Standing" },
           { key: "Quarter Grade", label: "Quarter Grade" },
-          { key: "Status", label: "Status" },
         ]}
         filename={`Grade-Sheet-${selectedSubject?.name || "N/A"}-${currentSection?.name || "N/A"}`}
         onDownloadExcel={handleDownloadGradeExcel}

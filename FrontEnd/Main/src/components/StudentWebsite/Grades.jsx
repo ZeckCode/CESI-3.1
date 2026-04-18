@@ -211,17 +211,6 @@ const Grades = () => {
     return currentQuarter === quarter ? 'Pending' : '—';
   };
 
-  const getSubjectStatusBadge = (subject) => {
-    const currentQuarterGrade = subject[`q${currentQuarter}`];
-    if (currentQuarterGrade === null) return { status: 'pending', label: 'Pending' };
-    if (subject.final_grade !== null) {
-      return subject.final_grade >= 75 
-        ? { status: 'passed', label: 'Passed' }
-        : { status: 'failed', label: 'Failed' };
-    }
-    return null;
-  };
-
   const getTeacherForSubject = (subjectName) => {
     console.log("Looking for subject:", subjectName);
     console.log("Available schedules:", schedules);
@@ -249,7 +238,6 @@ const Grades = () => {
         'Quarter 3': g.q3 ?? g.q3_grade ?? g.quarter_3 ?? '—',
         'Quarter 4': g.q4 ?? g.q4_grade ?? g.quarter_4 ?? '—',
         'Final Grade': g.final_grade ?? '—',
-        'Remarks': g.remarks || g.status || '—',
         'Teacher': teacherFromSchedule || '—',
       };
     });
@@ -270,7 +258,6 @@ const Grades = () => {
           'Quarter 3': g.q3 ?? g.q3_grade ?? g.quarter_3 ?? '—',
           'Quarter 4': g.q4 ?? g.q4_grade ?? g.quarter_4 ?? '—',
           'Final Grade': g.final_grade ?? '—',
-          'Remarks': g.remarks || g.status || '—',
           'Teacher': teacherFromSchedule || '—',
         };
       });
@@ -278,12 +265,12 @@ const Grades = () => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Grade Report");
 
-      const headers = ['Subject', 'Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4', 'Final Grade', 'Remarks', 'Teacher'];
+      const headers = ['Subject', 'Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4', 'Final Grade', 'Teacher'];
 
       // Add header row
       const headerRow = worksheet.addRow(headers);
       headerRow.eachCell((cell, colNumber) => {
-        if (colNumber <= 8) {
+        if (colNumber <= 7) {
           cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
           cell.alignment = { horizontal: 'center', vertical: 'center' };
@@ -299,14 +286,13 @@ const Grades = () => {
           row['Quarter 3'],
           row['Quarter 4'],
           row['Final Grade'],
-          row['Remarks'],
           row['Teacher'],
         ]);
 
         // Set alignment for all cells in the row
         dataRow.eachCell((cell, colNumber) => {
-          // Left-align Teacher (column 8) only
-          if (colNumber === 8) {
+          // Left-align Teacher (column 7) only
+          if (colNumber === 7) {
             cell.alignment = { horizontal: 'left', vertical: 'center' };
           } else {
             cell.alignment = { horizontal: 'center', vertical: 'center' };
@@ -317,7 +303,6 @@ const Grades = () => {
       // Set column widths
       worksheet.columns = [
         { width: 20 },
-        { width: 12 },
         { width: 12 },
         { width: 12 },
         { width: 12 },
@@ -370,8 +355,8 @@ const Grades = () => {
       doc.setTextColor(0, 0, 0);
       doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 24);
 
-      const headers = ['SUBJECT', 'QUARTER 1', 'QUARTER 2', 'QUARTER 3', 'QUARTER 4', 'FINAL', 'REMARKS', 'TEACHER'];
-      const keys = ['Subject', 'Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4', 'Final Grade', 'Remarks', 'Teacher'];
+      const headers = ['SUBJECT', 'QUARTER 1', 'QUARTER 2', 'QUARTER 3', 'QUARTER 4', 'FINAL', 'TEACHER'];
+      const keys = ['Subject', 'Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4', 'Final Grade', 'Teacher'];
 
       const exportData = grades.map((g) => {
         const subjectName = g.subject_name || g.subject;
@@ -383,7 +368,6 @@ const Grades = () => {
           'Quarter 3': g.q3 ?? g.q3_grade ?? g.quarter_3 ?? '—',
           'Quarter 4': g.q4 ?? g.q4_grade ?? g.quarter_4 ?? '—',
           'Final Grade': g.final_grade ?? '—',
-          'Remarks': g.remarks || g.status || '—',
           'Teacher': teacherFromSchedule || '—',
         };
       });
@@ -392,7 +376,7 @@ const Grades = () => {
 
       // Column widths
       const subjectWidth = usableWidth * 0.22;
-      const otherColWidth = (usableWidth - subjectWidth) / 7;
+      const otherColWidth = (usableWidth - subjectWidth) / 6;
 
       const getColWidth = (idx) => {
         return idx === 0 ? subjectWidth : otherColWidth;
@@ -484,8 +468,8 @@ const Grades = () => {
           doc.rect(xPos, yPos, colW, rowHeight);
           doc.setTextColor(0, 0, 0);
 
-          // Center-align all except Teacher (column 7 = left-align)
-          const align = colIdx === 7 ? 'left' : 'center';
+          // Center-align all except Teacher (column 6 = left-align)
+          const align = colIdx === 6 ? 'left' : 'center';
           const textX = align === 'center' ? xPos + colW / 2 : xPos + 1;
 
           doc.text(
@@ -756,7 +740,6 @@ const Grades = () => {
                   <th>3rd Qtr</th>
                   <th>4th Qtr</th>
                   <th>Final</th>
-                  <th>Remarks</th>
                 </tr>
               </thead>
               <tbody>
@@ -793,19 +776,6 @@ const Grades = () => {
                         {subj.final_grade !== null ? subj.final_grade.toFixed(1) : '—'}
                       </span>
                     </td>
-                    <td data-label="Remarks">
-                      {(() => {
-                        const statusBadge = getSubjectStatusBadge(subj);
-                        if (statusBadge) {
-                          return (
-                            <span className={`sg-status-badge sg-status-${statusBadge.status}`}>
-                              {statusBadge.label}
-                            </span>
-                          );
-                        }
-                        return <span className="sg-text-muted">—</span>;
-                      })()}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -826,7 +796,6 @@ const Grades = () => {
           { key: 'Quarter 3', label: 'QUARTER 3' },
           { key: 'Quarter 4', label: 'QUARTER 4' },
           { key: 'Final Grade', label: 'FINAL GRADE' },
-          { key: 'Remarks', label: 'REMARKS' },
           { key: 'Teacher', label: 'TEACHER' },
         ]}
         filename="Grades"
