@@ -22,17 +22,44 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const cleanupBotpress = () => {
+      if (window.botpressWebChat && typeof window.botpressWebChat.destroy === 'function') {
+        window.botpressWebChat.destroy();
+      }
+
+      const widgetSelectors = [
+        '#bp-web-widget-container',
+        '#bp-web-widget',
+        '.bpWebchat',
+        'iframe[src*="botpress"]',
+        '[id^="bp-web-widget"]',
+      ];
+
+      widgetSelectors.forEach((selector) => {
+        document.querySelectorAll(selector).forEach((node) => node.remove());
+      });
+
+      document
+        .querySelectorAll('script[src*="cdn.botpress.cloud/webchat"], script[src*="files.bpcontent.cloud/2026/03/26/09/20260326092557-6ZV5HUUY.js"]')
+        .forEach((node) => node.remove());
+    };
+
+    cleanupBotpress();
+
     const script1 = document.createElement('script');
     script1.src = 'https://cdn.botpress.cloud/webchat/v3.6/inject.js';
     script1.async = true;
+    script1.setAttribute('data-botpress-home', 'inject');
     document.body.appendChild(script1);
 
     const script2 = document.createElement('script');
     script2.src = 'https://files.bpcontent.cloud/2026/03/26/09/20260326092557-6ZV5HUUY.js';
     script2.defer = true;
+    script2.setAttribute('data-botpress-home', 'config');
     document.body.appendChild(script2);
 
     return () => {
+      cleanupBotpress();
       if (script1.parentNode) document.body.removeChild(script1);
       if (script2.parentNode) document.body.removeChild(script2);
     };

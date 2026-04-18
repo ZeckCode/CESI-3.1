@@ -38,6 +38,24 @@ function TeacherDashboard() {
   const [unreadReminders, setUnreadReminders] = useState(0);
   const [showNotificationList, setShowNotificationList] = useState(false);
 
+  useEffect(() => {
+    if (window.botpressWebChat && typeof window.botpressWebChat.destroy === "function") {
+      window.botpressWebChat.destroy();
+    }
+
+    [
+      "#bp-web-widget-container",
+      "#bp-web-widget",
+      ".bpWebchat",
+      "iframe[src*=\"botpress\"]",
+      "[id^=\"bp-web-widget\"]",
+      "script[src*=\"cdn.botpress.cloud/webchat\"]",
+      "script[src*=\"files.bpcontent.cloud/2026/03/26/09/20260326092557-6ZV5HUUY.js\"]",
+    ].forEach((selector) => {
+      document.querySelectorAll(selector).forEach((node) => node.remove());
+    });
+  }, []);
+
   const handleMenuClick = (menuId) => setActiveMenu(menuId);
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
   const handleSidebarHoverChange = (isHoverExpanded) => setSidebarHoverExpanded(isHoverExpanded);

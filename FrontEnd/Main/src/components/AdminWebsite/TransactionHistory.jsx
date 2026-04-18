@@ -165,6 +165,7 @@ const canSendReminderForTransaction = (tx) => {
 const reminderStatusRank = (tx) => {
   const status = String(tx?._effectiveStatus || tx?.status || '').toUpperCase();
 
+  if (isDueToday(tx?.due_date || tx?.transaction_date)) return -1;
   if (status === 'OVERDUE') return 0;
   if (status === 'PARTIAL') return 1;
   if (status === 'PENDING') return 2;
