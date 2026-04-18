@@ -437,7 +437,7 @@ class TransactionListCreate(generics.ListCreateAPIView):
         if enrollment_id:
             qs = qs.filter(enrollment_id=enrollment_id)
 
-        if status_filter and status_filter in ['PAID', 'PARTIAL', 'PENDING', 'OVERDUE', 'POSTED']:
+        if status_filter and status_filter in ['PAID', 'PARTIAL', 'PENDING', 'DUE_TODAY', 'OVERDUE', 'POSTED']:
             qs = qs.filter(status=status_filter)
 
         if entry_type and entry_type in ['DEBIT', 'CREDIT']:
@@ -1305,6 +1305,7 @@ def repair_ledger_statuses(request):
             'PAID': 0,
             'PARTIAL': 0,
             'PENDING': 0,
+            'DUE_TODAY': 0,
             'OVERDUE': 0,
             'POSTED': 0,
         }

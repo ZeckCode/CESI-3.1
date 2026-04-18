@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "./useAuth";
 import { API_BASE_URL } from "../../config/api.js";
 import "../AuthCSS/Login.css";
@@ -11,7 +11,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [toasts, setToasts] = useState([]);
-  const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
   const from = location.state?.from?.pathname;
@@ -49,16 +48,19 @@ export default function Login() {
 
       login({ user: data.user, token: data.token });
 
-      if (from) {
-        navigate(from, { replace: true });
-        return;
-      }
-
       const normalizedRole = data?.user?.role?.toLowerCase();
-      if (normalizedRole === "admin") navigate("/admin", { replace: true });
-      else if (normalizedRole === "teacher") navigate("/teacher", { replace: true });
-      else if (normalizedRole === "parent_student") navigate("/student", { replace: true });
-      else navigate("/", { replace: true });
+      const destination = from
+        ? from
+        : normalizedRole === "admin"
+          ? "/admin"
+          : normalizedRole === "teacher"
+            ? "/teacher"
+            : normalizedRole === "parent_student"
+              ? "/student"
+              : "/";
+
+      // Force a full reload after login so route-scoped widgets are reinitialized cleanly.
+      window.location.replace(destination);
 
     } catch (err) {
       setError("Login failed. Please try again.");

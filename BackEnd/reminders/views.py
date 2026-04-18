@@ -238,7 +238,7 @@ def can_send_reminder_for_transaction(transaction):
     Check if a transaction is eligible to receive a payment reminder.
     Requirements:
     1. Must be a DEBIT entry
-    2. Status must be PENDING, OVERDUE, or PARTIAL (not PAID)
+    2. Status must be PENDING, DUE_TODAY, OVERDUE, or PARTIAL (not PAID)
     3. Must have outstanding balance (debit > credit)
     4. Due date must be <= today
     """
@@ -254,9 +254,24 @@ def can_send_reminder_for_transaction(transaction):
     if tx_item not in BILLING_DEBIT_ITEMS:
         return False
     
-    # Status must be PENDING, OVERDUE, or PARTIAL
+    # Compute effective status from due_date so due-today rows can be handled explicitly.
     status = str(getattr(transaction, "status", "") or "").upper()
-    if status not in ["PENDING", "OVERDUE", "PARTIAL"]:
+    due_date = getattr(transaction, "due_date", None)
+    from datetime import date as date_class
+    try:
+        if due_date:
+            due_date_obj = due_date if isinstance(due_date, date_class) else date_class.fromisoformat(str(due_date))
+            today = date_class.today()
+            if status == "PENDING":
+                if due_date_obj == today:
+                    status = "DUE_TODAY"
+                elif due_date_obj < today:
+                    status = "OVERDUE"
+    except (ValueError, TypeError):
+        pass
+    
+    # Status must be reminder-eligible.
+    if status not in ["PENDING", "DUE_TODAY", "OVERDUE", "PARTIAL"]:
         return False
     
     # Must have outstanding balance
@@ -271,7 +286,6 @@ def can_send_reminder_for_transaction(transaction):
     if not due_date:
         return False
     
-    from datetime import date as date_class
     try:
         due_date_obj = due_date if isinstance(due_date, date_class) else date_class.fromisoformat(str(due_date))
         today = date_class.today()
@@ -310,7 +324,7 @@ def _resolve_best_reminder_target(transaction, today):
                 entry_type="DEBIT",
                 due_date__isnull=False,
                 parent__isnull=False,
-                status__in=["PENDING", "OVERDUE", "PARTIAL"],
+                status__in=["PENDING", "DUE_TODAY", "OVERDUE", "PARTIAL"],
             )
             .order_by("due_date", "id")
         )
@@ -323,7 +337,7 @@ def _resolve_best_reminder_target(transaction, today):
             student_name=transaction.student_name,
             entry_type="DEBIT",
             due_date__isnull=False,
-            status__in=["PENDING", "OVERDUE", "PARTIAL"],
+            status__in=["PENDING", "DUE_TODAY", "OVERDUE", "PARTIAL"],
         )
         .order_by("due_date", "id")
     )
@@ -434,7 +448,7 @@ def send_upcoming_payment_due_reminders(*, days_before=7, sender=None, target_da
             due_date__isnull=False,
             transaction_type="TUITION",
             parent__isnull=False,
-            status__in=["PENDING", "OVERDUE", "PARTIAL"],
+            status__in=["PENDING", "DUE_TODAY", "OVERDUE", "PARTIAL"],
         )
         .exclude(status="PAID")
         .order_by("due_date", "id")
@@ -571,6 +585,12 @@ def _build_payment_reminder_email_message(
             "Our records indicate that this account is already overdue.",
             "Kindly settle the outstanding balance at the soonest possible time.",
         ])
+    elif status_text == "DUE_TODAY":
+        lines.extend([
+            "",
+            "This account is due today.",
+            "Kindly settle the outstanding balance today to avoid being marked overdue.",
+        ])
     else:
         lines.extend([
             "",
@@ -609,6 +629,9 @@ def _resolve_payment_notice_type(transaction, today=None):
     today = today or timezone.localdate()
     due_date = getattr(transaction, "due_date", None)
     status_upper = str(getattr(transaction, "status", "") or "").upper()
+
+    if status_upper == "DUE_TODAY" or (due_date and due_date == today):
+        return "PAYMENT_DUE", "DUE_TODAY", "Due Today"
 
     if status_upper == "OVERDUE" or (due_date and due_date < today):
         return "PAYMENT_OVERDUE", "OVERDUE", "Overdue"
@@ -958,6 +981,12 @@ def send_payment_reminder(request, transaction_id):
 
     recipient = transaction.parent
     
+    # Ensure transaction status is up-to-date before eligibility check
+    if transaction.enrollment_id:
+        recompute_transaction_statuses_for_enrollment(transaction.enrollment)
+        # Refresh from DB to get updated status
+        transaction.refresh_from_db()
+    
     # Check if transaction is eligible for reminder
     if not can_send_reminder_for_transaction(transaction):
         outstanding_balance = _compute_outstanding_balance(transaction)
@@ -981,9 +1010,9 @@ def send_payment_reminder(request, transaction_id):
                 {"detail": "This transaction has no outstanding balance."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        elif tx_status not in ["PENDING", "OVERDUE", "PARTIAL"]:
+        elif tx_status not in ["PENDING", "DUE_TODAY", "OVERDUE", "PARTIAL"]:
             return Response(
-                {"detail": f"Cannot send reminder for {tx_status} status. Only PENDING, OVERDUE, and PARTIAL transactions can receive reminders."},
+                {"detail": f"Cannot send reminder for {tx_status} status. Only PENDING, DUE_TODAY, OVERDUE, and PARTIAL transactions can receive reminders."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         else:
@@ -1003,6 +1032,11 @@ def send_payment_reminder(request, transaction_id):
         body = (
             "This is from Caloocan Evangelical School Inc. to inform you that your student's "
             "account has not yet been fully settled."
+        )
+    elif status_value == "DUE_TODAY":
+        body = (
+            "This is from Caloocan Evangelical School Inc. to remind you that your student's "
+            "account is due today."
         )
     elif due_date and due_date > today:
         body = (
@@ -1097,7 +1131,7 @@ def send_bulk_payment_reminders(request):
     transactions = Transaction.objects.select_related("parent", "enrollment").filter(
         entry_type="DEBIT",
         parent__isnull=False,
-        status__in=["PENDING", "OVERDUE", "PARTIAL"],
+        status__in=["PENDING", "DUE_TODAY", "OVERDUE", "PARTIAL"],
         due_date__isnull=False,
         due_date__lte=today,
     )
@@ -1182,6 +1216,11 @@ def send_bulk_payment_reminders(request):
                 body = (
                     "This is from Caloocan Evangelical School Inc. to inform you that your student's "
                     f"{transaction_type} account has not yet been fully settled."
+                )
+            elif status_value == "DUE_TODAY":
+                body = (
+                    "This is from Caloocan Evangelical School Inc. to remind you that your student's "
+                    f"{transaction_type} account is due today."
                 )
             else:
                 body = (
