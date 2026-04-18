@@ -261,7 +261,7 @@ def can_send_reminder_for_transaction(transaction):
     try:
         if due_date:
             due_date_obj = due_date if isinstance(due_date, date_class) else date_class.fromisoformat(str(due_date))
-            today = date_class.today()
+            today = timezone.localdate()
             if status == "PENDING":
                 if due_date_obj == today:
                     status = "DUE_TODAY"
@@ -288,7 +288,7 @@ def can_send_reminder_for_transaction(transaction):
     
     try:
         due_date_obj = due_date if isinstance(due_date, date_class) else date_class.fromisoformat(str(due_date))
-        today = date_class.today()
+        today = timezone.localdate()
         if due_date_obj > today:
             return False
     except (ValueError, TypeError):

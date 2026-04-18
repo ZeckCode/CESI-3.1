@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
+from django.utils import timezone
 
 from .models import Transaction
 
@@ -83,7 +84,7 @@ def recompute_transaction_statuses_for_enrollment(enrollment):
         'transaction_date', 'date_posted', 'id'
     )
 
-    today = date.today()
+    today = timezone.localdate()
     available_credit = Decimal('0.00')
     debit_rows = []
 

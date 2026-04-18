@@ -370,7 +370,7 @@ def compute_cash_status(total_due, total_paid):
 
 
 def compute_installment_status(total_due, total_paid, tuition, include_assessment=False):
-    today = date.today()
+    today = timezone.localdate()
 
     if total_due > 0 and total_paid >= total_due:
         return 'PAID'
@@ -854,7 +854,7 @@ def my_tuition_installments(request):
         for t in TuitionConfig.objects.filter(is_active=True, status='active')
     }
 
-    today = date.today()
+    today = timezone.localdate()
     data = []
 
     def build_allocation_rows(schedule_items, payment_rows):
