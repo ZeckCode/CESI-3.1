@@ -5,6 +5,7 @@ import { apiFetch } from "../api/apiFetch";
 import { getToken } from "../Auth/auth";
 import PreviewModal from "../PreviewModal";
 import ExcelJS from "exceljs";
+import Toast from "../Global/Toast";
 
 const API = "";
 
@@ -147,6 +148,47 @@ const Grade = () => {
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
   const [printPreviewData, setPrintPreviewData] = useState([]);
   const [gradePreviewColumns, setGradePreviewColumns] = useState([]);
+  const [toasts, setToasts] = useState([]);
+
+  const dismissToast = useCallback((toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  }, []);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 4500);
+  }, []);
+
+  const safeParseJson = useCallback(async (response) => {
+    if (!response) return null;
+    const contentType = response.headers?.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) return null;
+
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const getApiErrorMessage = useCallback((payload, fallback) => {
+    if (!payload) return fallback;
+    if (typeof payload === "string") return payload;
+    if (typeof payload.detail === "string") return payload.detail;
+    if (typeof payload.error === "string") return payload.error;
+    if (Array.isArray(payload.non_field_errors) && payload.non_field_errors.length > 0) {
+      return String(payload.non_field_errors[0]);
+    }
+
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return fallback;
+    }
+  }, []);
 
   const currentSection =
     sections.find((s) => String(s.id) === String(selectedSection)) || null;
@@ -563,15 +605,11 @@ const Grade = () => {
         body: JSON.stringify(body),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
       console.log("Create grade item response:", res.status, data);
 
       if (!res.ok) {
-        alert(
-          data?.detail ||
-            (typeof data === "object" ? JSON.stringify(data) : data) ||
-            "Failed to create grade item."
-        );
+        addToast("Create Failed", getApiErrorMessage(data, "Failed to create grade item."), "error");
         return;
       }
 
@@ -587,7 +625,7 @@ const Grade = () => {
       fetchAll();
     } catch (e) {
       console.error("Create grade item error:", e);
-      alert("Something went wrong while creating the grade item.");
+      addToast("Create Failed", "Something went wrong while creating the grade item.", "error");
     }
   };
 
@@ -600,19 +638,15 @@ const Grade = () => {
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        alert(
-          data?.detail ||
-            (typeof data === "object" ? JSON.stringify(data) : data) ||
-            "Failed to delete item."
-        );
+        const data = await safeParseJson(res);
+        addToast("Delete Failed", getApiErrorMessage(data, "Failed to delete item."), "error");
         return;
       }
 
       fetchAll();
     } catch (e) {
       console.error(e);
-      alert("Something went wrong while deleting the item.");
+      addToast("Delete Failed", "Something went wrong while deleting the item.", "error");
     }
   };
 
@@ -651,15 +685,11 @@ const Grade = () => {
         body: JSON.stringify(body),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
       console.log("Edit grade item response:", res.status, data);
 
       if (!res.ok) {
-        alert(
-          data?.detail ||
-            (typeof data === "object" ? JSON.stringify(data) : data) ||
-            "Failed to update grade item."
-        );
+        addToast("Update Failed", getApiErrorMessage(data, "Failed to update grade item."), "error");
         return;
       }
 
@@ -668,7 +698,7 @@ const Grade = () => {
       fetchAll();
     } catch (e) {
       console.error("Edit grade item error:", e);
-      alert("Something went wrong while updating the grade item.");
+      addToast("Update Failed", "Something went wrong while updating the grade item.", "error");
     }
   };
 
@@ -712,14 +742,11 @@ const Grade = () => {
         }),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
+      const previewData = data || {};
 
       if (!res.ok) {
-        alert(
-          data?.detail ||
-            (typeof data === "object" ? JSON.stringify(data) : data) ||
-            "Failed to save score."
-        );
+        addToast("Save Failed", getApiErrorMessage(data, "Failed to save score."), "error");
         return;
       }
 
@@ -729,7 +756,7 @@ const Grade = () => {
       fetchAll();
     } catch (e) {
       console.error(e);
-      alert("Something went wrong while saving the score.");
+      addToast("Save Failed", "Something went wrong while saving the score.", "error");
     }
   };
 
@@ -774,14 +801,10 @@ const Grade = () => {
         }),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
 
       if (!res.ok) {
-        alert(
-          data?.detail ||
-            (typeof data === "object" ? JSON.stringify(data) : data) ||
-            "Failed to save class standing."
-        );
+        addToast("Save Failed", getApiErrorMessage(data, "Failed to save class standing."), "error");
         return;
       }
 
@@ -791,7 +814,7 @@ const Grade = () => {
       fetchAll();
     } catch (e) {
       console.error(e);
-      alert("Something went wrong while saving class standing.");
+      addToast("Save Failed", "Something went wrong while saving class standing.", "error");
     }
   };
 
@@ -835,14 +858,10 @@ const Grade = () => {
         }
       );
 
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
 
       if (!res.ok) {
-        alert(
-          data?.detail ||
-            (typeof data === "object" ? JSON.stringify(data) : data) ||
-            "Failed to save weights."
-        );
+        addToast("Save Failed", getApiErrorMessage(data, "Failed to save weights."), "error");
         return;
       }
 
@@ -851,18 +870,18 @@ const Grade = () => {
       fetchAll();
     } catch (e) {
       console.error(e);
-      alert("Something went wrong while saving weights.");
+      addToast("Save Failed", "Something went wrong while saving weights.", "error");
     }
   };
 
   const handlePublishAcademicHistory = async () => {
     if (!currentSection) {
-      alert("Please select a section before publishing academic history.");
+      addToast("Missing Selection", "Please select a section before publishing academic history.", "warning");
       return;
     }
 
     if (!getToken()) {
-      alert("Your session has expired. Please log in again before publishing.");
+      addToast("Session Expired", "Your session has expired. Please log in again before publishing.", "error");
       return;
     }
 
@@ -873,7 +892,7 @@ const Grade = () => {
         : null);
 
     if (!schoolYearLabel) {
-      alert("Unable to determine active school year. Please check school year settings.");
+      addToast("School Year Missing", "Unable to determine active school year. Please check school year settings.", "error");
       return;
     }
 
@@ -888,7 +907,7 @@ const Grade = () => {
       });
 
       const res = await apiFetch(`${API}/api/grades/publish-history/?${params.toString()}`);
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
 
       if (!res.ok) {
         if (res.status === 401) {
@@ -898,16 +917,16 @@ const Grade = () => {
             "Server publish endpoint is out of date (POST/preview method mismatch). Redeploy backend API and clear build cache."
           );
         } else {
-          setPublishPreviewError(data?.detail || "Unable to load publish preview.");
+          setPublishPreviewError(getApiErrorMessage(data, "Unable to load publish preview."));
         }
         setShowPublishModal(false);
       } else {
-        setPublishPreviewRows(Array.isArray(data.rows) ? data.rows : []);
-        setPublishCanConfirm(!!data.can_publish);
+        setPublishPreviewRows(Array.isArray(previewData.rows) ? previewData.rows : []);
+        setPublishCanConfirm(!!previewData.can_publish);
         setShowPublishModal(true);
-        if (!data.can_publish) {
+        if (!previewData.can_publish) {
           setPublishPreviewError(
-            `There are ${data.incomplete_count || 0} student(s) with incomplete grades (cannot publish).`
+            `There are ${previewData.incomplete_count || 0} student(s) with incomplete grades (cannot publish).`
           );
         }
       }
@@ -925,7 +944,7 @@ const Grade = () => {
     }
 
     if (!getToken()) {
-      alert("Your session has expired. Please log in again before publishing.");
+      addToast("Session Expired", "Your session has expired. Please log in again before publishing.", "error");
       return;
     }
 
@@ -950,25 +969,33 @@ const Grade = () => {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
+      const publishData = data || {};
       if (!res.ok) {
         if (res.status === 401) {
-          alert("Session expired. Please log in again and retry publish.");
+          addToast("Session Expired", "Session expired. Please log in again and retry publish.", "error");
         } else if (res.status === 405) {
-          alert(
-            "Publish method is not enabled on the deployed backend. Redeploy backend API and clear build cache."
+          addToast(
+            "Publish Unsupported",
+            "Publish method is not enabled on the deployed backend. Redeploy backend API and clear build cache.",
+            "error"
           );
         } else {
-          alert(data?.detail || "Failed to publish academic history. Please check logs and validate all fields.");
+          addToast(
+            "Publish Failed",
+            getApiErrorMessage(data, "Failed to publish academic history. Please check logs and validate all fields."),
+            "error"
+          );
         }
       } else {
         setPublishMessage(
-          `Published: ${data.published || 0}, Updated: ${data.updated || 0}, Total: ${data.total || 0}, Students: ${data.student_count || data.total || 0}`
+          `Published: ${publishData.published || 0}, Updated: ${publishData.updated || 0}, Total: ${publishData.total || 0}, Students: ${publishData.student_count || publishData.total || 0}`
         );
+        addToast("Published", "Academic history published successfully.", "success");
       }
     } catch (e) {
       console.error("Publish academic history error:", e);
-      alert("Something went wrong when publishing academic history.");
+      addToast("Publish Failed", "Something went wrong when publishing academic history.", "error");
     } finally {
       setIsPublishing(false);
       setShowPublishModal(false);
@@ -977,12 +1004,12 @@ const Grade = () => {
 
   const handlePrintGradeSheet = () => {
     if (!currentSection || displayStudents.length === 0) {
-      alert("Please select a section with students before printing.");
+      addToast("Missing Selection", "Please select a section with students before printing.", "warning");
       return;
     }
 
     if (!selectedSubject) {
-      alert("Unable to determine subject information.");
+      addToast("Missing Subject", "Unable to determine subject information.", "warning");
       return;
     }
 
@@ -1066,7 +1093,7 @@ const Grade = () => {
       setPrintPreviewOpen(true);
     } catch (err) {
       console.error("Error in handlePrintGradeSheet:", err);
-      alert("An error occurred while preparing the grade sheet.");
+      addToast("Print Failed", "An error occurred while preparing the grade sheet.", "error");
     }
   };
 
@@ -1140,10 +1167,10 @@ const Grade = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      alert('✓ Grade sheet downloaded successfully!');
+      addToast("Download Complete", "Grade sheet downloaded successfully.", "success");
     } catch (err) {
       console.error('Error downloading Excel:', err);
-      alert('Failed to download grade sheet. Please try again.');
+      addToast("Download Failed", "Failed to download grade sheet. Please try again.", "error");
     }
   };
 
@@ -1890,6 +1917,7 @@ const Grade = () => {
         filename={`Grade-Sheet-${selectedSubject?.name || "N/A"}-${currentSection?.name || "N/A"}`}
         onDownloadExcel={handleDownloadGradeExcel}
       />
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };

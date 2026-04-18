@@ -31,6 +31,18 @@ const statusPillStyle = (status) => {
   return { background: "#e2e8f0", color: "#334155" };
 };
 
+const parseResponseJson = async (response) => {
+  if (!response) return null;
+  const contentType = response.headers?.get("content-type") || "";
+  if (!contentType.toLowerCase().includes("application/json")) return null;
+
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
 export default function ProofOfPayment() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -188,10 +200,10 @@ export default function ProofOfPayment() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await parseResponseJson(response);
         throw new Error(
-          errorData.detail ||
-            errorData.message ||
+          errorData?.detail ||
+            errorData?.message ||
             "Failed to submit payment proof"
         );
       }

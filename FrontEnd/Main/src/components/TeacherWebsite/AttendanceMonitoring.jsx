@@ -6,6 +6,7 @@ import jsPDF from "jspdf";
 import "../TeacherWebsiteCSS/AttendanceMonitoring.css";
 import { apiFetch } from "../api/apiFetch";
 import PreviewModal from "../PreviewModal";
+import Toast from "../Global/Toast";
 
 const API = "";
 
@@ -165,6 +166,44 @@ const AttendanceMonitoring = () => {
   const [attendancePreviewOpen, setAttendancePreviewOpen] = useState(false);
   const [attendancePreviewData, setAttendancePreviewData] = useState([]);
   const [monthlyPreviewContent, setMonthlyPreviewContent] = useState(null);
+  const [toasts, setToasts] = useState([]);
+
+  const dismissToast = useCallback((toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  }, []);
+
+  const pushToast = useCallback((title, message, type = "warning") => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 4500);
+  }, []);
+
+  const safeParseJson = useCallback(async (response) => {
+    if (!response) return null;
+    const contentType = response.headers?.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) return null;
+
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const getApiErrorMessage = useCallback((payload, fallback) => {
+    if (!payload) return fallback;
+    if (typeof payload === "string") return payload;
+    if (typeof payload.detail === "string") return payload.detail;
+    if (typeof payload.error === "string") return payload.error;
+
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return fallback;
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -339,7 +378,7 @@ const AttendanceMonitoring = () => {
       if (selectedSchedule) url += `&schedule=${selectedSchedule}`;
       const res = await apiFetch(url);
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeParseJson(res);
         setHistoryRows(Array.isArray(data) ? data : []);
       } else {
         setHistoryRows([]);
@@ -380,7 +419,7 @@ const AttendanceMonitoring = () => {
       const res = await apiFetch(url);
       if (!res.ok) return { existingRecords: [], recordMap: {} };
 
-      const existingData = await res.json();
+      const existingData = await safeParseJson(res);
       const existingRecords = Array.isArray(existingData)
         ? existingData
         : Array.isArray(existingData?.results)
@@ -552,7 +591,7 @@ const AttendanceMonitoring = () => {
         });
 
         if (res.ok) {
-          const result = await res.json();
+          const result = (await safeParseJson(res)) || {};
           console.debug("bulk_update result", result);
           const updated = Number(result?.updated || updates.length);
           const skipped = Number(result?.skipped ?? skippedCount);
@@ -565,8 +604,8 @@ const AttendanceMonitoring = () => {
           await fetchStudentsAndAttendance();
           if (showHistory) fetchHistory();
         } else {
-          const err = await res.json().catch(() => ({}));
-          const detail = err?.detail || err?.error || "Failed to update attendance";
+          const err = await safeParseJson(res);
+          const detail = getApiErrorMessage(err, "Failed to update attendance");
           if (res.status === 401) {
             setMessage({
               type: "error",
@@ -584,7 +623,7 @@ const AttendanceMonitoring = () => {
         });
 
         if (res.ok) {
-          const result = await res.json();
+          const result = (await safeParseJson(res)) || {};
           console.debug("bulk_upsert save result", result);
           const created = Number(result?.created || 0);
           const updated = Number(result?.updated || 0);
@@ -593,8 +632,8 @@ const AttendanceMonitoring = () => {
           await fetchStudentsAndAttendance();
           if (showHistory) fetchHistory();
         } else {
-          const err = await res.json().catch(() => ({}));
-          const detail = err?.detail || err?.error || "Failed to save attendance";
+          const err = await safeParseJson(res);
+          const detail = getApiErrorMessage(err, "Failed to save attendance");
           if (res.status === 401) {
             setMessage({
               type: "error",
@@ -1088,10 +1127,10 @@ const AttendanceMonitoring = () => {
       link.click();
       URL.revokeObjectURL(url);
 
-      alert('✓ Attendance report downloaded successfully!');
+      pushToast("Download Complete", "Attendance report downloaded successfully.", "success");
     } catch (err) {
       console.error("Error downloading attendance Excel:", err);
-      alert('Failed to download attendance report. Please try again.');
+      pushToast("Download Failed", "Failed to download attendance report. Please try again.", "error");
       throw err;
     }
   };
@@ -1428,10 +1467,10 @@ const AttendanceMonitoring = () => {
       // Save PDF
       pdf.save(`Monthly-Attendance-${currentSection?.name || "N/A"}_${timestamp}.pdf`);
 
-      alert('✓ PDF report downloaded successfully!');
+      pushToast("Download Complete", "PDF report downloaded successfully.", "success");
     } catch (err) {
       console.error("Error downloading attendance PDF:", err);
-      alert("Failed to download PDF file. Please try again.");
+      pushToast("Download Failed", "Failed to download PDF file. Please try again.", "error");
       throw err;
     }
   };
@@ -1801,6 +1840,7 @@ const AttendanceMonitoring = () => {
         onDownloadExcel={handleDownloadAttendanceExcel}
         onDownloadPDF={handleDownloadAttendancePDF}
       />
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };

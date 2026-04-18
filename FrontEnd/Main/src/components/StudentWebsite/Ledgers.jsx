@@ -3,6 +3,7 @@
   import { apiFetch } from "../api/apiFetch";
   import Pagination from "./Pagination";
   import PreviewModal from "../PreviewModal";
+  import Toast from "../Global/Toast";
   import ExcelJS from 'exceljs';
   import jsPDF from 'jspdf';
   import 'jspdf-autotable';
@@ -155,6 +156,31 @@
     return raw.replace(/\s+/g, "");
   };
 
+  const parseResponseJson = async (response) => {
+    if (!response) return null;
+    const contentType = response.headers?.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) return null;
+
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  };
+
+  const getApiErrorMessage = (payload, fallback) => {
+    if (!payload) return fallback;
+    if (typeof payload === "string") return payload;
+    if (typeof payload.detail === "string") return payload.detail;
+    if (typeof payload.error === "string") return payload.error;
+
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return fallback;
+    }
+  };
+
   export default function Ledgers() {
     const [transactions, setTransactions] = useState([]);
     const [summary, setSummary] = useState(null);
@@ -171,6 +197,7 @@
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [requestSubmitting, setRequestSubmitting] = useState(false);
     const [requestError, setRequestError] = useState("");
+    const [toasts, setToasts] = useState([]);
     const [selectedRequestGroup, setSelectedRequestGroup] = useState(null);
     const [assessmentByGrade, setAssessmentByGrade] = useState({});
     const [requestForm, setRequestForm] = useState({
@@ -179,6 +206,18 @@
       reason: "",
       enrollment: "",
     });
+
+    const dismissToast = (toastId) => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+    };
+
+    const pushToast = (title, message, type = "warning") => {
+      const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      setToasts((prev) => [...prev, { id, title, message, type }]);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((toast) => toast.id !== id));
+      }, 4500);
+    };
 
     useEffect(() => {
       const fetchData = async () => {
@@ -639,12 +678,12 @@
           }),
         });
 
-        const data = await res.json().catch(() => ({}));
+        const data = await parseResponseJson(res);
         if (!res.ok) {
-          throw new Error(data.detail || "Failed to submit request.");
+          throw new Error(getApiErrorMessage(data, "Failed to submit request."));
         }
 
-        alert("Request submitted successfully.");
+        pushToast("Request Submitted", "Request submitted successfully.", "success");
         setShowRequestModal(false);
         setSelectedRequestGroup(null);
       } catch (err) {
@@ -762,7 +801,7 @@
           link.click();
           document.body.removeChild(link);
           URL.revokeObjectURL(url);
-          alert("✓ Excel file downloaded successfully!");
+          pushToast("Download Complete", "Excel file downloaded successfully.", "success");
         } else if (viewMode === "installments") {
           // Export Tuition Installment Schedule
           const workbook = new ExcelJS.Workbook();
@@ -887,11 +926,11 @@
           link.click();
           document.body.removeChild(link);
           URL.revokeObjectURL(url);
-          alert("✓ Excel file downloaded successfully!");
+          pushToast("Download Complete", "Excel file downloaded successfully.", "success");
         }
       } catch (err) {
         console.error("Error downloading Excel:", err);
-        alert("Failed to download Excel file. Please try again.");
+        pushToast("Download Failed", "Failed to download Excel file. Please try again.", "error");
       }
     };
 
@@ -1058,7 +1097,7 @@
           doc.text(`Page ${pageNum}`, pageWidth - margin - 10, pageHeight - 5);
           
           doc.save(`Ledger_${dateOnly}.pdf`);
-          alert("✓ PDF file downloaded successfully!");
+          pushToast("Download Complete", "PDF file downloaded successfully.", "success");
         } else if (viewMode === "installments") {
           // Generate Tuition Installment Schedule PDF
           const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
@@ -1217,11 +1256,11 @@
           doc.text(`Page ${pageNum}`, pageWidth - margin - 10, pageHeight - 5);
           
           doc.save(`Tuition_Installments_${dateOnly}.pdf`);
-          alert("✓ PDF file downloaded successfully!");
+          pushToast("Download Complete", "PDF file downloaded successfully.", "success");
         }
       } catch (err) {
         console.error("Error downloading PDF:", err);
-        alert("Failed to download PDF file. Please try again.");
+        pushToast("Download Failed", "Failed to download PDF file. Please try again.", "error");
       }
     };
 
@@ -2401,6 +2440,7 @@
             </div>
           }
         />
+        <Toast toasts={toasts} onDismiss={dismissToast} />
       </div>
     );
   }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { List, Calendar, BookOpen, Users, Clock, MapPin, Download, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
@@ -6,6 +6,7 @@ import jsPDF from "jspdf";
 import "../TeacherWebsiteCSS/TeacherClassSchedule.css";
 import { apiFetch } from "../api/apiFetch";
 import PreviewModal from "../PreviewModal";
+import Toast from "../Global/Toast";
 
 const API = "";
 
@@ -125,7 +126,20 @@ const TeacherClassSchedule = () => {
   const [schoolYear, setSchoolYear] = useState(null);
   const [schedulePreviewOpen, setSchedulePreviewOpen] = useState(false);
   const [schedulePreviewData, setSchedulePreviewData] = useState(null);
+  const [toasts, setToasts] = useState([]);
   const printRef = useRef(null);
+
+  const dismissToast = useCallback((toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  }, []);
+
+  const pushToast = useCallback((title, message, type = "warning") => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 4500);
+  }, []);
 
   // Fetch schedules + sections on mount
   useEffect(() => {
@@ -459,10 +473,10 @@ const TeacherClassSchedule = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      alert('✓ Schedule downloaded successfully!');
+      pushToast("Download Complete", "Schedule downloaded successfully.", "success");
     } catch (err) {
       console.error('Error downloading Excel:', err);
-      alert('Failed to download schedule. Please try again.');
+      pushToast("Download Failed", "Failed to download schedule. Please try again.", "error");
     }
   };
 
@@ -639,10 +653,10 @@ const TeacherClassSchedule = () => {
       const timestamp = new Date().toISOString().slice(0, 10);
       doc.save(`Class-Schedule_${timestamp}.pdf`);
 
-      alert('✓ PDF downloaded successfully!');
+      pushToast("Download Complete", "PDF downloaded successfully.", "success");
     } catch (err) {
       console.error('Error downloading PDF:', err);
-      alert('Failed to download PDF. Please try again.');
+      pushToast("Download Failed", "Failed to download PDF. Please try again.", "error");
     }
   };
 
@@ -858,6 +872,7 @@ const TeacherClassSchedule = () => {
         onDownloadPDF={handleDownloadSchedulePDF}
         filename="Class-Schedule"
       />
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };

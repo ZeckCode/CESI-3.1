@@ -166,6 +166,18 @@ const SPerformance = () => {
     }, 4500);
   }, []);
 
+  const safeParseJson = useCallback(async (response) => {
+    if (!response) return null;
+    const contentType = response.headers?.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) return null;
+
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -246,7 +258,7 @@ const SPerformance = () => {
         }
         setPerformanceData(unique);
       } else {
-        const errPayload = await res.json().catch(() => ({}));
+        const errPayload = (await safeParseJson(res)) || {};
         console.warn("SPerformance fetch failed", {
           status: res.status,
           error_code: errPayload?.error_code,
@@ -293,15 +305,23 @@ const SPerformance = () => {
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = (await safeParseJson(res)) || {};
       if (!res.ok) {
         throw new Error(data.detail || "Failed to send performance reminder.");
       }
 
-      alert(data.detail || `Performance reminder sent for ${student.student_name}.`);
+      pushToast({
+        type: "success",
+        title: "Reminder Sent",
+        message: data.detail || `Performance reminder sent for ${student.student_name}.`,
+      });
     } catch (e) {
       console.error(e);
-      alert(e.message || "Failed to send performance reminder.");
+      pushToast({
+        type: "error",
+        title: "Reminder Failed",
+        message: e.message || "Failed to send performance reminder.",
+      });
     } finally {
       setSendingReminderId(null);
     }
@@ -326,7 +346,7 @@ const SPerformance = () => {
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = (await safeParseJson(res)) || {};
       if (!res.ok) {
         throw new Error(data.detail || "Failed to send star notification.");
       }

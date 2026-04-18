@@ -27,6 +27,18 @@ const normalizeReminderPayload = (payload) => {
   return [];
 };
 
+const parseResponseJson = async (response) => {
+  if (!response) return null;
+  const contentType = response.headers?.get("content-type") || "";
+  if (!contentType.toLowerCase().includes("application/json")) return null;
+
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
 const getReadOverrides = () => {
   try {
     const raw = localStorage.getItem(READ_OVERRIDES_KEY);
@@ -100,6 +112,27 @@ export default function StudentMain() {
     return () => window.removeEventListener("resize", syncSidebarCollapsed);
   }, []);
 
+  // Load Botpress Chatbot for Students Only
+  useEffect(() => {
+    // Load Botpress inject script
+    const script1 = document.createElement("script");
+    script1.src = "https://cdn.botpress.cloud/webchat/v3.6/inject.js";
+    script1.async = true;
+    document.body.appendChild(script1);
+
+    // Load Botpress config script
+    const script2 = document.createElement("script");
+    script2.src = "https://files.bpcontent.cloud/2026/03/26/09/20260326092557-6ZV5HUUY.js";
+    script2.defer = true;
+    document.body.appendChild(script2);
+
+    return () => {
+      // Cleanup: remove scripts when component unmounts
+      if (script1.parentNode) document.body.removeChild(script1);
+      if (script2.parentNode) document.body.removeChild(script2);
+    };
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
     let pollInterval = null;
@@ -160,7 +193,7 @@ export default function StudentMain() {
     const loadEnrollmentSettings = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/enrollment-settings/`);
-        const data = await res.json().catch(() => null);
+        const data = await parseResponseJson(res);
 
         if (!isMounted) return;
 

@@ -5,6 +5,7 @@ import jsPDF from "jspdf";
 import "../StudentWebsiteCSS/Schedule.css";
 import { apiFetch } from "../api/apiFetch";
 import PreviewModal from "../PreviewModal";
+import Toast from "../Global/Toast";
 
 // Day mapping for the calendar (backend uses 3-letter codes)
 const DAY_MAP = {
@@ -24,6 +25,31 @@ const SUBJECT_COLORS = [
   "cat-blue", "cat-green", "cat-yellow", "cat-purple", "cat-pink", "cat-orange"
 ];
 
+const parseResponseJson = async (response) => {
+  if (!response) return null;
+  const contentType = response.headers?.get("content-type") || "";
+  if (!contentType.toLowerCase().includes("application/json")) return null;
+
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
+const getApiErrorMessage = (payload, fallback) => {
+  if (!payload) return fallback;
+  if (typeof payload === "string") return payload;
+  if (typeof payload.detail === "string") return payload.detail;
+  if (typeof payload.error === "string") return payload.error;
+
+  try {
+    return JSON.stringify(payload);
+  } catch {
+    return fallback;
+  }
+};
+
 const Schedule = () => {
   const [view, setView] = useState("calendar");
   const [schedules, setSchedules] = useState([]);
@@ -31,17 +57,34 @@ const Schedule = () => {
   const [error, setError] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState([]);
+  const [toasts, setToasts] = useState([]);
+
+  const dismissToast = (toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  };
+
+  const pushToast = (title, message, type = "warning") => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 4500);
+  };
 
   useEffect(() => {
     const fetchSchedule = async () => {
       try {
         const res = await apiFetch("/api/classmanagement/schedules/my/");
-        if (!res.ok) throw new Error("Failed to load schedule");
-        const data = await res.json();
+        if (!res.ok) {
+          const errPayload = await parseResponseJson(res);
+          throw new Error(getApiErrorMessage(errPayload, "Failed to load schedule"));
+        }
+        const data = await parseResponseJson(res);
         setSchedules(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Schedule fetch error:", err);
         setError(err.message);
+        pushToast("Load Failed", err.message || "Failed to load schedule.", "error");
       } finally {
         setLoading(false);
       }
@@ -215,107 +258,113 @@ const Schedule = () => {
   };
 
   const handleDownloadScheduleExcel = async () => {
-    // Build grid structure
-    const gridBySlot = {};
-    scheduleData.forEach((sched) => {
-      if (!gridBySlot[sched.startTime]) {
-        gridBySlot[sched.startTime] = {};
-      }
-      if (!gridBySlot[sched.startTime][sched.day]) {
-        gridBySlot[sched.startTime][sched.day] = [];
-      }
-      gridBySlot[sched.startTime][sched.day].push(sched);
-    });
-
-    // Sort time slots
-    const sortedTimeSlots = Object.keys(gridBySlot).sort(
-      (a, b) => {
-        const [aH, aM] = a.split(':').map(Number);
-        const [bH, bM] = b.split(':').map(Number);
-        return aH * 60 + aM - (bH * 60 + bM);
-      }
-    );
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Schedule");
-
-    // Add header row with days
-    const headerRow = worksheet.addRow(['Time', ...DAY_ORDER]);
-    headerRow.eachCell((cell) => {
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } };
-      cell.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
-    });
-    headerRow.height = 25;
-
-    // Add data rows
-    sortedTimeSlots.forEach((timeSlot) => {
-      // Get end time from first schedule at this time slot
-      let endTime = timeSlot;
-      for (const day of DAY_ORDER) {
-        const daySchedules = gridBySlot[timeSlot][day] || [];
-        if (daySchedules.length > 0) {
-          endTime = daySchedules[0].endTime;
-          break;
+    try {
+      // Build grid structure
+      const gridBySlot = {};
+      scheduleData.forEach((sched) => {
+        if (!gridBySlot[sched.startTime]) {
+          gridBySlot[sched.startTime] = {};
         }
-      }
-
-      const rowData = [`${formatTime(timeSlot)} - ${formatTime(endTime)}`];
-      
-      DAY_ORDER.forEach((day) => {
-        const daySchedules = gridBySlot[timeSlot][day] || [];
-        const cellContent = daySchedules
-          .map((sched) => sched.teacher ? `${sched.subject}\n${sched.teacher}` : sched.subject)
-          .join('\n\n');
-        rowData.push(cellContent || '');
+        if (!gridBySlot[sched.startTime][sched.day]) {
+          gridBySlot[sched.startTime][sched.day] = [];
+        }
+        gridBySlot[sched.startTime][sched.day].push(sched);
       });
 
-      const dataRow = worksheet.addRow(rowData);
-      dataRow.eachCell((cell, colNumber) => {
-        cell.alignment = { horizontal: 'center', vertical: 'top', wrapText: true };
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FFcccccc' } },
-          left: { style: 'thin', color: { argb: 'FFcccccc' } },
-          bottom: { style: 'thin', color: { argb: 'FFcccccc' } },
-          right: { style: 'thin', color: { argb: 'FFcccccc' } },
-        };
-        
-        if (colNumber === 1) {
-          cell.font = { bold: true, size: 11 };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
-        } else if (colNumber > 1) {
-          cell.font = { bold: false, size: 11 };
+      // Sort time slots
+      const sortedTimeSlots = Object.keys(gridBySlot).sort(
+        (a, b) => {
+          const [aH, aM] = a.split(':').map(Number);
+          const [bH, bM] = b.split(':').map(Number);
+          return aH * 60 + aM - (bH * 60 + bM);
         }
+      );
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Schedule");
+
+      // Add header row with days
+      const headerRow = worksheet.addRow(['Time', ...DAY_ORDER]);
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } };
+        cell.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
       });
-      
-      dataRow.height = 58;
-    });
+      headerRow.height = 25;
 
-    // Set column widths
-    worksheet.columns = [
-      { width: 20 },
-      { width: 25 },
-      { width: 25 },
-      { width: 25 },
-      { width: 25 },
-      { width: 25 },
-    ];
+      // Add data rows
+      sortedTimeSlots.forEach((timeSlot) => {
+        // Get end time from first schedule at this time slot
+        let endTime = timeSlot;
+        for (const day of DAY_ORDER) {
+          const daySchedules = gridBySlot[timeSlot][day] || [];
+          if (daySchedules.length > 0) {
+            endTime = daySchedules[0].endTime;
+            break;
+          }
+        }
 
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Schedule-${new Date().toISOString().slice(0, 10)}.xlsx`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+        const rowData = [`${formatTime(timeSlot)} - ${formatTime(endTime)}`];
 
-    alert('✓ Schedule downloaded successfully!');
+        DAY_ORDER.forEach((day) => {
+          const daySchedules = gridBySlot[timeSlot][day] || [];
+          const cellContent = daySchedules
+            .map((sched) => sched.teacher ? `${sched.subject}\n${sched.teacher}` : sched.subject)
+            .join('\n\n');
+          rowData.push(cellContent || '');
+        });
+
+        const dataRow = worksheet.addRow(rowData);
+        dataRow.eachCell((cell, colNumber) => {
+          cell.alignment = { horizontal: 'center', vertical: 'top', wrapText: true };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFcccccc' } },
+            left: { style: 'thin', color: { argb: 'FFcccccc' } },
+            bottom: { style: 'thin', color: { argb: 'FFcccccc' } },
+            right: { style: 'thin', color: { argb: 'FFcccccc' } },
+          };
+
+          if (colNumber === 1) {
+            cell.font = { bold: true, size: 11 };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+          } else if (colNumber > 1) {
+            cell.font = { bold: false, size: 11 };
+          }
+        });
+
+        dataRow.height = 58;
+      });
+
+      // Set column widths
+      worksheet.columns = [
+        { width: 20 },
+        { width: 25 },
+        { width: 25 },
+        { width: 25 },
+        { width: 25 },
+        { width: 25 },
+      ];
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Schedule-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      pushToast("Download Complete", "Schedule downloaded successfully.", "success");
+    } catch (err) {
+      console.error("Error downloading schedule Excel:", err);
+      pushToast("Download Failed", "Failed to download schedule. Please try again.", "error");
+    }
   };
 
 const handleDownloadSchedulePDF = () => {
+  try {
   const pdf = new jsPDF('l', 'mm', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
@@ -499,7 +548,11 @@ const handleDownloadSchedulePDF = () => {
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
 
-  alert('✓ PDF schedule downloaded successfully!');
+  pushToast("Download Complete", "PDF schedule downloaded successfully.", "success");
+  } catch (err) {
+    console.error("Error downloading schedule PDF:", err);
+    pushToast("Download Failed", "Failed to download PDF schedule. Please try again.", "error");
+  }
 };
 
   return (
@@ -678,6 +731,7 @@ const handleDownloadSchedulePDF = () => {
         onDownloadExcel={handleDownloadScheduleExcel}
         onDownloadPDF={handleDownloadSchedulePDF}
       />
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </main>
   );
 };
