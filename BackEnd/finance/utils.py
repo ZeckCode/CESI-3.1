@@ -164,16 +164,16 @@ def recompute_transaction_statuses_for_enrollment(enrollment):
 
         if available_credit <= 0:
             if is_billing_debit:
-                # Only mark OVERDUE if there's an explicit due_date that has passed.
-                desired_status = 'OVERDUE' if (row.due_date and row.due_date < today) else 'PENDING'
+                # Only mark OVERDUE if there's an explicit due_date that has passed or is today.
+                desired_status = 'OVERDUE' if (row.due_date and row.due_date <= today) else 'PENDING'
             else:
                 desired_status = row.status or 'POSTED'
         elif available_credit >= debit_amount:
             desired_status = 'PAID'
             available_credit = normalize_money(available_credit - debit_amount)
         else:
-            # Only mark OVERDUE if there's an explicit due_date that has passed.
-            if is_billing_debit and row.due_date and row.due_date < today:
+            # Only mark OVERDUE if there's an explicit due_date that has passed or is today.
+            if is_billing_debit and row.due_date and row.due_date <= today:
                 desired_status = 'OVERDUE'
             else:
                 desired_status = 'PARTIAL'
