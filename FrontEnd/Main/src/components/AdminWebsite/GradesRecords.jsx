@@ -698,7 +698,7 @@ const GradesRecords = () => {
       ? filteredHistoryGroups
       : filteredAttendanceStudents;
 
-  const skeletonColumns = activeTab === 'grades' ? 9 : activeTab === 'history' ? 6 : 7;
+  const skeletonColumns = activeTab === 'grades' ? 8 : activeTab === 'history' ? 6 : 7;
 
   const renderTableSkeletonRows = () =>
     Array.from({ length: TABLE_SKELETON_ROWS }).map((_, rowIdx) => (
@@ -1685,7 +1685,6 @@ const GradesRecords = () => {
                   <th>Graded Subjects</th>
                   <th>Average</th>
                   <th>Status</th>
-                  <th>History</th>
                   <th>Details</th>
                 </tr>
               </thead>
@@ -1726,16 +1725,6 @@ const GradesRecords = () => {
                             {student.status}
                           </span>
                         </td>
-                        <td data-label="History">
-                          <div className="gr-stack">
-                            <span>
-                              {student.history_count} record{student.history_count === 1 ? '' : 's'}
-                            </span>
-                            <span className="gr-muted">
-                              {student.latest_history_year || 'No prior year'}
-                            </span>
-                          </div>
-                        </td>
                         <td data-label="Details">
                           <button
                             className="gr-btn-icon"
@@ -1751,7 +1740,7 @@ const GradesRecords = () => {
 
                       {expanded && (
                         <tr className="gr-expand-row">
-                          <td colSpan={9}>
+                          <td colSpan={8}>
                             <div className="gr-subject-list">
                               {(student.subject_breakdown || []).map((subject) => (
                                 <div key={subject.subject_id} className="gr-subject-card">
