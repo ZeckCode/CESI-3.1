@@ -21,6 +21,23 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const script1 = document.createElement('script');
+    script1.src = 'https://cdn.botpress.cloud/webchat/v3.6/inject.js';
+    script1.async = true;
+    document.body.appendChild(script1);
+
+    const script2 = document.createElement('script');
+    script2.src = 'https://files.bpcontent.cloud/2026/03/26/09/20260326092557-6ZV5HUUY.js';
+    script2.defer = true;
+    document.body.appendChild(script2);
+
+    return () => {
+      if (script1.parentNode) document.body.removeChild(script1);
+      if (script2.parentNode) document.body.removeChild(script2);
+    };
+  }, []);
+
   const handleNotebookOpen = () => {
     if (notebookOpen || notebookTransitioning || enrollmentOpen) return;
 

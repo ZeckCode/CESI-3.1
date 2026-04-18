@@ -135,6 +135,17 @@ const isDueForReminder = (dueDate) => {
   return due <= today;
 };
 
+const isDueToday = (dueDate) => {
+  if (!dueDate) return false;
+
+  const due = new Date(`${dueDate}T00:00:00`);
+  if (Number.isNaN(due.getTime())) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return due.getTime() === today.getTime();
+};
+
 const canSendReminderForTransaction = (tx) => {
   if (!tx || tx.entry_type !== 'DEBIT') return false;
 
@@ -1989,9 +2000,16 @@ const TransactionHistory = () => {
                                         </td>
                                         <td className="th-amount-cell">{formatCurrency(tx._runningBalance)}</td>
                                         <td>
-                                          <span className={`th-status-badge th-status-${statusClass((tx._effectiveStatus || tx.status) === 'PENDING' ? 'PARTIAL' : tx._effectiveStatus || tx.status)}`}>
-                                            {(tx._effectiveStatus || tx.status) === 'PENDING' ? 'PARTIAL' : tx._effectiveStatus || tx.status}
-                                          </span>
+                                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                            <span className={`th-status-badge th-status-${statusClass((tx._effectiveStatus || tx.status) === 'PENDING' ? 'PARTIAL' : tx._effectiveStatus || tx.status)}`}>
+                                              {(tx._effectiveStatus || tx.status) === 'PENDING' ? 'PARTIAL' : tx._effectiveStatus || tx.status}
+                                            </span>
+                                            {isDueToday(tx.due_date) && (
+                                              <span className="th-status-badge th-status-duetoday" style={{ backgroundColor: '#ff9800', color: 'white' }}>
+                                                Due Today
+                                              </span>
+                                            )}
+                                          </div>
                                         </td>
                                         <td className="th-actions-cell">
                                           {canSendReminderForTransaction(tx) && (

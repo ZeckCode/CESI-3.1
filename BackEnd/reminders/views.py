@@ -676,11 +676,15 @@ def _compute_ledger_totals_for_transaction(transaction):
 
 
 def _nearest_due_transaction(transactions, today):
+    due_today = [tx for tx in transactions if tx.due_date and tx.due_date == today]
+    if due_today:
+        return min(due_today, key=lambda tx: tx.id)
+
     overdue = [tx for tx in transactions if tx.due_date and tx.due_date < today]
     if overdue:
         return max(overdue, key=lambda tx: (tx.due_date, tx.id))
 
-    upcoming = [tx for tx in transactions if tx.due_date and tx.due_date >= today]
+    upcoming = [tx for tx in transactions if tx.due_date and tx.due_date > today]
     if upcoming:
         return min(upcoming, key=lambda tx: (tx.due_date, tx.id))
 
