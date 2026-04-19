@@ -157,32 +157,12 @@ const StepPayment = ({
 
         {form.paymentMethod === "onsite" && form.paymentMode === "cash" && (
           <div className="form-group form-group--full">
-            <label>
-              Amount <span className="required">*</span>
-            </label>
-            <input
-              ref={registerFieldRef("paymentAmount")}
-              type="text"
-              inputMode="decimal"
-              pattern="^[0-9]*[.,]?[0-9]*$"
-              value={form.paymentAmount}
-              onChange={(e) => {
-                const val = e.target.value.replace(/[^0-9.,]/g, "");
-                setForm((prev) => ({
-                  ...prev,
-                  paymentAmount: val,
-                }));
-              }}
-              placeholder={`Full payment required: ₱${formatMoney(Number(tuition?.total_cash || 0) + assessmentFee)} (tuition + assessment fee)`}
-              autoComplete="off"
-            />
             <div className="tuition-row" style={{ marginTop: 8 }}>
               <span>
-                Please pay the exact total for cash payment (tuition + assessment fee). No partial payments allowed.
+                Please prepare the exact total for cash payment (tuition + assessment fee). No partial payments allowed.
               </span>
               <strong>₱{formatMoney(Number(tuition?.total_cash || 0) + assessmentFee)}</strong>
             </div>
-            <FieldError error={errors.paymentAmount} />
           </div>
         )}
 

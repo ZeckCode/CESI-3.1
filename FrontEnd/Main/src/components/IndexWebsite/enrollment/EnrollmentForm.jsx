@@ -1,4 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+// Modal for confirmation
+function ConfirmModal({ open, onClose, onConfirm, checked, setChecked, isSubmitting }) {
+  if (!open) return null;
+  return (
+    <div className="modal-overlay" style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.3)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div className="modal-content" style={{background:'#fff',padding:32,borderRadius:8,maxWidth:400,width:'100%',boxShadow:'0 2px 16px #0002'}}>
+        <h3>Confirm Enrollment Submission</h3>
+        <p>Please review all information before submitting. You cannot edit after this step.</p>
+        <label style={{display:'flex',alignItems:'center',margin:'16px 0'}}>
+          <input type="checkbox" checked={checked} onChange={e=>setChecked(e.target.checked)} style={{marginRight:8}} />
+          I confirm that all information provided is true and correct.
+        </label>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+          <button type="button" className="secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+          <button type="button" onClick={onConfirm} disabled={!checked||isSubmitting} style={{background:'#2563eb',color:'#fff',padding:'8px 16px',border:'none',borderRadius:4}}>
+            {isSubmitting ? 'Submitting...' : 'Confirm & Submit'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../api/apiFetch";
 import Toast from "../../Global/Toast";
@@ -42,6 +64,9 @@ const EnrollmentForm = ({ onClose }) => {
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [submittedName, setSubmittedName] = useState("");
   const [toasts, setToasts] = useState([]);
+  // Confirmation modal state
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmChecked, setConfirmChecked] = useState(false);
 
   const addToast = useCallback((title, message, type = "warning") => {
     const id = Date.now() + Math.random();
@@ -360,34 +385,27 @@ const EnrollmentForm = ({ onClose }) => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Split: show modal first, then do actual submit
+  const doSubmit = async () => {
     setSubmitError("");
-
     if (form.studentType !== "new") return;
-
     if (!validateCurrentStep()) return;
-
     const liveSettings = await apiFetch("/api/enrollment-settings/")
       .then((r) => r.json())
       .catch(() => null);
-
     const liveWindow = computeEnrollmentWindow(liveSettings);
-
     if (!liveWindow.isOpen) {
       const msg = "Enrollment has already closed.";
       setSubmitError(msg);
       addToast("Enrollment Closed", msg, "error");
       return;
     }
-
     if (form.website && form.website.trim()) {
       const msg = "Invalid submission.";
       setSubmitError(msg);
       addToast("Error", msg, "error");
       return;
     }
-
     const normalizedMobile = normalizePHMobile(form.mobile);
     if (!normalizedMobile) {
       setErrors((prev) => ({
@@ -398,7 +416,6 @@ const EnrollmentForm = ({ onClose }) => {
       focusFieldError("mobile");
       return;
     }
-
     const formData = new FormData();
     formData.append("student_type", form.studentType);
     formData.append("education_level", form.educationLevel);
@@ -434,7 +451,6 @@ const EnrollmentForm = ({ onClose }) => {
       formData.append("payment_amount", form.paymentAmount);
     }
     formData.append("remarks", "");
-
     formData.append(
       "parent_info.father_name",
       buildName(form.fatherFirst, form.fatherMiddle, form.fatherLast)
@@ -444,7 +460,6 @@ const EnrollmentForm = ({ onClose }) => {
       form.fatherContact ? normalizePHMobile(form.fatherContact) || form.fatherContact : ""
     );
     formData.append("parent_info.father_occupation", form.fatherOccupation);
-
     formData.append(
       "parent_info.mother_name",
       buildName(form.motherFirst, form.motherMiddle, form.motherLast)
@@ -454,7 +469,6 @@ const EnrollmentForm = ({ onClose }) => {
       form.motherContact ? normalizePHMobile(form.motherContact) || form.motherContact : ""
     );
     formData.append("parent_info.mother_occupation", form.motherOccupation);
-
     formData.append(
       "parent_info.guardian_name",
       buildName(form.guardianFirst, form.guardianMiddle, form.guardianLast)
@@ -464,7 +478,6 @@ const EnrollmentForm = ({ onClose }) => {
       form.guardianContact ? normalizePHMobile(form.guardianContact) || form.guardianContact : ""
     );
     formData.append("parent_info.guardian_relationship", form.guardianRelationship);
-
     if (files.studentPhotoFile) formData.append("student_photo", files.studentPhotoFile);
     if (files.paymentProofFile) formData.append("payment_proof_file", files.paymentProofFile);
     if (files.form137File) formData.append("form_137_file", files.form137File);
@@ -477,22 +490,17 @@ const EnrollmentForm = ({ onClose }) => {
     if (files.otherDocumentFile) {
       formData.append("other_document_file", files.otherDocumentFile);
     }
-
     try {
       setIsSubmitting(true);
-
       const response = await apiFetch("/api/enrollments/", {
         method: "POST",
         body: formData,
       });
-
       const data = await response.json().catch(() => ({}));
-
       if (!response.ok) {
         const errorMsg = "Please review the form and try again.";
         setSubmitError(errorMsg);
         addToast("Submission Failed", errorMsg, "error");
-
         if (data && typeof data === "object") {
           const normalizedErrors = normalizeServerErrors(data);
           setErrors(normalizedErrors);
@@ -501,7 +509,6 @@ const EnrollmentForm = ({ onClose }) => {
         }
         return;
       }
-
       addToast("Success", "Enrollment submitted successfully! Check your email for confirmation.", "success");
       setSubmittedEmail(form.email);
       setSubmittedName(`${form.firstName} ${form.lastName}`);
@@ -513,6 +520,13 @@ const EnrollmentForm = ({ onClose }) => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Intercept submit to show modal
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setShowConfirmModal(true);
+    setConfirmChecked(false);
   };
 
   if (settingsLoading) {
@@ -661,6 +675,14 @@ const EnrollmentForm = ({ onClose }) => {
             <button type="submit" disabled={isSubmitting || tuitionLoading}>
               {isSubmitting ? "Submitting..." : "Submit Enrollment"}
             </button>
+            <ConfirmModal
+              open={showConfirmModal}
+              onClose={() => setShowConfirmModal(false)}
+              onConfirm={() => { setShowConfirmModal(false); doSubmit(); }}
+              checked={confirmChecked}
+              setChecked={setConfirmChecked}
+              isSubmitting={isSubmitting}
+            />
           </div>
         )}
 

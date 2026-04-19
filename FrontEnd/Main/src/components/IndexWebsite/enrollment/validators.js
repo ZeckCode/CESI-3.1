@@ -112,10 +112,12 @@ export const validateFamilyStep = ({
   motherMiddle,
   motherLast,
   motherContact,
+  motherOccupation,
   fatherFirst,
   fatherMiddle,
   fatherLast,
   fatherContact,
+  fatherOccupation,
   guardianFirst,
   guardianMiddle,
   guardianLast,
@@ -175,6 +177,9 @@ export const validateFamilyStep = ({
       ? "Mother's contact number is required."
       : "";
   }
+  if (motherHasAny && (!isFilled(motherOccupation) || motherOccupation === undefined)) {
+    errors.motherOccupation = "Mother's occupation is required.";
+  }
 
   if (fatherHasAny && !fatherComplete) {
     errors.fatherFirst = !isFilled(fatherFirst) ? "Father's first name is required." : "";
@@ -182,6 +187,9 @@ export const validateFamilyStep = ({
     errors.fatherContact = !isFilled(fatherContact)
       ? "Father's contact number is required."
       : "";
+  }
+  if (fatherHasAny && (!isFilled(fatherOccupation) || fatherOccupation === undefined)) {
+    errors.fatherOccupation = "Father's occupation is required.";
   }
 
   if (guardianHasAny && !guardianComplete) {

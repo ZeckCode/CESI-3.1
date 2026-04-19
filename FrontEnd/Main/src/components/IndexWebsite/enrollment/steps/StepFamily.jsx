@@ -91,11 +91,12 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
           <FieldError error={errors.motherContact} />
         </div>
         <div className="form-group">
-          <label>Occupation</label>
+          <label>Occupation <span className="required">*</span></label>
           <input
             value={form.motherOccupation}
             onChange={(e) => setForm((prev) => ({ ...prev, motherOccupation: e.target.value }))}
           />
+          <FieldError error={errors.motherOccupation} />
         </div>
       </div>
 
@@ -158,11 +159,12 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
           <FieldError error={errors.fatherContact} />
         </div>
         <div className="form-group">
-          <label>Occupation</label>
+          <label>Occupation <span className="required">*</span></label>
           <input
             value={form.fatherOccupation}
             onChange={(e) => setForm((prev) => ({ ...prev, fatherOccupation: e.target.value }))}
           />
+          <FieldError error={errors.fatherOccupation} />
         </div>
       </div>
 
