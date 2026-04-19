@@ -21,6 +21,51 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
   const fatherFirstRef = useRef();
   const fatherMiddleRef = useRef();
   const fatherLastRef = useRef();
+  const motherOccupationRef = useRef();
+  const fatherOccupationRef = useRef();
+  const motherContactRef = useRef();
+  const fatherContactRef = useRef();
+  const guardianFirstRef = useRef();
+  const guardianMiddleRef = useRef();
+  const guardianLastRef = useRef();
+  const guardianContactRef = useRef();
+  const guardianRelationshipRef = useRef();
+
+  // Scroll to first error field
+  const scrollToFirstError = () => {
+    const errorOrder = [
+      [errors.motherFirst, motherFirstRef],
+      [errors.motherMiddle, motherMiddleRef],
+      [errors.motherLast, motherLastRef],
+      [errors.motherContact, motherContactRef],
+      [errors.motherOccupation, motherOccupationRef],
+      [errors.fatherFirst, fatherFirstRef],
+      [errors.fatherMiddle, fatherMiddleRef],
+      [errors.fatherLast, fatherLastRef],
+      [errors.fatherContact, fatherContactRef],
+      [errors.fatherOccupation, fatherOccupationRef],
+      [errors.guardianFirst, guardianFirstRef],
+      [errors.guardianMiddle, guardianMiddleRef],
+      [errors.guardianLast, guardianLastRef],
+      [errors.guardianContact, guardianContactRef],
+      [errors.guardianRelationship, guardianRelationshipRef],
+    ];
+    for (const [err, ref] of errorOrder) {
+      if (err && ref.current) {
+        ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => ref.current.focus?.(), 200);
+        break;
+      }
+    }
+  };
+
+  const handleNext = () => {
+    if (Object.values(errors).some(Boolean)) {
+      scrollToFirstError();
+      return;
+    }
+    onNext();
+  };
 
   return (
     <div className="step-card">
@@ -76,7 +121,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Mobile Number {form.motherContact.length}/11</label>
           <input
-            ref={registerFieldRef("motherContact")}
+            ref={el => { registerFieldRef("motherContact")(el); motherContactRef.current = el; }}
             value={form.motherContact}
             onChange={(e) =>
               setForm((prev) => ({
@@ -93,6 +138,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Occupation <span className="required">*</span></label>
           <input
+            ref={motherOccupationRef}
             value={form.motherOccupation}
             onChange={(e) => setForm((prev) => ({ ...prev, motherOccupation: e.target.value }))}
           />
@@ -144,7 +190,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Mobile Number {form.fatherContact.length}/11</label>
           <input
-            ref={registerFieldRef("fatherContact")}
+            ref={el => { registerFieldRef("fatherContact")(el); fatherContactRef.current = el; }}
             value={form.fatherContact}
             onChange={(e) =>
               setForm((prev) => ({
@@ -152,7 +198,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
                 fatherContact: onlyDigits(e.target.value, 11),
               }))
             }
-               placeholder="09XXXXXXXXX"
+            placeholder="09XXXXXXXXX"
             inputMode="numeric"
           />
           {/* <div className="field-counter">{form.fatherContact.length}/11</div> */}
@@ -161,6 +207,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Occupation <span className="required">*</span></label>
           <input
+            ref={fatherOccupationRef}
             value={form.fatherOccupation}
             onChange={(e) => setForm((prev) => ({ ...prev, fatherOccupation: e.target.value }))}
           />
@@ -173,7 +220,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>First Name</label>
           <input
-            ref={registerFieldRef("guardianFirst")}
+            ref={el => { registerFieldRef("guardianFirst")(el); guardianFirstRef.current = el; }}
             value={form.guardianFirst}
             onChange={(e) => setForm((prev) => ({ ...prev, guardianFirst: e.target.value }))}
           />
@@ -182,7 +229,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Middle Name (Optional)</label>
           <input
-            ref={registerFieldRef("guardianMiddle")}
+            ref={el => { registerFieldRef("guardianMiddle")(el); guardianMiddleRef.current = el; }}
             value={form.guardianMiddle}
             onChange={(e) => setForm((prev) => ({ ...prev, guardianMiddle: e.target.value }))}
           />
@@ -191,7 +238,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Last Name</label>
           <input
-            ref={registerFieldRef("guardianLast")}
+            ref={el => { registerFieldRef("guardianLast")(el); guardianLastRef.current = el; }}
             value={form.guardianLast}
             onChange={(e) => setForm((prev) => ({ ...prev, guardianLast: e.target.value }))}
           />
@@ -200,7 +247,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Mobile Number {form.guardianContact.length}/11</label>
           <input
-            ref={registerFieldRef("guardianContact")}
+            ref={el => { registerFieldRef("guardianContact")(el); guardianContactRef.current = el; }}
             value={form.guardianContact}
             onChange={(e) =>
               setForm((prev) => ({
@@ -217,7 +264,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Relationship to Student</label>
           <input
-            ref={registerFieldRef("guardianRelationship")}
+            ref={el => { registerFieldRef("guardianRelationship")(el); guardianRelationshipRef.current = el; }}
             value={form.guardianRelationship}
             onChange={(e) =>
               setForm((prev) => ({
@@ -234,7 +281,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <button type="button" className="secondary" onClick={onBack}>
           Back
         </button>
-        <button type="button" onClick={onNext}>
+        <button type="button" onClick={handleNext}>
           Next
         </button>
       </div>
