@@ -522,9 +522,11 @@ const EnrollmentForm = ({ onClose }) => {
     }
   };
 
-  // Intercept submit to show modal
+  // Intercept submit: validate first, then show modal if valid
   const handleSubmit = (e) => {
     e.preventDefault();
+    setSubmitError("");
+    if (!validateCurrentStep()) return;
     setShowConfirmModal(true);
     setConfirmChecked(false);
   };
