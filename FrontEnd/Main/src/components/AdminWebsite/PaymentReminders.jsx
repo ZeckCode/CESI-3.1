@@ -158,16 +158,20 @@ const PaymentReminders = () => {
 
     if (!canSendReminderForTransaction(row)) {
       if (row?.due_state === "upcoming" && row?.due_date) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const dueDate = new Date(`${row.due_date}T00:00:00`);
         if (!Number.isNaN(dueDate.getTime())) {
           const eligibleDate = new Date(dueDate);
           eligibleDate.setDate(dueDate.getDate() - 7);
-          addToast(
-            "Too Early",
-            `Reminder can be sent starting ${eligibleDate.toLocaleDateString()} (7 days before due date ${dueDate.toLocaleDateString()}).`,
-            "info"
-          );
-          return;
+          if (today < eligibleDate) {
+            addToast(
+              "Too Early",
+              `Reminder can be sent starting ${eligibleDate.toLocaleDateString()} (7 days before due date ${dueDate.toLocaleDateString()}).`,
+              "info"
+            );
+            return;
+          }
         }
       }
 
@@ -175,7 +179,7 @@ const PaymentReminders = () => {
         "Blocked",
         row?.is_paid_already
           ? "This reminder is already paid. No reminder needed."
-          : "Only due/overdue PENDING/PARTIAL transactions can receive reminders.",
+          : "Reminder is not eligible yet. Eligible rows are overdue, due today, or upcoming within 7 days (with remaining balance).",
         "warning"
       );
       return;
@@ -212,7 +216,7 @@ const PaymentReminders = () => {
     if (selectedTransactionIds.length === 0) {
       addToast(
         "Blocked",
-        "No eligible rows in the current filter. Adjust filters to include due or overdue pending/partial balances.",
+        "No eligible rows in the current filter. Include overdue, due today, or upcoming within 7 days with remaining balance.",
         "warning"
       );
       return;

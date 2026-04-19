@@ -240,7 +240,7 @@ def can_send_reminder_for_transaction(transaction):
     1. Must be a DEBIT entry
     2. Status must be PENDING, DUE_TODAY, OVERDUE, or PARTIAL (not PAID)
     3. Must have outstanding balance (debit > credit)
-    4. Due date must be <= today
+    4. Due date must be today/past due, or within the next 7 days
     """
     if not transaction:
         return False
@@ -281,7 +281,7 @@ def can_send_reminder_for_transaction(transaction):
     if outstanding <= 0:
         return False
     
-    # Due date must be <= today
+    # Due date must be today/past due, or in the 7-day pre-due reminder window.
     due_date = getattr(transaction, "due_date", None)
     if not due_date:
         return False
@@ -289,7 +289,7 @@ def can_send_reminder_for_transaction(transaction):
     try:
         due_date_obj = due_date if isinstance(due_date, date_class) else date_class.fromisoformat(str(due_date))
         today = timezone.localdate()
-        if due_date_obj > today:
+        if due_date_obj > today and (due_date_obj - today).days > 7:
             return False
     except (ValueError, TypeError):
         return False
@@ -1013,6 +1013,12 @@ def send_payment_reminder(request, transaction_id):
         elif tx_status not in ["PENDING", "DUE_TODAY", "OVERDUE", "PARTIAL"]:
             return Response(
                 {"detail": f"Cannot send reminder for {tx_status} status. Only PENDING, DUE_TODAY, OVERDUE, and PARTIAL transactions can receive reminders."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        elif getattr(transaction, "due_date", None) and transaction.due_date > today and (transaction.due_date - today).days > 7:
+            eligible_date = transaction.due_date - timedelta(days=7)
+            return Response(
+                {"detail": f"Too early to send reminder. It can be sent starting {eligible_date} (7 days before due date {transaction.due_date})."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         else:
