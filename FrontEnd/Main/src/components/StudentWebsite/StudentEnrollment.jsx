@@ -1,4 +1,15 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+// Helper to insert a character at the cursor position in an input
+function insertAtCursor(input, char) {
+  if (!input) return;
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  const value = input.value;
+  input.value = value.slice(0, start) + char + value.slice(end);
+  input.selectionStart = input.selectionEnd = start + char.length;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.focus();
+}
 import { useNavigate } from "react-router-dom";
 import "../StudentWebsiteCSS/StudentEnroll.css";
 import { getToken } from "../Auth/auth";
@@ -192,6 +203,14 @@ export default function StudentReenrollment() {
   const [parentFirstName, setParentFirstName] = useState("");
   const [parentMiddleName, setParentMiddleName] = useState("");
   const [parentLastName, setParentLastName] = useState("");
+
+    // Refs for name fields
+    const studentFirstNameRef = useRef();
+    const studentMiddleNameRef = useRef();
+    const studentLastNameRef = useRef();
+    const parentFirstNameRef = useRef();
+    const parentMiddleNameRef = useRef();
+    const parentLastNameRef = useRef();
 
   const [contactNumber, setContactNumber] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -861,62 +880,92 @@ export default function StudentReenrollment() {
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Student First Name</span>
-            <input
-              className="entry-input"
-              value={studentFirstName}
-              onChange={(e) => setStudentFirstName(e.target.value)}
-              disabled={!eligibility.eligible}
-            />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  className="entry-input"
+                  value={studentFirstName}
+                  onChange={(e) => setStudentFirstName(e.target.value)}
+                  disabled={!eligibility.eligible}
+                  ref={studentFirstNameRef}
+                />
+                <button type="button" title="Insert Ñ" onClick={() => insertAtCursor(studentFirstNameRef.current, 'Ñ')} style={{padding:'0 4px'}}>Ñ</button>
+                <button type="button" title="Insert ñ" onClick={() => insertAtCursor(studentFirstNameRef.current, 'ñ')} style={{padding:'0 4px'}}>ñ</button>
+              </div>
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Student Middle Name</span>
-            <input
-              className="entry-input"
-              value={studentMiddleName}
-              onChange={(e) => setStudentMiddleName(e.target.value)}
-              disabled={!eligibility.eligible}
-            />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  className="entry-input"
+                  value={studentMiddleName}
+                  onChange={(e) => setStudentMiddleName(e.target.value)}
+                  disabled={!eligibility.eligible}
+                  ref={studentMiddleNameRef}
+                />
+                <button type="button" title="Insert Ñ" onClick={() => insertAtCursor(studentMiddleNameRef.current, 'Ñ')} style={{padding:'0 4px'}}>Ñ</button>
+                <button type="button" title="Insert ñ" onClick={() => insertAtCursor(studentMiddleNameRef.current, 'ñ')} style={{padding:'0 4px'}}>ñ</button>
+              </div>
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Student Last Name</span>
-            <input
-              className="entry-input"
-              value={studentLastName}
-              onChange={(e) => setStudentLastName(e.target.value)}
-              disabled={!eligibility.eligible}
-            />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  className="entry-input"
+                  value={studentLastName}
+                  onChange={(e) => setStudentLastName(e.target.value)}
+                  disabled={!eligibility.eligible}
+                  ref={studentLastNameRef}
+                />
+                <button type="button" title="Insert Ñ" onClick={() => insertAtCursor(studentLastNameRef.current, 'Ñ')} style={{padding:'0 4px'}}>Ñ</button>
+                <button type="button" title="Insert ñ" onClick={() => insertAtCursor(studentLastNameRef.current, 'ñ')} style={{padding:'0 4px'}}>ñ</button>
+              </div>
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Parent First Name</span>
-            <input
-              className="entry-input"
-              value={parentFirstName}
-              onChange={(e) => setParentFirstName(e.target.value)}
-              disabled={!eligibility.eligible}
-            />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  className="entry-input"
+                  value={parentFirstName}
+                  onChange={(e) => setParentFirstName(e.target.value)}
+                  disabled={!eligibility.eligible}
+                  ref={parentFirstNameRef}
+                />
+                <button type="button" title="Insert Ñ" onClick={() => insertAtCursor(parentFirstNameRef.current, 'Ñ')} style={{padding:'0 4px'}}>Ñ</button>
+                <button type="button" title="Insert ñ" onClick={() => insertAtCursor(parentFirstNameRef.current, 'ñ')} style={{padding:'0 4px'}}>ñ</button>
+              </div>
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Parent Middle Name</span>
-            <input
-              className="entry-input"
-              value={parentMiddleName}
-              onChange={(e) => setParentMiddleName(e.target.value)}
-              disabled={!eligibility.eligible}
-            />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  className="entry-input"
+                  value={parentMiddleName}
+                  onChange={(e) => setParentMiddleName(e.target.value)}
+                  disabled={!eligibility.eligible}
+                  ref={parentMiddleNameRef}
+                />
+                <button type="button" title="Insert Ñ" onClick={() => insertAtCursor(parentMiddleNameRef.current, 'Ñ')} style={{padding:'0 4px'}}>Ñ</button>
+                <button type="button" title="Insert ñ" onClick={() => insertAtCursor(parentMiddleNameRef.current, 'ñ')} style={{padding:'0 4px'}}>ñ</button>
+              </div>
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Parent Last Name</span>
-            <input
-              className="entry-input"
-              value={parentLastName}
-              onChange={(e) => setParentLastName(e.target.value)}
-              disabled={!eligibility.eligible}
-            />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  className="entry-input"
+                  value={parentLastName}
+                  onChange={(e) => setParentLastName(e.target.value)}
+                  disabled={!eligibility.eligible}
+                  ref={parentLastNameRef}
+                />
+                <button type="button" title="Insert Ñ" onClick={() => insertAtCursor(parentLastNameRef.current, 'Ñ')} style={{padding:'0 4px'}}>Ñ</button>
+                <button type="button" title="Insert ñ" onClick={() => insertAtCursor(parentLastNameRef.current, 'ñ')} style={{padding:'0 4px'}}>ñ</button>
+              </div>
           </div>
 
           <div className="info-entry entry-border edit-mode">

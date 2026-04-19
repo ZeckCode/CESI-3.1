@@ -1,3 +1,27 @@
+/* Ñ/ñ Insert Button Styles */
+.enye-insert-btn {
+  background: linear-gradient(135deg, #f1f5f9, #e0e7ef);
+  border: 1px solid #b6c2d1;
+  color: #1e293b;
+  font-size: 1.1em;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 10px;
+  margin-left: 4px;
+  cursor: pointer;
+  transition: background 0.18s, box-shadow 0.18s;
+  box-shadow: 0 1px 2px rgba(30,40,60,0.04);
+}
+.enye-insert-btn:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #60a5fa;
+  box-shadow: 0 2px 8px rgba(30,64,175,0.10);
+}
+.enye-insert-btn:active {
+  background: #bae6fd;
+  color: #0c4a6e;
+}
 /* =========================
    MAIN CONTAINER
 ========================= */

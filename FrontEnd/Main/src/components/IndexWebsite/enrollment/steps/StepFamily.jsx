@@ -1,8 +1,27 @@
-import React from "react";
+import React, { useRef } from "react";
+// Helper to insert a character at the cursor position in an input
+function insertAtCursor(input, char) {
+  if (!input) return;
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  const value = input.value;
+  input.value = value.slice(0, start) + char + value.slice(end);
+  input.selectionStart = input.selectionEnd = start + char.length;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.focus();
+}
 import FieldError from "../FieldError";
 import { onlyDigits } from "../helpers";
 
 const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack }) => {
+  // Refs for name fields
+  const motherFirstRef = useRef();
+  const motherMiddleRef = useRef();
+  const motherLastRef = useRef();
+  const fatherFirstRef = useRef();
+  const fatherMiddleRef = useRef();
+  const fatherLastRef = useRef();
+
   return (
     <div className="step-card">
       <h3>👨‍👩‍👧 Parent / Guardian Information</h3>
@@ -17,29 +36,41 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
       <div className="form-grid">
         <div className="form-group">
           <label>First Name</label>
-          <input
-            ref={registerFieldRef("motherFirst")}
-            value={form.motherFirst}
-            onChange={(e) => setForm((prev) => ({ ...prev, motherFirst: e.target.value }))}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input
+              ref={el => { registerFieldRef("motherFirst")(el); motherFirstRef.current = el; }}
+              value={form.motherFirst}
+              onChange={(e) => setForm((prev) => ({ ...prev, motherFirst: e.target.value }))}
+            />
+            <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(motherFirstRef.current, 'Ñ')}>Ñ</button>
+            <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(motherFirstRef.current, 'ñ')}>ñ</button>
+          </div>
           <FieldError error={errors.motherFirst} />
         </div>
         <div className="form-group">
           <label>Middle Name (Optional)</label>
-          <input
-            ref={registerFieldRef("motherMiddle")}
-            value={form.motherMiddle}
-            onChange={(e) => setForm((prev) => ({ ...prev, motherMiddle: e.target.value }))}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input
+              ref={el => { registerFieldRef("motherMiddle")(el); motherMiddleRef.current = el; }}
+              value={form.motherMiddle}
+              onChange={(e) => setForm((prev) => ({ ...prev, motherMiddle: e.target.value }))}
+            />
+            <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(motherMiddleRef.current, 'Ñ')}>Ñ</button>
+            <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(motherMiddleRef.current, 'ñ')}>ñ</button>
+          </div>
           <FieldError error={errors.motherMiddle} />
         </div>
         <div className="form-group">
           <label>Last Name</label>
-          <input
-            ref={registerFieldRef("motherLast")}
-            value={form.motherLast}
-            onChange={(e) => setForm((prev) => ({ ...prev, motherLast: e.target.value }))}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input
+              ref={el => { registerFieldRef("motherLast")(el); motherLastRef.current = el; }}
+              value={form.motherLast}
+              onChange={(e) => setForm((prev) => ({ ...prev, motherLast: e.target.value }))}
+            />
+            <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(motherLastRef.current, 'Ñ')}>Ñ</button>
+            <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(motherLastRef.current, 'ñ')}>ñ</button>
+          </div>
           <FieldError error={errors.motherLast} />
         </div>
         <div className="form-group">
@@ -72,29 +103,41 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
       <div className="form-grid">
         <div className="form-group">
           <label>First Name</label>
-          <input
-            ref={registerFieldRef("fatherFirst")}
-            value={form.fatherFirst}
-            onChange={(e) => setForm((prev) => ({ ...prev, fatherFirst: e.target.value }))}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input
+              ref={el => { registerFieldRef("fatherFirst")(el); fatherFirstRef.current = el; }}
+              value={form.fatherFirst}
+              onChange={(e) => setForm((prev) => ({ ...prev, fatherFirst: e.target.value }))}
+            />
+            <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(fatherFirstRef.current, 'Ñ')}>Ñ</button>
+            <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(fatherFirstRef.current, 'ñ')}>ñ</button>
+          </div>
           <FieldError error={errors.fatherFirst} />
         </div>
         <div className="form-group">
           <label>Middle Name (Optional)</label>
-          <input
-            ref={registerFieldRef("fatherMiddle")}
-            value={form.fatherMiddle}
-            onChange={(e) => setForm((prev) => ({ ...prev, fatherMiddle: e.target.value }))}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input
+              ref={el => { registerFieldRef("fatherMiddle")(el); fatherMiddleRef.current = el; }}
+              value={form.fatherMiddle}
+              onChange={(e) => setForm((prev) => ({ ...prev, fatherMiddle: e.target.value }))}
+            />
+            <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(fatherMiddleRef.current, 'Ñ')}>Ñ</button>
+            <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(fatherMiddleRef.current, 'ñ')}>ñ</button>
+          </div>
           <FieldError error={errors.fatherMiddle} />
         </div>
         <div className="form-group">
           <label>Last Name</label>
-          <input
-            ref={registerFieldRef("fatherLast")}
-            value={form.fatherLast}
-            onChange={(e) => setForm((prev) => ({ ...prev, fatherLast: e.target.value }))}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input
+              ref={el => { registerFieldRef("fatherLast")(el); fatherLastRef.current = el; }}
+              value={form.fatherLast}
+              onChange={(e) => setForm((prev) => ({ ...prev, fatherLast: e.target.value }))}
+            />
+            <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(fatherLastRef.current, 'Ñ')}>Ñ</button>
+            <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(fatherLastRef.current, 'ñ')}>ñ</button>
+          </div>
           <FieldError error={errors.fatherLast} />
         </div>
         <div className="form-group">

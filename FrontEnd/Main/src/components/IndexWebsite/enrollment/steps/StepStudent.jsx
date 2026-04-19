@@ -1,5 +1,16 @@
 // StepStudent.jsx
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
+// Helper to insert a character at the cursor position in an input
+function insertAtCursor(input, char) {
+  if (!input) return;
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  const value = input.value;
+  input.value = value.slice(0, start) + char + value.slice(end);
+  input.selectionStart = input.selectionEnd = start + char.length;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.focus();
+}
 import FieldError from "../FieldError";
 import { RELIGION_OPTIONS } from "../constants";
 import { onlyDigits } from "../helpers";
@@ -15,42 +26,62 @@ const StepStudent = ({
   onBack,
 }) => {
   const [showAgeRefModal, setShowAgeRefModal] = useState(false);
+  // Refs for name fields
+  const firstNameRef = useRef();
+  const lastNameRef = useRef();
+  const middleNameRef = useRef();
+
   return (
     <div className="step-card">
       <h3>👤 Student Information</h3>
 
       <div className="form-grid">
         
-         <div className="form-group">
+
+        <div className="form-group">
           <label>First Name <span className="required">*</span></label>
-          <input
-            ref={registerFieldRef("firstName")}
-            value={form.firstName}
-            onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input
+              ref={el => { registerFieldRef("firstName")(el); firstNameRef.current = el; }}
+              value={form.firstName}
+              onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
+            />
+            <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(firstNameRef.current, 'Ñ')}>Ñ</button>
+            <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(firstNameRef.current, 'ñ')}>ñ</button>
+          </div>
           <FieldError error={errors.firstName} />
         </div>
 
+
         <div className="form-group">
           <label>Last Name <span className="required">*</span></label>
-          <input
-            ref={registerFieldRef("lastName")}
-            value={form.lastName}
-            onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input
+              ref={el => { registerFieldRef("lastName")(el); lastNameRef.current = el; }}
+              value={form.lastName}
+              onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
+            />
+            <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(lastNameRef.current, 'Ñ')}>Ñ</button>
+            <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(lastNameRef.current, 'ñ')}>ñ</button>
+          </div>
           <FieldError error={errors.lastName} />
         </div>
 
        
 
+
         <div className="form-group">
           <label>Middle Name</label>
-          <input
-            ref={registerFieldRef("middleName")}
-            value={form.middleName}
-            onChange={(e) => setForm((prev) => ({ ...prev, middleName: e.target.value }))}
-            placeholder="Optional"
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input
+              ref={el => { registerFieldRef("middleName")(el); middleNameRef.current = el; }}
+              value={form.middleName}
+              onChange={(e) => setForm((prev) => ({ ...prev, middleName: e.target.value }))}
+              placeholder="Optional"
+            />
+            <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(middleNameRef.current, 'Ñ')}>Ñ</button>
+            <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(middleNameRef.current, 'ñ')}>ñ</button>
+          </div>
           <FieldError error={errors.middleName} />
         </div>
 

@@ -242,21 +242,37 @@ export const validatePaymentStep = ({
   if (!paymentMode) errors.paymentMode = "Please select payment mode.";
   if (!paymentMethod) errors.paymentMethod = "Please select payment method.";
 
+
+  // Online payment validation (including cash-offsite full payment enforcement)
   if (paymentMethod === "online") {
     const amount = Number(paymentAmount || 0);
-    const minimumAmount = getRequiredEnrollmentPayment(tuition, paymentMode, studentType);
+    let minimumAmount = getRequiredEnrollmentPayment(tuition, paymentMode, studentType);
+
+    // If paymentMode is cash and method is online, require full payment
+    if (paymentMode === "cash") {
+      minimumAmount = 0;
+      if (tuition && tuition.total_cash != null) {
+        minimumAmount = Number(tuition.total_cash);
+        if (String(studentType || "").trim().toLowerCase() === "new") {
+          minimumAmount += Number(tuition.assessment || 0);
+        }
+      }
+    }
 
     if (!paymentAmount) {
       errors.paymentAmount = "Please enter the payment amount.";
     } else if (amount <= 0) {
       errors.paymentAmount = "Payment amount must be greater than 0.";
     } else if (minimumAmount > 0 && amount < minimumAmount) {
-      errors.paymentAmount = `Please pay at least ₱${Number(minimumAmount).toFixed(2)} before submitting enrollment.`;
+      if (paymentMode === "cash") {
+        errors.paymentAmount = `Full payment required: ₱${Number(minimumAmount).toFixed(2)} (tuition + assessment fee). No partial payments allowed for cash-offsite.`;
+      } else {
+        errors.paymentAmount = `Please pay at least ₱${Number(minimumAmount).toFixed(2)} before submitting enrollment.`;
+      }
     }
-  }
-
-  if (paymentMethod === "online" && !paymentProofFile) {
-    errors.paymentProofFile = "Please upload proof of payment.";
+    if (!paymentProofFile) {
+      errors.paymentProofFile = "Please upload proof of payment.";
+    }
   }
 
   return errors;

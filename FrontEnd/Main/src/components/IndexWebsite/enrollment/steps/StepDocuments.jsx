@@ -22,6 +22,9 @@ const StepDocuments = ({ files, setFiles, errors, registerFieldRef }) => {
           <label>
             Upload 2x2 Picture <span className="required">*</span>
           </label>
+          <span style={{ fontSize: '12px', color: '#64748b', marginBottom: 4 }}>
+            Upload a <b>2x2 ID photo</b> taken within the last 6 months, with a <b>white or transparent background</b>.
+          </span>
           <input
             ref={registerFieldRef("studentPhotoFile")}
             type="file"

@@ -89,6 +89,7 @@ const StepPayment = ({
           <FieldError error={errors.paymentMethod} />
         </div>
 
+
         {form.paymentMethod === "online" && (
           <div className="form-group form-group--full">
             <label>
@@ -96,21 +97,24 @@ const StepPayment = ({
             </label>
             <input
               ref={registerFieldRef("paymentAmount")}
-              type="number"
-              step="0.01"
-              min={minimumPayment > 0 ? minimumPayment : 0}
+              type="text"
+              inputMode="decimal"
+              pattern="^[0-9]*[.,]?[0-9]*$"
               value={form.paymentAmount}
-              onChange={(e) =>
+              onChange={(e) => {
+                // Only allow numbers and decimal
+                const val = e.target.value.replace(/[^0-9.,]/g, "");
                 setForm((prev) => ({
                   ...prev,
-                  paymentAmount: e.target.value,
-                }))
-              }
+                  paymentAmount: val,
+                }));
+              }}
               placeholder={
                 minimumPayment > 0
                   ? `Please pay at least ₱${formatMoney(minimumPayment)} before submitting enrollment`
                   : "Enter payment amount"
               }
+              autoComplete="off"
             />
             {minimumPayment > 0 ? (
               <div className="tuition-row" style={{ marginTop: 8 }}>
@@ -122,6 +126,17 @@ const StepPayment = ({
                 <strong>₱{formatMoney(minimumPayment)}</strong>
               </div>
             ) : null}
+            {/* Show exact total for cash payment online */}
+            {!tuitionLoading && tuition && form.paymentMode === "cash" && (
+              <div className="tuition-row" style={{ marginTop: 8, background: '#f0f9ff', borderRadius: 6, padding: 8 }}>
+                <span>
+                  <b>Exact total for cash payment (tuition + assessment fee):</b>
+                </span>
+                <strong>
+                  ₱{formatMoney(Number(tuition.total_cash || 0) + (studentType === "new" ? Number(tuition.assessment || 0) : 0))}
+                </strong>
+              </div>
+            )}
             <FieldError error={errors.paymentAmount} />
 
             <label>
@@ -140,13 +155,42 @@ const StepPayment = ({
           </div>
         )}
 
-        {form.paymentMethod === "onsite" && form.paymentMode && (
+        {form.paymentMethod === "onsite" && form.paymentMode === "cash" && (
+          <div className="form-group form-group--full">
+            <label>
+              Amount <span className="required">*</span>
+            </label>
+            <input
+              ref={registerFieldRef("paymentAmount")}
+              type="text"
+              inputMode="decimal"
+              pattern="^[0-9]*[.,]?[0-9]*$"
+              value={form.paymentAmount}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9.,]/g, "");
+                setForm((prev) => ({
+                  ...prev,
+                  paymentAmount: val,
+                }));
+              }}
+              placeholder={`Full payment required: ₱${formatMoney(Number(tuition?.total_cash || 0) + assessmentFee)} (tuition + assessment fee)`}
+              autoComplete="off"
+            />
+            <div className="tuition-row" style={{ marginTop: 8 }}>
+              <span>
+                Please pay the exact total for cash payment (tuition + assessment fee). No partial payments allowed.
+              </span>
+              <strong>₱{formatMoney(Number(tuition?.total_cash || 0) + assessmentFee)}</strong>
+            </div>
+            <FieldError error={errors.paymentAmount} />
+          </div>
+        )}
+
+        {form.paymentMethod === "onsite" && form.paymentMode === "installment" && (
           <div className="form-group form-group--full">
             <div className="tuition-row" style={{ marginTop: 8 }}>
               <span>
-                {form.paymentMode === "installment"
-                  ? "Please prepare the right amount of initial payment + assessment fee."
-                  : "Please prepare the right amount of total cash + assessment fee."}
+                Please prepare the right amount of initial payment + assessment fee.
               </span>
               <strong>₱{formatMoney(onsitePreparationAmount)}</strong>
             </div>
