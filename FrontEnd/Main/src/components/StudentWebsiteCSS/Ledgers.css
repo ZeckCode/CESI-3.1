@@ -1,3 +1,36 @@
+@media (max-width: 350px) {
+  .ledger-summary-row {
+    grid-template-columns: repeat(4, minmax(40px, 1fr));
+    gap: 0.15rem;
+  }
+  .ledger-sumCard {
+    padding: 0.3rem 0.2rem;
+    gap: 0.12rem;
+  }
+  .ledger-sumCard__label,
+  .ledger-sumCard__sub {
+    font-size: 0.55rem;
+  }
+  .ledger-sumCard__value {
+    font-size: 0.7rem;
+  }
+  .ledger-sumCard__value--lg {
+    font-size: 0.8rem;
+  }
+}
+@media (max-width: 400px) {
+  .ledger-summary-row {
+    grid-template-columns: repeat(4, minmax(60px, 1fr));
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 350px) {
+  .ledger-summary-row {
+    grid-template-columns: repeat(4, minmax(48px, 1fr));
+    gap: 0.3rem;
+  }
+}
 :root {
   --yellow-bg: #ffffff;
   --blue-soft: #B1D9EC;
@@ -134,11 +167,37 @@
 .btn-download { background: transparent; color: #000000; }
 
 /* ── Ledger Summary Cards ─────────────────────── */
+
 .ledger-summary-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(4, minmax(80px, 1fr));
+  gap: 1.2rem;
   margin-bottom: 2rem;
+}
+
+@media (max-width: 500px) {
+  .ledger-summary-row {
+    grid-template-columns: repeat(2, minmax(80px, 1fr));
+  }
+}
+
+@media (max-width: 500px) {
+  .ledger-summary-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .ledger-summary-row {
+    grid-template-columns: repeat(4, minmax(100px, 300px));
+    justify-content: center;
+  }
+}
+
+@media (max-width: 700px) {
+  .ledger-summary-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 1100px) {
@@ -151,13 +210,13 @@
 
 .ledger-sumCard {
   background: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-radius: 0.6rem;
+  padding: 0.7rem 0.6rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.07);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  border-left: 4px solid #e5e7eb;
+  gap: 0.3rem;
+  border-left: 3px solid #e5e7eb;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -181,28 +240,28 @@
 .ledger-sumCard--balanceClear { border-left-color: #10b981; background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%); }
 
 .ledger-sumCard__label {
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: capitalize;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
   color: #64748b;
 }
 
 .ledger-sumCard__value {
-  font-size: 1.875rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #1e293b;
   line-height: 1.1;
 }
 
 .ledger-sumCard__value--lg {
-  font-size: 2rem;
+  font-size: 1.2rem;
 }
 
 .ledger-sumCard__sub {
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   font-weight: 500;
-  margin-top: 0.5rem;
+  margin-top: 0.2rem;
   color: #64748b;
 }
 
@@ -231,6 +290,12 @@
 .ledger-table {
   width: 100%;
   border-collapse: collapse;
+}
+
+.ledger-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ledger-table thead th {
@@ -405,6 +470,19 @@
 @media (max-width: 768px) {
   .ledger-wrapper { flex-direction: column; }
   .ledger-content { padding: 1rem; }
+
+  .ledger-table-scroll--accounting .ledger-table {
+    min-width: 760px;
+  }
+
+  .ledger-table-scroll--installments .ledger-table {
+    min-width: 980px;
+  }
+
+  .ledger-table-scroll .ledger-table th,
+  .ledger-table-scroll .ledger-table td {
+    white-space: nowrap;
+  }
   
   /* Generic table responsive */
   .ledger-table thead { display: none; }
@@ -757,6 +835,60 @@
   /* Hide table header on mobile */
   .ledger-accounting thead {
     display: none;
+  }
+
+  /* Keep table rows intact on small screens and rely on horizontal scroll. */
+  .ledger-table thead,
+  .ledger-accounting thead {
+    display: table-header-group !important;
+  }
+
+  .ledger-table tbody tr,
+  .ledger-accounting tbody tr,
+  .ledger-table tfoot tr,
+  .ledger-accounting tfoot tr {
+    display: table-row !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    background: transparent !important;
+  }
+
+  .ledger-table tbody td,
+  .ledger-accounting tbody td,
+  .ledger-table tfoot td,
+  .ledger-accounting tfoot td {
+    display: table-cell !important;
+    padding: 0.75rem !important;
+    border-right: 1px solid var(--border-color) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  .ledger-table th:last-child,
+  .ledger-table td:last-child,
+  .ledger-accounting th:last-child,
+  .ledger-accounting td:last-child {
+    border-right: none !important;
+  }
+
+  .ledger-table td::before,
+  .ledger-accounting td::before,
+  .ledger-table tfoot td::before,
+  .ledger-accounting tfoot td::before {
+    content: none !important;
+    display: none !important;
+  }
+
+  .ledger-accounting .text-center {
+    text-align: center !important;
+  }
+
+  .ledger-accounting .text-right {
+    text-align: right !important;
   }
 }
 

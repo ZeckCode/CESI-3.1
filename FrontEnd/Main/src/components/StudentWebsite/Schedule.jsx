@@ -620,104 +620,105 @@ const handleDownloadSchedulePDF = () => {
 
       {!loading && !error && (
         <section className="ss-section">
-          <div className="ss-table-container">
-            {view === "table" ? (
-              /* TABLE VIEW */
-              <table className="ss-table">
-                <thead>
-                  <tr>
-                    <th>Subject</th>
-                    <th>Day</th>
-                    <th>Time</th>
-                    <th>Room</th>
-                    <th>Teacher</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scheduleData.length === 0 ? (
+          {view === "table" ? (
+            <div className="ss-table-container">
+              <div className="ss-table-scroll">
+                <table className="ss-table">
+                  <thead>
                     <tr>
-                      <td colSpan="5" className="ss-empty-cell">
-                        No schedules found for your section.
-                      </td>
+                      <th>Subject</th>
+                      <th>Day</th>
+                      <th>Time</th>
+                      <th>Room</th>
+                      <th>Teacher</th>
                     </tr>
-                  ) : (
-                    scheduleData.map((row) => (
-                      <tr key={row.id}>
-                        <td data-label="Subject">
-                          <div className="ss-subject-info">
-                            <span className="ss-subject-name">{row.subject}</span>
-                            <span className="ss-subject-code">{row.subject_code}</span>
-                          </div>
-                        </td>
-                        <td data-label="Day">
-                          <span className="ss-day-badge">{row.day}</span>
-                        </td>
-                        <td data-label="Time" className="ss-time-cell">
-                          <Clock size={14} />
-                          {formatTime(row.startTime)} - {formatTime(row.endTime)}
-                        </td>
-                        <td data-label="Room">
-                          <span className="ss-room-badge">
-                            <MapPin size={14} />
-                            {row.room}
-                          </span>
-                        </td>
-                        <td data-label="Teacher">
-                          <span className="ss-teacher-name">
-                            <User size={14} />
-                            {row.teacher}
-                          </span>
+                  </thead>
+                  <tbody>
+                    {scheduleData.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="ss-empty-cell">
+                          No schedules found for your section.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            ) : (
-              /* CALENDAR/TIMELINE VIEW */
-              <div className="ss-calendar-scroll">
-                <div className="ss-calendar-grid" style={{ gridTemplateColumns: `80px repeat(${DAY_ORDER.length}, 1fr)` }}>
-                  {/* Header Row */}
-                  <div className="ss-time-header">
-                    <Clock size={16} />
-                  </div>
-                  {DAY_ORDER.map((day) => (
-                    <div key={day} className="ss-day-header">{day}</div>
-                  ))}
-
-                  {/* Time Slot Rows */}
-                  {timeSlots.length === 0 ? (
-                    <div className="ss-empty-calendar" style={{ gridColumn: '1 / -1' }}>
-                      No classes scheduled.
-                    </div>
-                  ) : (
-                    timeSlots.map((time) => (
-                      <React.Fragment key={time}>
-                        <div className="ss-time-cell">{formatTime(time)}</div>
-                        {DAY_ORDER.map((day) => {
-                          const sessions = getSessionsForTimeSlot(day, time);
-                          return (
-                            <div key={`${day}-${time}`} className="ss-grid-cell">
-                              {sessions.map((item) => (
-                                <div key={item.id} className={`ss-event-card ${item.color}`}>
-                                  <div className="ss-event-subject">{item.subject}</div>
-                                  <div className="ss-event-code">{item.subject_code}</div>
-                                  <div className="ss-event-info">
-                                    <span><MapPin size={12} /> {item.room}</span>
-                                    <span>{formatTime(item.startTime)} - {formatTime(item.endTime)}</span>
-                                  </div>
-                                </div>
-                              ))}
+                    ) : (
+                      scheduleData.map((row) => (
+                        <tr key={row.id}>
+                          <td data-label="Subject">
+                            <div className="ss-subject-info">
+                              <span className="ss-subject-name">{row.subject}</span>
+                              <span className="ss-subject-code">{row.subject_code}</span>
                             </div>
-                          );
-                        })}
-                      </React.Fragment>
-                    ))
-                  )}
-                </div>
+                          </td>
+                          <td data-label="Day">
+                            <span className="ss-day-badge">{row.day}</span>
+                          </td>
+                          <td data-label="Time" className="ss-time-cell">
+                            <Clock size={14} />
+                            {formatTime(row.startTime)} - {formatTime(row.endTime)}
+                          </td>
+                          <td data-label="Room">
+                            <span className="ss-room-badge">
+                              <MapPin size={14} />
+                              {row.room}
+                            </span>
+                          </td>
+                          <td data-label="Teacher">
+                            <span className="ss-teacher-name">
+                              <User size={14} />
+                              {row.teacher}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            /* CALENDAR/TIMELINE VIEW */
+            <div className="ss-calendar-scroll">
+              <div className="ss-calendar-grid" style={{ gridTemplateColumns: `80px repeat(${DAY_ORDER.length}, 1fr)` }}>
+                {/* Header Row */}
+                <div className="ss-time-header">
+                  <Clock size={16} />
+                </div>
+                {DAY_ORDER.map((day) => (
+                  <div key={day} className="ss-day-header">{day}</div>
+                ))}
+
+                {/* Time Slot Rows */}
+                {timeSlots.length === 0 ? (
+                  <div className="ss-empty-calendar" style={{ gridColumn: '1 / -1' }}>
+                    No classes scheduled.
+                  </div>
+                ) : (
+                  timeSlots.map((time) => (
+                    <React.Fragment key={time}>
+                      <div className="ss-time-cell">{formatTime(time)}</div>
+                      {DAY_ORDER.map((day) => {
+                        const sessions = getSessionsForTimeSlot(day, time);
+                        return (
+                          <div key={`${day}-${time}`} className="ss-grid-cell">
+                            {sessions.map((item) => (
+                              <div key={item.id} className={`ss-event-card ${item.color}`}>
+                                <div className="ss-event-subject">{item.subject}</div>
+                                <div className="ss-event-code">{item.subject_code}</div>
+                                <div className="ss-event-info">
+                                  <span><MapPin size={12} /> {item.room}</span>
+                                  <span>{formatTime(item.startTime)} - {formatTime(item.endTime)}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </section>
       )}
 

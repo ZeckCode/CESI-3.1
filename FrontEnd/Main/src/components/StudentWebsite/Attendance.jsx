@@ -649,61 +649,63 @@ const Attendance = () => {
         /* LIST VIEW */
         <section className="sa-section">
           <div className="sa-table-container">
-            <table className="sa-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Present</th>
-                  <th>Late</th>
-                  <th>Absent</th>
-                  <th>Excused</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayedCalendarData.length === 0 ? (
+            <div className="sa-table-scroll">
+              <table className="sa-table">
+                <thead>
                   <tr>
-                    <td colSpan="7" className="sa-empty-cell">
-                      No attendance records found for this month.
-                    </td>
+                    <th>Date</th>
+                    <th>Present</th>
+                    <th>Late</th>
+                    <th>Absent</th>
+                    <th>Excused</th>
+                    <th>Status</th>
+                    <th>Action</th>
                   </tr>
-                ) : (
-                  displayedCalendarData.map((record) => (
-                    <tr key={record.date}>
-                      <td data-label="Date">{record.date}</td>
-                      <td data-label="Present">
-                        <span className="sa-count-badge sa-count-present">{record.present}</span>
-                      </td>
-                      <td data-label="Late">
-                        <span className="sa-count-badge sa-count-late">{record.late}</span>
-                      </td>
-                      <td data-label="Absent">
-                        <span className="sa-count-badge sa-count-absent">{record.absent}</span>
-                      </td>
-                      <td data-label="Excused">
-                        <span className="sa-count-badge" style={{ backgroundColor: '#f3e8ff', color: '#7c3aed', fontWeight: '600' }}>
-                          {record.excused || 0}
-                        </span>
-                      </td>
-                      <td data-label="Status">
-                        <span className={`sa-status-badge sa-badge-${record.overall_status}`}>
-                          {record.overall_status}
-                        </span>
-                      </td>
-                      <td data-label="Action">
-                        <button 
-                          className="sa-detail-btn"
-                          onClick={() => handleDateClick(record.date)}
-                        >
-                          View Details
-                        </button>
+                </thead>
+                <tbody>
+                  {displayedCalendarData.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="sa-empty-cell">
+                        No attendance records found for this month.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    displayedCalendarData.map((record) => (
+                      <tr key={record.date}>
+                        <td data-label="Date">{record.date}</td>
+                        <td data-label="Present">
+                          <span className="sa-count-badge sa-count-present">{record.present}</span>
+                        </td>
+                        <td data-label="Late">
+                          <span className="sa-count-badge sa-count-late">{record.late}</span>
+                        </td>
+                        <td data-label="Absent">
+                          <span className="sa-count-badge sa-count-absent">{record.absent}</span>
+                        </td>
+                        <td data-label="Excused">
+                          <span className="sa-count-badge" style={{ backgroundColor: '#f3e8ff', color: '#7c3aed', fontWeight: '600' }}>
+                            {record.excused || 0}
+                          </span>
+                        </td>
+                        <td data-label="Status">
+                          <span className={`sa-status-badge sa-badge-${record.overall_status}`}>
+                            {record.overall_status}
+                          </span>
+                        </td>
+                        <td data-label="Action">
+                          <button 
+                            className="sa-detail-btn"
+                            onClick={() => handleDateClick(record.date)}
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       )}

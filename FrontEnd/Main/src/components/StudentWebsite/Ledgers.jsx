@@ -1516,7 +1516,7 @@
                           )}
                         </div>
 
-                        <div className="table-responsive">
+                        <div className="table-responsive ledger-table-scroll ledger-table-scroll--accounting">
                           <table
                             className="ledger-table ledger-accounting"
                             style={{ marginBottom: 0 }}
@@ -1891,7 +1891,7 @@
                         </div>
                       </div>
 
-                      <div className="table-responsive">
+                      <div className="table-responsive ledger-table-scroll ledger-table-scroll--installments">
                         <table className="ledger-table">
                           <thead>
                             <tr>

@@ -116,7 +116,20 @@ function YearBlock({ yearData }) {
 
       {open && (
         <div className="ah-year-body">
-          <div className="sg-table-container">
+          <div className="ah-table-header-flex" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'1rem 1.2rem 0.2rem 1.2rem',gap:'1rem',flexWrap:'wrap'}}>
+            <div>
+              <span className="ah-year-title">S.Y. {school_year}</span>
+              <span className="ah-year-sub" style={{marginLeft:8}}>{gradeLabel}{section_name ? ` — ${section_name}` : ""}</span>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:'1.2rem',flexWrap:'wrap'}}>
+              {gwa !== null && (
+                <span className="ah-year-gwa">GWA <strong>{gwa}</strong></span>
+              )}
+              <span className="ah-count-pass">{passed} Passed</span>
+              {failed > 0 && <span className="ah-count-fail">{failed} Failed</span>}
+            </div>
+          </div>
+          <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '0.5rem' }}>
             <table className="sg-table">
               <thead>
                 <tr>

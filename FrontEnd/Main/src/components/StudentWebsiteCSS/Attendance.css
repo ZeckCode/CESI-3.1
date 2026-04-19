@@ -1,3 +1,41 @@
+.sa-detail-list {
+  /* ...existing code... */
+}
+
+@media (max-width: 500px) {
+  .sa-detail-list {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  .sa-detail-item {
+    padding: 0.5rem 0.5rem;
+    font-size: 0.95rem;
+    min-width: 0;
+  }
+  .sa-detail-subject {
+    gap: 0.1rem;
+  }
+  .sa-detail-info {
+    gap: 0.4rem;
+  }
+  .sa-subject-name {
+    font-size: 1rem;
+  }
+  .sa-subject-code {
+    font-size: 0.7rem;
+  }
+}
+@media (max-width: 600px) {
+  .sa-insights-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 400px) {
+  .sa-insights-grid {
+    grid-template-columns: 1fr;
+  }
+}
 /* Student Attendance Styles - Unified with Admin */
 .student-attendance-main {
   padding: 20px;
@@ -12,8 +50,20 @@
 /* Stats Grid */
 .sa-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(4, minmax(80px, 1fr));
+  gap: 1.2rem;
+}
+
+@media (max-width: 500px) {
+  .sa-stats-grid {
+    grid-template-columns: repeat(2, minmax(80px, 1fr));
+  }
+}
+
+@media (max-width: 500px) {
+  .sa-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .sa-stat-card {
@@ -631,7 +681,8 @@
   background-color: white;
   border-radius: 0.75rem;
   width: 100%;
-  max-width: 500px;
+  max-width: 800px;
+  min-width: 320px;
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
@@ -672,19 +723,38 @@
 
 /* Detail List */
 .sa-detail-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
+}
+
+@media (max-width: 700px) {
+  .sa-detail-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .sa-detail-item {
   display: flex;
+  flex-direction: column;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 1rem;
   border-radius: 0.5rem;
   background-color: #f8fafc;
   border-left: 3px solid;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 700px) {
+  .sa-modal {
+    max-width: 98vw;
+  }
+  .sa-detail-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .sa-item-present {
@@ -927,7 +997,7 @@
 /* Mobile: table to cards */
 @media (max-width: 600px) {
   .sa-stats-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .sa-calendar-cell {
@@ -946,42 +1016,46 @@
     font-size: 0.8rem;
   }
 
-  .sa-table {
-    border: 0;
+  .sa-table-scroll {
+    overflow-x: auto;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sa-table-scroll .sa-table {
+    min-width: 650px;
+  }
+
+  .sa-table-scroll .sa-table th,
+  .sa-table-scroll .sa-table td {
+    white-space: nowrap;
   }
 
   .sa-table thead {
-    display: none;
+    display: table-header-group !important;
   }
 
   .sa-table tbody tr {
-    display: block;
-    margin-bottom: 0.75rem;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-radius: 8px;
-    padding: 0.5rem;
-    background: white;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    display: table-row !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    background: transparent !important;
   }
 
   .sa-table tbody tr td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.6rem 0.75rem;
-    border-bottom: 1px dashed rgba(15, 23, 42, 0.06);
-  }
-
-  .sa-table tbody tr td:last-child {
-    border-bottom: 0;
+    display: table-cell !important;
+    padding: 0.75rem !important;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: center !important;
+    white-space: nowrap !important;
   }
 
   .sa-table td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    color: #475569;
-    text-transform: uppercase;
-    font-size: 0.7rem;
+    content: none !important;
+    display: none !important;
   }
 }
 

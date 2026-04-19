@@ -1,3 +1,125 @@
+/* --- Table Responsiveness and Readability --- */
+.sg-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.5rem;
+}
+
+.sg-table {
+  min-width: 600px;
+  border-collapse: collapse;
+  width: 100%;
+  background: white;
+  font-size: 1rem;
+}
+
+.sg-table th, .sg-table td {
+  white-space: nowrap;
+  padding: 0.7rem 0.7rem;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .sg-table {
+    min-width: 500px;
+    font-size: 0.92rem;
+  }
+  .sg-table th, .sg-table td {
+    padding: 0.5rem 0.4rem;
+    font-size: 0.92rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .sg-table {
+    min-width: 370px;
+    font-size: 0.85rem;
+  }
+  .sg-table th, .sg-table td {
+    padding: 0.32rem 0.2rem;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 340px) {
+  .sg-table {
+    min-width: 320px;
+    font-size: 0.78rem;
+  }
+  .sg-table th, .sg-table td {
+    padding: 0.18rem 0.1rem;
+    font-size: 0.78rem;
+  }
+}
+
+/* --- Stat Card Readability for Small Screens --- */
+@media (max-width: 350px) {
+  .sg-stat-card {
+    font-size: 0.82rem;
+    padding: 0.38rem 0.22rem;
+  }
+  .sg-stat-label, .sg-stat-value, .sg-stat-change {
+    font-size: 0.82rem;
+  }
+}
+/* Responsive stat grid: 2x2 on small screens */
+.sg-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 1.2rem;
+}
+
+@media (max-width: 600px) {
+  .sg-stats-grid {
+    grid-template-columns: repeat(2, minmax(110px, 1fr));
+    gap: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .sg-stats-grid {
+    grid-template-columns: repeat(2, minmax(90px, 1fr));
+    gap: 0.4rem;
+  }
+}
+
+@media (max-width: 350px) {
+  .sg-stats-grid {
+    grid-template-columns: repeat(2, minmax(60px, 1fr));
+    gap: 0.18rem;
+  }
+  .sg-stat-card {
+    padding: 0.3rem 0.2rem;
+    font-size: 0.7rem;
+  }
+  .sg-stat-label, .sg-stat-value, .sg-stat-change {
+    font-size: 0.7rem;
+  }
+}
+
+/* Horizontal scroll for tables on small screens */
+.sg-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sg-table {
+  min-width: 600px;
+}
+
+@media (max-width: 600px) {
+  .sg-table {
+    min-width: 500px;
+  }
+}
+
+@media (max-width: 400px) {
+  .sg-table {
+    min-width: 400px;
+  }
+}
 /* Academic History — builds on sg-* classes from Grades.css */
 
 /* Year accordion block */
