@@ -50,31 +50,8 @@ async function fetchWithToken(url, options = {}) {
 
   return fetch(`${API_BASE}${url}`, {
     ...options,
-      paymentAmount,
-      paymentDestination,
-      studentFirstName,
-      studentMiddleName,
-      studentLastName,
-      parentFirstName,
-      parentMiddleName,
-      parentLastName,
-      contactNumber,
-      street,
-      barangay,
-      city,
-      province,
-      region,
-      paymentMethod,
-      paymentMode,
-      paymentProofFile,
-      remarks,
-      form137File,
-      sf10File,
-      birthCertificateFile,
-      goodMoralFile,
-      reportCardFile,
-      otherDocumentFile,
-    ]);
+    headers,
+  });
 
       lastError = new Error(
         json?.detail || `Request failed (${res.status}) at ${endpoint}`
