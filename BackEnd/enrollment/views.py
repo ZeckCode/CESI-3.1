@@ -325,7 +325,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 student=user,
                 parent_user=user,
                 student_type="old",
-                    status="ACTIVE",
+                    status="PENDING",
                 education_level=self._education_level_from_grade(next_grade),
                 grade_level=next_grade,
                 academic_year=academic_year,

@@ -1,15 +1,12 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
-// Helper to insert a character at the cursor position in an input
-function insertAtCursor(input, char) {
-  if (!input) return;
-  const start = input.selectionStart;
-  const end = input.selectionEnd;
-  const value = input.value;
-  input.value = value.slice(0, start) + char + value.slice(end);
-  input.selectionStart = input.selectionEnd = start + char.length;
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  input.focus();
-}
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+// Payment destination options
+const PAYMENT_DESTINATIONS = [
+  { value: "gcash", label: "GCash (E-wallet)" },
+  { value: "maya", label: "Maya (E-wallet)" },
+  { value: "bpi", label: "BPI (Bank)" },
+  { value: "bdo", label: "BDO (Bank)" },
+  { value: "other_bank", label: "Other Bank" },
+];
 import { useNavigate } from "react-router-dom";
 import "../StudentWebsiteCSS/StudentEnroll.css";
 import { getToken } from "../Auth/auth";
@@ -23,7 +20,6 @@ const PROFILE_ENDPOINTS = [
 
 const LEDGER_SUMMARY_ENDPOINT = "/api/finance/my-ledger-summary/";
 const MY_GRADES_ENDPOINT = "/api/grades/my-grades/";
-const ACADEMIC_HISTORY_ENDPOINT = year => `/api/grades/my-grades/?school_year=${encodeURIComponent(year)}`;
 
 const NEXT_GRADE_MAP = {
   prek: "Kinder",
@@ -54,30 +50,31 @@ async function fetchWithToken(url, options = {}) {
 
   return fetch(`${API_BASE}${url}`, {
     ...options,
-    headers,
-  });
-}
-
-async function parseJsonSafe(res) {
-  const text = await res.text();
-  try {
-    return text ? JSON.parse(text) : null;
-  } catch {
-    return { detail: text };
-  }
-}
-
-async function tryProfileEndpoints() {
-  let lastError = null;
-
-  for (const endpoint of PROFILE_ENDPOINTS) {
-    try {
-      const res = await fetchWithToken(endpoint, { method: "GET" });
-      const json = await parseJsonSafe(res);
-
-      if (res.ok) {
-        return { data: json, endpoint };
-      }
+      paymentAmount,
+      paymentDestination,
+      studentFirstName,
+      studentMiddleName,
+      studentLastName,
+      parentFirstName,
+      parentMiddleName,
+      parentLastName,
+      contactNumber,
+      street,
+      barangay,
+      city,
+      province,
+      region,
+      paymentMethod,
+      paymentMode,
+      paymentProofFile,
+      remarks,
+      form137File,
+      sf10File,
+      birthCertificateFile,
+      goodMoralFile,
+      reportCardFile,
+      otherDocumentFile,
+    ]);
 
       lastError = new Error(
         json?.detail || `Request failed (${res.status}) at ${endpoint}`
@@ -185,10 +182,10 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
     .filter(Boolean)
     .join(", ");
 
-  // School year logic
-  const [currentSchoolYear, setCurrentSchoolYear] = useState("");
-  const [nextSchoolYear, setNextSchoolYear] = useState("");
+export default function StudentReenrollment() {
   const navigate = useNavigate();
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentDestination, setPaymentDestination] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -206,14 +203,6 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
   const [parentFirstName, setParentFirstName] = useState("");
   const [parentMiddleName, setParentMiddleName] = useState("");
   const [parentLastName, setParentLastName] = useState("");
-
-    // Refs for name fields
-    const studentFirstNameRef = useRef();
-    const studentMiddleNameRef = useRef();
-    const studentLastNameRef = useRef();
-    const parentFirstNameRef = useRef();
-    const parentMiddleNameRef = useRef();
-    const parentLastNameRef = useRef();
 
   const [contactNumber, setContactNumber] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -248,28 +237,6 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // Determine current and next school year automatically
-  useEffect(() => {
-    // Helper to get school year string (e.g., "2025-2026")
-    function getSchoolYear(now = new Date()) {
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
-      // Assume school year starts in June (month 6)
-      if (month >= 6) {
-        return `${year}-${year + 1}`;
-      } else {
-        return `${year - 1}-${year}`;
-      }
-    }
-    const current = getSchoolYear();
-    // Next school year is always +1
-    const [start, end] = current.split("-").map(Number);
-    const next = `${start + 1}-${end + 1}`;
-    setCurrentSchoolYear(current);
-    setNextSchoolYear(next);
-  }, []);
-
-  // Fetch profile, ledger, and grades for the current school year
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -280,14 +247,7 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
         const [profileResult, summaryResult, gradesResult] = await Promise.allSettled([
           tryProfileEndpoints(),
           loadLedgerSummary(),
-          currentSchoolYear
-            ? (async () => {
-                const res = await fetchWithToken(ACADEMIC_HISTORY_ENDPOINT(currentSchoolYear), { method: "GET" });
-                const json = await parseJsonSafe(res);
-                if (!res.ok) throw new Error(json?.detail || "Failed to load grades.");
-                return Array.isArray(json) ? json : [];
-              })()
-            : loadMyGrades(),
+          loadMyGrades(),
         ]);
 
         if (profileResult.status !== "fulfilled") {
@@ -354,24 +314,12 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
     };
 
     loadData();
-  }, [addToast, currentSchoolYear]);
+  }, [addToast]);
 
   const studentInfo = useMemo(() => {
     const u = data || {};
     const p = u.profile || {};
     const e = u.enrollment || {};
-
-    // Try to get grade level from grades for current school year
-    let gradeLevel = gradeLabelFromProfile(p.grade_level || e.grade_level);
-    let gradeCode = normalizeGradeCode(p.grade_level || e.grade_level);
-    if (grades.length > 0 && grades[0].school_year) {
-      // Find the grade level for the current school year
-      const gradeObj = grades.find(g => g.school_year === currentSchoolYear);
-      if (gradeObj && gradeObj.grade_level) {
-        gradeLevel = gradeLabelFromProfile(gradeObj.grade_level);
-        gradeCode = normalizeGradeCode(gradeObj.grade_level);
-      }
-    }
 
     return {
       fullName:
@@ -380,14 +328,14 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
         "—",
       lrn: p.lrn || e.lrn || "—",
       studentNumber: p.student_number || e.student_number || "—",
-      gradeLevel,
-      gradeCode,
+      gradeLevel: gradeLabelFromProfile(p.grade_level || e.grade_level),
+      gradeCode: normalizeGradeCode(p.grade_level || e.grade_level),
       sectionName:
         p.section?.name || e.section_details?.name || e.section_name || "—",
-      academicYear: currentSchoolYear || e.academic_year || "—",
+      academicYear: e.academic_year || "—",
       status: e.status || "—",
     };
-  }, [data, studentFirstName, studentMiddleName, studentLastName, grades, currentSchoolYear]);
+  }, [data, studentFirstName, studentMiddleName, studentLastName]);
 
   const parentName = useMemo(
     () =>
@@ -436,26 +384,6 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
     const hasNoAssignedSubjects = gradeSummary.totalSubjects === 0;
     const hasIncompleteGrades = gradeSummary.incompleteSubjects > 0;
     const hasFailingGrades = gradeSummary.failedSubjects > 0;
-
-    // Require LRN and all documents for Kinder and up
-    const requireDocs = [
-      "kinder",
-      "grade1",
-      "grade2",
-      "grade3",
-      "grade4",
-      "grade5",
-      "grade6",
-    ];
-    const needsStrict = requireDocs.includes(currentGradeCode);
-    const missingLRN = needsStrict && (!data?.profile?.lrn && !data?.enrollment?.lrn);
-    const missingDocs = needsStrict && (
-      !form137File ||
-      !sf10File ||
-      !birthCertificateFile ||
-      !goodMoralFile ||
-      !reportCardFile
-    );
 
     if (currentGradeCode === "grade6") {
       return {
@@ -537,34 +465,6 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
       };
     }
 
-    if (missingLRN) {
-      return {
-        eligible: false,
-        badge: "Not Eligible",
-        color: "#991b1b",
-        bg: "#fef2f2",
-        border: "#fecaca",
-        nextGrade,
-        financeNote: "No existing balance",
-        academicNote: "LRN required",
-        message: "Learner Reference Number (LRN) is required for Kinder and above.",
-      };
-    }
-
-    if (missingDocs) {
-      return {
-        eligible: false,
-        badge: "Not Eligible",
-        color: "#991b1b",
-        bg: "#fef2f2",
-        border: "#fecaca",
-        nextGrade,
-        financeNote: "No existing balance",
-        academicNote: "Required documents missing",
-        message: "All required documents (Form 137, SF10, Birth Certificate, Good Moral, Report Card) must be uploaded for Kinder and above.",
-      };
-    }
-
     return {
       eligible: true,
       badge: "Eligible",
@@ -578,95 +478,86 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
         ? `You are eligible to enroll for ${nextGrade}.`
         : "You are eligible to enroll.",
     };
-  }, [studentInfo.gradeCode, outstandingBalance, gradeSummary, data, form137File, sf10File, birthCertificateFile, goodMoralFile, reportCardFile]);
+  }, [studentInfo.gradeCode, outstandingBalance, gradeSummary]);
 
   const formValidation = useMemo(() => {
     const errors = [];
-
-    // LRN required for Kinder and up
-    const requireDocs = [
-      "kinder",
-      "grade1",
-      "grade2",
-      "grade3",
-      "grade4",
-      "grade5",
-      "grade6",
-    ];
-    const needsStrict = requireDocs.includes(studentInfo.gradeCode);
-    const lrn = data?.profile?.lrn || data?.enrollment?.lrn || "";
-    if (needsStrict && !lrn) {
-      errors.push("Learner Reference Number (LRN) is required for Kinder and above.");
+    // Payment amount and destination validation
+    if (paymentMethod === "online") {
+      if (!paymentAmount.trim() || isNaN(Number(paymentAmount)) || Number(paymentAmount) <= 0) {
+        errors.push("Please enter a valid payment amount for online payments.");
+      }
+      if (!paymentDestination.trim()) {
+        errors.push("Please select where you sent your payment (E-wallet or Bank).");
+      }
     }
 
-    if (!studentFirstName.trim()) errors.push("Student first name is required.");
+    // Student name validation
+    if (!studentFirstName.trim()) errors.push("Please enter the student's first name.");
     else if (!isValidName(studentFirstName)) {
-      errors.push("Student first name contains invalid characters.");
+      errors.push("Student's first name contains invalid characters. Only letters, spaces, and basic punctuation are allowed.");
     }
 
     if (studentMiddleName.trim() && !isValidName(studentMiddleName)) {
-      errors.push("Student middle name contains invalid characters.");
+      errors.push("Student's middle name contains invalid characters. Only letters, spaces, and basic punctuation are allowed.");
     }
 
-    if (!studentLastName.trim()) errors.push("Student last name is required.");
+    if (!studentLastName.trim()) errors.push("Please enter the student's last name.");
     else if (!isValidName(studentLastName)) {
-      errors.push("Student last name contains invalid characters.");
+      errors.push("Student's last name contains invalid characters. Only letters, spaces, and basic punctuation are allowed.");
     }
 
-    if (!parentFirstName.trim()) errors.push("Parent first name is required.");
+    // Parent/guardian name validation
+    if (!parentFirstName.trim()) errors.push("Please enter the parent or guardian's first name.");
     else if (!isValidName(parentFirstName)) {
-      errors.push("Parent first name contains invalid characters.");
+      errors.push("Parent/guardian's first name contains invalid characters. Only letters, spaces, and basic punctuation are allowed.");
     }
 
     if (parentMiddleName.trim() && !isValidName(parentMiddleName)) {
-      errors.push("Parent middle name contains invalid characters.");
+      errors.push("Parent/guardian's middle name contains invalid characters. Only letters, spaces, and basic punctuation are allowed.");
     }
 
-    if (!parentLastName.trim()) errors.push("Parent last name is required.");
+    if (!parentLastName.trim()) errors.push("Please enter the parent or guardian's last name.");
     else if (!isValidName(parentLastName)) {
-      errors.push("Parent last name contains invalid characters.");
+      errors.push("Parent/guardian's last name contains invalid characters. Only letters, spaces, and basic punctuation are allowed.");
     }
 
+    // Contact number
     if (!contactNumber.trim()) {
-      errors.push("Contact number is required.");
+      errors.push("Please enter a contact number.");
     } else if (!isValidPHMobile(contactNumber)) {
-      errors.push("Contact number must be 09XXXXXXXXX or +639XXXXXXXXX.");
+      errors.push("Contact number must be in the format 09XXXXXXXXX or +639XXXXXXXXX.");
     }
 
-    if (!street.trim()) errors.push("House No. / Street is required.");
-    if (!barangay.trim()) errors.push("Barangay is required.");
-    if (!city.trim()) errors.push("City / Municipality is required.");
-    if (!province.trim()) errors.push("Province is required.");
-    if (!region.trim()) errors.push("Region is required.");
+    // Address fields
+    if (!street.trim()) errors.push("Please enter the house number and street.");
+    if (!barangay.trim()) errors.push("Please enter the barangay.");
+    if (!city.trim()) errors.push("Please enter the city or municipality.");
+    if (!province.trim()) errors.push("Please enter the province.");
+    if (!region.trim()) errors.push("Please select a region.");
 
+    // Payment
     if (!paymentMethod.trim()) {
-      errors.push("Please select a payment method.");
+      errors.push("Please select a payment method (online or onsite).");
     }
 
     if (!paymentMode.trim()) {
-      errors.push("Please select a payment mode.");
+      errors.push("Please select a payment mode (cash or installment).");
     }
 
     if (paymentMethod === "online" && !paymentProofFile) {
-      errors.push("Proof of payment is required for online payments.");
+      errors.push("Please upload a proof of payment for online payments.");
     }
 
+    // Remarks
     if (remarks.trim().length > 500) {
       errors.push("Remarks must not exceed 500 characters.");
     }
 
-    // Documents required for Kinder and up
-    if (needsStrict) {
-      if (!form137File) errors.push("Form 137-E is required for Kinder and above.");
-      if (!sf10File) errors.push("School Form 10 (SF10) is required for Kinder and above.");
-      if (!birthCertificateFile) errors.push("Birth Certificate is required for Kinder and above.");
-      if (!goodMoralFile) errors.push("Good Moral Certificate is required for Kinder and above.");
-      if (!reportCardFile) errors.push("Report Card is required for Kinder and above.");
-    }
-
+    // File uploads
     const fileChecks = [
       validateUploadFile(form137File, "Form 137-E"),
-      validateUploadFile(sf10File, "School Form 10"),
+      validateUploadFile(sf10File, "School Form 10 (SF10)"),
       validateUploadFile(birthCertificateFile, "Birth Certificate"),
       validateUploadFile(goodMoralFile, "Good Moral Certificate"),
       validateUploadFile(reportCardFile, "Report Card"),
@@ -702,8 +593,6 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
     goodMoralFile,
     reportCardFile,
     otherDocumentFile,
-    studentInfo.gradeCode,
-    data,
   ]);
 
   const handleSubmit = async (e) => {
@@ -728,6 +617,8 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
 
     try {
       const form = new FormData();
+        form.append("payment_amount", paymentAmount);
+        form.append("payment_destination", paymentDestination);
       form.append("student_first_name", studentFirstName.trim());
       form.append("student_middle_name", studentMiddleName.trim());
       form.append("student_last_name", studentLastName.trim());
@@ -919,10 +810,6 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
         </div>
       </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <strong>Current School Year:</strong> {currentSchoolYear || "—"} <br />
-        <strong>Next School Year (Reenrollment Target):</strong> {nextSchoolYear || "—"}
-      </div>
       <div className="profile-details-grid">
         <section className="details-card">
           <div className="details-header">Student Information</div>
@@ -1002,92 +889,62 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Student First Name</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  className="entry-input"
-                  value={studentFirstName}
-                  onChange={(e) => setStudentFirstName(e.target.value)}
-                  disabled={!eligibility.eligible}
-                  ref={studentFirstNameRef}
-                />
-                <button type="button" title="Insert Ñ" onClick={() => insertAtCursor(studentFirstNameRef.current, 'Ñ')} style={{padding:'0 4px'}}>Ñ</button>
-                <button type="button" title="Insert ñ" onClick={() => insertAtCursor(studentFirstNameRef.current, 'ñ')} style={{padding:'0 4px'}}>ñ</button>
-              </div>
+            <input
+              className="entry-input"
+              value={studentFirstName}
+              onChange={(e) => setStudentFirstName(e.target.value)}
+              disabled={!eligibility.eligible}
+            />
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Student Middle Name</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  className="entry-input"
-                  value={studentMiddleName}
-                  onChange={(e) => setStudentMiddleName(e.target.value)}
-                  disabled={!eligibility.eligible}
-                  ref={studentMiddleNameRef}
-                />
-                <button type="button" title="Insert Ñ" onClick={() => insertAtCursor(studentMiddleNameRef.current, 'Ñ')} style={{padding:'0 4px'}}>Ñ</button>
-                <button type="button" title="Insert ñ" onClick={() => insertAtCursor(studentMiddleNameRef.current, 'ñ')} style={{padding:'0 4px'}}>ñ</button>
-              </div>
+            <input
+              className="entry-input"
+              value={studentMiddleName}
+              onChange={(e) => setStudentMiddleName(e.target.value)}
+              disabled={!eligibility.eligible}
+            />
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Student Last Name</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  className="entry-input"
-                  value={studentLastName}
-                  onChange={(e) => setStudentLastName(e.target.value)}
-                  disabled={!eligibility.eligible}
-                  ref={studentLastNameRef}
-                />
-                <button type="button" title="Insert Ñ" onClick={() => insertAtCursor(studentLastNameRef.current, 'Ñ')} style={{padding:'0 4px'}}>Ñ</button>
-                <button type="button" title="Insert ñ" onClick={() => insertAtCursor(studentLastNameRef.current, 'ñ')} style={{padding:'0 4px'}}>ñ</button>
-              </div>
+            <input
+              className="entry-input"
+              value={studentLastName}
+              onChange={(e) => setStudentLastName(e.target.value)}
+              disabled={!eligibility.eligible}
+            />
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Parent First Name</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  className="entry-input"
-                  value={parentFirstName}
-                  onChange={(e) => setParentFirstName(e.target.value)}
-                  disabled={!eligibility.eligible}
-                  ref={parentFirstNameRef}
-                />
-                <button type="button" title="Insert Ñ" onClick={() => insertAtCursor(parentFirstNameRef.current, 'Ñ')} style={{padding:'0 4px'}}>Ñ</button>
-                <button type="button" title="Insert ñ" onClick={() => insertAtCursor(parentFirstNameRef.current, 'ñ')} style={{padding:'0 4px'}}>ñ</button>
-              </div>
+            <input
+              className="entry-input"
+              value={parentFirstName}
+              onChange={(e) => setParentFirstName(e.target.value)}
+              disabled={!eligibility.eligible}
+            />
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Parent Middle Name</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  className="entry-input"
-                  value={parentMiddleName}
-                  onChange={(e) => setParentMiddleName(e.target.value)}
-                  disabled={!eligibility.eligible}
-                  ref={parentMiddleNameRef}
-                />
-                <button type="button" title="Insert Ñ" onClick={() => insertAtCursor(parentMiddleNameRef.current, 'Ñ')} style={{padding:'0 4px'}}>Ñ</button>
-                <button type="button" title="Insert ñ" onClick={() => insertAtCursor(parentMiddleNameRef.current, 'ñ')} style={{padding:'0 4px'}}>ñ</button>
-              </div>
+            <input
+              className="entry-input"
+              value={parentMiddleName}
+              onChange={(e) => setParentMiddleName(e.target.value)}
+              disabled={!eligibility.eligible}
+            />
           </div>
 
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Parent Last Name</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  className="entry-input"
-                  value={parentLastName}
-                  onChange={(e) => setParentLastName(e.target.value)}
-                  disabled={!eligibility.eligible}
-                  ref={parentLastNameRef}
-                />
-                <button type="button" title="Insert Ñ" onClick={() => insertAtCursor(parentLastNameRef.current, 'Ñ')} style={{padding:'0 4px'}}>Ñ</button>
-                <button type="button" title="Insert ñ" onClick={() => insertAtCursor(parentLastNameRef.current, 'ñ')} style={{padding:'0 4px'}}>ñ</button>
-              </div>
+            <input
+              className="entry-input"
+              value={parentLastName}
+              onChange={(e) => setParentLastName(e.target.value)}
+              disabled={!eligibility.eligible}
+            />
           </div>
 
           <div className="info-entry entry-border edit-mode">
@@ -1220,22 +1077,58 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
             </select>
           </div>
 
+
           {paymentMethod === "online" && (
-            <div className="info-entry entry-border edit-mode">
-              <span className="entry-label">Proof of Payment<span className="required">*</span></span>
-              <input
-                type="file"
-                accept=".pdf,.png,.jpg,.jpeg"
-                className="entry-input"
-                onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)}
-                disabled={!eligibility.eligible}
-              />
-              {paymentProofFile && (
-                <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
-                  📄 {paymentProofFile.name}
-                </div>
-              )}
-            </div>
+            <>
+              <div className="info-entry entry-border edit-mode">
+                <span className="entry-label">Amount <span className="required">*</span></span>
+                <input
+                  className="entry-input"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="^[0-9]*[.,]?[0-9]*$"
+                  value={paymentAmount}
+                  onChange={(e) => {
+                    // Only allow numbers and decimal
+                    const val = e.target.value.replace(/[^0-9.,]/g, "");
+                    setPaymentAmount(val);
+                  }}
+                  placeholder="Enter payment amount (e.g. 1000.00)"
+                  disabled={!eligibility.eligible}
+                />
+              </div>
+
+              <div className="info-entry entry-border edit-mode">
+                <span className="entry-label">Where did you send your payment? <span className="required">*</span></span>
+                <select
+                  className="entry-input"
+                  value={paymentDestination}
+                  onChange={(e) => setPaymentDestination(e.target.value)}
+                  disabled={!eligibility.eligible}
+                >
+                  <option value="">Select E-wallet or Bank</option>
+                  {PAYMENT_DESTINATIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="info-entry entry-border edit-mode">
+                <span className="entry-label">Proof of Payment<span className="required">*</span></span>
+                <input
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  className="entry-input"
+                  onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)}
+                  disabled={!eligibility.eligible}
+                />
+                {paymentProofFile && (
+                  <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                    📄 {paymentProofFile.name}
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           <div className="info-entry edit-mode">
