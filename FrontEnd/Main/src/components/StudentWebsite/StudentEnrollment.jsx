@@ -23,6 +23,7 @@ const PROFILE_ENDPOINTS = [
 
 const LEDGER_SUMMARY_ENDPOINT = "/api/finance/my-ledger-summary/";
 const MY_GRADES_ENDPOINT = "/api/grades/my-grades/";
+const ACADEMIC_HISTORY_ENDPOINT = year => `/api/grades/my-grades/?school_year=${encodeURIComponent(year)}`;
 
 const NEXT_GRADE_MAP = {
   prek: "Kinder",
@@ -184,7 +185,9 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
     .filter(Boolean)
     .join(", ");
 
-export default function StudentReenrollment() {
+  // School year logic
+  const [currentSchoolYear, setCurrentSchoolYear] = useState("");
+  const [nextSchoolYear, setNextSchoolYear] = useState("");
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -245,6 +248,28 @@ export default function StudentReenrollment() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  // Determine current and next school year automatically
+  useEffect(() => {
+    // Helper to get school year string (e.g., "2025-2026")
+    function getSchoolYear(now = new Date()) {
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      // Assume school year starts in June (month 6)
+      if (month >= 6) {
+        return `${year}-${year + 1}`;
+      } else {
+        return `${year - 1}-${year}`;
+      }
+    }
+    const current = getSchoolYear();
+    // Next school year is always +1
+    const [start, end] = current.split("-").map(Number);
+    const next = `${start + 1}-${end + 1}`;
+    setCurrentSchoolYear(current);
+    setNextSchoolYear(next);
+  }, []);
+
+  // Fetch profile, ledger, and grades for the current school year
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -255,7 +280,14 @@ export default function StudentReenrollment() {
         const [profileResult, summaryResult, gradesResult] = await Promise.allSettled([
           tryProfileEndpoints(),
           loadLedgerSummary(),
-          loadMyGrades(),
+          currentSchoolYear
+            ? (async () => {
+                const res = await fetchWithToken(ACADEMIC_HISTORY_ENDPOINT(currentSchoolYear), { method: "GET" });
+                const json = await parseJsonSafe(res);
+                if (!res.ok) throw new Error(json?.detail || "Failed to load grades.");
+                return Array.isArray(json) ? json : [];
+              })()
+            : loadMyGrades(),
         ]);
 
         if (profileResult.status !== "fulfilled") {
@@ -322,12 +354,24 @@ export default function StudentReenrollment() {
     };
 
     loadData();
-  }, [addToast]);
+  }, [addToast, currentSchoolYear]);
 
   const studentInfo = useMemo(() => {
     const u = data || {};
     const p = u.profile || {};
     const e = u.enrollment || {};
+
+    // Try to get grade level from grades for current school year
+    let gradeLevel = gradeLabelFromProfile(p.grade_level || e.grade_level);
+    let gradeCode = normalizeGradeCode(p.grade_level || e.grade_level);
+    if (grades.length > 0 && grades[0].school_year) {
+      // Find the grade level for the current school year
+      const gradeObj = grades.find(g => g.school_year === currentSchoolYear);
+      if (gradeObj && gradeObj.grade_level) {
+        gradeLevel = gradeLabelFromProfile(gradeObj.grade_level);
+        gradeCode = normalizeGradeCode(gradeObj.grade_level);
+      }
+    }
 
     return {
       fullName:
@@ -336,14 +380,14 @@ export default function StudentReenrollment() {
         "—",
       lrn: p.lrn || e.lrn || "—",
       studentNumber: p.student_number || e.student_number || "—",
-      gradeLevel: gradeLabelFromProfile(p.grade_level || e.grade_level),
-      gradeCode: normalizeGradeCode(p.grade_level || e.grade_level),
+      gradeLevel,
+      gradeCode,
       sectionName:
         p.section?.name || e.section_details?.name || e.section_name || "—",
-      academicYear: e.academic_year || "—",
+      academicYear: currentSchoolYear || e.academic_year || "—",
       status: e.status || "—",
     };
-  }, [data, studentFirstName, studentMiddleName, studentLastName]);
+  }, [data, studentFirstName, studentMiddleName, studentLastName, grades, currentSchoolYear]);
 
   const parentName = useMemo(
     () =>
@@ -392,6 +436,26 @@ export default function StudentReenrollment() {
     const hasNoAssignedSubjects = gradeSummary.totalSubjects === 0;
     const hasIncompleteGrades = gradeSummary.incompleteSubjects > 0;
     const hasFailingGrades = gradeSummary.failedSubjects > 0;
+
+    // Require LRN and all documents for Kinder and up
+    const requireDocs = [
+      "kinder",
+      "grade1",
+      "grade2",
+      "grade3",
+      "grade4",
+      "grade5",
+      "grade6",
+    ];
+    const needsStrict = requireDocs.includes(currentGradeCode);
+    const missingLRN = needsStrict && (!data?.profile?.lrn && !data?.enrollment?.lrn);
+    const missingDocs = needsStrict && (
+      !form137File ||
+      !sf10File ||
+      !birthCertificateFile ||
+      !goodMoralFile ||
+      !reportCardFile
+    );
 
     if (currentGradeCode === "grade6") {
       return {
@@ -473,6 +537,34 @@ export default function StudentReenrollment() {
       };
     }
 
+    if (missingLRN) {
+      return {
+        eligible: false,
+        badge: "Not Eligible",
+        color: "#991b1b",
+        bg: "#fef2f2",
+        border: "#fecaca",
+        nextGrade,
+        financeNote: "No existing balance",
+        academicNote: "LRN required",
+        message: "Learner Reference Number (LRN) is required for Kinder and above.",
+      };
+    }
+
+    if (missingDocs) {
+      return {
+        eligible: false,
+        badge: "Not Eligible",
+        color: "#991b1b",
+        bg: "#fef2f2",
+        border: "#fecaca",
+        nextGrade,
+        financeNote: "No existing balance",
+        academicNote: "Required documents missing",
+        message: "All required documents (Form 137, SF10, Birth Certificate, Good Moral, Report Card) must be uploaded for Kinder and above.",
+      };
+    }
+
     return {
       eligible: true,
       badge: "Eligible",
@@ -486,10 +578,26 @@ export default function StudentReenrollment() {
         ? `You are eligible to enroll for ${nextGrade}.`
         : "You are eligible to enroll.",
     };
-  }, [studentInfo.gradeCode, outstandingBalance, gradeSummary]);
+  }, [studentInfo.gradeCode, outstandingBalance, gradeSummary, data, form137File, sf10File, birthCertificateFile, goodMoralFile, reportCardFile]);
 
   const formValidation = useMemo(() => {
     const errors = [];
+
+    // LRN required for Kinder and up
+    const requireDocs = [
+      "kinder",
+      "grade1",
+      "grade2",
+      "grade3",
+      "grade4",
+      "grade5",
+      "grade6",
+    ];
+    const needsStrict = requireDocs.includes(studentInfo.gradeCode);
+    const lrn = data?.profile?.lrn || data?.enrollment?.lrn || "";
+    if (needsStrict && !lrn) {
+      errors.push("Learner Reference Number (LRN) is required for Kinder and above.");
+    }
 
     if (!studentFirstName.trim()) errors.push("Student first name is required.");
     else if (!isValidName(studentFirstName)) {
@@ -530,7 +638,6 @@ export default function StudentReenrollment() {
     if (!city.trim()) errors.push("City / Municipality is required.");
     if (!province.trim()) errors.push("Province is required.");
     if (!region.trim()) errors.push("Region is required.");
-    
 
     if (!paymentMethod.trim()) {
       errors.push("Please select a payment method.");
@@ -546,6 +653,15 @@ export default function StudentReenrollment() {
 
     if (remarks.trim().length > 500) {
       errors.push("Remarks must not exceed 500 characters.");
+    }
+
+    // Documents required for Kinder and up
+    if (needsStrict) {
+      if (!form137File) errors.push("Form 137-E is required for Kinder and above.");
+      if (!sf10File) errors.push("School Form 10 (SF10) is required for Kinder and above.");
+      if (!birthCertificateFile) errors.push("Birth Certificate is required for Kinder and above.");
+      if (!goodMoralFile) errors.push("Good Moral Certificate is required for Kinder and above.");
+      if (!reportCardFile) errors.push("Report Card is required for Kinder and above.");
     }
 
     const fileChecks = [
@@ -586,6 +702,8 @@ export default function StudentReenrollment() {
     goodMoralFile,
     reportCardFile,
     otherDocumentFile,
+    studentInfo.gradeCode,
+    data,
   ]);
 
   const handleSubmit = async (e) => {
@@ -801,6 +919,10 @@ export default function StudentReenrollment() {
         </div>
       </div>
 
+      <div style={{ marginBottom: 16 }}>
+        <strong>Current School Year:</strong> {currentSchoolYear || "—"} <br />
+        <strong>Next School Year (Reenrollment Target):</strong> {nextSchoolYear || "—"}
+      </div>
       <div className="profile-details-grid">
         <section className="details-card">
           <div className="details-header">Student Information</div>
