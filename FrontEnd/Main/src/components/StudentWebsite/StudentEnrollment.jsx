@@ -1,12 +1,4 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-// Payment destination options
-const PAYMENT_DESTINATIONS = [
-  { value: "gcash", label: "GCash (E-wallet)" },
-  { value: "maya", label: "Maya (E-wallet)" },
-  { value: "bpi", label: "BPI (Bank)" },
-  { value: "bdo", label: "BDO (Bank)" },
-  { value: "other_bank", label: "Other Bank" },
-];
 import { useNavigate } from "react-router-dom";
 import "../StudentWebsiteCSS/StudentEnroll.css";
 import { getToken } from "../Auth/auth";
@@ -52,6 +44,38 @@ async function fetchWithToken(url, options = {}) {
     ...options,
     headers,
   });
+}
+
+async function parseJsonSafe(res) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return { detail: text };
+  }
+}
+
+async function tryProfileEndpoints() {
+  let lastError = null;
+
+  for (const endpoint of PROFILE_ENDPOINTS) {
+    try {
+      const res = await fetchWithToken(endpoint, { method: "GET" });
+      const json = await parseJsonSafe(res);
+
+      if (res.ok) {
+        return { data: json, endpoint };
+      }
+
+      lastError = new Error(
+        json?.detail || `Request failed (${res.status}) at ${endpoint}`
+      );
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error("Unable to load profile.");
 }
 
 async function loadLedgerSummary() {
@@ -151,8 +175,6 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
 
 export default function StudentReenrollment() {
   const navigate = useNavigate();
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentDestination, setPaymentDestination] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -449,82 +471,67 @@ export default function StudentReenrollment() {
 
   const formValidation = useMemo(() => {
     const errors = [];
-    // Payment amount and destination validation
-    if (paymentMethod === "online") {
-      if (!paymentAmount.trim() || isNaN(Number(paymentAmount)) || Number(paymentAmount) <= 0) {
-        errors.push("Please enter a valid payment amount for online payments.");
-      }
-      if (!paymentDestination.trim()) {
-        errors.push("Please select where you sent your payment (E-wallet or Bank).");
-      }
-    }
 
-    // Student name validation
-    if (!studentFirstName.trim()) errors.push("Please enter the student's first name.");
+    if (!studentFirstName.trim()) errors.push("Student first name is required.");
     else if (!isValidName(studentFirstName)) {
-      errors.push("Student's first name contains invalid characters. Only letters, spaces, and basic punctuation are allowed.");
+      errors.push("Student first name contains invalid characters.");
     }
 
     if (studentMiddleName.trim() && !isValidName(studentMiddleName)) {
-      errors.push("Student's middle name contains invalid characters. Only letters, spaces, and basic punctuation are allowed.");
+      errors.push("Student middle name contains invalid characters.");
     }
 
-    if (!studentLastName.trim()) errors.push("Please enter the student's last name.");
+    if (!studentLastName.trim()) errors.push("Student last name is required.");
     else if (!isValidName(studentLastName)) {
-      errors.push("Student's last name contains invalid characters. Only letters, spaces, and basic punctuation are allowed.");
+      errors.push("Student last name contains invalid characters.");
     }
 
-    // Parent/guardian name validation
-    if (!parentFirstName.trim()) errors.push("Please enter the parent or guardian's first name.");
+    if (!parentFirstName.trim()) errors.push("Parent first name is required.");
     else if (!isValidName(parentFirstName)) {
-      errors.push("Parent/guardian's first name contains invalid characters. Only letters, spaces, and basic punctuation are allowed.");
+      errors.push("Parent first name contains invalid characters.");
     }
 
     if (parentMiddleName.trim() && !isValidName(parentMiddleName)) {
-      errors.push("Parent/guardian's middle name contains invalid characters. Only letters, spaces, and basic punctuation are allowed.");
+      errors.push("Parent middle name contains invalid characters.");
     }
 
-    if (!parentLastName.trim()) errors.push("Please enter the parent or guardian's last name.");
+    if (!parentLastName.trim()) errors.push("Parent last name is required.");
     else if (!isValidName(parentLastName)) {
-      errors.push("Parent/guardian's last name contains invalid characters. Only letters, spaces, and basic punctuation are allowed.");
+      errors.push("Parent last name contains invalid characters.");
     }
 
-    // Contact number
     if (!contactNumber.trim()) {
-      errors.push("Please enter a contact number.");
+      errors.push("Contact number is required.");
     } else if (!isValidPHMobile(contactNumber)) {
-      errors.push("Contact number must be in the format 09XXXXXXXXX or +639XXXXXXXXX.");
+      errors.push("Contact number must be 09XXXXXXXXX or +639XXXXXXXXX.");
     }
 
-    // Address fields
-    if (!street.trim()) errors.push("Please enter the house number and street.");
-    if (!barangay.trim()) errors.push("Please enter the barangay.");
-    if (!city.trim()) errors.push("Please enter the city or municipality.");
-    if (!province.trim()) errors.push("Please enter the province.");
-    if (!region.trim()) errors.push("Please select a region.");
+    if (!street.trim()) errors.push("House No. / Street is required.");
+    if (!barangay.trim()) errors.push("Barangay is required.");
+    if (!city.trim()) errors.push("City / Municipality is required.");
+    if (!province.trim()) errors.push("Province is required.");
+    if (!region.trim()) errors.push("Region is required.");
+    
 
-    // Payment
     if (!paymentMethod.trim()) {
-      errors.push("Please select a payment method (online or onsite).");
+      errors.push("Please select a payment method.");
     }
 
     if (!paymentMode.trim()) {
-      errors.push("Please select a payment mode (cash or installment).");
+      errors.push("Please select a payment mode.");
     }
 
     if (paymentMethod === "online" && !paymentProofFile) {
-      errors.push("Please upload a proof of payment for online payments.");
+      errors.push("Proof of payment is required for online payments.");
     }
 
-    // Remarks
     if (remarks.trim().length > 500) {
       errors.push("Remarks must not exceed 500 characters.");
     }
 
-    // File uploads
     const fileChecks = [
       validateUploadFile(form137File, "Form 137-E"),
-      validateUploadFile(sf10File, "School Form 10 (SF10)"),
+      validateUploadFile(sf10File, "School Form 10"),
       validateUploadFile(birthCertificateFile, "Birth Certificate"),
       validateUploadFile(goodMoralFile, "Good Moral Certificate"),
       validateUploadFile(reportCardFile, "Report Card"),
@@ -584,8 +591,6 @@ export default function StudentReenrollment() {
 
     try {
       const form = new FormData();
-        form.append("payment_amount", paymentAmount);
-        form.append("payment_destination", paymentDestination);
       form.append("student_first_name", studentFirstName.trim());
       form.append("student_middle_name", studentMiddleName.trim());
       form.append("student_last_name", studentLastName.trim());
@@ -1044,58 +1049,22 @@ export default function StudentReenrollment() {
             </select>
           </div>
 
-
           {paymentMethod === "online" && (
-            <>
-              <div className="info-entry entry-border edit-mode">
-                <span className="entry-label">Amount <span className="required">*</span></span>
-                <input
-                  className="entry-input"
-                  type="text"
-                  inputMode="decimal"
-                  pattern="^[0-9]*[.,]?[0-9]*$"
-                  value={paymentAmount}
-                  onChange={(e) => {
-                    // Only allow numbers and decimal
-                    const val = e.target.value.replace(/[^0-9.,]/g, "");
-                    setPaymentAmount(val);
-                  }}
-                  placeholder="Enter payment amount (e.g. 1000.00)"
-                  disabled={!eligibility.eligible}
-                />
-              </div>
-
-              <div className="info-entry entry-border edit-mode">
-                <span className="entry-label">Where did you send your payment? <span className="required">*</span></span>
-                <select
-                  className="entry-input"
-                  value={paymentDestination}
-                  onChange={(e) => setPaymentDestination(e.target.value)}
-                  disabled={!eligibility.eligible}
-                >
-                  <option value="">Select E-wallet or Bank</option>
-                  {PAYMENT_DESTINATIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="info-entry entry-border edit-mode">
-                <span className="entry-label">Proof of Payment<span className="required">*</span></span>
-                <input
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                  className="entry-input"
-                  onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)}
-                  disabled={!eligibility.eligible}
-                />
-                {paymentProofFile && (
-                  <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
-                    📄 {paymentProofFile.name}
-                  </div>
-                )}
-              </div>
-            </>
+            <div className="info-entry entry-border edit-mode">
+              <span className="entry-label">Proof of Payment<span className="required">*</span></span>
+              <input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                className="entry-input"
+                onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)}
+                disabled={!eligibility.eligible}
+              />
+              {paymentProofFile && (
+                <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                  📄 {paymentProofFile.name}
+                </div>
+              )}
+            </div>
           )}
 
           <div className="info-entry edit-mode">

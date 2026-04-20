@@ -535,6 +535,7 @@ export default function EnrollmentManagement() {
     // Promotion is determined by actual completion checks below, not student_type.
 
 
+    
     if (!hasSection && !hasGradeProgressData) {
       return {
         ready: false,

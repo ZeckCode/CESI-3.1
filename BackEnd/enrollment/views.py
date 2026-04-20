@@ -325,7 +325,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 student=user,
                 parent_user=user,
                 student_type="old",
-                    status="PENDING",
+                status="PENDING",
                 education_level=self._education_level_from_grade(next_grade),
                 grade_level=next_grade,
                 academic_year=academic_year,
@@ -400,45 +400,17 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         }
         return mapping.get((current_grade or "").strip().lower())
 
-
-    def _aggregate_outstanding_balance(self, user):
-        """
-        Aggregate outstanding balance for all enrollments with the same student number (all grades)
-        or LRN (for Kinder and up).
-        """
-        profile = UserProfile.objects.filter(user=user).first()
-        lrn = (profile.lrn or "").strip()
-        student_number = (profile.student_number or "").strip()
-
-        # Find all enrollments with same student number
-        enrollments = Enrollment.objects.none()
-        if student_number:
-            enrollments = Enrollment.objects.filter(student_number=student_number)
-
-        # For Kinder and up, also check by LRN
-        kinder_and_up = ["kinder", "grade1", "grade2", "grade3", "grade4", "grade5", "grade6"]
-        grade_level = (profile.grade_level or "").strip().lower()
-        if lrn and grade_level in kinder_and_up:
-            enrollments = enrollments | Enrollment.objects.filter(lrn=lrn)
-
-        # Always include current user's enrollments
-        enrollments = enrollments | Enrollment.objects.filter(parent_user=user)
-        enrollments = enrollments.distinct()
-
-        # Get all parent users from these enrollments
-        parent_ids = enrollments.values_list("parent_user", flat=True)
-        # Aggregate all transactions for these parent users
-        totals = Transaction.objects.filter(parent_id__in=parent_ids).aggregate(
             total_debit=Sum("debit"),
             total_credit=Sum("credit"),
         )
+
         total_debit = Decimal(str(totals.get("total_debit") or 0))
         total_credit = Decimal(str(totals.get("total_credit") or 0))
+
         balance = total_debit - total_credit
         return balance if balance > 0 else Decimal("0.00")
 
     def _ensure_old_student_has_no_balance(self, parent_user):
-        balance = self._aggregate_outstanding_balance(parent_user)
         if balance > 0:
             return Response(
                 {
