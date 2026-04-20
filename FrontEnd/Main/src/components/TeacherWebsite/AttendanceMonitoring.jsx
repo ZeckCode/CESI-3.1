@@ -1391,19 +1391,15 @@ const AttendanceMonitoring = () => {
         pdf.text(formatStudentName(student).substring(0, 20), xPos + 2, yPosition + 5);
         xPos += firstColWidth;
         
-        // Day cells with color coding
+        // Day cells: use text color only for status emphasis (no background fills)
         daysArray.forEach((day) => {
           const status = attendanceByDay[studentKey]?.[day] || "";
           
           if (status === "P") {
-            pdf.setFillColor(36, 161, 72);
-            pdf.rect(xPos, yPosition, dayColWidth, rowHeight, "F");
-            pdf.setTextColor(255, 255, 255);
+            pdf.setTextColor(36, 161, 72);
             pdf.setFont(undefined, "bold");
           } else if (status === "A") {
-            pdf.setFillColor(198, 40, 40);
-            pdf.rect(xPos, yPosition, dayColWidth, rowHeight, "F");
-            pdf.setTextColor(255, 255, 255);
+            pdf.setTextColor(198, 40, 40);
             pdf.setFont(undefined, "bold");
           } else {
             pdf.setTextColor(0, 0, 0);
