@@ -52,16 +52,6 @@ async function fetchWithToken(url, options = {}) {
     ...options,
     headers,
   });
-
-      lastError = new Error(
-        json?.detail || `Request failed (${res.status}) at ${endpoint}`
-      );
-    } catch (err) {
-      lastError = err;
-    }
-  }
-
-  throw lastError || new Error("Unable to load profile.");
 }
 
 async function loadLedgerSummary() {
