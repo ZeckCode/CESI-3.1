@@ -173,7 +173,7 @@ const buildAddress = ({ street, barangay, city, province, region}) =>
     .filter(Boolean)
     .join(", ");
 
-export default function StudentReenrollment() {
+export default function StudentReenrollment({ enrollmentWindow }) {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -685,7 +685,25 @@ export default function StudentReenrollment() {
     <div className="profile-content">
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
-     
+      {/* Academic Year Banner from Enrollment Settings */}
+      {enrollmentWindow?.academicYear && (
+        <div
+          style={{
+            margin: "0 0 18px 0",
+            padding: "14px 18px",
+            borderRadius: "12px",
+            background: "#e0f2fe",
+            border: "1.5px solid #0284c7",
+            color: "#0369a1",
+            fontWeight: 700,
+            fontSize: "17px",
+            textAlign: "center",
+            letterSpacing: "0.5px",
+          }}
+        >
+          Enrollment is for Academic Year: <span style={{ fontWeight: 900 }}>{enrollmentWindow.academicYear}</span>
+        </div>
+      )}
 
       <div
         style={{
