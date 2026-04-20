@@ -693,7 +693,7 @@ def students_by_grade(request, grade_level):
 # ══════════════════════════════════════════════════════
 # COMPUTE QUARTER GRADE  (live computation)
 # ══════════════════════════════════════════════════════
-def _compute_quarter_grade(student_id, subject_id, quarter):
+def _compute_quarter_grade(student_id, subject_id, quarter, grade_level=None, teacher_id=None):
     """
     Compute the weighted quarter grade for one student.
     Returns dict with category averages + weighted total.
@@ -711,6 +711,10 @@ def _compute_quarter_grade(student_id, subject_id, quarter):
         items = GradeItem.objects.filter(
             subject_id=subject_id, quarter=quarter, category=category
         )
+        if grade_level is not None:
+            items = items.filter(grade_level=grade_level)
+        if teacher_id is not None:
+            items = items.filter(teacher_id=teacher_id)
         if not items.exists():
             return None
         scores = StudentScore.objects.filter(
@@ -930,7 +934,19 @@ def publish_academic_history(request):
 
         scores_by_q = []
         for q in range(1, 5):
-            scores_by_q.append(_compute_quarter_grade(student.id, subject.id, q)["quarter_grade"])
+            row_grade_level = normalize_grade_level(section_student.get("grade_level"))
+            if row_grade_level is None:
+                row_grade_level = normalize_grade_level(section_obj.grade_level)
+
+            scores_by_q.append(
+                _compute_quarter_grade(
+                    student.id,
+                    subject.id,
+                    q,
+                    grade_level=row_grade_level,
+                    teacher_id=user.id if user.role == "TEACHER" else None,
+                )["quarter_grade"]
+            )
 
         final_grade, remarks = _compute_overall_record(scores_by_q)
 
@@ -1810,8 +1826,16 @@ def section_performance(request):
         best_grade_rank = (-1, -1)
         best_grade_student_id = candidate_ids[0]
 
+        row_grade_level = normalize_grade_level(student_row.get("grade_level"))
+
         for candidate_id in candidate_ids:
-            grade_data = _compute_quarter_grade(candidate_id, subject_id, quarter)
+            grade_data = _compute_quarter_grade(
+                candidate_id,
+                subject_id,
+                quarter,
+                grade_level=row_grade_level,
+                teacher_id=user.id if user.role == "TEACHER" else None,
+            )
             non_null_count = sum(
                 1
                 for key in ("activity_avg", "quiz_avg", "exam_avg", "class_standing")
