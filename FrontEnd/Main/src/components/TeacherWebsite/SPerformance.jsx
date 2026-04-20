@@ -141,6 +141,7 @@ const getTopIssue = (list) => {
 const SPerformance = () => {
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState("");
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [quarter, setQuarter] = useState(getCurrentSchoolQuarter);
   const [teacherSubject, setTeacherSubject] = useState(null);
   const [performanceData, setPerformanceData] = useState([]);
@@ -178,19 +179,38 @@ const SPerformance = () => {
     }
   }, []);
 
+  const availableSubjects = useMemo(() => {
+    if (!teacherSubject) return [];
+
+    if (Array.isArray(teacherSubject.subjects) && teacherSubject.subjects.length > 0) {
+      return teacherSubject.subjects;
+    }
+
+    if (teacherSubject.subject_id) {
+      return [
+        {
+          id: teacherSubject.subject_id,
+          name: teacherSubject.subject_name,
+          code: teacherSubject.subject_code,
+        },
+      ];
+    }
+
+    return [];
+  }, [teacherSubject]);
+
+  const selectedSubject = useMemo(
+    () =>
+      availableSubjects.find((subject) => String(subject.id) === String(selectedSubjectId)) ||
+      null,
+    [availableSubjects, selectedSubjectId]
+  );
+
   useEffect(() => {
     (async () => {
       try {
-        const [tiRes, secRes] = await Promise.all([
-          apiFetch(`${API}/api/grades/teacher-info/`),
-          apiFetch(`${API}/api/grades/my-sections/`),
-        ]);
+        const tiRes = await apiFetch(`${API}/api/grades/teacher-info/`);
         if (tiRes.ok) setTeacherSubject(await tiRes.json());
-        if (secRes.ok) {
-          const secs = await secRes.json();
-          setSections(Array.isArray(secs) ? secs : []);
-          if (secs.length > 0) setSelectedSection(String(secs[0].id));
-        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -198,6 +218,58 @@ const SPerformance = () => {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!availableSubjects.length) {
+      setSelectedSubjectId("");
+      return;
+    }
+
+    setSelectedSubjectId((prev) => {
+      const hasPrev = availableSubjects.some((subject) => String(subject.id) === String(prev));
+      return hasPrev ? String(prev) : String(availableSubjects[0].id);
+    });
+  }, [availableSubjects]);
+
+  useEffect(() => {
+    if (!selectedSubjectId) {
+      setSections([]);
+      setSelectedSection("");
+      return;
+    }
+
+    (async () => {
+      try {
+        const res = await apiFetch(
+          `${API}/api/grades/my-sections/?subject=${encodeURIComponent(selectedSubjectId)}`
+        );
+
+        if (!res.ok) {
+          setSections([]);
+          setSelectedSection("");
+          return;
+        }
+
+        const data = await res.json();
+        const nextSections = Array.isArray(data) ? data : [];
+        setSections(nextSections);
+
+        if (!nextSections.length) {
+          setSelectedSection("");
+          return;
+        }
+
+        setSelectedSection((prev) => {
+          const hasPrev = nextSections.some((s) => String(s.id) === String(prev));
+          return hasPrev ? prev : String(nextSections[0].id);
+        });
+      } catch (e) {
+        console.error(e);
+        setSections([]);
+        setSelectedSection("");
+      }
+    })();
+  }, [selectedSubjectId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -217,20 +289,15 @@ const SPerformance = () => {
   }, []);
 
   const fetchPerformance = useCallback(async () => {
-    if (!selectedSection) {
+    if (!selectedSection || !selectedSubjectId) {
       setPerformanceData([]);
       return;
     }
 
-    const selectedSectionMeta = sections.find((sec) => String(sec.id) === String(selectedSection));
-    const subjectQuery = selectedSectionMeta?.subject_id
-      ? `&subject=${encodeURIComponent(selectedSectionMeta.subject_id)}`
-      : "";
-
     setLoading(true);
     try {
       const res = await apiFetch(
-        `${API}/api/grades/section-performance/?section=${selectedSection}&quarter=${quarter}${subjectQuery}`
+        `${API}/api/grades/section-performance/?section=${selectedSection}&quarter=${quarter}&subject=${encodeURIComponent(selectedSubjectId)}`
       );
       if (res.ok) {
         const raw = await res.json();
@@ -282,7 +349,7 @@ const SPerformance = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedSection, quarter, sections]);
+  }, [selectedSection, selectedSubjectId, quarter]);
 
   useEffect(() => {
     fetchPerformance();
@@ -722,6 +789,19 @@ const SPerformance = () => {
         <div className="sp__headerControls">
           <select
             className="sp__select"
+            value={selectedSubjectId}
+            onChange={(e) => setSelectedSubjectId(e.target.value)}
+          >
+            {availableSubjects.length === 0 && <option value="">No assigned subjects</option>}
+            {availableSubjects.map((subject) => (
+              <option key={subject.id} value={String(subject.id)}>
+                {subject.code ? `${subject.name} (${subject.code})` : subject.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="sp__select"
             value={selectedSection}
             onChange={(e) => setSelectedSection(e.target.value)}
           >
@@ -976,6 +1056,11 @@ const SPerformance = () => {
           )}
         </div>
       </section>
+
+      {!selectedSubject && !initLoading && (
+        <div className="sp__empty sp__empty--padded">No subject assigned for this teacher.</div>
+      )}
+
       <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
