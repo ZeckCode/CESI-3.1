@@ -400,6 +400,8 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         }
         return mapping.get((current_grade or "").strip().lower())
 
+    def _current_outstanding_balance_for_parent(self, parent_user):
+        totals = Transaction.objects.filter(parent=parent_user).aggregate(
             total_debit=Sum("debit"),
             total_credit=Sum("credit"),
         )
@@ -411,6 +413,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         return balance if balance > 0 else Decimal("0.00")
 
     def _ensure_old_student_has_no_balance(self, parent_user):
+        balance = self._current_outstanding_balance_for_parent(parent_user)
         if balance > 0:
             return Response(
                 {
