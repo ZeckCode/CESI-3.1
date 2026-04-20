@@ -534,10 +534,11 @@ export default function EnrollmentManagement() {
 
     // Promotion is determined by actual completion checks below, not student_type.
 
+
     if (!hasSection && !hasGradeProgressData) {
       return {
         ready: false,
-        reason: "No section/grade-monitoring mapping found yet. Assign section or encode grades before promotion.",
+        reason: "Student is missing section assignment and grade/subject records. Assign a section and encode at least one subject grade before promotion.",
         status: "ineligible",
         icon: "clock",
       };
@@ -546,7 +547,7 @@ export default function EnrollmentManagement() {
     if (hasGradeProgressData && totalSubjects <= 0 && gradedSubjects <= 0) {
       return {
         ready: false,
-        reason: "No subjects found in grade monitoring for this student/section",
+        reason: "No subjects found for this student. Please ensure subjects are assigned in grade monitoring before promotion.",
         status: "ineligible",
         icon: "clock",
       };
@@ -555,7 +556,7 @@ export default function EnrollmentManagement() {
     if (hasGradeProgressData && gradedSubjects <= 0) {
       return {
         ready: false,
-        reason: "All subject grades are 0 or not encoded yet",
+        reason: "No subject grades are encoded yet. Please enter and complete all subject grades before promotion.",
         status: "ineligible",
         icon: "clock",
       };
