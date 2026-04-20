@@ -229,6 +229,112 @@ def resolve_portal_student_user(enrollment):
     return enrollment.student
 
 
+def resolve_student_for_grade_write(student_id=None, student_number=None):
+    resolved_ids = []
+
+    try:
+        sid = int(student_id)
+        if sid > 0:
+            resolved_ids.append(sid)
+    except (TypeError, ValueError):
+        pass
+
+    lookup_number = str(student_number or "").strip()
+    if lookup_number:
+        profile_user_ids = list(
+            UserProfile.objects.filter(
+                Q(student_number__iexact=lookup_number) | Q(lrn__iexact=lookup_number),
+                user__role="PARENT_STUDENT",
+            ).values_list("user_id", flat=True)
+        )
+        enrollment_user_ids = list(
+            Enrollment.objects.filter(
+                Q(student_number__iexact=lookup_number) | Q(lrn__iexact=lookup_number),
+                status="ACTIVE",
+            ).values_list("student_id", flat=True)
+        )
+        for candidate_id in profile_user_ids + enrollment_user_ids:
+            if candidate_id and candidate_id not in resolved_ids:
+                resolved_ids.append(candidate_id)
+
+    if not resolved_ids:
+        return student_id
+
+    users = {
+        row["id"]: row
+        for row in User.objects.filter(id__in=resolved_ids, role="PARENT_STUDENT").values("id", "username")
+    }
+
+    for candidate_id in resolved_ids:
+        candidate = users.get(candidate_id)
+        if candidate and str(candidate.get("username") or "").strip().lower() != "public_user":
+            return candidate_id
+
+    return resolved_ids[0]
+
+
+def get_school_year_scoped_student_ids(school_year_id, subject_id=None, section_id=None):
+    try:
+        school_year_id = int(school_year_id)
+    except (TypeError, ValueError):
+        return set()
+
+    schedule_qs = Schedule.objects.filter(school_year_id=school_year_id)
+    if subject_id not in (None, ""):
+        try:
+            schedule_qs = schedule_qs.filter(subject_id=int(subject_id))
+        except (TypeError, ValueError):
+            return set()
+
+    if section_id not in (None, ""):
+        try:
+            schedule_qs = schedule_qs.filter(section_id=int(section_id))
+        except (TypeError, ValueError):
+            return set()
+
+    section_ids = list(schedule_qs.values_list("section_id", flat=True).distinct())
+    if not section_ids:
+        return set()
+
+    enrollments = (
+        Enrollment.objects.filter(section_id__in=section_ids, status="ACTIVE")
+        .select_related("student", "student__profile", "parent_user", "parent_user__profile")
+    )
+
+    student_ids = set()
+    number_keys = set()
+
+    for enrollment in enrollments:
+        resolved_student = resolve_portal_student_user(enrollment)
+        for candidate in (resolved_student, enrollment.student, enrollment.parent_user):
+            candidate_id = getattr(candidate, "id", None)
+            if candidate_id:
+                student_ids.add(candidate_id)
+
+        student_number = (
+            enrollment.student_number
+            or getattr(getattr(resolved_student, "profile", None), "student_number", None)
+            or enrollment.lrn
+            or ""
+        )
+        number_key = str(student_number).strip().lower()
+        if number_key:
+            number_keys.add(number_key)
+
+    if number_keys:
+        for profile_row in (
+            UserProfile.objects.filter(user__role="PARENT_STUDENT")
+            .exclude(student_number__isnull=True)
+            .exclude(student_number__exact="")
+            .values("user_id", "student_number")
+        ):
+            profile_number_key = str(profile_row.get("student_number") or "").strip().lower()
+            if profile_number_key in number_keys and profile_row.get("user_id"):
+                student_ids.add(profile_row["user_id"])
+
+    return student_ids
+
+
 def build_section_students_payload(section_id):
     def normalize_student_number(value):
         return str(value or "").strip().lower()
@@ -439,6 +545,8 @@ class StudentScoreListCreate(generics.ListCreateAPIView):
         subject = self.request.query_params.get("subject")
         grade_level = self.request.query_params.get("grade_level")
         quarter = self.request.query_params.get("quarter")
+        school_year = self.request.query_params.get("school_year")
+        section = self.request.query_params.get("section")
 
         if grade_item:
             qs = qs.filter(grade_item_id=grade_item)
@@ -458,6 +566,16 @@ class StudentScoreListCreate(generics.ListCreateAPIView):
         if quarter:
             qs = qs.filter(grade_item__quarter=quarter)
 
+        if school_year:
+            scoped_ids = get_school_year_scoped_student_ids(
+                school_year,
+                subject_id=subject,
+                section_id=section,
+            )
+            if not scoped_ids:
+                return qs.none()
+            qs = qs.filter(student_id__in=list(scoped_ids))
+
         return qs
 
 
@@ -469,6 +587,7 @@ def upsert_score(request):
     Body: { student, grade_item, score }
     """
     student_id = request.data.get("student")
+    student_number = request.data.get("student_number")
     grade_item_id = request.data.get("grade_item")
     score_val = request.data.get("score")
 
@@ -480,8 +599,10 @@ def upsert_score(request):
     except GradeItem.DoesNotExist:
         return Response({"detail": "Grade item not found"}, status=404)
 
+    resolved_student_id = resolve_student_for_grade_write(student_id=student_id, student_number=student_number)
+
     obj, created = StudentScore.objects.update_or_create(
-        student_id=student_id,
+        student_id=resolved_student_id,
         grade_item=grade_item,
         defaults={"score": score_val},
     )
@@ -499,6 +620,7 @@ def upsert_class_standing(request):
     Body: { student, subject, quarter, score }
     """
     student_id = request.data.get("student")
+    student_number = request.data.get("student_number")
     subject_id = request.data.get("subject")
     quarter = request.data.get("quarter")
     score_val = request.data.get("score")
@@ -506,8 +628,10 @@ def upsert_class_standing(request):
     if not all([student_id, subject_id, quarter, score_val is not None]):
         return Response({"detail": "student, subject, quarter, score required"}, status=400)
 
+    resolved_student_id = resolve_student_for_grade_write(student_id=student_id, student_number=student_number)
+
     obj, _ = ClassStanding.objects.update_or_create(
-        student_id=student_id,
+        student_id=resolved_student_id,
         subject_id=subject_id,
         quarter=quarter,
         defaults={"score": score_val},
@@ -522,12 +646,25 @@ def list_class_standings(request):
     subject = request.query_params.get("subject")
     quarter = request.query_params.get("quarter")
     student = request.query_params.get("student")
+    school_year = request.query_params.get("school_year")
+    section = request.query_params.get("section")
     if subject:
         qs = qs.filter(subject_id=subject)
     if quarter:
         qs = qs.filter(quarter=quarter)
     if student:
         qs = qs.filter(student_id=student)
+
+    if school_year:
+        scoped_ids = get_school_year_scoped_student_ids(
+            school_year,
+            subject_id=subject,
+            section_id=section,
+        )
+        if not scoped_ids:
+            return Response([])
+        qs = qs.filter(student_id__in=list(scoped_ids))
+
     return Response(ClassStandingSerializer(qs, many=True).data)
 
 
@@ -1589,89 +1726,160 @@ def section_performance(request):
 
     q_start, q_end = get_school_year_quarter_dates(quarter, school_year_obj=school_year_obj)
 
-    students_map = {}
+    section_students = build_section_students_payload(section_id)
+    if not section_students:
+        return Response([])
 
     def normalize_student_number(value):
         return str(value or "").strip().lower()
+
+    student_ids_by_number = {}
     enrollments = (
         Enrollment.objects.filter(section_id=section_id, status="ACTIVE")
-        .select_related("student", "student__profile")
+        .select_related("student", "student__profile", "parent_user", "parent_user__profile")
         .order_by("last_name", "first_name")
     )
-    for enr in enrollments:
-        stu = enr.student
-        if not stu:
+    for enrollment in enrollments:
+        resolved_student = resolve_portal_student_user(enrollment)
+        student_number = (
+            enrollment.student_number
+            or getattr(getattr(resolved_student, "profile", None), "student_number", None)
+            or enrollment.lrn
+            or ""
+        )
+        number_key = normalize_student_number(student_number)
+        if not number_key:
             continue
-        name = " ".join(p for p in [enr.first_name or "", enr.last_name or ""] if p).strip()
-        if not name and hasattr(stu, "profile") and stu.profile:
-            name = " ".join(
-                p for p in [stu.profile.student_first_name or "", stu.profile.student_last_name or ""] if p
-            ).strip()
-        key = str(stu.id)
-        students_map[key] = {
-            "name": name or stu.username,
-            "student_number": enr.student_number or getattr(getattr(stu, "profile", None), "student_number", None),
-        }
+        bucket = student_ids_by_number.setdefault(number_key, set())
+        for candidate in (resolved_student, enrollment.student, enrollment.parent_user):
+            candidate_id = getattr(candidate, "id", None)
+            if candidate_id:
+                bucket.add(candidate_id)
 
-    for p in UserProfile.objects.filter(
-        section_id=section_id,
-        user__role="PARENT_STUDENT",
-        user__status="ACTIVE",
-    ).select_related("user"):
-        key = str(p.user_id)
-        if key not in students_map:
-            students_map[key] = {
-                "name": " ".join(
-                    pt for pt in [p.student_first_name or "", p.student_last_name or ""] if pt
-                ).strip() or p.user.username,
-                "student_number": p.student_number or getattr(getattr(p.user, "profile", None), "student_number", None),
-            }
+    if student_ids_by_number:
+        profile_rows = (
+            UserProfile.objects.filter(user__role="PARENT_STUDENT")
+            .exclude(student_number__isnull=True)
+            .exclude(student_number__exact="")
+            .values("user_id", "student_number")
+        )
+        for profile_row in profile_rows:
+            key = normalize_student_number(profile_row.get("student_number"))
+            if not key or key not in student_ids_by_number:
+                continue
+            user_id = profile_row.get("user_id")
+            if user_id:
+                student_ids_by_number[key].add(user_id)
+
+    all_candidate_ids = set()
+    for ids in student_ids_by_number.values():
+        all_candidate_ids.update(ids)
+    for row in section_students:
+        if row.get("id"):
+            all_candidate_ids.add(row.get("id"))
+
+    users_by_id = {
+        row["id"]: row
+        for row in User.objects.filter(id__in=list(all_candidate_ids)).values("id", "username")
+    }
 
     results = []
-    for student_id, student_meta in students_map.items():
-        student_name = student_meta.get("name") if isinstance(student_meta, dict) else student_meta
-        student_number = None
-        if isinstance(student_meta, dict):
-            student_number = student_meta.get("student_number")
-        grade_data = _compute_quarter_grade(student_id, subject_id, quarter)
-        att = AttendanceRecord.get_student_attendance_stats(
-            student_id,
-            q_start,
-            q_end,
-            schedule_ids=schedule_ids,
-            section_id=section_id,
-        )
-        if att["percentage"] is None:
-            # Fall back to legacy section-level attendance records when subject-linked rows do not exist.
+    for student_row in section_students:
+        student_name = student_row.get("student_name") or "—"
+        student_number = student_row.get("student_number")
+        student_number_key = normalize_student_number(student_number)
+
+        candidate_ids = []
+        primary_id = student_row.get("id")
+        if primary_id:
+            candidate_ids.append(primary_id)
+        for candidate_id in student_ids_by_number.get(student_number_key, set()):
+            if candidate_id not in candidate_ids:
+                candidate_ids.append(candidate_id)
+
+        if not candidate_ids:
+            continue
+
+        best_grade_data = {
+            "quarter_grade": None,
+            "activity_avg": None,
+            "quiz_avg": None,
+            "exam_avg": None,
+            "class_standing": None,
+        }
+        best_grade_rank = (-1, -1)
+        best_grade_student_id = candidate_ids[0]
+
+        for candidate_id in candidate_ids:
+            grade_data = _compute_quarter_grade(candidate_id, subject_id, quarter)
+            non_null_count = sum(
+                1
+                for key in ("activity_avg", "quiz_avg", "exam_avg", "class_standing")
+                if grade_data.get(key) is not None
+            )
+            rank = (1 if grade_data.get("quarter_grade") is not None else 0, non_null_count)
+            if rank > best_grade_rank:
+                best_grade_rank = rank
+                best_grade_data = grade_data
+                best_grade_student_id = candidate_id
+
+        best_attendance = {"total": 0, "present": 0, "absent": 0, "percentage": None}
+        best_attendance_rank = (-1, -1)
+        for candidate_id in candidate_ids:
             att = AttendanceRecord.get_student_attendance_stats(
-                student_id,
+                candidate_id,
                 q_start,
                 q_end,
+                schedule_ids=schedule_ids,
                 section_id=section_id,
             )
+            if att["percentage"] is None:
+                # Fall back to legacy section-level attendance records when subject-linked rows do not exist.
+                att = AttendanceRecord.get_student_attendance_stats(
+                    candidate_id,
+                    q_start,
+                    q_end,
+                    section_id=section_id,
+                )
+
+            att_rank = (att.get("total") or 0, int((att.get("percentage") or 0) * 100))
+            if att_rank > best_attendance_rank:
+                best_attendance_rank = att_rank
+                best_attendance = att
+
+        output_student_id = best_grade_student_id
+        output_student_username = users_by_id.get(best_grade_student_id, {}).get("username")
+        for candidate_id in candidate_ids:
+            candidate_username = str(users_by_id.get(candidate_id, {}).get("username") or "").strip().lower()
+            if candidate_username and candidate_username != "public_user":
+                output_student_id = candidate_id
+                output_student_username = users_by_id.get(candidate_id, {}).get("username")
+                break
+
         results.append({
-            "student_id": student_id,
+            "student_id": str(output_student_id),
             "student_name": student_name,
             "student_number": student_number,
-            "quarter_grade": grade_data["quarter_grade"],
-            "activity_avg": grade_data["activity_avg"],
-            "quiz_avg": grade_data["quiz_avg"],
-            "exam_avg": grade_data["exam_avg"],
-            "class_standing": grade_data["class_standing"],
-            "attendance_pct": att["percentage"],
-            "attendance_days_present": att["present"],
-            "attendance_days_absent": att["absent"],
-            "attendance_days_total": att["total"],
+            "student_username": output_student_username,
+            "quarter_grade": best_grade_data["quarter_grade"],
+            "activity_avg": best_grade_data["activity_avg"],
+            "quiz_avg": best_grade_data["quiz_avg"],
+            "exam_avg": best_grade_data["exam_avg"],
+            "class_standing": best_grade_data["class_standing"],
+            "attendance_pct": best_attendance.get("percentage"),
+            "attendance_days_present": best_attendance.get("present", 0),
+            "attendance_days_absent": best_attendance.get("absent", 0),
+            "attendance_days_total": best_attendance.get("total", 0),
         })
 
-    # Deduplicate by student_id in case same student appears from multiple legacy sources
+    # Deduplicate by student_number first (fallback: student_id) to avoid legacy identity collisions.
     seen = set()
     unique_results = []
     for r in results:
-        sid = r.get("student_id")
-        if sid is None or sid in seen:
+        dedupe_key = normalize_student_number(r.get("student_number")) or str(r.get("student_id") or "")
+        if not dedupe_key or dedupe_key in seen:
             continue
-        seen.add(sid)
+        seen.add(dedupe_key)
         unique_results.append(r)
 
     unique_results.sort(

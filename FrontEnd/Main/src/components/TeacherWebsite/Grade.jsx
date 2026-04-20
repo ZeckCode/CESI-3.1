@@ -438,9 +438,9 @@ const Grade = () => {
         ),
         apiFetch(`${API}/api/grades/students/section/${selectedSection}/?${schoolYearParam}`),
         apiFetch(
-          `${API}/api/grades/scores/?${schoolYearParam}subject=${subj}&grade_level=${gradeLevel}&quarter=${quarter}`
+          `${API}/api/grades/scores/?${schoolYearParam}section=${encodeURIComponent(selectedSection)}&subject=${subj}&grade_level=${gradeLevel}&quarter=${quarter}`
         ),
-        apiFetch(`${API}/api/grades/class-standing/?${schoolYearParam}subject=${subj}&quarter=${quarter}`),
+        apiFetch(`${API}/api/grades/class-standing/?${schoolYearParam}section=${encodeURIComponent(selectedSection)}&subject=${subj}&quarter=${quarter}`),
         apiFetch(`${API}/api/grades/weights/${subj}/`),
       ]);
 
@@ -779,6 +779,7 @@ const Grade = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           student: Number(studentId),
+          student_number: scoreModal.student?.student_number || "",
           grade_item: Number(scoreModal.item.id),
           score: numericScore,
         }),
@@ -836,6 +837,7 @@ const Grade = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           student: Number(studentId),
+          student_number: csModal.student?.student_number || "",
           subject: Number(selectedSubjectId),
           quarter: Number(quarter),
           score: numericScore,
