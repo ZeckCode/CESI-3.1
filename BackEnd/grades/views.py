@@ -1067,6 +1067,12 @@ def admin_grade_records_monitoring(request):
         if enrollment.section_id
     }
 
+    grades_by_section = {}
+    for enrollment, _, normalized_grade in filtered_enrollments:
+        if enrollment.section_id is None:
+            continue
+        grades_by_section[enrollment.section_id] = normalized_grade
+
     schedule_subject_ids_by_section = {}
     subject_ids = set()
     if section_ids:
@@ -1084,6 +1090,35 @@ def admin_grade_records_monitoring(request):
                 continue
             subject_ids.add(subject_id)
             schedule_subject_ids_by_section.setdefault(section_id, set()).add(subject_id)
+
+    # Fallback for sections with incomplete schedule-subject mappings:
+    # derive subject coverage from grade items by grade level for the selected quarter.
+    grade_levels_in_scope = {
+        grade_level for grade_level in grades_by_section.values() if grade_level is not None
+    }
+    subject_ids_by_grade_level = {}
+    if grade_levels_in_scope:
+        grade_item_pairs = (
+            GradeItem.objects.filter(
+                quarter=quarter,
+                grade_level__in=list(grade_levels_in_scope),
+                subject__isnull=False,
+            )
+            .values_list("grade_level", "subject_id")
+            .distinct()
+        )
+        for grade_level, subject_id in grade_item_pairs:
+            if not subject_id:
+                continue
+            subject_ids.add(subject_id)
+            subject_ids_by_grade_level.setdefault(grade_level, set()).add(subject_id)
+
+    for section_id, grade_level in grades_by_section.items():
+        fallback_ids = subject_ids_by_grade_level.get(grade_level, set())
+        if not fallback_ids:
+            continue
+        existing_ids = schedule_subject_ids_by_section.get(section_id, set())
+        schedule_subject_ids_by_section[section_id] = set(existing_ids).union(fallback_ids)
 
     subjects = list(Subject.objects.filter(id__in=subject_ids).order_by("name"))
     subject_map = {subject.id: subject for subject in subjects}

@@ -32,13 +32,14 @@ const normalizeGradeLevel = (value) => {
   if (value === null || value === undefined || value === '') return null;
   const raw = String(value).trim().toLowerCase();
 
-  if (raw === 'prek' || raw === 'pre-kinder' || raw === 'pre kinder') return -1;
+  if (raw === '-1' || raw === 'prek' || raw === 'pre-kinder' || raw === 'pre kinder') return -1;
   if (raw === 'kinder' || raw === '0') return 0;
 
-  const match = raw.match(/^grade\s*(\d+)$/);
+  const match = raw.match(/^grade\s*(-?\d+)$/);
   if (match) return Number(match[1]);
 
-  const num = Number(raw.replace(/[^0-9]/g, ''));
+  const numericMatch = raw.match(/-?\d+/);
+  const num = numericMatch ? Number(numericMatch[0]) : Number.NaN;
   if (!Number.isNaN(num)) return num;
 
   return null;
@@ -50,7 +51,7 @@ const toGradeLabel = (value) => {
 
   if (normalized === -1) return 'Pre-Kinder';
   if (normalized === 0) return 'Kinder';
-  if (normalized !== null) return `Grade ${normalized}`;
+  if (normalized !== null && normalized >= 1 && normalized <= 6) return `Grade ${normalized}`;
 
   const raw = String(value).trim();
   const lower = raw.toLowerCase();
