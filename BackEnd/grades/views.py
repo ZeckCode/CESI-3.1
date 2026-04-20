@@ -192,6 +192,43 @@ def resolve_school_year_label(school_year_obj):
     return ""
 
 
+def resolve_portal_student_user(enrollment):
+    # Prefer the concrete student account used in enrollments.
+    if enrollment.student_id and enrollment.student and enrollment.student.username != "public_user":
+        return enrollment.student
+
+    if enrollment.parent_user_id:
+        return enrollment.parent_user
+
+    enrollment_email = str(enrollment.email or "").strip()
+    if enrollment_email:
+        candidate = User.objects.filter(
+            email__iexact=enrollment_email,
+            role="PARENT_STUDENT",
+        ).first()
+        if candidate:
+            return candidate
+
+    identifiers = [enrollment.student_number, enrollment.lrn]
+    for identifier in identifiers:
+        lookup_value = str(identifier or "").strip()
+        if not lookup_value:
+            continue
+        profile = (
+            UserProfile.objects.select_related("user")
+            .filter(
+                Q(student_number__iexact=lookup_value) | Q(lrn__iexact=lookup_value),
+                user__role="PARENT_STUDENT",
+            )
+            .order_by("-id")
+            .first()
+        )
+        if profile and profile.user_id:
+            return profile.user
+
+    return enrollment.student
+
+
 def build_section_students_payload(section_id):
     def normalize_student_number(value):
         return str(value or "").strip().lower()
@@ -209,41 +246,6 @@ def build_section_students_payload(section_id):
 
     def pick_preferred_row(a, b):
         return a if row_quality(a) >= row_quality(b) else b
-
-    def resolve_portal_student_user(enrollment):
-        if enrollment.parent_user_id:
-            return enrollment.parent_user
-
-        if enrollment.student_id and enrollment.student and enrollment.student.username != "public_user":
-            return enrollment.student
-
-        enrollment_email = str(enrollment.email or "").strip()
-        if enrollment_email:
-            candidate = User.objects.filter(
-                email__iexact=enrollment_email,
-                role="PARENT_STUDENT",
-            ).first()
-            if candidate:
-                return candidate
-
-        identifiers = [enrollment.student_number, enrollment.lrn]
-        for identifier in identifiers:
-            lookup_value = str(identifier or "").strip()
-            if not lookup_value:
-                continue
-            profile = (
-                UserProfile.objects.select_related("user")
-                .filter(
-                    Q(student_number__iexact=lookup_value) | Q(lrn__iexact=lookup_value),
-                    user__role="PARENT_STUDENT",
-                )
-                .order_by("-id")
-                .first()
-            )
-            if profile and profile.user_id:
-                return profile.user
-
-        return enrollment.student
 
     candidate_rows = []
     enrollments = (
@@ -1039,13 +1041,16 @@ def admin_grade_records_monitoring(request):
 
     enrollments = (
         Enrollment.objects.filter(status="ACTIVE", section__school_year=active_school_year)
-        .select_related("student", "student__profile", "section")
+        .select_related("student", "student__profile", "parent_user", "parent_user__profile", "section")
         .order_by("grade_level", "section__name", "last_name", "first_name")
     )
 
+    def normalize_student_number(value):
+        return str(value or "").strip().lower()
+
     filtered_enrollments = []
     for enrollment in enrollments:
-        student = enrollment.student
+        student = resolve_portal_student_user(enrollment)
         if not student:
             continue
 
@@ -1059,16 +1064,23 @@ def admin_grade_records_monitoring(request):
         if section_filter and enrollment.section and enrollment.section.name != section_filter:
             continue
 
-        filtered_enrollments.append((enrollment, student, normalized_grade))
+        student_number = (
+            enrollment.student_number
+            or getattr(getattr(student, "profile", None), "student_number", None)
+            or enrollment.lrn
+            or ""
+        )
+        student_number_key = normalize_student_number(student_number)
+        filtered_enrollments.append((enrollment, student, normalized_grade, student_number_key, student_number))
 
     section_ids = {
         enrollment.section_id
-        for enrollment, _, _ in filtered_enrollments
+        for enrollment, _, _, _, _ in filtered_enrollments
         if enrollment.section_id
     }
 
     grades_by_section = {}
-    for enrollment, _, normalized_grade in filtered_enrollments:
+    for enrollment, _, normalized_grade, _, _ in filtered_enrollments:
         if enrollment.section_id is None:
             continue
         grades_by_section[enrollment.section_id] = normalized_grade
@@ -1114,11 +1126,13 @@ def admin_grade_records_monitoring(request):
             subject_ids_by_grade_level.setdefault(grade_level, set()).add(subject_id)
 
     for section_id, grade_level in grades_by_section.items():
+        existing_ids = schedule_subject_ids_by_section.get(section_id, set())
+        if existing_ids:
+            continue
         fallback_ids = subject_ids_by_grade_level.get(grade_level, set())
         if not fallback_ids:
             continue
-        existing_ids = schedule_subject_ids_by_section.get(section_id, set())
-        schedule_subject_ids_by_section[section_id] = set(existing_ids).union(fallback_ids)
+        schedule_subject_ids_by_section[section_id] = set(fallback_ids)
 
     subjects = list(Subject.objects.filter(id__in=subject_ids).order_by("name"))
     subject_map = {subject.id: subject for subject in subjects}
@@ -1149,7 +1163,55 @@ def admin_grade_records_monitoring(request):
             "class_standing": weight.class_standing_weight,
         }
 
-    student_ids = [student.id for _, student, _ in filtered_enrollments]
+    student_ids_by_number = {}
+    for enrollment, student, _, student_number_key, _ in filtered_enrollments:
+        if not student_number_key:
+            continue
+        bucket = student_ids_by_number.setdefault(student_number_key, set())
+        for candidate in (student, enrollment.student, enrollment.parent_user):
+            candidate_id = getattr(candidate, "id", None)
+            if candidate_id:
+                bucket.add(candidate_id)
+
+    if student_ids_by_number:
+        profile_rows = (
+            UserProfile.objects.filter(user__role="PARENT_STUDENT")
+            .exclude(student_number__isnull=True)
+            .exclude(student_number__exact="")
+            .values("user_id", "student_number")
+        )
+        for profile_row in profile_rows:
+            key = normalize_student_number(profile_row.get("student_number"))
+            if not key or key not in student_ids_by_number:
+                continue
+            user_id = profile_row.get("user_id")
+            if user_id:
+                student_ids_by_number[key].add(user_id)
+
+    def get_candidate_student_ids(enrollment, student, student_number_key):
+        ids = []
+        for candidate in (student, enrollment.student, enrollment.parent_user):
+            candidate_id = getattr(candidate, "id", None)
+            if candidate_id and candidate_id not in ids:
+                ids.append(candidate_id)
+
+        for candidate_id in student_ids_by_number.get(student_number_key, set()):
+            if candidate_id not in ids:
+                ids.append(candidate_id)
+
+        return ids
+
+    student_ids = []
+    for enrollment, student, _, student_number_key, _ in filtered_enrollments:
+        student_ids.extend(get_candidate_student_ids(enrollment, student, student_number_key))
+    student_ids = list(set(student_ids))
+
+    users_by_id = {}
+    if student_ids:
+        users_by_id = {
+            row["id"]: row
+            for row in User.objects.filter(id__in=student_ids).values("id", "username")
+        }
 
     history_by_student = {}
     if student_ids:
@@ -1193,8 +1255,12 @@ def admin_grade_records_monitoring(request):
         for row in class_standing_rows:
             class_standing_map[(row["student_id"], row["subject_id"])] = row["score"]
 
-    def get_category_avg(student_id, subject_id, category):
-        row = score_map.get((student_id, subject_id, category))
+    def get_category_avg(student_ids, subject_id, category):
+        row = None
+        for sid in student_ids:
+            row = score_map.get((sid, subject_id, category))
+            if row:
+                break
         if not row:
             return None
         total_possible = row["total_possible"] or 0
@@ -1206,7 +1272,7 @@ def admin_grade_records_monitoring(request):
     student_averages = []
     completed_count = 0
 
-    for enrollment, student, normalized_grade in filtered_enrollments:
+    for enrollment, student, normalized_grade, student_number_key, student_number_raw in filtered_enrollments:
         name = " ".join(
             part for part in [enrollment.first_name or "", enrollment.last_name or ""] if part
         ).strip()
@@ -1220,12 +1286,17 @@ def admin_grade_records_monitoring(request):
         graded_values = []
 
         section_subjects = subjects_by_section.get(enrollment.section_id, [])
+        candidate_student_ids = get_candidate_student_ids(enrollment, student, student_number_key)
         for subject in section_subjects:
             weights = weights_by_subject.get(subject.id, default_weights)
-            act_avg = get_category_avg(student.id, subject.id, "ACTIVITY")
-            quiz_avg = get_category_avg(student.id, subject.id, "QUIZ")
-            exam_avg = get_category_avg(student.id, subject.id, "EXAM")
-            cs_score = class_standing_map.get((student.id, subject.id))
+            act_avg = get_category_avg(candidate_student_ids, subject.id, "ACTIVITY")
+            quiz_avg = get_category_avg(candidate_student_ids, subject.id, "QUIZ")
+            exam_avg = get_category_avg(candidate_student_ids, subject.id, "EXAM")
+            cs_score = None
+            for sid in candidate_student_ids:
+                cs_score = class_standing_map.get((sid, subject.id))
+                if cs_score is not None:
+                    break
 
             components = []
             if act_avg is not None:
@@ -1281,11 +1352,27 @@ def admin_grade_records_monitoring(request):
         if average_grade is not None:
             student_averages.append(average_grade)
 
-        history_meta = history_by_student.get(student.id, {})
+        history_meta = {}
+        for sid in candidate_student_ids:
+            candidate_history = history_by_student.get(sid)
+            if not candidate_history:
+                continue
+            if not history_meta or (candidate_history.get("record_count", 0) > history_meta.get("record_count", 0)):
+                history_meta = candidate_history
+
+        output_student_id = student.id
+        output_student_username = student.username
+        for sid in candidate_student_ids:
+            candidate_user = users_by_id.get(sid)
+            if candidate_user and str(candidate_user.get("username") or "").strip().lower() != "public_user":
+                output_student_id = sid
+                output_student_username = candidate_user.get("username")
+                break
+
         students.append({
-            "student_id": student.id,
-            "student_username": student.username,
-            "student_number": enrollment.student_number or getattr(getattr(student, "profile", None), "student_number", None),
+            "student_id": output_student_id,
+            "student_username": output_student_username,
+            "student_number": student_number_raw or enrollment.student_number or getattr(getattr(student, "profile", None), "student_number", None),
             "student_name": name,
             "grade_level": normalized_grade,
             "grade_level_label": grade_level_label(normalized_grade),

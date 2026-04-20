@@ -9,17 +9,28 @@ def format_grade_level(value):
     if value is None:
         return "—"
 
-    normalized = str(value).strip().lower().replace(" ", "").replace("-", "")
+    raw = str(value).strip()
+    compact = raw.lower().replace(" ", "")
 
-    if normalized in {"prek", "prekinder", "prekindergarten"}:
+    if compact in {"-1", "prek", "prekinder", "prekindergarten"}:
         return "Pre Kinder"
-    if normalized in {"kinder", "kindergarten", "0"}:
+    if compact in {"kinder", "kindergarten", "0"}:
         return "Kinder"
-    if normalized.startswith("grade"):
-        suffix = normalized.replace("grade", "")
+    if compact.startswith("grade"):
+        suffix = compact.replace("grade", "")
         return f"Grade {suffix}" if suffix.isdigit() else str(value).strip() or "—"
-    if normalized.isdigit() and int(normalized) > 0:
-        return f"Grade {int(normalized)}"
+
+    try:
+        numeric = int(raw)
+    except (TypeError, ValueError):
+        numeric = None
+
+    if numeric == -1:
+        return "Pre Kinder"
+    if numeric == 0:
+        return "Kinder"
+    if numeric is not None and numeric > 0:
+        return f"Grade {numeric}"
 
     return str(value).strip() or "—"
 
