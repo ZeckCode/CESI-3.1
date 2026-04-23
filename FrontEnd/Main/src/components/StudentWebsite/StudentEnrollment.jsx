@@ -514,25 +514,29 @@ export default function StudentReenrollment({ enrollmentWindow }) {
     if (paymentMethod === "online" && !paymentChannel.trim()) {
       errors.push("Please select a payment channel for online payments.");
     }
+    // Require proof of payment only for online payments
     if (paymentMethod === "online" && !paymentProofFile) {
       errors.push("Proof of payment is required for online payments.");
     }
-    if (!studentPhotoFile) {
+    // Require 2x2 photo (studentPhotoFile), but allow reuse if previously uploaded
+    const prevPhoto = data?.enrollment?.documents?.find((d) => d.document_type === "student_photo");
+    if (!studentPhotoFile && !prevPhoto) {
       errors.push("A new 2x2 ID photo is required.");
-    } else {
+    } else if (studentPhotoFile) {
       const err = validateUploadFile(studentPhotoFile, "2x2 ID Photo");
       if (err) errors.push(err);
     }
     if (remarks.trim().length > 500) {
       errors.push("Remarks must not exceed 500 characters.");
     }
+    // Other documents are optional, but validate if provided
     const fileChecks = [
-      validateUploadFile(form137File, "Form 137-E"),
-      validateUploadFile(sf10File, "School Form 10"),
-      validateUploadFile(birthCertificateFile, "Birth Certificate"),
-      validateUploadFile(goodMoralFile, "Good Moral Certificate"),
-      validateUploadFile(reportCardFile, "Report Card"),
-      validateUploadFile(otherDocumentFile, "Other Document"),
+      form137File ? validateUploadFile(form137File, "Form 137-E") : null,
+      sf10File ? validateUploadFile(sf10File, "School Form 10") : null,
+      birthCertificateFile ? validateUploadFile(birthCertificateFile, "Birth Certificate") : null,
+      goodMoralFile ? validateUploadFile(goodMoralFile, "Good Moral Certificate") : null,
+      reportCardFile ? validateUploadFile(reportCardFile, "Report Card") : null,
+      otherDocumentFile ? validateUploadFile(otherDocumentFile, "Other Document") : null,
     ].filter(Boolean);
     errors.push(...fileChecks);
     return {
@@ -564,6 +568,7 @@ export default function StudentReenrollment({ enrollmentWindow }) {
     goodMoralFile,
     reportCardFile,
     otherDocumentFile,
+    data,
   ]);
 
   const handleSubmit = async (e) => {
