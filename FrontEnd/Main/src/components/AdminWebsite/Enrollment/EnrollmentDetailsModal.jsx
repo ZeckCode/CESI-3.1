@@ -112,6 +112,19 @@ export default function EnrollmentDetailsModal({
 
         {/* Tab Content */}
         <div className="enrollment-details-content">
+          {/* Show payment channel if present and in approve/edit mode */}
+          {modalMode === "edit" && formData?.payment_channel && (
+            <div className="info-entry entry-border" style={{ marginBottom: 12 }}>
+              <span className="entry-label">Payment Channel</span>
+              <span className="entry-value">
+                {formData.payment_channel === "bank"
+                  ? "Bank (PNB)"
+                  : formData.payment_channel === "ewallet"
+                  ? "E-Wallet (Gcash/Maya)"
+                  : formData.payment_channel}
+              </span>
+            </div>
+          )}
           {activeTab === "student" && (
             <StudentInfoTab
               formData={formData}

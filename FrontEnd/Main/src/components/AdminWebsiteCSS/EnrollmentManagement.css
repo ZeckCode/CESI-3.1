@@ -1385,7 +1385,7 @@
   border-radius: 999px;
   background: linear-gradient(90deg, #e5e8f0 20%, #f1f4fb 50%, #e5e8f0 80%);
   background-size: 220% 100%;
-  animation: enrollment-skeleton-shimmer 1.2s ease-in-out infinite;
+  animation: enrollment-skeleton-shimmer 0.9s ease-in-out infinite;
 }
 
 @keyframes enrollment-skeleton-shimmer {

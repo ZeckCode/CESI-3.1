@@ -20,7 +20,7 @@ const StepPayment = ({
   const assessmentFee = isNewStudent ? Number(tuition?.assessment || 0) : 0;
   const onsitePreparationAmount =
     form.paymentMode === "cash"
-      ? Number(tuition?.total_cash || 0) + assessmentFee
+      ? (tuition && tuition.total_cash != null ? Number(tuition.total_cash) : NaN) + assessmentFee
       : Number(tuition?.initial || 0) + assessmentFee;
 
   const handleFileChange = (key) => (e) => {
@@ -91,78 +91,135 @@ const StepPayment = ({
 
 
         {form.paymentMethod === "online" && (
-          <div className="form-group form-group--full">
-            <label>
-              Amount <span className="required">*</span>
-            </label>
-            <input
-              ref={registerFieldRef("paymentAmount")}
-              type="text"
-              inputMode="decimal"
-              pattern="^[0-9]*[.,]?[0-9]*$"
-              value={form.paymentAmount}
-              onChange={(e) => {
-                // Only allow numbers and decimal
-                const val = e.target.value.replace(/[^0-9.,]/g, "");
-                setForm((prev) => ({
-                  ...prev,
-                  paymentAmount: val,
-                }));
-              }}
-              placeholder={
-                minimumPayment > 0
-                  ? `Please pay at least ₱${formatMoney(minimumPayment)} before submitting enrollment`
-                  : "Enter payment amount"
-              }
-              autoComplete="off"
-            />
-            {minimumPayment > 0 ? (
-              <div className="tuition-row" style={{ marginTop: 8 }}>
-                <span>
-                  {form.paymentMode === "installment"
-                    ? "Minimum required amount (initial payment + assessment fee)"
-                    : "Minimum required amount (50% of cash total + assessment fee)"}
-                </span>
-                <strong>₱{formatMoney(minimumPayment)}</strong>
-              </div>
-            ) : null}
-            {/* Show exact total for cash payment online */}
-            {!tuitionLoading && tuition && form.paymentMode === "cash" && (
-              <div className="tuition-row" style={{ marginTop: 8, background: '#f0f9ff', borderRadius: 6, padding: 8 }}>
-                <span>
-                  <b>Exact total for cash payment (tuition + assessment fee):</b>
-                </span>
-                <strong>
-                  ₱{formatMoney(Number(tuition.total_cash || 0) + (studentType === "new" ? Number(tuition.assessment || 0) : 0))}
-                </strong>
-              </div>
-            )}
-            <FieldError error={errors.paymentAmount} />
+          <>
+            <div className="form-group form-group--full">
+              <label>
+                Amount <span className="required">*</span>
+              </label>
+              <input
+                ref={registerFieldRef("paymentAmount")}
+                type="text"
+                inputMode="decimal"
+                pattern="^[0-9]*[.,]?[0-9]*$"
+                value={form.paymentAmount}
+                onChange={(e) => {
+                  // Only allow numbers and decimal
+                  const val = e.target.value.replace(/[^0-9.,]/g, "");
+                  setForm((prev) => ({
+                    ...prev,
+                    paymentAmount: val,
+                  }));
+                }}
+                placeholder={
+                  minimumPayment > 0
+                    ? `Please pay at least ₱${formatMoney(minimumPayment)} before submitting enrollment`
+                    : "Enter payment amount"
+                }
+                autoComplete="off"
+              />
+              {minimumPayment > 0 ? (
+                <div className="tuition-row" style={{ marginTop: 8 }}>
+                  <span>
+                    {form.paymentMode === "installment"
+                      ? "Minimum required amount (initial payment + assessment fee)"
+                      : "Minimum required amount"}
+                  </span>
+                  <strong>₱{formatMoney(minimumPayment)}</strong>
+                </div>
+              ) : null}
+              {/* Show exact total for cash payment online */}
+              {!tuitionLoading && tuition && form.paymentMode === "cash" && (
+                tuition.total_cash != null ? (
+                  <div className="tuition-row" style={{ marginTop: 8, background: '#f0f9ff', borderRadius: 6, padding: 8 }}>
+                    <span>
+                      <b>Exact total for cash payment (tuition + assessment fee):</b>
+                    </span>
+                    <strong>
+                      ₱{formatMoney(Number(tuition.total_cash) + (studentType === "new" ? Number(tuition.assessment || 0) : 0))}
+                    </strong>
+                  </div>
+                ) : (
+                  <div className="tuition-row tuition-row--error" style={{ marginTop: 8, background: '#fef2f2', borderRadius: 6, padding: 8, color: '#b91c1c' }}>
+                    <b>Error:</b> Tuition total for cash payment is missing. Please contact the school administrator.
+                  </div>
+                )
+              )}
+              <FieldError error={errors.paymentAmount} />
+            </div>
 
-            <label>
-              Proof of Payment <span className="required">*</span>
-            </label>
-            <input
-              ref={registerFieldRef("paymentProofFile")}
-              type="file"
-              accept=".jpg,.jpeg,.png,.pdf"
-              onChange={handleFileChange("paymentProofFile")}
-            />
-            {files.paymentProofFile && (
-              <div className="file-name">{files.paymentProofFile.name}</div>
+            {/* Payment channel selection */}
+            <div className="form-group form-group--full">
+              <label>
+                Payment Channel <span className="required">*</span>
+              </label>
+              <select
+                value={form.paymentChannel || ""}
+                onChange={e => setForm(prev => ({ ...prev, paymentChannel: e.target.value }))}
+                required
+              >
+                <option value="">Select channel</option>
+                <option value="bank">Bank (PNB)</option>
+                <option value="ewallet">E-Wallet (Gcash/Maya)</option>
+              </select>
+              <FieldError error={errors.paymentChannel} />
+            </div>
+
+            {/* Show relevant payment details */}
+            {form.paymentChannel === "bank" && (
+              <div className="form-group form-group--full">
+                <label>Bank Account Details</label>
+                <div style={{ fontSize: "14px", color: "#0369a1", marginBottom: 4 }}>
+                  <b>PNB Bank Account:</b> 1003-10040-500
+                </div>
+                <div style={{ fontSize: "12px", color: "#666" }}>
+                  Please send your payment to the above bank account and upload your proof of payment below.
+                </div>
+              </div>
             )}
-            <FieldError error={errors.paymentProofFile} />
-          </div>
+            {form.paymentChannel === "ewallet" && (
+              <div className="form-group form-group--full">
+                <label>E-Wallet Details</label>
+                <div style={{ fontSize: "14px", color: "#0369a1", marginBottom: 4 }}>
+                  <b>Gcash/Maya:</b> 0912345678 Cesi Admin
+                </div>
+                <div style={{ fontSize: "12px", color: "#666" }}>
+                  Please send your payment to the above E-Wallet and upload your proof of payment below.
+                </div>
+              </div>
+            )}
+
+            <div className="form-group form-group--full">
+              <label>
+                Proof of Payment <span className="required">*</span>
+              </label>
+              <input
+                ref={registerFieldRef("paymentProofFile")}
+                type="file"
+                accept=".jpg,.jpeg,.png,.pdf"
+                onChange={handleFileChange("paymentProofFile")}
+              />
+              {files.paymentProofFile && (
+                <div className="file-name">{files.paymentProofFile.name}</div>
+              )}
+              <FieldError error={errors.paymentProofFile} />
+            </div>
+          </>
         )}
 
         {form.paymentMethod === "onsite" && form.paymentMode === "cash" && (
           <div className="form-group form-group--full">
-            <div className="tuition-row" style={{ marginTop: 8 }}>
-              <span>
-                Please prepare the exact total for cash payment (tuition + assessment fee). No partial payments allowed.
-              </span>
-              <strong>₱{formatMoney(Number(tuition?.total_cash || 0) + assessmentFee)}</strong>
-            </div>
+            {tuition && tuition.total_cash != null ? (
+              <div className="tuition-row" style={{ marginTop: 8 }}>
+                <span>
+                  Please prepare the exact total for cash payment (tuition + assessment fee). No partial payments allowed.
+                </span>
+                <strong>₱{formatMoney(Number(tuition.total_cash) + assessmentFee)}</strong>
+              </div>
+            ) : (
+              <div className="tuition-row tuition-row--error" style={{ marginTop: 8, background: '#fef2f2', borderRadius: 6, padding: 8, color: '#b91c1c' }}>
+                <b>Error:</b> Tuition total for cash payment is missing. Please contact the school administrator.
+              </div>
+            )}
           </div>
         )}
 
