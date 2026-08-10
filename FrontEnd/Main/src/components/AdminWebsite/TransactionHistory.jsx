@@ -20,6 +20,8 @@ import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import '../AdminWebsiteCSS/TransactionHistory.css';
 import Pagination from './Pagination';
+import AdminTable from './AdminTable';
+import StatCard, { StatsGrid } from './StatCard';
 import { apiFetch } from '../api/apiFetch';
 import PreviewModal from '../PreviewModal';
 import Toast from '../Global/Toast';
@@ -1592,38 +1594,36 @@ const TransactionHistory = () => {
             </div>
           </div>
         ) : (
-          <div className="th-stats-grid">
-            <div className="th-stat-card th-stat-blue">
-              <div className="th-stat-header">
-                <span className="th-stat-label">Total Billed</span>
-                <Wallet size={24} className="th-stat-icon" />
-              </div>
-              <div className="th-stat-value">{formatCurrency(stats.total_billed)}</div>
-              <div className="th-stat-change positive">Ledger debits</div>
-            </div>
-
-            <div className="th-stat-card th-stat-green">
-              <div className="th-stat-header">
-                <span className="th-stat-label">Total Collected</span>
-                <CheckCircle size={24} className="th-stat-icon" />
-              </div>
-              <div className="th-stat-value">{formatCurrency(stats.total_collected)}</div>
-              <div className="th-stat-change positive">
-                {stats.total_billed > 0
-                  ? `${Math.round((stats.total_collected / stats.total_billed) * 100)}% collection rate`
-                  : '—'}
-              </div>
-            </div>
-
-            <div className="th-stat-card th-stat-yellow">
-              <div className="th-stat-header">
-                <span className="th-stat-label">Outstanding Balance</span>
-                <Clock size={24} className="th-stat-icon" />
-              </div>
-              <div className="th-stat-value">{formatCurrency(stats.outstanding_balance)}</div>
-              <div className="th-stat-change">Unpaid balance</div>
-            </div>
-          </div>
+          <StatsGrid>
+            <StatCard
+              label="Total Billed"
+              value={formatCurrency(stats.total_billed)}
+              icon={<Wallet size={20} />}
+              color="blue"
+              subtitle="Ledger debits"
+            />
+            <StatCard
+              label="Total Collected"
+              value={formatCurrency(stats.total_collected)}
+              icon={<CheckCircle size={20} />}
+              color="green"
+              subtitle={stats.total_billed > 0 ? `${Math.round((stats.total_collected / stats.total_billed) * 100)}% collection rate` : '—'}
+            />
+            <StatCard
+              label="Outstanding Balance"
+              value={formatCurrency(stats.outstanding_balance)}
+              icon={<Clock size={20} />}
+              color="yellow"
+              subtitle="Unpaid balance"
+            />
+            <StatCard
+              label="Overdue Accounts"
+              value={transactions.filter((t) => String(t.status || t._effectiveStatus || '').toUpperCase() === 'OVERDUE').length}
+              icon={<CreditCard size={20} />}
+              color="red"
+              subtitle="Requires attention"
+            />
+          </StatsGrid>
         )}
       </section>
 

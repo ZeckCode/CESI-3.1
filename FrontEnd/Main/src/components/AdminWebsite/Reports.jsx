@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FileText, Download, Filter, BarChart2, Clock, CheckCircle, FileDown, X, RefreshCw } from 'lucide-react';
 import StatCard, { StatsGrid } from './StatCard';
+import AdminTable from './AdminTable';
 import Toast from '../Global/Toast';
 import '../AdminWebsiteCSS/ClassManagement.css';
 import jsPDF from 'jspdf';
@@ -1093,22 +1094,16 @@ const Reports = () => {
             </div>
           </StatsGrid>
 
-          <div className="classes-container">
-            <div className="teacher-assignment-table">
-              <table className="assignments-table report-skeleton-table">
-                <thead>
-                  <tr>
-                    <th><div className="report-skeleton-line report-skeleton-head" /></th>
-                    <th><div className="report-skeleton-line report-skeleton-head" /></th>
-                    <th><div className="report-skeleton-line report-skeleton-head" /></th>
-                    <th><div className="report-skeleton-line report-skeleton-head" /></th>
-                    <th><div className="report-skeleton-line report-skeleton-head" /></th>
-                  </tr>
-                </thead>
-                <tbody>{renderSkeletonRows(5)}</tbody>
-              </table>
-            </div>
-          </div>
+          <AdminTable
+            columns={[
+              { key: "name", label: "Report Name" },
+              { key: "period", label: "Period" },
+              { key: "date", label: "Date Generated" },
+              { key: "format", label: "Format" },
+            ]}
+            data={[]}
+            loading={true}
+          />
 
           <Toast toasts={toasts} dismissToast={dismissToast} />
         </div>
@@ -1187,49 +1182,31 @@ const Reports = () => {
       </StatsGrid>
       
       <div className="classes-container">
-        <div className="teacher-assignment-table">
-          <table className="assignments-table">
-            <thead>
-              <tr>
-                <th>Report Name</th>
-                <th>Period</th>
-                <th>Date Generated</th>
-                <th>Format</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredReports.length === 0 ? (
-                <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                    <FileText size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-                    <p>No reports generated yet. Click "Generate Report" to create one.</p>
-                  </td>
-                </tr>
-              ) : (
-                filteredReports.map(report => (
-                  <tr key={report.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FileDown size={18} style={{ color: '#4f6ef7' }} />
-                        <strong>{report.name}</strong>
-                      </div>
-                    </td>
-                    <td>{report.period}</td>
-                    <td>{report.date}</td>
-                    <td><span className="badge-pdf">{report.format}</span></td>
-                    <td>
-                      <button className="btn-edit" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => handleDownload(report)}>
-                        <Download size={14} />
-                        Download PDF
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable
+          columns={[
+            { key: "name", label: "Report Name", render: (v) => <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><FileDown size={18} style={{ color: '#4f6ef7' }} /><strong>{v}</strong></div> },
+            { key: "period", label: "Period" },
+            { key: "date", label: "Date Generated" },
+            { key: "format", label: "Format", render: (v) => <span className="badge-pdf">{v}</span> },
+          ]}
+          data={filteredReports}
+          loading={false}
+          emptyState={
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', color: '#94a3b8' }}>
+              <FileText size={48} style={{ opacity: 0.5 }} />
+              <p>No reports generated yet. Click "Generate Report" to create one.</p>
+            </div>
+          }
+          rowActions={(report) => (
+            <button className="btn-edit" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => handleDownload(report)}>
+              <Download size={14} />
+              Download PDF
+            </button>
+          )}
+          zebra={true}
+          stickyHeader={true}
+          rowKey="id"
+        />
       </div>
       
       <Toast toasts={toasts} dismissToast={dismissToast} />

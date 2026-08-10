@@ -33,6 +33,7 @@ export default function PageEditor({ endpoint, title, fields }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
   
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -53,6 +54,7 @@ export default function PageEditor({ endpoint, title, fields }) {
         if (!initData[f.key]) initData[f.key] = "";
       });
       setData(initData);
+      setLastUpdated(json.updated_at || json.last_modified || new Date().toISOString());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -77,6 +79,7 @@ export default function PageEditor({ endpoint, title, fields }) {
       if (!res.ok) throw new Error("Failed to save data");
       const json = await res.json();
       setData(json);
+      setLastUpdated(json.updated_at || json.last_modified || new Date().toISOString());
       setSuccess("Changes saved successfully!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
@@ -138,7 +141,10 @@ export default function PageEditor({ endpoint, title, fields }) {
           </div>
         ))}
 
-        <div className="cms-actions" style={{ marginTop: "20px" }}>
+        <div className="cms-actions" style={{ marginTop: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+            {lastUpdated ? `Last updated: ${new Date(lastUpdated).toLocaleString()}` : ''}
+          </span>
           <button 
             className="cms-publish" 
             onClick={handleSave} 

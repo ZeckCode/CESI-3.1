@@ -19,6 +19,8 @@ import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import Pagination from './Pagination';
+import AdminTable from './AdminTable';
+import StatCard, { StatsGrid } from './StatCard';
 import { apiFetchData } from '../api/apiFetch';
 import '../AdminWebsiteCSS/GradesRecords.css';
 import PreviewModal from '../PreviewModal';
@@ -1232,128 +1234,107 @@ const GradesRecords = () => {
   const renderStats = () => {
     if (activeTab === 'history') {
       return (
-        <div className="gr-stats-grid">
-          <div className="gr-stat-card gr-stat-blue">
-            <div className="gr-stat-header">
-              <span className="gr-stat-label">Academic Records</span>
-              <History size={24} className="gr-stat-icon" />
-            </div>
-            <div className="gr-stat-value">{historyStats.totalRecords}</div>
-            <div className="gr-stat-change">{historyStats.totalRecords === 0 ? 'No history yet' : historyStats.totalRecords < 100 ? 'Growing database' : historyStats.totalRecords < 500 ? 'Good documentation' : 'Comprehensive records'}</div>
-          </div>
-
-          <div className="gr-stat-card gr-stat-green">
-            <div className="gr-stat-header">
-              <span className="gr-stat-label">Students With History</span>
-              <Users size={24} className="gr-stat-icon" />
-            </div>
-            <div className="gr-stat-value">{historyStats.uniqueStudents}</div>
-            <div className="gr-stat-change positive">{historyStats.uniqueStudents === 0 ? 'No tracked students' : 'Student tracking active'}</div>
-          </div>
-
-          <div className="gr-stat-card gr-stat-yellow">
-            <div className="gr-stat-header">
-              <span className="gr-stat-label">School Years</span>
-              <Calendar size={24} className="gr-stat-icon" />
-            </div>
-            <div className="gr-stat-value">{historyStats.schoolYears}</div>
-            <div className="gr-stat-change">{historyStats.schoolYears < 2 ? 'Limited history' : historyStats.schoolYears < 5 ? 'Growing records' : 'Long-term tracking'}</div>
-          </div>
-
-          <div className="gr-stat-card gr-stat-purple">
-            <div className="gr-stat-header">
-              <span className="gr-stat-label">Average Final Grade</span>
-              <TrendingUp size={24} className="gr-stat-icon" />
-            </div>
-            <div className="gr-stat-value">{historyStats.averageFinal ?? '—'}</div>
-            <div className="gr-stat-change positive">{historyStats.averageFinal >= 80 ? 'Excellent performance' : historyStats.averageFinal >= 70 ? 'Good average' : historyStats.averageFinal >= 60 ? 'Fair average' : historyStats.averageFinal ? 'Below target' : 'No grades yet'}</div>
-          </div>
-        </div>
+        <StatsGrid>
+          <StatCard
+            label="Academic Records"
+            value={historyStats.totalRecords}
+            icon={<History size={20} />}
+            color="blue"
+            subtitle={historyStats.totalRecords === 0 ? 'No history yet' : historyStats.totalRecords < 100 ? 'Growing database' : historyStats.totalRecords < 500 ? 'Good documentation' : 'Comprehensive records'}
+          />
+          <StatCard
+            label="Students With History"
+            value={historyStats.uniqueStudents}
+            icon={<Users size={20} />}
+            color="green"
+            subtitle={historyStats.uniqueStudents === 0 ? 'No tracked students' : 'Student tracking active'}
+          />
+          <StatCard
+            label="School Years"
+            value={historyStats.schoolYears}
+            icon={<Calendar size={20} />}
+            color="yellow"
+            subtitle={historyStats.schoolYears < 2 ? 'Limited history' : historyStats.schoolYears < 5 ? 'Growing records' : 'Long-term tracking'}
+          />
+          <StatCard
+            label="Average Final Grade"
+            value={historyStats.averageFinal ?? '—'}
+            icon={<TrendingUp size={20} />}
+            color="purple"
+            subtitle={historyStats.averageFinal >= 80 ? 'Excellent performance' : historyStats.averageFinal >= 70 ? 'Good average' : historyStats.averageFinal >= 60 ? 'Fair average' : historyStats.averageFinal ? 'Below target' : 'No grades yet'}
+          />
+        </StatsGrid>
       );
     }
 
     if (activeTab === 'attendance') {
       return (
-        <div className="gr-stats-grid">
-          <div className="gr-stat-card gr-stat-blue">
-            <div className="gr-stat-header">
-              <span className="gr-stat-label">Attendance Records</span>
-              <Calendar size={24} className="gr-stat-icon" />
-            </div>
-            <div className="gr-stat-value">{attendanceStats.totalRecords}</div>
-            <div className="gr-stat-change">{attendanceStats.totalRecords === 0 ? 'No records for this date' : 'Records tracked'}</div>
-          </div>
-
-          <div className="gr-stat-card gr-stat-green">
-            <div className="gr-stat-header">
-              <span className="gr-stat-label">Present</span>
-              <CheckCircle size={24} className="gr-stat-icon" />
-            </div>
-            <div className="gr-stat-value">{attendanceStats.present}</div>
-            <div className="gr-stat-change positive">{attendanceStats.totalRecords > 0 ? `${Math.round((attendanceStats.present / attendanceStats.totalRecords) * 100)}% attendance` : 'No data'}</div>
-          </div>
-
-          <div className="gr-stat-card gr-stat-red">
-            <div className="gr-stat-header">
-              <span className="gr-stat-label">Absent</span>
-              <XCircle size={24} className="gr-stat-icon" />
-            </div>
-            <div className="gr-stat-value">{attendanceStats.absent}</div>
-            <div className="gr-stat-change">{attendanceStats.absent === 0 ? 'All present!' : attendanceStats.absent < 5 ? 'Few absences' : 'Review needed!'}</div>
-          </div>
-
-          <div className="gr-stat-card gr-stat-yellow">
-            <div className="gr-stat-header">
-              <span className="gr-stat-label">Late / Excused</span>
-              <Clock size={24} className="gr-stat-icon" />
-            </div>
-            <div className="gr-stat-value">{attendanceStats.late + attendanceStats.excused}</div>
-            <div className="gr-stat-change">{(attendanceStats.late + attendanceStats.excused) === 0 ? 'None recorded' : 'Justified absences'}</div>
-          </div>
-        </div>
+        <StatsGrid>
+          <StatCard
+            label="Attendance Records"
+            value={attendanceStats.totalRecords}
+            icon={<Calendar size={20} />}
+            color="blue"
+            subtitle={attendanceStats.totalRecords === 0 ? 'No records for this date' : 'Records tracked'}
+          />
+          <StatCard
+            label="Present"
+            value={attendanceStats.present}
+            icon={<CheckCircle size={20} />}
+            color="green"
+            subtitle={attendanceStats.totalRecords > 0 ? `${Math.round((attendanceStats.present / attendanceStats.totalRecords) * 100)}% attendance` : 'No data'}
+          />
+          <StatCard
+            label="Absent"
+            value={attendanceStats.absent}
+            icon={<XCircle size={20} />}
+            color="red"
+            subtitle={attendanceStats.absent === 0 ? 'All present!' : attendanceStats.absent < 5 ? 'Few absences' : 'Review needed!'}
+          />
+          <StatCard
+            label="Late / Excused"
+            value={attendanceStats.late + attendanceStats.excused}
+            icon={<Clock size={20} />}
+            color="yellow"
+            subtitle={(attendanceStats.late + attendanceStats.excused) === 0 ? 'None recorded' : 'Justified absences'}
+          />
+        </StatsGrid>
       );
     }
 
     const summary = gradeMonitoring.summary || {};
 
     return (
-      <div className="gr-stats-grid">
-        <div className="gr-stat-card gr-stat-blue">
-          <div className="gr-stat-header">
-            <span className="gr-stat-label">Total Students</span>
-            <Users size={24} className="gr-stat-icon" />
-          </div>
-          <div className="gr-stat-value">{summary.total_students ?? 0}</div>
-          <div className="gr-stat-change">{(summary.total_students ?? 0) === 0 ? 'No students monitored' : (summary.total_students ?? 0) < 30 ? 'Small class' : (summary.total_students ?? 0) < 100 ? 'Good enrollment' : 'Large class'}</div>
-        </div>
-
-        <div className="gr-stat-card gr-stat-green">
-          <div className="gr-stat-header">
-            <span className="gr-stat-label">Students With Grades</span>
-            <CheckCircle size={24} className="gr-stat-icon" />
-          </div>
-          <div className="gr-stat-value">{summary.graded_students ?? 0}</div>
-          <div className="gr-stat-change positive">{(summary.total_students ?? 0) > 0 ? `${Math.round(((summary.graded_students ?? 0) / (summary.total_students ?? 1)) * 100)}% graded` : 'No grades yet'}</div>
-        </div>
-
-        <div className="gr-stat-card gr-stat-yellow">
-          <div className="gr-stat-header">
-            <span className="gr-stat-label">Pending / Partial</span>
-            <AlertCircle size={24} className="gr-stat-icon" />
-          </div>
-          <div className="gr-stat-value">{summary.pending_grades ?? 0}</div>
-          <div className="gr-stat-change">{(summary.pending_grades ?? 0) === 0 ? 'All grades submitted!' : (summary.pending_grades ?? 0) < 10 ? 'Few pending' : 'Review needed!'}</div>
-        </div>
-
-        <div className="gr-stat-card gr-stat-purple">
-          <div className="gr-stat-header">
-            <span className="gr-stat-label">Average Grade</span>
-            <TrendingUp size={24} className="gr-stat-icon" />
-          </div>
-          <div className="gr-stat-value">{summary.average_grade ?? '—'}</div>
-          <div className="gr-stat-change positive">{summary.average_grade >= 80 ? 'Excellent performance' : summary.average_grade >= 70 ? 'Good average' : summary.average_grade >= 60 ? 'Fair average' : summary.average_grade ? 'Below target' : 'No grades yet'}</div>
-        </div>
-      </div>
+      <StatsGrid>
+        <StatCard
+          label="Total Students"
+          value={summary.total_students ?? 0}
+          icon={<Users size={20} />}
+          color="blue"
+          subtitle={(summary.total_students ?? 0) === 0 ? 'No students monitored' : (summary.total_students ?? 0) < 30 ? 'Small class' : (summary.total_students ?? 0) < 100 ? 'Good enrollment' : 'Large class'}
+        />
+        <StatCard
+          label="Students With Grades"
+          value={summary.graded_students ?? 0}
+          icon={<CheckCircle size={20} />}
+          color="green"
+          subtitle={(summary.total_students ?? 0) > 0 ? `${Math.round(((summary.graded_students ?? 0) / (summary.total_students ?? 1)) * 100)}% graded` : 'No grades yet'}
+        />
+        <StatCard
+          label="Pending / Partial"
+          value={summary.pending_grades ?? 0}
+          icon={<AlertCircle size={20} />}
+          color="yellow"
+          subtitle={(summary.pending_grades ?? 0) === 0 ? 'All grades submitted!' : (summary.pending_grades ?? 0) < 10 ? 'Few pending' : 'Review needed!'}
+        />
+        <StatCard
+          label="Average Grade"
+          value={summary.average_grade ?? '—'}
+          icon={<TrendingUp size={20} />}
+          color="purple"
+          subtitle={summary.average_grade >= 80 ? 'Excellent performance' : summary.average_grade >= 70 ? 'Good average' : summary.average_grade >= 60 ? 'Fair average' : summary.average_grade ? 'Below target' : 'No grades yet'}
+        />
+      </StatsGrid>
     );
   };
 

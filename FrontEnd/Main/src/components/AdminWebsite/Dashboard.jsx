@@ -38,6 +38,7 @@ import {
 import { apiFetch } from "../api/apiFetch";
 import { generateRevenueInsight, detectRevenueDips, generateEnrollmentInsight, generateAttendanceInsight, generatePaymentInsight, getChartInsightColor } from "../../utils/chartInsights";
 import Toast from "../Global/Toast";
+import AdminTable from "./AdminTable";
 import "../AdminWebsiteCSS/Dashboard.css";
 
 const COLORS = [
@@ -67,6 +68,11 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
     pendingEnrollments: 0,
     overduePayments: 0,
   });
+
+  // Raw data for Recent Activity table
+  const [recentEnrollments, setRecentEnrollments] = useState([]);
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [recentAttendance, setRecentAttendance] = useState([]);
 
   const [enrollmentByLevel, setEnrollmentByLevel] = useState([]);
   const [paymentBreakdown, setPaymentBreakdown] = useState([]);
@@ -369,6 +375,11 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         pendingEnrollments: pendingEnrollments.length,
         overduePayments: overdue,
       });
+
+      // Store raw data for Recent Activity table
+      setRecentEnrollments(approvedEnrollments.slice(0, 5));
+      setRecentTransactions(transactions.slice(0, 5));
+      setRecentAttendance(attendRecords.slice(0, 5));
 
       // ─────────────────────────
       // Students per grade level
@@ -1448,6 +1459,47 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         </div>
       )}
       <Toast toasts={toasts} dismissToast={dismissToast} />
+
+      {/* ── Recent Activity Table ── */}
+      <section style={{ marginTop: "0.5rem" }}>
+        <h3 className="dash-card-title" style={{ marginBottom: "0.75rem" }}>Recent Activity</h3>
+        <AdminTable
+          columns={[
+            { key: "type", label: "Type", render: (v) => {
+              const icons = { enrollment: "📝", payment: "💰", attendance: "📋", announcement: "📢" };
+              return <span>{icons[v] || "📌"} {v}</span>;
+            }},
+            { key: "description", label: "Description" },
+            { key: "date", label: "Date", render: (v) => v ? new Date(v).toLocaleDateString() : "—" },
+            { key: "status", label: "Status", render: (v) => {
+              const colors = { completed: "#10b981", pending: "#f59e0b", overdue: "#ef4444" };
+              return <span style={{ color: colors[v] || "#64748b", fontWeight: 600, textTransform: "capitalize" }}>{v}</span>;
+            }},
+          ]}
+          data={(() => {
+            const activity = [];
+            recentEnrollments.forEach(e => {
+              activity.push({ type: "enrollment", description: `${e.student_name || "Student"} enrolled`, date: e.enrollment_date || e.created_at, status: "completed" });
+            });
+            recentTransactions.forEach(t => {
+              activity.push({ type: "payment", description: `${t.description || "Payment"} - ${formatCurrency(t.amount || 0)}`, date: t.date_created || t.transaction_date, status: (t.status || "pending").toLowerCase() });
+            });
+            recentAttendance.forEach(r => {
+              activity.push({ type: "attendance", description: `Attendance recorded for ${r.student_name || "Student"}`, date: r.date, status: "completed" });
+            });
+            activity.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+            return activity.slice(0, 10);
+          })()}
+          emptyState={
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem", color: "#94a3b8" }}>
+              <span style={{ fontSize: "1.5rem" }}>📋</span>
+              <span>No recent activity to display</span>
+            </div>
+          }
+          zebra={true}
+          stickyHeader={false}
+        />
+      </section>
     </main>
   );
 };
