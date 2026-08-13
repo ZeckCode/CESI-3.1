@@ -60,6 +60,64 @@
   cursor: not-allowed;
 }
 
+/* Main Navigation Tabs */
+.cms-main-tabs {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  margin-bottom: 20px !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+  padding-bottom: 10px !important;
+}
+
+.cms-main-tabs button {
+  padding: 8px 16px !important;
+  border-radius: 8px !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+@media (max-width: 768px) {
+  .cms-main-tabs {
+    gap: 8px !important;
+    margin-bottom: 16px !important;
+    padding-bottom: 8px !important;
+  }
+  
+  .cms-main-tabs button {
+    padding: 8px 14px !important;
+    font-size: 13px !important;
+    flex: 1 1 calc(50% - 4px) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .cms-main-tabs {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    margin-bottom: 14px !important;
+    padding-bottom: 6px !important;
+  }
+  
+  .cms-main-tabs button {
+    padding: 10px 8px !important;
+    font-size: 11px !important;
+    text-align: center !important;
+    flex: none !important;
+    width: 100% !important;
+  }
+
+  /* Refresh button spans full width */
+  .cms-main-tabs .cms-refresh {
+    grid-column: 1 / -1 !important;
+  }
+}
+
 /* Warning & Error Messages */
 .cms-warning {
   background: #fffbeb;
@@ -165,6 +223,144 @@
 /* Make sure paragraphs inside the editor show the same spacing as the website */
 .ql-editor p {
   margin-bottom: 10px;
+}
+
+/* ── Page Editor (School Info / Mission & Vision / Contact) ── */
+.cms-page-editor {
+  padding: 20px;
+  background: #fff;
+  border-radius: 16px;
+}
+
+.cms-page-editor .cms-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cms-page-editor .cms-field {
+  width: 100%;
+}
+
+.cms-page-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.cms-page-editor-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cms-preview-btn {
+  padding: 8px 16px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.cms-preview-btn:hover {
+  background: #e5e7eb;
+}
+
+/* ── Mobile: Page Editor ── */
+@media (max-width: 768px) {
+  .cms-page-editor {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .cms-page-editor .cms-form-grid {
+    gap: 16px;
+  }
+
+  /* Quill toolbar: allow wrapping */
+  .ql-toolbar.ql-snow {
+    flex-wrap: wrap !important;
+    white-space: normal !important;
+    padding: 8px !important;
+  }
+
+  .ql-toolbar.ql-snow .ql-formats {
+    margin-right: 6px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .ql-toolbar.ql-snow button {
+    width: 28px !important;
+    height: 28px !important;
+    padding: 3px !important;
+  }
+
+  /* Quill editor: ensure scrollable */
+  .ql-container.ql-snow {
+    min-height: 250px !important;
+    max-height: 400px;
+    overflow-y: auto !important;
+    font-size: 15px !important;
+  }
+
+  .ql-editor {
+    font-size: 15px !important;
+    min-height: 250px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .cms-page-editor {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .cms-page-editor .cms-form-grid {
+    gap: 12px;
+  }
+
+  .ql-toolbar.ql-snow {
+    padding: 6px !important;
+  }
+
+  .ql-toolbar.ql-snow .ql-formats {
+    margin-right: 4px !important;
+  }
+
+  .ql-toolbar.ql-snow button {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  .ql-container.ql-snow {
+    min-height: 220px !important;
+    max-height: 350px;
+    overflow-y: auto !important;
+    font-size: 14px !important;
+  }
+
+  .ql-editor {
+    font-size: 14px !important;
+    min-height: 220px !important;
+  }
+
+  .cms-page-editor .cms-actions {
+    flex-direction: column !important;
+    gap: 10px;
+    align-items: stretch !important;
+  }
+
+  .cms-page-editor .cms-publish {
+    width: 100%;
+    text-align: center;
+  }
 }
 
 /* File Input Styling */
@@ -569,7 +765,9 @@
 /* Small phones */
 @media (max-width: 480px) {
   .cms-container {
-    padding: 16px;
+    padding: 12px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   
   .cms-post-thumb {
@@ -854,6 +1052,8 @@
   font-weight: 800;
   cursor: pointer;
   transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .cms-tab:hover {
@@ -865,6 +1065,36 @@
   background: linear-gradient(135deg, #3b82f6, #8b5cf6);
   color: #fff;
   border-color: transparent;
+}
+
+@media (max-width: 768px) {
+  .cms-tabs {
+    gap: 8px;
+    margin: 12px 0 18px;
+  }
+  
+  .cms-tab {
+    padding: 7px 13px;
+    font-size: 12px;
+    flex-shrink: 1;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .cms-tabs {
+    gap: 6px;
+    margin: 10px 0 16px;
+  }
+  
+  .cms-tab {
+    padding: 6px 11px;
+    font-size: 11px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 
@@ -886,6 +1116,90 @@
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* ============================================
+   CMS PREVIEW MODAL (School Info / Mission Vision)
+   ============================================ */
+.cms-preview-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.cms-preview-modal {
+  background: #fff;
+  width: 80%;
+  max-width: 800px;
+  max-height: 90vh;
+  border-radius: 12px;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.cms-preview-modal .preview-content {
+  overflow-y: auto;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* ── Mobile: Preview Modal ── */
+@media (max-width: 768px) {
+  .cms-preview-overlay {
+    padding: 10px;
+    align-items: flex-start;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cms-preview-modal {
+    width: 95%;
+    max-width: none;
+    max-height: 85vh;
+    border-radius: 10px;
+    padding: 16px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cms-preview-modal .preview-content {
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .cms-preview-modal .preview-content img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .cms-preview-modal .preview-content h1,
+  .cms-preview-modal .preview-content h2,
+  .cms-preview-modal .preview-content h3 {
+    word-break: break-word;
+  }
+}
+
+@media (max-width: 480px) {
+  .cms-preview-overlay {
+    padding: 6px;
+  }
+
+  .cms-preview-modal {
+    width: 100%;
+    max-height: 80vh;
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .cms-preview-modal .preview-content {
+    font-size: 14px;
+    line-height: 1.5;
   }
 }
 

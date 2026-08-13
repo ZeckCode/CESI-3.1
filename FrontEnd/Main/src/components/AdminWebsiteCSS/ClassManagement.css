@@ -9,6 +9,18 @@
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
+@media (max-width: 768px) {
+  .class-management {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .class-management {
+    padding: 10px;
+  }
+}
+
 /* ========== HEADER SECTION ========== */
 .class-header {
   display: flex;
@@ -19,6 +31,22 @@
   padding: 25px;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .class-header {
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .class-header {
+    padding: 12px;
+    margin-bottom: 14px;
+  }
 }
 
 .class-header h1 {
@@ -26,6 +54,18 @@
   font-size: 28px;
   color: #1f2937;
   font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .class-header h1 {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .class-header h1 {
+    font-size: 16px;
+  }
 }
 
 /* ========== SECTION HEADER ========== */
@@ -38,6 +78,22 @@
   padding: 20px;
   border-radius: 10px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .section-header {
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .section-header {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
 }
 
 .section-header h2 {
@@ -45,6 +101,18 @@
   font-size: 22px;
   color: #1f2937;
   font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .section-header h2 {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .section-header h2 {
+    font-size: 15px;
+  }
 }
 
 /* ========== TABS ========== */
@@ -57,6 +125,22 @@
   border-radius: 10px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+  .tabs-container {
+    gap: 6px;
+    padding: 8px;
+    margin-bottom: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tabs-container {
+    gap: 4px;
+    padding: 6px;
+    margin-bottom: 14px;
+  }
 }
 
 .tab-btn {
@@ -74,6 +158,21 @@
   transition: all 0.3s ease;
   font-family: inherit;
   white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .tab-btn {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tab-btn {
+    padding: 8px 12px;
+    font-size: 11px;
+    gap: 4px;
+  }
 }
 
 .tab-btn:hover {
@@ -159,34 +258,28 @@
   margin-bottom: 25px;
 }
 
-.stat-card {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid #5BA3C7;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+@media (max-width: 768px) {
+  .class-management .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+  }
 }
 
-.stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+@media (max-width: 600px) {
+  .class-management .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
 }
 
-.stat-card h3 {
-  margin: 0;
-  font-size: 14px;
-  color: #6b7280;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.stat-number {
-  margin: 10px 0 0 0;
-  font-size: 28px;
-  font-weight: 700;
-  color: #1f2937;
+@media (max-width: 480px) {
+  .class-management .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
 }
 
 /* ========== FORM CARD ========== */
@@ -399,6 +492,219 @@
 .filter-box svg {
   display: none !important;
 }
+
+/* ========== PRINT STYLES ========== */
+@media print {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body,
+  html {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+
+  .class-management {
+    padding: 0.5in;
+    background: white;
+    min-height: auto;
+    font-size: 11px;
+  }
+
+  /* Hide all navigation and control elements */
+  .class-header,
+  .admin-section-header,
+  .admin-modal-overlay,
+  .admin-modal-content,
+  .admin-tabs-container,
+  .admin-class-details,
+  .form-card,
+  .modal-overlay,
+  [className*="btn"],
+  [className*="control"],
+  .admin-class-controls,
+  .schedule-controls,
+  .admin-form-actions,
+  .admin-form-row,
+  .search-box,
+  .filter-box,
+  .schedule-view-toggle,
+  .bulk-select-bar,
+  button,
+  input:not([type="checkbox"]),
+  select {
+    display: none !important;
+  }
+
+  /* Optimize section styling */
+  .section-header {
+    background: white;
+    padding: 0;
+    margin-bottom: 8px;
+    box-shadow: none;
+    border-bottom: 2px solid #333;
+    page-break-inside: avoid;
+  }
+
+  .section-header h2 {
+    font-size: 14px;
+    margin: 8px 0;
+  }
+
+  /* Header for print */
+  .cm-stats-section {
+    margin-bottom: 12px;
+    padding: 0;
+    background: white;
+    border: none;
+    box-shadow: none;
+  }
+
+  .cm-stats-header {
+    margin-bottom: 4px;
+  }
+
+  .cm-stats-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    border-bottom: 2px solid #000;
+    padding-bottom: 4px;
+  }
+
+  /* Optimize stats display */
+  .cm-stats-section .unified-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .unified-stat-card {
+    background: white !important;
+    border: 1px solid #ddd;
+    padding: 8px !important;
+    margin: 0;
+    box-shadow: none;
+  }
+
+  .unified-stat-label {
+    font-size: 9px;
+  }
+
+  .unified-stat-value {
+    font-size: 14px !important;
+  }
+
+  .unified-stat-subtitle {
+    font-size: 8px;
+  }
+
+  /* Optimize table display */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    page-break-inside: avoid;
+    font-size: 10px;
+    margin-bottom: 10px;
+  }
+
+  table thead {
+    display: table-header-group;
+  }
+
+  table tr {
+    page-break-inside: avoid;
+  }
+
+  table th {
+    background: #ddd !important;
+    font-weight: bold;
+    color: #000 !important;
+    padding: 6px !important;
+    border: 1px solid #999;
+    text-align: left;
+  }
+
+  table td {
+    border: 1px solid #999;
+    padding: 6px !important;
+    text-align: left;
+  }
+
+  /* Hide unnecessary columns in print */
+  .admin-schedule-table th:nth-child(1),
+  .admin-schedule-table td:nth-child(1),
+  .admin-schedule-table th:nth-child(8),
+  .admin-schedule-table td:nth-child(8) {
+    display: none;
+  }
+
+  /* Badges and styling in print */
+  .section-badge,
+  .subject-badge,
+  .day-badge,
+  .room-badge,
+  .teacher-name,
+  .time-display {
+    background: white !important;
+    border: none !important;
+    color: #000 !important;
+    padding: 0 !important;
+  }
+
+  .time-display svg {
+    display: none;
+  }
+
+  .room-badge svg,
+  .day-badge svg {
+    display: none;
+  }
+
+  /* Page settings */
+  @page {
+    margin: 0.5in;
+    size: A4 portrait;
+  }
+
+  /* Links in print */
+  a {
+    color: #000;
+    text-decoration: none;
+  }
+
+  /* Remove print hiding for content we want to show */
+  .admin-schedule-container {
+    display: block !important;
+  }
+
+  .admin-schedule-table {
+    display: table !important;
+  }
+
+  .admin-schedule-table thead {
+    display: table-header-group !important;
+  }
+
+  .admin-schedule-table tbody {
+    display: table-row-group !important;
+  }
+
+  .admin-schedule-table tr {
+    display: table-row !important;
+  }
+
+  .admin-schedule-table th,
+  .admin-schedule-table td {
+    display: table-cell !important;
+  }
+}
+
 
 .admin-filter-box svg {
   display: none !important;
@@ -1138,11 +1444,5 @@
   }
 }
 
-/* Colored background tints for stat cards */
-.class-management .unified-stat-card.blue   { background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%); }
-.class-management .unified-stat-card.green  { background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%); }
-.class-management .unified-stat-card.yellow { background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%); }
-.class-management .unified-stat-card.purple { background: linear-gradient(135deg, #f5f3ff 0%, #ffffff 100%); }
-.class-management .unified-stat-card.red    { background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%); }
-.class-management .unified-stat-card.teal   { background: linear-gradient(135deg, #f0fdfa 0%, #ffffff 100%); }
+/* Colored background tints for stat cards — removed; now using shared StatCard.css defaults */
 

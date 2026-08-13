@@ -1,7 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, X, Edit2, Trash2, Settings, Calendar, FileText } from "lucide-react";
+﻿import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Plus, X, Edit2, Trash2, Settings, Calendar, FileText, Printer } from "lucide-react";
 import "../TeacherWebsiteCSS/Grade.css";
 import { apiFetch } from "../api/apiFetch";
+import { getToken } from "../Auth/auth";
+import PreviewModal from "../PreviewModal";
+import ExcelJS from "exceljs";
+import Toast from "../Global/Toast";
 
 const API = "";
 
@@ -71,10 +75,11 @@ const gradeLabel = (value) => {
     grade6: "Grade 6",
   };
 
-  return labels[code] || String(value || "—");
+  return labels[code] || String(value || "–");
 };
 
 const QUARTERS = [1, 2, 3, 4];
+const MIN_WEIGHT_PERCENT = 1;
 
 const CATEGORIES = [
   { key: "ACTIVITY", label: "Activities", color: "#3b82f6" },
@@ -82,9 +87,36 @@ const CATEGORIES = [
   { key: "EXAM", label: "Exams", color: "#ef4444" },
 ];
 
+const toFiniteNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const clampNumber = (value, min, max) => {
+  const n = toFiniteNumber(value);
+  if (n === null) return null;
+  return Math.min(max, Math.max(min, n));
+};
+
+const getStudentKey = (student) => {
+  if (!student) return "";
+
+  const idValue = student.id != null ? String(student.id).trim() : "";
+  if (idValue) return `id:${idValue}`;
+
+  const studentNumber = String(student.student_number || "").trim();
+  if (studentNumber) return `num:${studentNumber.toLowerCase()}`;
+
+  const username = String(student.username || "").trim();
+  if (username) return `user:${username.toLowerCase()}`;
+
+  return "";
+};
+
 const Grade = () => {
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState("");
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [quarter, setQuarter] = useState(1);
   const [teacherSubject, setTeacherSubject] = useState(null);
   const [schoolYear, setSchoolYear] = useState(null);
@@ -124,27 +156,158 @@ const Grade = () => {
   const [editItem, setEditItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [error, setError] = useState("");
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
+  const [printPreviewData, setPrintPreviewData] = useState([]);
+  const [gradePreviewColumns, setGradePreviewColumns] = useState([]);
+  const [toasts, setToasts] = useState([]);
+
+  const dismissToast = useCallback((toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  }, []);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 4500);
+  }, []);
+
+  const safeParseJson = useCallback(async (response) => {
+    if (!response) return null;
+    const contentType = response.headers?.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) return null;
+
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const getApiErrorMessage = useCallback((payload, fallback) => {
+    if (!payload) return fallback;
+    if (typeof payload === "string") return payload;
+    if (typeof payload.detail === "string") return payload.detail;
+    if (typeof payload.error === "string") return payload.error;
+    if (Array.isArray(payload.non_field_errors) && payload.non_field_errors.length > 0) {
+      return String(payload.non_field_errors[0]);
+    }
+
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return fallback;
+    }
+  }, []);
 
   const currentSection =
     sections.find((s) => String(s.id) === String(selectedSection)) || null;
 
+  const availableSubjects = useMemo(() => {
+    if (!teacherSubject) return [];
+
+    if (Array.isArray(teacherSubject.subjects) && teacherSubject.subjects.length > 0) {
+      return teacherSubject.subjects;
+    }
+
+    if (teacherSubject.subject_id) {
+      return [
+        {
+          id: teacherSubject.subject_id,
+          name: teacherSubject.subject_name,
+          code: teacherSubject.subject_code,
+        },
+      ];
+    }
+
+    return [];
+  }, [teacherSubject]);
+
+  const selectedSubject = useMemo(
+    () =>
+      availableSubjects.find((subject) => String(subject.id) === String(selectedSubjectId)) ||
+      null,
+    [availableSubjects, selectedSubjectId]
+  );
+
   const canPublish =
-    !!currentSection && students.length > 0 && items.length > 0 && !isPublishing;
+    !!currentSection && !!selectedSubjectId && students.length > 0 && items.length > 0 && !isPublishing;
 
   const displayStudents = useMemo(() => {
-    const seen = {};
+    const seen = new Map();
     (students || []).forEach((student) => {
-      if (!student || student.id == null) return;
-      const key = String(student.id).trim();
+      const key = getStudentKey(student);
       if (!key) return;
-      if (!seen[key]) {
-        seen[key] = student;
+      const existing = seen.get(key);
+      if (existing) {
+        seen.set(key, { ...existing, ...student, studentKey: key });
       } else {
-        seen[key] = { ...seen[key], ...student };
+        seen.set(key, { ...student, studentKey: key });
       }
     });
-    return Object.values(seen);
+    return Array.from(seen.values());
   }, [students]);
+
+  const studentIdToKey = useMemo(() => {
+    const map = new Map();
+    displayStudents.forEach((student) => {
+      if (student?.id != null && student.studentKey) {
+        map.set(String(student.id), student.studentKey);
+      }
+    });
+    return map;
+  }, [displayStudents]);
+
+  const studentKeyToId = useMemo(() => {
+    const map = new Map();
+    displayStudents.forEach((student) => {
+      if (student?.id != null && student.studentKey) {
+        map.set(student.studentKey, student.id);
+      }
+    });
+    return map;
+  }, [displayStudents]);
+
+  const scoresByKey = useMemo(() => {
+    const map = new Map();
+    (scores || []).forEach((sc) => {
+      const key = studentIdToKey.get(String(sc.student));
+      if (!key) return;
+      map.set(`${key}|${sc.grade_item}`, Number(sc.score));
+    });
+    return map;
+  }, [scores, studentIdToKey]);
+
+  const scoresById = useMemo(() => {
+    const map = new Map();
+    (scores || []).forEach((sc) => {
+      const studentId = sc.student != null ? String(sc.student) : "";
+      if (!studentId) return;
+      map.set(`${studentId}|${sc.grade_item}`, Number(sc.score));
+    });
+    return map;
+  }, [scores]);
+
+  const classStandingsByKey = useMemo(() => {
+    const map = new Map();
+    (classStandings || []).forEach((cs) => {
+      const key = studentIdToKey.get(String(cs.student));
+      if (!key) return;
+      map.set(key, Number(cs.score));
+    });
+    return map;
+  }, [classStandings, studentIdToKey]);
+
+  const classStandingsById = useMemo(() => {
+    const map = new Map();
+    (classStandings || []).forEach((cs) => {
+      const studentId = cs.student != null ? String(cs.student) : "";
+      if (!studentId) return;
+      map.set(studentId, Number(cs.score));
+    });
+    return map;
+  }, [classStandings]);
 
   // IMPORTANT FIX:
   // backend expects integer grade_level, not "grade4"/"kinder"
@@ -174,28 +337,69 @@ const Grade = () => {
   }, []);
 
   useEffect(() => {
-    if (!teacherSubject?.subject_id) return;
+    if (!availableSubjects.length) {
+      setSelectedSubjectId("");
+      return;
+    }
+
+    setSelectedSubjectId((prev) => {
+      const hasPrev = availableSubjects.some((subject) => String(subject.id) === String(prev));
+      return hasPrev ? String(prev) : String(availableSubjects[0].id);
+    });
+  }, [availableSubjects]);
+
+  useEffect(() => {
+    if (!selectedSubjectId) {
+      setSections([]);
+      setSelectedSection("");
+      return;
+    }
 
     (async () => {
-      try {
+      const fetchSectionsForSubject = async (subjectId) => {
+        const schoolYearParam = schoolYear?.id
+          ? `&school_year=${encodeURIComponent(schoolYear.id)}`
+          : "";
+
         const res = await apiFetch(
-          `${API}/api/grades/my-sections/?subject=${teacherSubject.subject_id}`
+          `${API}/api/grades/my-sections/?subject=${subjectId}${schoolYearParam}`
         );
 
         if (!res.ok) {
-          setSections([]);
-          setSelectedSection("");
-          return;
+          return [];
         }
 
         const data = await res.json();
-        const nextSections = Array.isArray(data) ? data : [];
+        return Array.isArray(data) ? data : [];
+      };
+
+      try {
+        let subjectToUse = String(selectedSubjectId);
+        let nextSections = await fetchSectionsForSubject(subjectToUse);
+
+        if (!nextSections.length) {
+          const fallbackSubject = availableSubjects.find(
+            (subject) => String(subject.id) !== String(selectedSubjectId)
+          );
+
+          if (fallbackSubject) {
+            const fallbackSections = await fetchSectionsForSubject(fallbackSubject.id);
+            if (fallbackSections.length) {
+              subjectToUse = String(fallbackSubject.id);
+              nextSections = fallbackSections;
+            }
+          }
+        }
 
         setSections(nextSections);
 
         if (!nextSections.length) {
           setSelectedSection("");
           return;
+        }
+
+        if (subjectToUse !== String(selectedSubjectId)) {
+          setSelectedSubjectId(subjectToUse);
         }
 
         setSelectedSection((prev) => {
@@ -210,10 +414,10 @@ const Grade = () => {
         setSelectedSection("");
       }
     })();
-  }, [teacherSubject]);
+  }, [selectedSubjectId, schoolYear?.id, availableSubjects]);
 
   const fetchAll = useCallback(async () => {
-    if (!teacherSubject || !selectedSection) {
+    if (!selectedSubjectId || !selectedSection) {
       setStudents([]);
       setItems([]);
       setScores([]);
@@ -221,18 +425,22 @@ const Grade = () => {
       return;
     }
 
-    const subj = Number(teacherSubject.subject_id);
+    const subj = Number(selectedSubjectId);
 
     try {
+      const schoolYearParam = schoolYear?.id
+        ? `school_year=${encodeURIComponent(schoolYear.id)}&`
+        : "";
+
       const [itemsRes, studentsRes, scoresRes, csRes, wRes] = await Promise.all([
         apiFetch(
-          `${API}/api/grades/items/?subject=${subj}&grade_level=${gradeLevel}&quarter=${quarter}`
+          `${API}/api/grades/items/?${schoolYearParam}subject=${subj}&grade_level=${gradeLevel}&quarter=${quarter}`
         ),
-        apiFetch(`${API}/api/grades/students/section/${selectedSection}/`),
+        apiFetch(`${API}/api/grades/students/section/${selectedSection}/?${schoolYearParam}`),
         apiFetch(
-          `${API}/api/grades/scores/?subject=${subj}&grade_level=${gradeLevel}&quarter=${quarter}`
+          `${API}/api/grades/scores/?${schoolYearParam}section=${encodeURIComponent(selectedSection)}&subject=${subj}&grade_level=${gradeLevel}&quarter=${quarter}`
         ),
-        apiFetch(`${API}/api/grades/class-standing/?subject=${subj}&quarter=${quarter}`),
+        apiFetch(`${API}/api/grades/class-standing/?${schoolYearParam}section=${encodeURIComponent(selectedSection)}&subject=${subj}&quarter=${quarter}`),
         apiFetch(`${API}/api/grades/weights/${subj}/`),
       ]);
 
@@ -249,8 +457,7 @@ const Grade = () => {
 
         const uniqueStudents = Object.values(
           studentsArray.reduce((acc, student) => {
-            if (!student || student.id == null) return acc;
-            const key = String(student.id).trim();
+            const key = getStudentKey(student);
             if (!key) return acc;
 
             if (!acc[key]) {
@@ -301,7 +508,7 @@ const Grade = () => {
     } catch (e) {
       console.error("fetchAll error:", e);
     }
-  }, [teacherSubject, selectedSection, gradeLevel, quarter]);
+  }, [selectedSubjectId, selectedSection, gradeLevel, quarter, schoolYear?.id]);
 
   useEffect(() => {
     fetchAll();
@@ -309,19 +516,31 @@ const Grade = () => {
 
   const itemsByCategory = (cat) => items.filter((i) => i.category === cat);
 
-  const getScore = (studentId, itemId) => {
-    const s = scores.find(
-      (sc) => Number(sc.student) === Number(studentId) && Number(sc.grade_item) === Number(itemId)
-    );
-    return s ? s.score : null;
+  const getScore = (studentKey, itemId, studentId) => {
+    if (studentKey) {
+      const value = scoresByKey.get(`${studentKey}|${itemId}`);
+      if (value != null) return toFiniteNumber(value);
+    }
+
+    const idValue = studentId != null ? String(studentId) : "";
+    if (!idValue) return null;
+    const value = scoresById.get(`${idValue}|${itemId}`);
+    return value != null ? toFiniteNumber(value) : null;
   };
 
-  const getCS = (studentId) => {
-    const c = classStandings.find((cs) => Number(cs.student) === Number(studentId));
-    return c ? c.score : null;
+  const getCS = (studentKey, studentId) => {
+    if (studentKey) {
+      const value = classStandingsByKey.get(studentKey);
+      if (value != null) return toFiniteNumber(value);
+    }
+
+    const idValue = studentId != null ? String(studentId) : "";
+    if (!idValue) return null;
+    const value = classStandingsById.get(idValue);
+    return value != null ? toFiniteNumber(value) : null;
   };
 
-  const categoryAvg = (studentId, cat) => {
+  const categoryAvg = (studentKey, studentId, cat) => {
     const catItems = itemsByCategory(cat);
     if (!catItems.length) return null;
 
@@ -330,40 +549,71 @@ const Grade = () => {
     let hasAny = false;
 
     catItems.forEach((item) => {
-      const s = getScore(studentId, item.id);
-      if (s !== null && s !== undefined && s !== "") {
-        totalEarned += Number(s);
-        totalPossible += Number(item.total_score || 0);
-        hasAny = true;
-      }
+      const possible = toFiniteNumber(item.total_score);
+      if (possible === null || possible <= 0) return;
+
+      const rawScore = getScore(studentKey, item.id, studentId);
+      if (rawScore === null || rawScore === undefined || rawScore === "") return;
+
+      // Guard against stale/outlier persisted values that can make averages exceed 100.
+      const safeScore = clampNumber(rawScore, 0, possible);
+      if (safeScore === null) return;
+
+      totalEarned += safeScore;
+      totalPossible += possible;
+      hasAny = true;
     });
 
     if (!hasAny) return null;
-    return totalPossible > 0 ? (totalEarned / totalPossible) * 100 : 0;
+    if (totalPossible <= 0) return null;
+
+    const pct = (totalEarned / totalPossible) * 100;
+    return clampNumber(pct, 0, 100);
   };
 
-  const quarterGrade = (studentId) => {
-    const actAvg = categoryAvg(studentId, "ACTIVITY");
-    const quizAvg = categoryAvg(studentId, "QUIZ");
-    const examAvg = categoryAvg(studentId, "EXAM");
-    const cs = getCS(studentId);
+  const quarterGrade = (studentKey, studentId) => {
+    const actAvg = categoryAvg(studentKey, studentId, "ACTIVITY");
+    const quizAvg = categoryAvg(studentKey, studentId, "QUIZ");
+    const examAvg = categoryAvg(studentKey, studentId, "EXAM");
+    const cs = clampNumber(getCS(studentKey, studentId), 0, 100);
 
     const parts = [];
-    if (actAvg !== null) parts.push({ avg: actAvg, w: Number(weights.activity_weight) || 0 });
-    if (quizAvg !== null) parts.push({ avg: quizAvg, w: Number(weights.quiz_weight) || 0 });
-    if (examAvg !== null) parts.push({ avg: examAvg, w: Number(weights.exam_weight) || 0 });
-    if (cs !== null) parts.push({ avg: Number(cs), w: Number(weights.class_standing_weight) || 0 });
+    if (actAvg !== null) {
+      parts.push({
+        avg: clampNumber(actAvg, 0, 100),
+        w: Math.max(0, toFiniteNumber(weights.activity_weight) ?? 0),
+      });
+    }
+    if (quizAvg !== null) {
+      parts.push({
+        avg: clampNumber(quizAvg, 0, 100),
+        w: Math.max(0, toFiniteNumber(weights.quiz_weight) ?? 0),
+      });
+    }
+    if (examAvg !== null) {
+      parts.push({
+        avg: clampNumber(examAvg, 0, 100),
+        w: Math.max(0, toFiniteNumber(weights.exam_weight) ?? 0),
+      });
+    }
+    if (cs !== null) {
+      parts.push({
+        avg: cs,
+        w: Math.max(0, toFiniteNumber(weights.class_standing_weight) ?? 0),
+      });
+    }
 
     if (!parts.length) return null;
 
     const totalW = parts.reduce((s, p) => s + p.w, 0);
-    if (totalW === 0) return null;
+    if (totalW <= 0) return null;
 
-    return parts.reduce((s, p) => s + p.avg * p.w, 0) / totalW;
+    const weighted = parts.reduce((s, p) => s + p.avg * p.w, 0) / totalW;
+    return clampNumber(weighted, 0, 100);
   };
 
   const handleAddItem = async (category) => {
-    if (!teacherSubject || !selectedSection) return;
+    if (!selectedSubjectId || !selectedSection) return;
 
     const totalScore = Number(newItem.total_score);
     if (Number.isNaN(totalScore) || totalScore <= 0) {
@@ -374,7 +624,7 @@ const Grade = () => {
     const catItems = itemsByCategory(category);
 
     const body = {
-      subject: Number(teacherSubject.subject_id),
+      subject: Number(selectedSubjectId),
       grade_level: Number(gradeLevel),
       quarter: Number(quarter),
       category: String(category).toUpperCase(),
@@ -397,15 +647,11 @@ const Grade = () => {
         body: JSON.stringify(body),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
       console.log("Create grade item response:", res.status, data);
 
       if (!res.ok) {
-        alert(
-          data?.detail ||
-            (typeof data === "object" ? JSON.stringify(data) : data) ||
-            "Failed to create grade item."
-        );
+        addToast("Create Failed", getApiErrorMessage(data, "Failed to create grade item."), "error");
         return;
       }
 
@@ -421,7 +667,7 @@ const Grade = () => {
       fetchAll();
     } catch (e) {
       console.error("Create grade item error:", e);
-      alert("Something went wrong while creating the grade item.");
+      addToast("Create Failed", "Something went wrong while creating the grade item.", "error");
     }
   };
 
@@ -434,19 +680,15 @@ const Grade = () => {
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        alert(
-          data?.detail ||
-            (typeof data === "object" ? JSON.stringify(data) : data) ||
-            "Failed to delete item."
-        );
+        const data = await safeParseJson(res);
+        addToast("Delete Failed", getApiErrorMessage(data, "Failed to delete item."), "error");
         return;
       }
 
       fetchAll();
     } catch (e) {
       console.error(e);
-      alert("Something went wrong while deleting the item.");
+      addToast("Delete Failed", "Something went wrong while deleting the item.", "error");
     }
   };
 
@@ -485,15 +727,11 @@ const Grade = () => {
         body: JSON.stringify(body),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
       console.log("Edit grade item response:", res.status, data);
 
       if (!res.ok) {
-        alert(
-          data?.detail ||
-            (typeof data === "object" ? JSON.stringify(data) : data) ||
-            "Failed to update grade item."
-        );
+        addToast("Update Failed", getApiErrorMessage(data, "Failed to update grade item."), "error");
         return;
       }
 
@@ -502,7 +740,7 @@ const Grade = () => {
       fetchAll();
     } catch (e) {
       console.error("Edit grade item error:", e);
-      alert("Something went wrong while updating the grade item.");
+      addToast("Update Failed", "Something went wrong while updating the grade item.", "error");
     }
   };
 
@@ -525,25 +763,32 @@ const Grade = () => {
       return;
     }
 
+    const studentId =
+      scoreModal.student?.id != null
+        ? scoreModal.student.id
+        : studentKeyToId.get(scoreModal.studentKey);
+
+    if (!studentId) {
+      setError("Unable to determine the student for this score.");
+      return;
+    }
+
     try {
       const res = await apiFetch(`${API}/api/grades/scores/upsert/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          student: Number(scoreModal.student.id),
+          student: Number(studentId),
+          student_number: scoreModal.student?.student_number || "",
           grade_item: Number(scoreModal.item.id),
           score: numericScore,
         }),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
 
       if (!res.ok) {
-        alert(
-          data?.detail ||
-            (typeof data === "object" ? JSON.stringify(data) : data) ||
-            "Failed to save score."
-        );
+        addToast("Save Failed", getApiErrorMessage(data, "Failed to save score."), "error");
         return;
       }
 
@@ -553,12 +798,12 @@ const Grade = () => {
       fetchAll();
     } catch (e) {
       console.error(e);
-      alert("Something went wrong while saving the score.");
+      addToast("Save Failed", "Something went wrong while saving the score.", "error");
     }
   };
 
   const handleSaveCS = async () => {
-    if (!csModal || !teacherSubject) return;
+    if (!csModal || !selectedSubjectId) return;
 
     const numericScore = parseFloat(csValue);
     if (Number.isNaN(numericScore)) {
@@ -576,26 +821,33 @@ const Grade = () => {
       return;
     }
 
+    const studentId =
+      csModal.student?.id != null
+        ? csModal.student.id
+        : studentKeyToId.get(csModal.studentKey);
+
+    if (!studentId) {
+      setError("Unable to determine the student for this class standing.");
+      return;
+    }
+
     try {
       const res = await apiFetch(`${API}/api/grades/class-standing/upsert/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          student: Number(csModal.student.id),
-          subject: Number(teacherSubject.subject_id),
+          student: Number(studentId),
+          student_number: csModal.student?.student_number || "",
+          subject: Number(selectedSubjectId),
           quarter: Number(quarter),
           score: numericScore,
         }),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
 
       if (!res.ok) {
-        alert(
-          data?.detail ||
-            (typeof data === "object" ? JSON.stringify(data) : data) ||
-            "Failed to save class standing."
-        );
+        addToast("Save Failed", getApiErrorMessage(data, "Failed to save class standing."), "error");
         return;
       }
 
@@ -605,12 +857,12 @@ const Grade = () => {
       fetchAll();
     } catch (e) {
       console.error(e);
-      alert("Something went wrong while saving class standing.");
+      addToast("Save Failed", "Something went wrong while saving class standing.", "error");
     }
   };
 
   const handleSaveWeights = async () => {
-    if (!teacherSubject) return;
+    if (!selectedSubjectId) return;
 
     const weights_array = [
       { key: 'activity_weight', value: Number(tempWeights.activity_weight || 0) },
@@ -624,11 +876,24 @@ const Grade = () => {
         setError(`Weight for ${w.key.replace(/_/g, ' ')} cannot be negative.`);
         return;
       }
+
+      if (w.value < MIN_WEIGHT_PERCENT) {
+        setError(
+          `Weight for ${w.key.replace(/_/g, ' ')} must be at least ${MIN_WEIGHT_PERCENT}%.`
+        );
+        return;
+      }
+    }
+
+    const totalWeight = weights_array.reduce((sum, item) => sum + item.value, 0);
+    if (totalWeight !== 100) {
+      setError("Total weight must equal 100%.");
+      return;
     }
 
     try {
       const res = await apiFetch(
-        `${API}/api/grades/weights/${teacherSubject.subject_id}/update/`,
+        `${API}/api/grades/weights/${selectedSubjectId}/update/`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -636,14 +901,10 @@ const Grade = () => {
         }
       );
 
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
 
       if (!res.ok) {
-        alert(
-          data?.detail ||
-            (typeof data === "object" ? JSON.stringify(data) : data) ||
-            "Failed to save weights."
-        );
+        addToast("Save Failed", getApiErrorMessage(data, "Failed to save weights."), "error");
         return;
       }
 
@@ -652,13 +913,18 @@ const Grade = () => {
       fetchAll();
     } catch (e) {
       console.error(e);
-      alert("Something went wrong while saving weights.");
+      addToast("Save Failed", "Something went wrong while saving weights.", "error");
     }
   };
 
   const handlePublishAcademicHistory = async () => {
     if (!currentSection) {
-      alert("Please select a section before publishing academic history.");
+      addToast("Missing Selection", "Please select a section before publishing academic history.", "warning");
+      return;
+    }
+
+    if (!getToken()) {
+      addToast("Session Expired", "Your session has expired. Please log in again before publishing.", "error");
       return;
     }
 
@@ -669,7 +935,7 @@ const Grade = () => {
         : null);
 
     if (!schoolYearLabel) {
-      alert("Unable to determine active school year. Please check school year settings.");
+      addToast("School Year Missing", "Unable to determine active school year. Please check school year settings.", "error");
       return;
     }
 
@@ -679,23 +945,32 @@ const Grade = () => {
     try {
       const params = new URLSearchParams({
         section_id: String(selectedSection),
-        subject_id: String(teacherSubject.subject_id),
+        subject_id: String(selectedSubjectId),
         school_year: schoolYearLabel,
       });
 
       const res = await apiFetch(`${API}/api/grades/publish-history/?${params.toString()}`);
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
+      const previewData = data || {};
 
       if (!res.ok) {
-        setPublishPreviewError(data?.detail || "Unable to load publish preview.");
+        if (res.status === 401) {
+          setPublishPreviewError("Session expired. Please log in again and retry.");
+        } else if (res.status === 405) {
+          setPublishPreviewError(
+            "Server publish endpoint is out of date (POST/preview method mismatch). Redeploy backend API and clear build cache."
+          );
+        } else {
+          setPublishPreviewError(getApiErrorMessage(data, "Unable to load publish preview."));
+        }
         setShowPublishModal(false);
       } else {
-        setPublishPreviewRows(Array.isArray(data.rows) ? data.rows : []);
-        setPublishCanConfirm(!!data.can_publish);
+        setPublishPreviewRows(Array.isArray(previewData.rows) ? previewData.rows : []);
+        setPublishCanConfirm(!!previewData.can_publish);
         setShowPublishModal(true);
-        if (!data.can_publish) {
+        if (!previewData.can_publish) {
           setPublishPreviewError(
-            `There are ${data.incomplete_count || 0} student(s) with incomplete grades (cannot publish).`
+            `There are ${previewData.incomplete_count || 0} student(s) with incomplete grades (cannot publish).`
           );
         }
       }
@@ -712,6 +987,11 @@ const Grade = () => {
       return;
     }
 
+    if (!getToken()) {
+      addToast("Session Expired", "Your session has expired. Please log in again before publishing.", "error");
+      return;
+    }
+
     const schoolYearLabel =
       schoolYear?.name ||
       (schoolYear?.start_year && schoolYear?.end_year
@@ -723,7 +1003,7 @@ const Grade = () => {
     try {
       const payload = {
         section_id: Number(selectedSection),
-        subject_id: Number(teacherSubject.subject_id),
+        subject_id: Number(selectedSubjectId),
         school_year: schoolYearLabel,
       };
 
@@ -733,18 +1013,204 @@ const Grade = () => {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await safeParseJson(res);
+      const publishData = data || {};
       if (!res.ok) {
-        alert(data?.detail || "Failed to publish academic history. Please check logs and validate all fields.");
+        if (res.status === 401) {
+          addToast("Session Expired", "Session expired. Please log in again and retry publish.", "error");
+        } else if (res.status === 405) {
+          addToast(
+            "Publish Unsupported",
+            "Publish method is not enabled on the deployed backend. Redeploy backend API and clear build cache.",
+            "error"
+          );
+        } else {
+          addToast(
+            "Publish Failed",
+            getApiErrorMessage(data, "Failed to publish academic history. Please check logs and validate all fields."),
+            "error"
+          );
+        }
       } else {
-        setPublishMessage(`Published: ${data.published || 0}, Updated: ${data.updated || 0}, Total: ${data.total || 0}`);
+        setPublishMessage(
+          `Published: ${publishData.published || 0}, Updated: ${publishData.updated || 0}, Total: ${publishData.total || 0}, Students: ${publishData.student_count || publishData.total || 0}`
+        );
+        addToast("Published", "Academic history published successfully.", "success");
       }
     } catch (e) {
       console.error("Publish academic history error:", e);
-      alert("Something went wrong when publishing academic history.");
+      addToast("Publish Failed", "Something went wrong when publishing academic history.", "error");
     } finally {
       setIsPublishing(false);
       setShowPublishModal(false);
+    }
+  };
+
+  const handlePrintGradeSheet = () => {
+    if (!currentSection || displayStudents.length === 0) {
+      addToast("Missing Selection", "Please select a section with students before printing.", "warning");
+      return;
+    }
+
+    if (!selectedSubject) {
+      addToast("Missing Subject", "Unable to determine subject information.", "warning");
+      return;
+    }
+
+    try {
+      // Build detailed grade breakdown by category
+      const previewData = displayStudents.map((student) => {
+        try {
+          const studentKey = student.studentKey || getStudentKey(student);
+          const studentId = student.id;
+          
+          const row = {
+            "Student Name": student.student_name,
+          };
+
+          // Add individual items and category averages
+          CATEGORIES.forEach(({ key, label }) => {
+            const catItems = itemsByCategory(key);
+            
+            // Add individual item scores
+            catItems.forEach((item, idx) => {
+              const score = getScore(studentKey, item.id, studentId);
+              const displayScore = score !== null ? `${score}/${item.total_score}` : "–";
+              row[`${label} ${idx + 1}`] = displayScore;
+            });
+            
+            // Add category average percentage
+            const catAvgVal = categoryAvg(studentKey, studentId, key);
+            const catAvgDisplay = catAvgVal !== null ? catAvgVal.toFixed(1) : "–";
+            row[`${label} %`] = catAvgDisplay;
+          });
+
+          // Add Class Standing
+          const cs = getCS(studentKey, studentId);
+          row["Class Standing"] = cs !== null ? cs.toFixed(1) : "–";
+
+          // Add Quarter Grade
+          const qg = quarterGrade(studentKey, studentId);
+          row["Quarter Grade"] = qg !== null ? qg.toFixed(2) : "–";
+
+          return row;
+        } catch (err) {
+          console.error("Error building grade row for student:", student.student_name, err);
+          return null;
+        }
+      }).filter(row => row !== null);
+
+      // Build columns dynamically based on items
+      const columns = [{ key: "Student Name", label: "Student Name" }];
+
+      CATEGORIES.forEach(({ key, label }) => {
+        const catItems = itemsByCategory(key);
+        
+        // Add individual item columns
+        catItems.forEach((item, idx) => {
+          columns.push({
+            key: `${label} ${idx + 1}`,
+            label: `${label} ${idx + 1}`
+          });
+        });
+        
+        // Add category percentage column
+        columns.push({
+          key: `${label} %`,
+          label: `${label} %`
+        });
+      });
+
+      // Add remaining columns
+      columns.push(
+        { key: "Class Standing", label: "Class Standing" },
+        { key: "Quarter Grade", label: "Quarter Grade" }
+      );
+
+      // Set preview data and columns
+      setPrintPreviewData(previewData);
+      setGradePreviewColumns(columns);
+      setPrintPreviewOpen(true);
+    } catch (err) {
+      console.error("Error in handlePrintGradeSheet:", err);
+      addToast("Print Failed", "An error occurred while preparing the grade sheet.", "error");
+    }
+  };
+
+  const handleDownloadGradeExcel = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Grade Sheet');
+
+      // Get column headers from gradePreviewColumns
+      const headers = gradePreviewColumns.map(col => col.label);
+      
+      // Add header row
+      const headerRow = worksheet.addRow(headers);
+      
+      // Style header row
+      headerRow.eachCell((cell) => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF2563eb' }, // Blue
+        };
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } },
+        };
+      });
+      headerRow.height = 25;
+
+      // Add data rows
+      printPreviewData.forEach((rowData) => {
+        const row = worksheet.addRow(headers.map(header => rowData[header] || ''));
+        
+        // Style data cells
+        row.eachCell((cell, colNumber) => {
+          const isStudentNameColumn = colNumber === 1; // First column is Student Name
+          cell.alignment = { 
+            horizontal: isStudentNameColumn ? 'left' : 'center', 
+            vertical: 'center', 
+            wrapText: true 
+          };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFdddddd' } },
+            left: { style: 'thin', color: { argb: 'FFdddddd' } },
+            bottom: { style: 'thin', color: { argb: 'FFdddddd' } },
+            right: { style: 'thin', color: { argb: 'FFdddddd' } },
+          };
+          cell.font = { size: 11 };
+        });
+        row.height = 20;
+      });
+
+      // Set column widths
+      worksheet.columns.forEach((col) => {
+        col.width = 18;
+      });
+
+      // Generate and download file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `Grade-Sheet-${selectedSubject?.name || "N/A"}-${currentSection?.name || "N/A"}_${timestamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      addToast("Download Complete", "Grade sheet downloaded successfully.", "success");
+    } catch (err) {
+      console.error('Error downloading Excel:', err);
+      addToast("Download Failed", "Failed to download grade sheet. Please try again.", "error");
     }
   };
 
@@ -754,7 +1220,13 @@ const Grade = () => {
     Number(tempWeights.exam_weight || 0) +
     Number(tempWeights.class_standing_weight || 0);
 
-  if (!teacherSubject) {
+  const hasMinimumWeightViolation =
+    Number(tempWeights.activity_weight || 0) < MIN_WEIGHT_PERCENT ||
+    Number(tempWeights.quiz_weight || 0) < MIN_WEIGHT_PERCENT ||
+    Number(tempWeights.exam_weight || 0) < MIN_WEIGHT_PERCENT ||
+    Number(tempWeights.class_standing_weight || 0) < MIN_WEIGHT_PERCENT;
+
+  if (!teacherSubject || availableSubjects.length === 0) {
     return (
       <div className="ge">
         <div className="ge__empty">
@@ -768,7 +1240,7 @@ const Grade = () => {
     <div className="ge">
       <header className="ge__header">
         <h1 className="ge__title">
-          <span className="ge__subjectTag">{teacherSubject.subject_name}</span>
+          <span className="ge__subjectTag">{selectedSubject?.name || "No subject selected"}</span>
           <span className="ge__classTag">
             {currentSection
               ? `${gradeLabel(currentSection.grade_level)} - ${currentSection.name}`
@@ -785,6 +1257,18 @@ const Grade = () => {
       </header>
 
       <div className="ge__toolbar">
+        <select
+          className="ge__select"
+          value={selectedSubjectId}
+          onChange={(e) => setSelectedSubjectId(e.target.value)}
+        >
+          {availableSubjects.map((subject) => (
+            <option key={subject.id} value={subject.id}>
+              {subject.code ? `${subject.name} (${subject.code})` : subject.name}
+            </option>
+          ))}
+        </select>
+
         <select
           className="ge__select"
           value={selectedSection}
@@ -819,6 +1303,15 @@ const Grade = () => {
           title="Adjust weights"
         >
           <Settings size={14} /> Weights
+        </button>
+
+        <button
+          className="ge__printBtn"
+          onClick={handlePrintGradeSheet}
+          disabled={!selectedSection || displayStudents.length === 0}
+          title="Print grade sheet with breakdown"
+        >
+          <Printer size={14} /> Print Grade Sheet
         </button>
 
         <button
@@ -874,11 +1367,11 @@ const Grade = () => {
                     {publishPreviewRows.map((row) => (
                       <tr key={`${row.student_id}-${row.student_name}`}>
                         <td style={{ padding: "6px", borderBottom: "1px solid #eee" }}>{row.student_name}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q1 != null ? row.q1 : "—"}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q2 != null ? row.q2 : "—"}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q3 != null ? row.q3 : "—"}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q4 != null ? row.q4 : "—"}</td>
-                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.final_grade != null ? row.final_grade : "—"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q1 != null ? row.q1 : "–"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q2 != null ? row.q2 : "–"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q3 != null ? row.q3 : "–"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.q4 != null ? row.q4 : "–"}</td>
+                        <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee" }}>{row.final_grade != null ? row.final_grade : "–"}</td>
                         <td style={{ textAlign: "center", padding: "6px", borderBottom: "1px solid #eee", color: row.complete ? "#1f621f" : "#b91c1c" }}>
                           {row.complete ? "Complete" : "Incomplete"}
                         </td>
@@ -992,7 +1485,7 @@ const Grade = () => {
       </section>
 
       <section className="ge__card">
-        <h3 className="ge__tableTitle">Student Scores — Q{quarter}</h3>
+        <h3 className="ge__tableTitle">Student Scores – Q{quarter}</h3>
         <div className="ge__tableWrap">
           <table className="ge__table">
             <thead>
@@ -1020,13 +1513,12 @@ const Grade = () => {
                 )}
                 <th className="ge__th ge__th--score">CS</th>
                 <th className="ge__th">Quarter Grade</th>
-                <th className="ge__th">Remarks</th>
               </tr>
             </thead>
             <tbody>
               {displayStudents.length === 0 && (
                 <tr>
-                  <td className="ge__td" colSpan={items.length + 4}>
+                  <td className="ge__td" colSpan={items.length + 3}>
                     {selectedSection
                       ? "No students enrolled in this section."
                       : "No section selected."}
@@ -1035,31 +1527,34 @@ const Grade = () => {
               )}
 
               {displayStudents.map((stu) => {
-                const qg = quarterGrade(stu.id);
+                const studentKey = stu.studentKey || getStudentKey(stu);
+                const studentId = stu.id;
+                const rowKey = studentKey || String(stu.id || "");
+                const qg = quarterGrade(studentKey, studentId);
 
                 return (
-                  <tr className="ge__tr" key={stu.id}>
+                  <tr className="ge__tr" key={rowKey}>
                     <td className="ge__td ge__td--left ge__td--sticky">
                       <div className="ge__name">{stu.student_name}</div>
                     </td>
 
                     {CATEGORIES.map(({ key }) =>
                       itemsByCategory(key).map((item) => {
-                        const sc = getScore(stu.id, item.id);
+                        const sc = getScore(studentKey, item.id, studentId);
 
                         return (
                           <td
                             key={item.id}
                             className="ge__td ge__td--clickable"
                             onClick={() => {
-                              setScoreModal({ student: stu, item });
+                              setScoreModal({ student: stu, item, studentKey });
                               setScoreValue(sc !== null ? String(sc) : "");
                             }}
                           >
                             {sc !== null ? (
                               <span className="ge__scoreVal">{sc}</span>
                             ) : (
-                              <span className="ge__scoreEmpty">—</span>
+                              <span className="ge__scoreEmpty">–</span>
                             )}
                           </td>
                         );
@@ -1069,14 +1564,14 @@ const Grade = () => {
                     <td
                       className="ge__td ge__td--clickable"
                       onClick={() => {
-                        setCsModal({ student: stu });
-                        setCsValue(getCS(stu.id) !== null ? String(getCS(stu.id)) : "");
+                        setCsModal({ student: stu, studentKey });
+                        setCsValue(getCS(studentKey, studentId) !== null ? String(getCS(studentKey, studentId)) : "");
                       }}
                     >
-                      {getCS(stu.id) !== null ? (
-                        <span className="ge__scoreVal">{getCS(stu.id)}</span>
+                      {getCS(studentKey, studentId) !== null ? (
+                        <span className="ge__scoreVal">{getCS(studentKey, studentId)}</span>
                       ) : (
-                        <span className="ge__scoreEmpty">—</span>
+                        <span className="ge__scoreEmpty">–</span>
                       )}
                     </td>
 
@@ -1090,21 +1585,7 @@ const Grade = () => {
                           {qg.toFixed(1)}
                         </span>
                       ) : (
-                        <span className="ge__scoreEmpty">—</span>
-                      )}
-                    </td>
-
-                    <td className="ge__td">
-                      {qg !== null ? (
-                        <span
-                          className={`ge__badge ${
-                            qg >= 75 ? "ge__badge--pass" : "ge__badge--fail"
-                          }`}
-                        >
-                          {qg >= 75 ? "PASSED" : "FAILED"}
-                        </span>
-                      ) : (
-                        <span className="ge__scoreEmpty">—</span>
+                        <span className="ge__scoreEmpty">–</span>
                       )}
                     </td>
                   </tr>
@@ -1378,7 +1859,7 @@ const Grade = () => {
         <div className="ge__overlay" onClick={() => setShowWeights(false)}>
           <div className="ge__modal" onClick={(e) => e.stopPropagation()}>
             <div className="ge__modalHeader">
-              <h3>Grade Weights — {teacherSubject.subject_name}</h3>
+              <h3>Grade Weights – {selectedSubject?.name || "N/A"}</h3>
               <button className="ge__modalClose" onClick={() => { setShowWeights(false); setError(""); }}>
                 <X size={18} />
               </button>
@@ -1388,7 +1869,7 @@ const Grade = () => {
               {error && <div className="ge__error">⚠️ {error}</div>}
               <p className="ge__weightNote">
                 Adjust how much each category contributes to the quarter grade.
-                Total must equal 100%.
+                Total must equal 100%, and each category must be at least {MIN_WEIGHT_PERCENT}%.
               </p>
 
               {[
@@ -1404,7 +1885,7 @@ const Grade = () => {
                   <input
                     type="number"
                     className="ge__input ge__inputWeight"
-                    min={0}
+                    min={MIN_WEIGHT_PERCENT}
                     max={100}
                     value={tempWeights[key]}
                     onChange={(e) =>
@@ -1420,10 +1901,11 @@ const Grade = () => {
 
               <div
                 className={`ge__weightTotal ${
-                  weightTotal !== 100 ? "ge__weightTotal--bad" : ""
+                  weightTotal !== 100 || hasMinimumWeightViolation ? "ge__weightTotal--bad" : ""
                 }`}
               >
                 Total: {weightTotal}% {weightTotal !== 100 && "(must be 100%)"}
+                {hasMinimumWeightViolation && ` (each weight must be at least ${MIN_WEIGHT_PERCENT}%)`}
               </div>
             </div>
 
@@ -1434,7 +1916,7 @@ const Grade = () => {
               <button
                 className="ge__btnSave"
                 onClick={handleSaveWeights}
-                disabled={weightTotal !== 100}
+                disabled={weightTotal !== 100 || hasMinimumWeightViolation}
               >
                 Save Weights
               </button>
@@ -1442,8 +1924,27 @@ const Grade = () => {
           </div>
         </div>
       )}
+
+      <PreviewModal
+        isOpen={printPreviewOpen}
+        onClose={() => setPrintPreviewOpen(false)}
+        title={`Grade Sheet - ${selectedSubject?.name || "N/A"} (${currentSection?.name || "N/A"})`}
+        data={printPreviewData}
+        columns={gradePreviewColumns.length > 0 ? gradePreviewColumns : [
+          { key: "Student Name", label: "Student Name" },
+          { key: "Activity %", label: "Activity %" },
+          { key: "Quiz %", label: "Quiz %" },
+          { key: "Exam %", label: "Exam %" },
+          { key: "Class Standing", label: "Class Standing" },
+          { key: "Quarter Grade", label: "Quarter Grade" },
+        ]}
+        filename={`Grade-Sheet-${selectedSubject?.name || "N/A"}-${currentSection?.name || "N/A"}`}
+        onDownloadExcel={handleDownloadGradeExcel}
+      />
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };
 
 export default Grade;
+

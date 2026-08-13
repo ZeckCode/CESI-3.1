@@ -12,6 +12,20 @@ export default function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
+  useEffect(() => {
+    const syncAuthState = () => {
+      setUser(getUser());
+    };
+
+    window.addEventListener("storage", syncAuthState);
+    window.addEventListener("cesi-auth-changed", syncAuthState);
+
+    return () => {
+      window.removeEventListener("storage", syncAuthState);
+      window.removeEventListener("cesi-auth-changed", syncAuthState);
+    };
+  }, []);
+
   /**
    * Call this after login success
    * @param {{user: object, token?: string}} payload

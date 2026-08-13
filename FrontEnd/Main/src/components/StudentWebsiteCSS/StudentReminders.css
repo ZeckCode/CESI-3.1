@@ -56,9 +56,9 @@
 }
 
 .sr-filter.active {
-  background: #1d4ed8;
+  background: #5ba3c7;
   color: white;
-  border-color: #1d4ed8;
+  border-color: #5ba3c7;
 }
 
 .sr-list {
@@ -151,4 +151,316 @@
   padding: 28px;
   text-align: center;
   color: #64748b;
+}
+
+.sr-snackbar {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1200;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(92vw, 420px);
+  background: #b91c1c;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 12px;
+  box-shadow: 0 12px 26px rgba(127, 29, 29, 0.28);
+  font-weight: 600;
+  animation: sr-snackbar-in 180ms ease-out;
+}
+
+@keyframes sr-snackbar-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========== RESPONSIVE DESIGN ========== */
+
+/* Tablet: 992px and below */
+@media (max-width: 992px) {
+  .student-reminders-main {
+    padding: 18px;
+  }
+
+  .sr-section {
+    padding: 18px;
+  }
+
+  .sr-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .sr-title {
+    font-size: 1.2rem;
+  }
+}
+
+/* Tablet: 768px and below */
+@media (max-width: 768px) {
+  .student-reminders-main {
+    padding: 16px;
+  }
+
+  .sr-section {
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .sr-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .sr-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .sr-unread-badge {
+    align-self: flex-start;
+    padding: 6px 10px;
+    font-size: 0.9rem;
+  }
+
+  .sr-filters {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .sr-filter {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+  }
+
+  .sr-card-top {
+    gap: 10px;
+  }
+
+  .sr-card {
+    padding: 12px;
+  }
+
+  .sr-card-header {
+    gap: 8px;
+  }
+
+  .sr-card-header h3 {
+    font-size: 0.95rem;
+  }
+
+  .sr-message {
+    font-size: 0.95rem;
+    margin: 8px 0;
+  }
+
+  .sr-meta {
+    font-size: 0.85rem;
+    gap: 6px;
+  }
+
+  .sr-mark-btn {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    gap: 6px;
+  }
+}
+
+/* Mobile: 600px and below */
+@media (max-width: 600px) {
+  .student-reminders-main {
+    padding: 12px;
+  }
+
+  .sr-snackbar {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+
+  .sr-section {
+    border-radius: 10px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  }
+
+  .sr-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .sr-title {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .sr-subtitle {
+    font-size: 0.85rem;
+  }
+
+  .sr-unread-badge {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    gap: 4px;
+  }
+
+  .sr-filters {
+    gap: 6px;
+    margin-bottom: 14px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .sr-filter {
+    padding: 5px 10px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .sr-list {
+    gap: 10px;
+  }
+
+  .sr-card {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .sr-card.unread {
+    border-left: 4px solid #f59e0b;
+  }
+
+  .sr-card-top {
+    gap: 8px;
+  }
+
+  .sr-type-icon {
+    margin-top: 2px;
+    font-size: 1.2rem;
+  }
+
+  .sr-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .sr-card-header h3 {
+    font-size: 0.9rem;
+    width: 100%;
+    word-break: break-word;
+  }
+
+  .sr-message {
+    font-size: 0.9rem;
+    margin: 6px 0;
+    line-height: 1.4;
+  }
+
+  .sr-meta {
+    font-size: 0.8rem;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .sr-status {
+    font-size: 0.75rem;
+  }
+
+  .sr-actions {
+    margin-top: 8px;
+  }
+
+  .sr-mark-btn {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    width: 100%;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .sr-empty {
+    padding: 20px;
+    font-size: 0.95rem;
+  }
+}
+
+/* Small Mobile: 480px and below */
+@media (max-width: 480px) {
+  .student-reminders-main {
+    padding: 8px;
+  }
+
+  .sr-section {
+    border-radius: 8px;
+    padding: 10px;
+  }
+
+  .sr-title {
+    font-size: 0.95rem;
+  }
+
+  .sr-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .sr-filters {
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+
+  .sr-filter {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+  }
+
+  .sr-card {
+    padding: 8px;
+  }
+
+  .sr-card-top {
+    gap: 6px;
+  }
+
+  .sr-type-icon {
+    font-size: 1rem;
+  }
+
+  .sr-card-header h3 {
+    font-size: 0.85rem;
+  }
+
+  .sr-message {
+    font-size: 0.85rem;
+    margin: 4px 0;
+  }
+
+  .sr-meta {
+    font-size: 0.75rem;
+    gap: 2px;
+  }
+
+  .sr-mark-btn {
+    padding: 5px 8px;
+    font-size: 0.8rem;
+  }
+
+  .sr-empty {
+    padding: 16px;
+  }
 }

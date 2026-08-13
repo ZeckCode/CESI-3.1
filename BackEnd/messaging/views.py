@@ -19,6 +19,7 @@ from .serializers import (
     ChatRequestCreateSerializer, MessageReportSerializer, MessageReportCreateSerializer
 )
 from accounts.models import User, Section, Subject
+from classmanagement.models import SchoolYear
 
 
 # ═══════════════════════════════════════════════════════════
@@ -101,6 +102,45 @@ class ProfanityWordViewSet(viewsets.ModelViewSet):
 class ChatViewSet(viewsets.ModelViewSet):
     """Manage chats (create, list, detail)."""
     permission_classes = [IsAuthenticated]
+
+    def _sync_class_chat_members(self, chat, teacher=None):
+        from enrollment.models import Enrollment
+
+        public_user_id = User.objects.filter(
+            username='public_user'
+        ).values_list('id', flat=True).first()
+
+        enrollments = Enrollment.objects.filter(
+            section=chat.section,
+            status="ACTIVE"
+        ).values('parent_user_id', 'student_id')
+
+        student_ids = set()
+        for row in enrollments:
+            candidate_id = row.get('parent_user_id') or row.get('student_id')
+            if not candidate_id:
+                continue
+            if public_user_id and candidate_id == public_user_id:
+                continue
+            student_ids.add(candidate_id)
+
+        teacher_user = teacher or chat.creator
+        if teacher_user:
+            member, created = ChatMember.objects.get_or_create(
+                chat=chat,
+                user=teacher_user,
+                defaults={'is_admin': True}
+            )
+            if not created and not member.is_admin:
+                member.is_admin = True
+                member.save(update_fields=['is_admin'])
+
+        for student_id in student_ids:
+            ChatMember.objects.get_or_create(
+                chat=chat,
+                user_id=student_id,
+                defaults={'is_admin': False}
+            )
     
     def get_queryset(self):
         """Filter chats user is member of and not restricted from."""
@@ -142,6 +182,49 @@ class ChatViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Create a new chat (individual or group)."""
+        chat_type = request.data.get('chat_type')
+
+        if chat_type == 'GROUP_CLASS':
+            if request.user.role != 'TEACHER':
+                return Response(
+                    {'detail': 'Only teachers can create class group chats.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            section_id = request.data.get('section')
+            subject_id = request.data.get('subject')
+            school_year = request.data.get('school_year')
+
+            if not section_id or not subject_id:
+                return Response(
+                    {'detail': 'Class chat requires section and subject.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if not school_year:
+                return Response(
+                    {'detail': 'Class chat requires school year.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            existing = Chat.objects.filter(
+                chat_type='GROUP_CLASS',
+                section_id=section_id,
+                subject_id=subject_id,
+                school_year=school_year,
+            ).first()
+
+            if existing:
+                if not existing.is_active:
+                    existing.is_active = True
+                    existing.save(update_fields=['is_active', 'updated_at'])
+
+                self._sync_class_chat_members(existing, teacher=request.user)
+                return Response(
+                    ChatDetailSerializer(existing, context={'request': request}).data,
+                    status=status.HTTP_200_OK
+                )
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -157,11 +240,12 @@ class ChatViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Check if chat already exists
+            # Check if chat already exists (either direction)
             existing = Chat.objects.filter(
-                chat_type='INDIVIDUAL',
-                creator=request.user,
-                participant_two=participant_two
+                chat_type='INDIVIDUAL'
+            ).filter(
+                (Q(creator=request.user, participant_two=participant_two) |
+                 Q(creator=participant_two, participant_two=request.user))
             ).first()
             if existing:
                 # Ensure both users are in ChatMember (in case they were somehow removed)
@@ -173,10 +257,10 @@ class ChatViewSet(viewsets.ModelViewSet):
                 )
 
         elif chat_type == 'GROUP_CLASS':
-            # Teachers and parent/student accounts can create class groups
-            if request.user.role not in ['TEACHER', 'PARENT_STUDENT']:
+            # Teachers create class groups
+            if request.user.role != 'TEACHER':
                 return Response(
-                    {'detail': 'Only teachers or parent/student users can create class group chats.'},
+                    {'detail': 'Only teachers can create class group chats.'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             # Requires section + subject
@@ -207,19 +291,7 @@ class ChatViewSet(viewsets.ModelViewSet):
 
         elif chat.chat_type == 'GROUP_CLASS':
             # Auto-add all students in section + teacher
-            from enrollment.models import Enrollment
-            
-            students = Enrollment.objects.filter(
-                section=chat.section,
-                status="ACTIVE"
-            ).values_list('student_id', flat=True)
-
-            # Add teacher
-            ChatMember.objects.create(chat=chat, user=chat.creator, is_admin=True)
-
-            # Add students
-            for student_id in students:
-                ChatMember.objects.create(chat=chat, user_id=student_id, is_admin=False)
+            self._sync_class_chat_members(chat)
 
         elif chat.chat_type == 'GROUP_PROJECT':
             # Only add creator
@@ -295,6 +367,8 @@ class ChatViewSet(viewsets.ModelViewSet):
     def search_users(self, request):
         """Search for users to add to chat (autofill)."""
         query = request.query_params.get('q', '').strip()
+        scope = request.query_params.get('scope', '').strip().lower()
+        allow_global = scope in {'all', 'global', 'project', 'group_project', 'project_group'}
         if not query or len(query) < 2:
             return Response(
                 {'detail': 'Query must be at least 2 characters.'},
@@ -308,12 +382,16 @@ class ChatViewSet(viewsets.ModelViewSet):
             Q(profile__student_first_name__icontains=query) |
             Q(profile__student_last_name__icontains=query) |
             Q(profile__parent_first_name__icontains=query) |
-            Q(profile__parent_last_name__icontains=query)
+            Q(profile__parent_last_name__icontains=query) |
+            Q(profile__student_number__icontains=query) |
+            Q(parent_enrollments__first_name__icontains=query) |
+            Q(parent_enrollments__last_name__icontains=query) |
+            Q(parent_enrollments__student_number__icontains=query)
         ).exclude(id=request.user.id).distinct()
 
         # Student/parent accounts should primarily discover people in the same section.
         # This avoids unhelpful username-only global results.
-        if request.user.role == 'PARENT_STUDENT':
+        if request.user.role == 'PARENT_STUDENT' and not allow_global:
             from enrollment.models import Enrollment
             from classmanagement.models import Schedule
 
@@ -335,12 +413,21 @@ class ChatViewSet(viewsets.ModelViewSet):
             )
 
             if section_ids:
-                classmate_ids = set(
-                    Enrollment.objects.filter(
-                        section_id__in=section_ids,
-                        status='ACTIVE',
-                    ).values_list('student_id', flat=True)
-                )
+                public_user_id = User.objects.filter(
+                    username='public_user'
+                ).values_list('id', flat=True).first()
+                classmate_ids = set()
+                enrollments = Enrollment.objects.filter(
+                    section_id__in=section_ids,
+                    status='ACTIVE',
+                ).values('parent_user_id', 'student_id')
+                for row in enrollments:
+                    candidate_id = row.get('parent_user_id') or row.get('student_id')
+                    if not candidate_id:
+                        continue
+                    if public_user_id and candidate_id == public_user_id:
+                        continue
+                    classmate_ids.add(candidate_id)
                 teacher_ids = set(
                     Schedule.objects.filter(
                         section_id__in=section_ids
@@ -376,11 +463,22 @@ class ChatViewSet(viewsets.ModelViewSet):
     def search_sections(self, request):
         """Search for sections (autofill for class chats)."""
         query = request.query_params.get('q', '').strip()
-        if not query or len(query) < 1:
-            # Return all if no query
-            sections = Section.objects.all().values('id', 'name', 'grade_level')[:10]
+        school_year_id = request.query_params.get('school_year')
+
+        sections = Section.objects.all()
+        if school_year_id:
+            sections = sections.filter(school_year_id=school_year_id)
         else:
-            sections = Section.objects.filter(
+            active_sy = SchoolYear.objects.filter(is_active=True).first()
+            if active_sy:
+                sections = sections.filter(school_year=active_sy)
+            else:
+                sections = sections.filter(school_year__isnull=True)
+
+        if not query or len(query) < 1:
+            sections = sections.values('id', 'name', 'grade_level')[:10]
+        else:
+            sections = sections.filter(
                 Q(name__icontains=query) |
                 Q(grade_level__icontains=query)
             ).values('id', 'name', 'grade_level')[:10]
@@ -592,14 +690,24 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
 
         flag = self.get_object()
         action_type = request.data.get('action')  # 'delete', 'restrict', 'approve', 'dismiss'
-        admin_notes = request.data.get('admin_notes', '')
+        admin_notes = request.data.get('admin_notes', '').strip()
 
         if action_type == 'delete':
+            reason = admin_notes or (
+                f"Flagged words: {flag.flagged_words}" if flag.flagged_words else "Deleted from flagged review."
+            )
             flag.message.is_deleted = True
             flag.message.deleted_by = request.user
             flag.message.deleted_at = timezone.now()
+            flag.message.deletion_reason = reason
             flag.message.save()
+            MessageDeletionLog.objects.create(
+                message=flag.message,
+                deleted_by=request.user,
+                reason=reason,
+            )
             flag.status = 'DELETED'
+            admin_notes = reason
 
         elif action_type == 'restrict':
             # Restrict user globally (across all chats) - temp mute or permanent remove
@@ -830,15 +938,23 @@ class ChatRequestViewSet(viewsets.ModelViewSet):
             )
 
         # Create individual chat if it doesn't exist
-        chat, created = Chat.objects.get_or_create(
-            chat_type='INDIVIDUAL',
-            creator=request.user,
-            participant_two=recipient,
-            defaults={'school_year': request.data.get('school_year', '')}
-        )
+        # Look for existing individual chat in either direction
+        chat = Chat.objects.filter(chat_type='INDIVIDUAL').filter(
+            (Q(creator=request.user, participant_two=recipient) |
+             Q(creator=recipient, participant_two=request.user))
+        ).first()
 
-        # Add members
-        if created:
+        created = False
+        if not chat:
+            chat = Chat.objects.create(
+                chat_type='INDIVIDUAL',
+                creator=request.user,
+                participant_two=recipient,
+                school_year=request.data.get('school_year', '')
+            )
+            created = True
+
+            # Add members for newly created chat
             ChatMember.objects.get_or_create(chat=chat, user=request.user)
             ChatMember.objects.get_or_create(chat=chat, user=recipient)
 

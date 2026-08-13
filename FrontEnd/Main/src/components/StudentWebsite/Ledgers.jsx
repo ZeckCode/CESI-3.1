@@ -1,868 +1,1941 @@
-import React, { useEffect, useMemo, useState } from "react";
-import "../StudentWebsiteCSS/Ledgers.css";
-import { apiFetch } from "../api/apiFetch";
-import Pagination from "./Pagination";
+  import React, { useEffect, useMemo, useState } from "react";
+  import "../StudentWebsiteCSS/Ledgers.css";
+  import { apiFetch } from "../api/apiFetch";
+  import Pagination from "./Pagination";
+  import PreviewModal from "../PreviewModal";
+  import Toast from "../Global/Toast";
+  import ExcelJS from 'exceljs';
+  import jsPDF from 'jspdf';
+  import 'jspdf-autotable';
 
-const API_BASE = "";
-const ITEMS_PER_PAGE = 5;
+  const API_BASE = "";
+  const ITEMS_PER_PAGE = 5;
 
-const TYPE_LABELS = {
-  TUITION: "Tuition Fee",
-  REGISTRATION: "Registration Fee",
-  MISC: "Miscellaneous",
-  BOOKS: "Books & Materials",
-  UNIFORM: "Uniform",
-  OTHER: "Other",
-};
-
-const ITEM_LABELS = {
-  REGISTRATION: "Registration",
-  PAYMENT: "Payment",
-  INITIAL: "Initial Payment",
-  MONTHLY: "Monthly Installment",
-  MISC: "Miscellaneous",
-  RESERVATION: "Reservation Fee",
-  ASSESSMENT: "Assessment",
-  OTHER: "Other",
-};
-
-const ENTRY_LABELS = {
-  DEBIT: "Charge",
-  CREDIT: "Payment",
-};
-
-const formatCurrency = (value) =>
-  `₱${Number(value || 0).toLocaleString("en-PH", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-
-const normalizeStatus = (value) => String(value || "").trim().toLowerCase();
-
-const paymentModeLabel = (value) => {
-  const v = String(value || "").trim().toLowerCase();
-  if (!v) return "";
-  if (v === "cash") return "Cash";
-  if (v === "installment") return "Installment";
-  return v.charAt(0).toUpperCase() + v.slice(1);
-};
-
-const studentTypeLabel = (value) => {
-  const v = String(value || "").trim().toLowerCase();
-  if (!v) return "";
-
-  if (["old", "old_student", "returning", "returning_student"].includes(v)) {
-    return "Old Student";
-  }
-
-  if (["new", "new_student", "new enrollee", "new_enrollee"].includes(v)) {
-    return "New Student";
-  }
-
-  return value;
-};
-
-const gradeLevelLabel = (value) => {
-  const v = String(value || "").trim();
-  if (!v) return "";
-
-  const lower = v.toLowerCase();
-  const map = {
-    prek: "Pre-Kinder",
-    kinder: "Kinder",
-    grade1: "Grade 1",
-    grade2: "Grade 2",
-    grade3: "Grade 3",
-    grade4: "Grade 4",
-    grade5: "Grade 5",
-    grade6: "Grade 6",
+  const TYPE_LABELS = {
+    TUITION: "Tuition Fee",
+    REGISTRATION: "Registration Fee",
+    MISC: "Miscellaneous",
+    BOOKS: "Books & Materials",
+    UNIFORM: "Uniform",
+    OTHER: "Other",
   };
 
-  return map[lower] || v;
-};
+  const ITEM_LABELS = {
+    REGISTRATION: "Registration",
+    PAYMENT: "Payment",
+    INITIAL: "Initial Payment",
+    MONTHLY: "Monthly Installment",
+    MISC: "Miscellaneous",
+    RESERVATION: "Reservation Fee",
+    ASSESSMENT: "Assessment",
+    ADVANCE: "Advance Credit",
+    REFUND: "Refund",
+    ADVANCE_APPLIED: "Advance Applied",
+    ADVANCE_TRANSFER_OUT: "Advance Transfer Out",
+    OTHER: "Other",
+  };
 
-const buildLedgerGroupTitle = (group) =>
-  [
-    group.school_year ? `SY ${group.school_year}` : "",
-    gradeLevelLabel(group.grade_level),
-    studentTypeLabel(group.student_type),
-    paymentModeLabel(group.payment_mode),
-  ]
-    .filter(Boolean)
-    .join(" • ");
+  const ENTRY_LABELS = {
+    DEBIT: "Charge",
+    CREDIT: "Payment",
+  };
 
-const statusPillStyle = (status) => {
-  const normalized = normalizeStatus(status);
+  const formatCurrency = (value) =>
+    `₱${Number(value || 0).toLocaleString("en-PH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
 
-  if (normalized === "paid") {
-    return { background: "#dcfce7", color: "#166534" };
-  }
-  if (normalized === "posted") {
-    return { background: "#e2e8f0", color: "#334155" };
-  }
-  if (normalized === "partial") {
-    return { background: "#dbeafe", color: "#1d4ed8" };
-  }
-  if (normalized === "overdue") {
-    return { background: "#fee2e2", color: "#b91c1c" };
-  }
-  return { background: "#fef3c7", color: "#b45309" };
-};
+  const normalizeStatus = (value) => String(value || "").trim().toLowerCase();
 
-export default function Ledgers() {
-  const [transactions, setTransactions] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [tuitionInstallments, setTuitionInstallments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const paymentModeLabel = (value) => {
+    const v = String(value || "").trim().toLowerCase();
+    if (!v) return "";
+    if (v === "cash") return "Cash";
+    if (v === "installment") return "Installment";
+    return v.charAt(0).toUpperCase() + v.slice(1);
+  };
 
-  const [txPage, setTxPage] = useState(1);
-  const [installmentPage, setInstallmentPage] = useState(1);
-  const [viewMode, setViewMode] = useState("transactions");
-  const [isPrinting, setIsPrinting] = useState(false);
+  const studentTypeLabel = (value) => {
+    const v = String(value || "").trim().toLowerCase();
+    if (!v) return "";
 
-  useEffect(() => {
-    const fetchData = async () => {
+    if (["old", "old_student", "returning", "returning_student"].includes(v)) {
+      return "Old Student";
+    }
+
+    if (["new", "new_student", "new enrollee", "new_enrollee"].includes(v)) {
+      return "New Student";
+    }
+
+    return value;
+  };
+
+  const gradeLevelLabel = (value) => {
+    const v = String(value || "").trim();
+    if (!v) return "";
+
+    const lower = v.toLowerCase();
+    const map = {
+      prek: "Pre-Kinder",
+      kinder: "Kinder",
+      grade1: "Grade 1",
+      grade2: "Grade 2",
+      grade3: "Grade 3",
+      grade4: "Grade 4",
+      grade5: "Grade 5",
+      grade6: "Grade 6",
+    };
+
+    return map[lower] || v;
+  };
+
+  const schoolYearLabel = (student) =>
+    student?.school_year || student?.current_school_year || student?.academic_year || "";
+
+  const buildLedgerGroupTitle = (group) =>
+    [
+      group.school_year ? `SY ${group.school_year}` : "",
+      gradeLevelLabel(group.grade_level),
+      studentTypeLabel(group.student_type),
+      paymentModeLabel(group.payment_mode),
+    ]
+      .filter(Boolean)
+      .join(" • ");
+
+  const statusPillStyle = (status) => {
+    const normalized = normalizeStatus(status);
+
+    if (normalized === "paid") {
+      return { background: "#dcfce7", color: "#166534" };
+    }
+    if (normalized === "posted") {
+      return { background: "#e2e8f0", color: "#334155" };
+    }
+    if (normalized === "partial") {
+      return { background: "#dbeafe", color: "#1d4ed8" };
+    }
+    if (normalized === "overdue") {
+      return { background: "#fee2e2", color: "#b91c1c" };
+    }
+    return { background: "#fef3c7", color: "#b45309" };
+  };
+
+  const getGroupStatus = (group) => {
+    if (Number(group.payableBalance || 0) <= 0) return "PAID";
+    if (Number(group.totalCredit || 0) > 0) return "PARTIAL";
+    return "POSTED";
+  };
+
+  const getInstallmentStatus = ({ amountDue, amountPaid, dueDate, existingStatus }) => {
+    const balance = Math.max(amountDue - amountPaid, 0);
+    if (amountDue <= 0 || balance <= 0) return "PAID";
+    if (amountPaid > 0) return "PARTIAL";
+
+    const normalizedExisting = normalizeStatus(existingStatus);
+    if (normalizedExisting === "overdue") return "OVERDUE";
+
+    if (dueDate) {
+      const due = new Date(`${dueDate}T00:00:00`);
+      if (!Number.isNaN(due.getTime())) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (due < today) return "OVERDUE";
+      }
+    }
+
+    return "PENDING";
+  };
+
+  const toGradeKey = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
+    if (!raw) return "";
+    if (/^grade\s*([1-6])$/.test(raw)) {
+      return `grade${raw.match(/^grade\s*([1-6])$/)[1]}`;
+    }
+    return raw.replace(/\s+/g, "");
+  };
+
+  const parseResponseJson = async (response) => {
+    if (!response) return null;
+    const contentType = response.headers?.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) return null;
+
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  };
+
+  const getApiErrorMessage = (payload, fallback) => {
+    if (!payload) return fallback;
+    if (typeof payload === "string") return payload;
+    if (typeof payload.detail === "string") return payload.detail;
+    if (typeof payload.error === "string") return payload.error;
+
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return fallback;
+    }
+  };
+
+  export default function Ledgers() {
+    const [transactions, setTransactions] = useState([]);
+    const [summary, setSummary] = useState(null);
+    const [tuitionInstallments, setTuitionInstallments] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const [txPage, setTxPage] = useState(1);
+    const [installmentPage, setInstallmentPage] = useState(1);
+    const [viewMode, setViewMode] = useState("transactions");
+    const [isPrinting, setIsPrinting] = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
+
+    const [showRequestModal, setShowRequestModal] = useState(false);
+    const [requestSubmitting, setRequestSubmitting] = useState(false);
+    const [requestError, setRequestError] = useState("");
+    const [toasts, setToasts] = useState([]);
+    const [selectedRequestGroup, setSelectedRequestGroup] = useState(null);
+    const [assessmentByGrade, setAssessmentByGrade] = useState({});
+    const [requestForm, setRequestForm] = useState({
+      request_type: "APPLY_ADVANCE",
+      amount: "",
+      reason: "",
+      enrollment: "",
+    });
+
+    const dismissToast = (toastId) => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+    };
+
+    const pushToast = (title, message, type = "warning") => {
+      const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      setToasts((prev) => [...prev, { id, title, message, type }]);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((toast) => toast.id !== id));
+      }, 4500);
+    };
+
+    useEffect(() => {
+      const fetchData = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+
+          const [txRes, sumRes, instRes] = await Promise.all([
+            apiFetch(`${API_BASE}/api/finance/my-transactions/`),
+            apiFetch(`${API_BASE}/api/finance/my-ledger-summary/`),
+            apiFetch(`${API_BASE}/api/finance/my-tuition-installments/`),
+          ]);
+
+          if (!txRes.ok) {
+            throw new Error("Failed to load transactions");
+          }
+
+          const txData = await txRes.json();
+          setTransactions(Array.isArray(txData) ? txData : []);
+
+          if (sumRes.ok) {
+            const sumData = await sumRes.json();
+            setSummary(sumData);
+          } else {
+            setSummary(null);
+          }
+
+          if (instRes.ok) {
+            const instData = await instRes.json();
+            setTuitionInstallments(Array.isArray(instData) ? instData : []);
+          } else {
+            setTuitionInstallments([]);
+          }
+        } catch (err) {
+          console.error("Ledger fetch error:", err);
+          setError(err.message || "Failed to load ledger data.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchData();
+    }, []);
+
+    const filteredTransactions = useMemo(
+      () =>
+        transactions.filter((tx) => tx.transaction_type !== "CONTRIBUTION"),
+      [transactions]
+    );
+
+    useEffect(() => {
+      setTxPage(1);
+    }, [filteredTransactions.length]);
+
+    useEffect(() => {
+      setInstallmentPage(1);
+    }, [tuitionInstallments.length]);
+
+    useEffect(() => {
+      const gradeKeys = Array.from(
+        new Set(
+          (tuitionInstallments || [])
+            .map((student) => toGradeKey(student?.grade_level))
+            .filter(Boolean)
+        )
+      );
+
+      if (gradeKeys.length === 0) {
+        setAssessmentByGrade({});
+        return;
+      }
+
+      let cancelled = false;
+
+      (async () => {
+        const entries = await Promise.all(
+          gradeKeys.map(async (gradeKey) => {
+            try {
+              const res = await apiFetch(
+                `${API_BASE}/api/finance/tuition-configs/by-grade/${gradeKey}/`
+              );
+              if (!res.ok) return [gradeKey, null];
+              const data = await res.json();
+              return [gradeKey, Number(data?.assessment || 0)];
+            } catch {
+              return [gradeKey, null];
+            }
+          })
+        );
+
+        if (cancelled) return;
+        const map = {};
+        entries.forEach(([gradeKey, assessment]) => {
+          if (assessment != null && assessment >= 0) {
+            map[gradeKey] = assessment;
+          }
+        });
+        setAssessmentByGrade(map);
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [tuitionInstallments]);
+
+    const groupedTransactions = useMemo(() => {
+      const map = new Map();
+
+      filteredTransactions.forEach((tx) => {
+        const key =
+          tx.enrollment_id != null && tx.enrollment_id !== ""
+            ? `enrollment-${tx.enrollment_id}`
+            : [
+                tx.school_year || "no-sy",
+                tx.grade_level || "no-grade",
+                tx.student_type || "no-type",
+                tx.payment_mode || "no-mode",
+              ].join("|");
+
+        if (!map.has(key)) {
+          map.set(key, {
+            key,
+            enrollment_id: tx.enrollment_id || null,
+            school_year: tx.school_year || "",
+            semester: tx.semester || "",
+            grade_level: tx.grade_level || "",
+            student_type: tx.student_type || "",
+            payment_mode: tx.payment_mode || "",
+            latest_date: tx.transaction_date || "",
+            rows: [],
+          });
+        }
+
+        const group = map.get(key);
+        group.rows.push(tx);
+
+        if ((tx.transaction_date || "") > group.latest_date) {
+          group.latest_date = tx.transaction_date || "";
+        }
+      });
+
+      return Array.from(map.values())
+        .map((group) => {
+          const sortedRows = group.rows
+            .slice()
+            .sort((a, b) => {
+              const dateCompare = String(a.transaction_date || "").localeCompare(
+                String(b.transaction_date || "")
+              );
+              if (dateCompare !== 0) return dateCompare;
+              return Number(a.id || 0) - Number(b.id || 0);
+            });
+
+          let runningBalance = 0;
+          let totalDebit = 0;
+          let totalCredit = 0;
+
+          // Sum totals first
+          sortedRows.forEach((tx) => {
+            totalDebit += Number(tx.debit || 0);
+            totalCredit += Number(tx.credit || 0);
+          });
+
+          // Determine earliest posted date (fallback to transaction_date) and its reference
+          let earliestPost = null;
+          let earliestTx = null;
+          sortedRows.forEach((tx) => {
+            const post = tx.date_post || tx.date_posted || tx.transaction_date || null;
+            if (!post) return;
+            const d = new Date(`${post}T00:00:00`);
+            if (Number.isNaN(d.getTime())) return;
+            if (earliestPost === null || d < earliestPost) {
+              earliestPost = d;
+              earliestTx = tx;
+            }
+          });
+
+          const aggregatedRows = [];
+
+          if (totalDebit > 0) {
+            runningBalance += totalDebit;
+            aggregatedRows.push({
+              id: `agg-debit-${group.key}`,
+              // use earliest posted date if available, otherwise use latest_date
+              transaction_date: earliestPost ? earliestPost.toISOString().slice(0, 10) : (group.latest_date || "-"),
+              reference_number: earliestTx ? (earliestTx.reference_number || "-") : "-",
+              item: "Charges",
+              transaction_type: "TUITION",
+              entry_type: "DEBIT",
+              debit: totalDebit,
+              credit: 0,
+              description: "Consolidated tuition charges",
+              due_date: earliestPost ? earliestPost.toISOString().slice(0, 10) : undefined,
+              _runningBalance: runningBalance,
+            });
+          }
+
+          // Keep credits as separate rows so each payment is visible.
+          const creditRows = sortedRows.filter((tx) => Number(tx.credit || 0) > 0);
+
+          creditRows.forEach((tx, index) => {
+            const credit = Number(tx.credit || 0);
+            runningBalance -= credit;
+            aggregatedRows.push({
+              id: tx.id || `agg-credit-${group.key}-${index}`,
+              transaction_date: tx.transaction_date || "-",
+              reference_number: tx.reference_number || "-",
+              item: tx.item || "PAYMENT",
+              transaction_type: tx.transaction_type || "PAYMENT",
+              entry_type: tx.entry_type || "CREDIT",
+              debit: 0,
+              credit,
+              description: tx.description || "Payment",
+              due_date: tx.due_date,
+              status: tx.status,
+              _runningBalance: runningBalance,
+            });
+          });
+
+          const rawBalance = runningBalance;
+          const payableBalance = rawBalance > 0 ? rawBalance : 0;
+          const advanceAvailable = rawBalance < 0 ? Math.abs(rawBalance) : 0;
+          const groupStatus =
+            payableBalance <= 0 ? "PAID" : totalCredit > 0 ? "PARTIAL" : "POSTED";
+
+          return {
+            ...group,
+            rows: aggregatedRows,
+            totalDebit,
+            totalCredit,
+            balance: payableBalance,
+            rawBalance,
+            payableBalance,
+            advanceAvailable,
+            groupStatus,
+          };
+        })
+        .sort((a, b) =>
+          String(b.latest_date || "").localeCompare(String(a.latest_date || ""))
+        );
+    }, [filteredTransactions]);
+
+    const txTotalPages = Math.max(
+      1,
+      Math.ceil(groupedTransactions.length / ITEMS_PER_PAGE)
+    );
+
+    const paginatedTransactions = useMemo(
+      () =>
+        groupedTransactions.slice(
+          (txPage - 1) * ITEMS_PER_PAGE,
+          txPage * ITEMS_PER_PAGE
+        ),
+      [groupedTransactions, txPage]
+    );
+
+    const normalizedTuitionInstallments = useMemo(
+      () =>
+        tuitionInstallments.map((student) => {
+          const studentGradeKey = toGradeKey(student?.grade_level);
+          const studentType = String(student?.student_type || "").trim().toLowerCase();
+          const isNewStudent = ["new", "new_student", "new enrollee", "new_enrollee"].includes(
+            studentType
+          );
+          const expectedAssessment = assessmentByGrade[studentGradeKey];
+          const rawInstallmentRows = Array.isArray(student.installments)
+            ? student.installments
+            : [];
+
+          const installmentRows = rawInstallmentRows.reduce((rows, current) => {
+            const prev = rows[rows.length - 1];
+            const isSameMonthPair =
+              prev &&
+              String(prev.item || "").toUpperCase() === "MONTHLY" &&
+              String(current.item || "").toUpperCase() === "MISC" &&
+              String(prev.month || "").toLowerCase() === String(current.month || "").toLowerCase() &&
+              String(prev.due_date || "") === String(current.due_date || "");
+
+            if (!isSameMonthPair) {
+              rows.push({ ...current });
+              return rows;
+            }
+
+            const mergedReferenceNumbers = [
+              ...(Array.isArray(prev.reference_numbers)
+                ? prev.reference_numbers
+                : prev.reference_number
+                  ? [prev.reference_number]
+                  : []),
+              ...(Array.isArray(current.reference_numbers)
+                ? current.reference_numbers
+                : current.reference_number
+                  ? [current.reference_number]
+                  : []),
+            ].filter(Boolean);
+
+            rows[rows.length - 1] = {
+              ...prev,
+              type: `${prev.type || "Installment"} + Miscellaneous`,
+              item: "MONTHLY_MISC",
+              amount: Number(prev.amount || 0) + Number(current.amount || 0),
+              amount_paid:
+                Number(prev.amount_paid || 0) + Number(current.amount_paid || 0),
+              balance: Number(prev.balance || 0) + Number(current.balance || 0),
+              reference_numbers: Array.from(new Set(mergedReferenceNumbers)),
+              reference_number:
+                Array.from(new Set(mergedReferenceNumbers)).length === 1
+                  ? Array.from(new Set(mergedReferenceNumbers))[0]
+                  : null,
+            };
+
+            return rows;
+          }, []);
+
+          const isInstallmentMode =
+            String(student?.payment_mode || "").trim().toLowerCase() === "installment";
+
+          const filteredInstallmentRows = isNewStudent
+            ? installmentRows
+            : installmentRows.filter(
+                (row) => String(row.item || "").toUpperCase() !== "ASSESSMENT"
+              );
+
+          // Only new students should carry assessment in current registration
+          const hasAssessmentRow = filteredInstallmentRows.some(
+            (row) => String(row.item || "").toUpperCase() === "ASSESSMENT"
+          );
+          const installmentRowsWithAssessment = hasAssessmentRow
+            ? filteredInstallmentRows
+            : isInstallmentMode &&
+                isNewStudent &&
+                Number.isFinite(expectedAssessment) &&
+                expectedAssessment > 0
+              ? [
+                  ...filteredInstallmentRows,
+                  {
+                    type: "Assessment",
+                    item: "ASSESSMENT",
+                    month: "May",
+                    amount: expectedAssessment,
+                    amount_paid: 0,
+                    balance: expectedAssessment,
+                    due_date: null,
+                    status: "PENDING",
+                    reference_number: null,
+                    reference_numbers: [],
+                  },
+                ]
+              : filteredInstallmentRows;
+
+          const normalizedInstallments = installmentRowsWithAssessment.map((item) => {
+            const isAssessment = String(item.item || "").toUpperCase() === "ASSESSMENT";
+            const rawAmountDue = Number(item.amount || 0);
+            const amountDue =
+              isAssessment && Number.isFinite(expectedAssessment)
+                ? Number(expectedAssessment)
+                : rawAmountDue;
+            const existingPaid = Number(item.amount_paid || 0);
+            const amountPaid = Math.min(amountDue, Math.max(existingPaid, 0));
+            const balance = Math.max(amountDue - amountPaid, 0);
+            const status = getInstallmentStatus({
+              amountDue,
+              amountPaid,
+              dueDate: item.due_date,
+              existingStatus: item.status,
+            });
+
+            return {
+              ...item,
+              amount: amountDue,
+              amount_paid: amountPaid,
+              balance,
+              status,
+              is_paid: status === "PAID",
+            };
+          });
+
+          const totalDue = normalizedInstallments.reduce(
+            (sum, item) => sum + Number(item.amount || 0),
+            0
+          );
+          const totalPaid = normalizedInstallments.reduce(
+            (sum, item) => sum + Number(item.amount_paid || 0),
+            0
+          );
+          const remainingBalance = normalizedInstallments.reduce(
+            (sum, item) => sum + Number(item.balance || 0),
+            0
+          );
+
+          return {
+            ...student,
+            installments: normalizedInstallments,
+            total_due: totalDue,
+            total_paid: totalPaid,
+            remaining_balance: remainingBalance,
+            overall_status:
+              remainingBalance <= 0
+                ? "PAID"
+                : totalPaid > 0
+                  ? "PARTIAL"
+                  : "PENDING",
+          };
+        }),
+      [tuitionInstallments, assessmentByGrade]
+    );
+
+    const installmentTotalPages = Math.max(
+      1,
+      Math.ceil(normalizedTuitionInstallments.length / ITEMS_PER_PAGE)
+    );
+
+    const paginatedInstallments = useMemo(
+      () =>
+        normalizedTuitionInstallments.slice(
+          (installmentPage - 1) * ITEMS_PER_PAGE,
+          installmentPage * ITEMS_PER_PAGE
+        ),
+      [normalizedTuitionInstallments, installmentPage]
+    );
+
+    const openRequestModal = (group, requestType) => {
+      setSelectedRequestGroup(group);
+      setRequestError("");
+      setRequestForm({
+        request_type: requestType,
+        amount: String(Number(group.advanceAvailable || 0)),
+        reason: "",
+        enrollment: group.enrollment_id || "",
+      });
+      setShowRequestModal(true);
+    };
+
+    const handleRequestFormChange = (e) => {
+      const { name, value } = e.target;
+      setRequestForm((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const submitAdvanceRequest = async (e) => {
+      e.preventDefault();
+      setRequestError("");
+
+      if (!requestForm.amount || Number(requestForm.amount) <= 0) {
+        setRequestError("Please enter a valid amount.");
+        return;
+      }
+
+      setRequestSubmitting(true);
       try {
-        setLoading(true);
-        setError(null);
+        const res = await apiFetch("/api/finance/my-advance-requests/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            request_type: requestForm.request_type,
+            amount: Number(requestForm.amount),
+            reason: requestForm.reason,
+            enrollment: requestForm.enrollment || null,
+          }),
+        });
 
-        const [txRes, sumRes, instRes] = await Promise.all([
-          apiFetch(`${API_BASE}/api/finance/my-transactions/`),
-          apiFetch(`${API_BASE}/api/finance/my-ledger-summary/`),
-          apiFetch(`${API_BASE}/api/finance/my-tuition-installments/`),
-        ]);
-
-        if (!txRes.ok) {
-          throw new Error("Failed to load transactions");
+        const data = await parseResponseJson(res);
+        if (!res.ok) {
+          throw new Error(getApiErrorMessage(data, "Failed to submit request."));
         }
 
-        const txData = await txRes.json();
-        setTransactions(Array.isArray(txData) ? txData : []);
-
-        if (sumRes.ok) {
-          const sumData = await sumRes.json();
-          setSummary(sumData);
-        } else {
-          setSummary(null);
-        }
-
-        if (instRes.ok) {
-          const instData = await instRes.json();
-          setTuitionInstallments(Array.isArray(instData) ? instData : []);
-        } else {
-          setTuitionInstallments([]);
-        }
+        pushToast("Request Submitted", "Request submitted successfully.", "success");
+        setShowRequestModal(false);
+        setSelectedRequestGroup(null);
       } catch (err) {
-        console.error("Ledger fetch error:", err);
-        setError(err.message || "Failed to load ledger data.");
+        setRequestError(err.message || "Failed to submit request.");
       } finally {
-        setLoading(false);
+        setRequestSubmitting(false);
       }
     };
 
-    fetchData();
-  }, []);
+    const handlePrint = () => {
+      setShowPreview(true);
+    };
 
-  const filteredTransactions = useMemo(
-    () =>
-      transactions.filter(
-        (tx) =>
-          normalizeStatus(tx.status) !== "pending" &&
-          tx.transaction_type !== "CONTRIBUTION"
-      ),
-    [transactions]
-  );
-
-  useEffect(() => {
-    setTxPage(1);
-  }, [filteredTransactions.length]);
-
-  useEffect(() => {
-    setInstallmentPage(1);
-  }, [tuitionInstallments.length]);
-
-  const groupedTransactions = useMemo(() => {
-    const map = new Map();
-
-    filteredTransactions.forEach((tx) => {
-      const key =
-        tx.enrollment_id != null && tx.enrollment_id !== ""
-          ? `enrollment-${tx.enrollment_id}`
-          : [
-              tx.school_year || "no-sy",
-              tx.grade_level || "no-grade",
-              tx.student_type || "no-type",
-              tx.payment_mode || "no-mode",
-            ].join("|");
-
-      if (!map.has(key)) {
-        map.set(key, {
-          key,
-          enrollment_id: tx.enrollment_id || null,
-          school_year: tx.school_year || "",
-          semester: tx.semester || "",
-          grade_level: tx.grade_level || "",
-          student_type: tx.student_type || "",
-          payment_mode: tx.payment_mode || "",
-          latest_date: tx.transaction_date || "",
-          rows: [],
-        });
-      }
-
-      const group = map.get(key);
-      group.rows.push(tx);
-
-      if ((tx.transaction_date || "") > group.latest_date) {
-        group.latest_date = tx.transaction_date || "";
-      }
-    });
-
-    return Array.from(map.values())
-      .map((group) => {
-        const sortedRows = group.rows
-          .slice()
-          .sort((a, b) => {
-            const dateCompare = String(a.transaction_date || "").localeCompare(
-              String(b.transaction_date || "")
-            );
-            if (dateCompare !== 0) return dateCompare;
-            return Number(a.id || 0) - Number(b.id || 0);
+    const handleDownloadExcel = async () => {
+      try {
+        const timestamp = new Date().toISOString().slice(0, 10);
+        
+        if (viewMode === "transactions") {
+          // Export Account Ledger
+          const workbook = new ExcelJS.Workbook();
+          const worksheet = workbook.addWorksheet("Account Ledger");
+          
+          // Add headers
+          const headers = ["Date", "Reference", "Description", "Debit", "Credit", "Balance", "Status"];
+          worksheet.addRow(headers);
+          
+          // Format header row with center alignment and bold - only on actual header cells
+          const headerRow = worksheet.getRow(1);
+          headers.forEach((_, colIndex) => {
+            const cell = headerRow.getCell(colIndex + 1);
+            cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0078FF" } };
+            cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
           });
+          
+          // Add data rows with center/right alignment as needed
+          groupedTransactions.forEach((group) => {
+            group.rows.forEach((tx) => {
+              const row = worksheet.addRow([
+                tx.transaction_date || "—",
+                tx.reference_number || "—",
+                ITEM_LABELS[tx.item] || tx.item || "Entry",
+                tx.debit || 0,
+                tx.credit || 0,
+                tx._runningBalance || 0,
+                tx.status || "—",
+              ]);
+              
+              // Apply alignment based on column type
+              row.eachCell((cell, colNumber) => {
+                if ([4, 5, 6].includes(colNumber)) {
+                  // Center align Debit, Credit, Balance columns
+                  cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+                  // Add comma formatting for numbers
+                  cell.numFmt = '#,##0.00';
+                } else {
+                  // Center align other columns
+                  cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+                }
+              });
+            });
+          });
+          
+          // Calculate and add totals row
+          let totalDebit = 0;
+          let totalCredit = 0;
+          let totalBalance = 0;
+          groupedTransactions.forEach((group) => {
+            group.rows.forEach((tx) => {
+              totalDebit += tx.debit || 0;
+              totalCredit += tx.credit || 0;
+            });
+            totalBalance = group.payableBalance || 0;
+          });
+          
+          // Add totals row
+          const totalsRow = worksheet.addRow([
+            "",
+            "",
+            "TOTAL",
+            totalDebit,
+            totalCredit,
+            totalBalance,
+            "",
+          ]);
+          
+          // Format totals row
+          totalsRow.eachCell((cell, colNumber) => {
+            cell.font = { bold: true };
+            cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+            if ([4, 5, 6].includes(colNumber)) {
+              cell.numFmt = '#,##0.00';
+            }
+          });
+          
+          // Set column widths
+          worksheet.columns = [
+            { width: 12 },
+            { width: 15 },
+            { width: 25 },
+            { width: 12 },
+            { width: 12 },
+            { width: 12 },
+            { width: 12 },
+          ];
+          
+          // Generate buffer and download
+          const buffer = await workbook.xlsx.writeBuffer();
+          const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `Ledger_${timestamp}.xlsx`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          pushToast("Download Complete", "Excel file downloaded successfully.", "success");
+        } else if (viewMode === "installments") {
+          // Export Tuition Installment Schedule
+          const workbook = new ExcelJS.Workbook();
+          const worksheet = workbook.addWorksheet("Installments");
+          
+          // Add headers
+          const headers = [
+            "Student Name",
+            "School Year",
+            "Grade Level",
+            "Installment",
+            "Type",
+            "Due Date",
+            "Amount Due",
+            "Amount Paid",
+            "Balance",
+            "Status",
+            "Reference",
+          ];
+          worksheet.addRow(headers);
+          
+          // Format header row with center alignment and bold - only on actual header cells
+          const headerRow = worksheet.getRow(1);
+          headers.forEach((_, colIndex) => {
+            const cell = headerRow.getCell(colIndex + 1);
+            cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0078FF" } };
+            cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+          });
+          
+          // Add data rows with center/right alignment as needed
+          normalizedTuitionInstallments.forEach((student) => {
+            (student.installments || []).forEach((inst, idx) => {
+              const row = worksheet.addRow([
+                student.student_name || "—",
+                schoolYearLabel(student) || "—",
+                gradeLevelLabel(student.grade_level) || "—",
+                inst.installment_number || idx + 1,
+                inst.type || "Installment",
+                inst.due_date || "—",
+                inst.amount || 0,
+                inst.amount_paid || 0,
+                inst.balance || 0,
+                inst.status || "PENDING",
+                inst.reference_number || "—",
+              ]);
+              
+              // Apply alignment based on column type
+              row.eachCell((cell, colNumber) => {
+                if ([7, 8, 9].includes(colNumber)) {
+                  // Center align Amount Due, Amount Paid, Balance columns
+                  cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+                  // Add comma formatting for numbers
+                  cell.numFmt = '#,##0.00';
+                } else {
+                  // Center align other columns
+                  cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+                }
+              });
+            });
+          });
+          
+          // Calculate and add totals row
+          let totalAmountDue = 0;
+          let totalAmountPaid = 0;
+          let totalBalanceAmount = 0;
+          normalizedTuitionInstallments.forEach((student) => {
+            (student.installments || []).forEach((inst) => {
+              totalAmountDue += inst.amount || 0;
+              totalAmountPaid += inst.amount_paid || 0;
+              totalBalanceAmount += inst.balance || 0;
+            });
+          });
+          
+          // Add totals row
+          const totalsRow = worksheet.addRow([
+            "",
+            "",
+            "",
+            "",
+            "",
+            "TOTAL",
+            totalAmountDue,
+            totalAmountPaid,
+            totalBalanceAmount,
+            "",
+            "",
+          ]);
+          
+          // Format totals row
+          totalsRow.eachCell((cell, colNumber) => {
+            cell.font = { bold: true };
+            cell.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+            if ([7, 8, 9].includes(colNumber)) {
+              cell.numFmt = '#,##0.00';
+            }
+          });
+          
+          // Set column widths
+          worksheet.columns = [
+            { width: 20 },
+            { width: 12 },
+            { width: 14 },
+            { width: 12 },
+            { width: 18 },
+            { width: 12 },
+            { width: 12 },
+            { width: 12 },
+            { width: 12 },
+            { width: 12 },
+            { width: 15 },
+          ];
+          
+          // Generate buffer and download
+          const buffer = await workbook.xlsx.writeBuffer();
+          const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `Tuition_Installments_${timestamp}.xlsx`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          pushToast("Download Complete", "Excel file downloaded successfully.", "success");
+        }
+      } catch (err) {
+        console.error("Error downloading Excel:", err);
+        pushToast("Download Failed", "Failed to download Excel file. Please try again.", "error");
+      }
+    };
 
-        let runningBalance = 0;
-        let totalDebit = 0;
-        let totalCredit = 0;
-
-        const normalizedRows = sortedRows.map((tx) => {
-          const debit = Number(tx.debit || 0);
-          const credit = Number(tx.credit || 0);
-
-          totalDebit += debit;
-          totalCredit += credit;
-          runningBalance += debit - credit;
-
-          return {
-            ...tx,
-            _runningBalance: runningBalance,
-          };
-        });
-
-        return {
-          ...group,
-          rows: normalizedRows,
-          totalDebit,
-          totalCredit,
-          balance: runningBalance,
+    const handleDownloadPDF = async () => {
+      try {
+        const timestamp = new Date().toLocaleString();
+        const dateOnly = new Date().toISOString().slice(0, 10);
+        
+        // Helper function to format numbers with commas
+        const formatNumberWithCommas = (num) => {
+          return Number(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         };
-      })
-      .sort((a, b) =>
-        String(b.latest_date || "").localeCompare(String(a.latest_date || ""))
-      );
-  }, [filteredTransactions]);
-
-  const txTotalPages = Math.max(
-    1,
-    Math.ceil(groupedTransactions.length / ITEMS_PER_PAGE)
-  );
-
-  const paginatedTransactions = useMemo(
-    () =>
-      groupedTransactions.slice(
-        (txPage - 1) * ITEMS_PER_PAGE,
-        txPage * ITEMS_PER_PAGE
-      ),
-    [groupedTransactions, txPage]
-  );
-
-  const installmentTotalPages = Math.max(
-    1,
-    Math.ceil(tuitionInstallments.length / ITEMS_PER_PAGE)
-  );
-
-  const paginatedInstallments = useMemo(
-    () =>
-      tuitionInstallments.slice(
-        (installmentPage - 1) * ITEMS_PER_PAGE,
-        installmentPage * ITEMS_PER_PAGE
-      ),
-    [tuitionInstallments, installmentPage]
-  );
-
-  const handlePrint = () => {
-    setIsPrinting(true);
-
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => setIsPrinting(false), 300);
-    }, 150);
-  };
-
-  return (
-    <div className="ledger-wrapper">
-      <div className="ledger-content">
-        {!isPrinting && (
-          <>
+        
+        if (viewMode === "transactions") {
+          // Generate Account Ledger PDF
+          const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageHeight = doc.internal.pageSize.getHeight();
+          const margin = 10;
+          const usableWidth = pageWidth - 2 * margin;
+          
+          // Title
+          doc.setFontSize(16);
+          doc.setFont(undefined, 'bold');
+          doc.text('Account Ledger', margin, 15);
+          
+          // Underline
+          doc.setDrawColor(0, 120, 255);
+          doc.setLineWidth(1);
+          doc.line(margin, 19, pageWidth - margin, 19);
+          
+          // Timestamp
+          doc.setFontSize(10);
+          doc.setFont(undefined, 'normal');
+          doc.text(`Generated: ${timestamp}`, margin, 26);
+          
+          let yPos = 32;
+          let pageNum = 1;
+          
+          // Check if there's data to display
+          if (groupedTransactions.length === 0 || groupedTransactions.every(g => g.rows.length === 0)) {
+            doc.setFontSize(11);
+            doc.setTextColor(100, 100, 100);
+            doc.text('No transactions to display.', margin, yPos + 10);
+          } else {
+            // Headers for table
+            const headers = ['Date', 'Reference', 'Description', 'Debit', 'Credit', 'Balance', 'Status'];
+            const headerHeight = 8;
+            const rowHeight = 7;
             
+            // Draw header
+            const drawHeader = () => {
+              headers.forEach((header, idx) => {
+                const xPos = margin + (idx * usableWidth / headers.length);
+                const colWidth = usableWidth / headers.length;
+                
+                doc.setFillColor(0, 120, 255);
+                doc.rect(xPos, yPos, colWidth, headerHeight, 'F');
+                
+                doc.setDrawColor(0, 80, 180);
+                doc.setLineWidth(0.8);
+                doc.rect(xPos, yPos, colWidth, headerHeight);
+                
+                doc.setTextColor(255, 255, 255);
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(9);
+                doc.text(header, xPos + colWidth / 2, yPos + 5, { align: 'center', maxWidth: colWidth - 4, fontSize: 9 });
+              });
+              yPos += headerHeight;
+            };
+            
+            // First page header
+            drawHeader();
+            
+            // Add data rows
+            groupedTransactions.forEach((group) => {
+              group.rows.forEach((tx) => {
+                // Check if need new page
+                if (yPos + rowHeight > pageHeight - 20) {
+                  // Add page number
+                  doc.setFontSize(8);
+                  doc.setTextColor(150, 150, 150);
+                  doc.text(`Page ${pageNum}`, pageWidth - margin - 10, pageHeight - 5);
+                  
+                  doc.addPage();
+                  yPos = margin;
+                  pageNum++;
+                  drawHeader();
+                }
+                
+                const rowData = [
+                  tx.transaction_date || '—',
+                  tx.reference_number || '—',
+                  ITEM_LABELS[tx.item] || tx.item || 'Entry',
+                  formatNumberWithCommas(tx.debit || 0),
+                  formatNumberWithCommas(tx.credit || 0),
+                  formatNumberWithCommas(tx._runningBalance || 0),
+                  tx.status || '—',
+                ];
+                
+                rowData.forEach((cellData, idx) => {
+                  const xPos = margin + (idx * usableWidth / headers.length);
+                  const colWidth = usableWidth / headers.length;
+                  
+                  doc.setDrawColor(100, 100, 100);
+                  doc.setLineWidth(0.3);
+                  doc.rect(xPos, yPos, colWidth, rowHeight);
+                  
+                  doc.setTextColor(0, 0, 0);
+                  doc.setFont(undefined, 'normal');
+                  doc.setFontSize(8);
+                  
+                  // Center align all columns
+                  doc.text(String(cellData), xPos + colWidth / 2, yPos + 4, { align: 'center', maxWidth: colWidth - 4 });
+                });
+                
+                yPos += rowHeight;
+              });
+            });
+            
+            // Calculate and add totals row
+            let totalDebit = 0;
+            let totalCredit = 0;
+            let totalBalance = 0;
+            groupedTransactions.forEach((group) => {
+              group.rows.forEach((tx) => {
+                totalDebit += tx.debit || 0;
+                totalCredit += tx.credit || 0;
+              });
+              totalBalance = group.payableBalance || 0;
+            });
+            
+            // Add totals row
+            const totalsRowData = [
+              '',
+              '',
+              'TOTAL',
+              formatNumberWithCommas(totalDebit),
+              formatNumberWithCommas(totalCredit),
+              formatNumberWithCommas(totalBalance),
+              '',
+            ];
+            
+            totalsRowData.forEach((cellData, idx) => {
+              const xPos = margin + (idx * usableWidth / headers.length);
+              const colWidth = usableWidth / headers.length;
+              
+              doc.setDrawColor(100, 100, 100);
+              doc.setLineWidth(0.3);
+              doc.rect(xPos, yPos, colWidth, rowHeight);
+              
+              doc.setTextColor(0, 0, 0);
+              doc.setFont(undefined, 'bold');
+              doc.setFontSize(8);
+              
+              // Center align all columns
+              doc.text(String(cellData), xPos + colWidth / 2, yPos + 4, { align: 'center', maxWidth: colWidth - 4 });
+            });
+          }
+          
+          // Add final page number
+          doc.setFontSize(8);
+          doc.setTextColor(150, 150, 150);
+          doc.text(`Page ${pageNum}`, pageWidth - margin - 10, pageHeight - 5);
+          
+          doc.save(`Ledger_${dateOnly}.pdf`);
+          pushToast("Download Complete", "PDF file downloaded successfully.", "success");
+        } else if (viewMode === "installments") {
+          // Generate Tuition Installment Schedule PDF
+          const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageHeight = doc.internal.pageSize.getHeight();
+          const margin = 10;
+          const usableWidth = pageWidth - 2 * margin;
+          
+          // Title
+          doc.setFontSize(16);
+          doc.setFont(undefined, 'bold');
+          doc.text('Tuition Installment Schedule', margin, 15);
+          
+          // Underline
+          doc.setDrawColor(0, 120, 255);
+          doc.setLineWidth(1);
+          doc.line(margin, 19, pageWidth - margin, 19);
+          
+          // Timestamp
+          doc.setFontSize(10);
+          doc.setFont(undefined, 'normal');
+          doc.text(`Generated: ${timestamp}`, margin, 26);
+          
+          let yPos = 32;
+          let pageNum = 1;
+          
+          // Check if there's data to display
+          if (normalizedTuitionInstallments.length === 0 || normalizedTuitionInstallments.every(s => (s.installments || []).length === 0)) {
+            doc.setFontSize(11);
+            doc.setTextColor(100, 100, 100);
+            doc.text('No installment information available.', margin, yPos + 10);
+          } else {
+            // Headers for table
+            const headers = ['Student', 'School Year', 'Grade', 'Installment', 'Type', 'Due Date', 'Amount', 'Paid', 'Balance', 'Status'];
+            const headerHeight = 8;
+            const rowHeight = 6;
+            
+            // Draw header
+            const drawHeader = () => {
+              headers.forEach((header, idx) => {
+                const xPos = margin + (idx * usableWidth / headers.length);
+                const colWidth = usableWidth / headers.length;
+                
+                doc.setFillColor(0, 120, 255);
+                doc.rect(xPos, yPos, colWidth, headerHeight, 'F');
+                
+                doc.setDrawColor(0, 80, 180);
+                doc.setLineWidth(0.8);
+                doc.rect(xPos, yPos, colWidth, headerHeight);
+                
+                doc.setTextColor(255, 255, 255);
+                doc.setFont(undefined, 'bold');
+              doc.setFontSize(8);
+              doc.text(header, xPos + colWidth / 2, yPos + 4, { align: 'center', maxWidth: colWidth - 4, fontSize: 8 });
+            });
+            yPos += headerHeight;
+          };
+          
+          // First page header
+          drawHeader();
+          
+          // Add data rows
+          normalizedTuitionInstallments.forEach((student) => {
+            (student.installments || []).forEach((inst, idx) => {
+              // Check if need new page
+              if (yPos + rowHeight > pageHeight - 10) {
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text(`Page ${pageNum}`, pageWidth - margin - 10, pageHeight - 5);
+                
+                doc.addPage();
+                yPos = margin;
+                pageNum++;
+                drawHeader();
+              }
+              
+              const rowData = [
+                student.student_name || '—',
+                schoolYearLabel(student) || '—',
+                gradeLevelLabel(student.grade_level) || '—',
+                inst.installment_number || idx + 1,
+                inst.type || 'Installment',
+                inst.due_date || '—',
+                formatNumberWithCommas(inst.amount || 0),
+                formatNumberWithCommas(inst.amount_paid || 0),
+                formatNumberWithCommas(inst.balance || 0),
+                inst.status || 'PENDING',
+              ];
+              
+              rowData.forEach((cellData, colIdx) => {
+                const xPos = margin + (colIdx * usableWidth / headers.length);
+                const colWidth = usableWidth / headers.length;
+                
+                doc.setDrawColor(100, 100, 100);
+                doc.setLineWidth(0.3);
+                doc.rect(xPos, yPos, colWidth, rowHeight);
+                
+                doc.setTextColor(0, 0, 0);
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(7);
+                
+                // Center align all columns
+                doc.text(String(cellData), xPos + colWidth / 2, yPos + 3, { align: 'center', maxWidth: colWidth - 4 });
+              });
+              
+              yPos += rowHeight;
+            });
+          });
+          
+          // Calculate and add totals row
+          let totalAmount = 0;
+          let totalAmountPaid = 0;
+          let totalBalanceAmount = 0;
+          normalizedTuitionInstallments.forEach((student) => {
+            (student.installments || []).forEach((inst) => {
+              totalAmount += inst.amount || 0;
+              totalAmountPaid += inst.amount_paid || 0;
+              totalBalanceAmount += inst.balance || 0;
+            });
+          });
+          
+          // Add totals row
+          const totalsRowData = [
+            '',
+            '',
+            '',
+            '',
+            '',
+            'TOTAL',
+            formatNumberWithCommas(totalAmount),
+            formatNumberWithCommas(totalAmountPaid),
+            formatNumberWithCommas(totalBalanceAmount),
+            '',
+          ];
+          
+          totalsRowData.forEach((cellData, colIdx) => {
+            const xPos = margin + (colIdx * usableWidth / headers.length);
+            const colWidth = usableWidth / headers.length;
+            
+            doc.setDrawColor(100, 100, 100);
+            doc.setLineWidth(0.3);
+            doc.rect(xPos, yPos, colWidth, rowHeight);
+            
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(7);
+            
+            // Center align all columns
+            doc.text(String(cellData), xPos + colWidth / 2, yPos + 3, { align: 'center', maxWidth: colWidth - 4 });
+          });
+          }
+          
+          // Add final page number
+          doc.setFontSize(8);
+          doc.setTextColor(150, 150, 150);
+          doc.text(`Page ${pageNum}`, pageWidth - margin - 10, pageHeight - 5);
+          
+          doc.save(`Tuition_Installments_${dateOnly}.pdf`);
+          pushToast("Download Complete", "PDF file downloaded successfully.", "success");
+        }
+      } catch (err) {
+        console.error("Error downloading PDF:", err);
+        pushToast("Download Failed", "Failed to download PDF file. Please try again.", "error");
+      }
+    };
 
-            <div className="ledger-tabs">
-              <button
-                type="button"
-                className={`ledger-tab ${
-                  viewMode === "transactions" ? "active" : ""
-                }`}
-                onClick={() => setViewMode("transactions")}
-              >
-                Account Ledger
-              </button>
-              <button
-                type="button"
-                className={`ledger-tab ${
-                  viewMode === "installments" ? "active" : ""
-                }`}
-                onClick={() => setViewMode("installments")}
-              >
-                Tuition Installments
-              </button>
-            </div>
-          </>
-        )}
-
-        {!loading && !error && !isPrinting && (
-          <div className="ledger-summary-row">
-            <div className="ledger-sumCard ledger-sumCard--blue">
-              <div className="ledger-sumCard__label">Total Billed</div>
-              <div className="ledger-sumCard__value">
-                {formatCurrency(summary?.total_billed || 0)}
+    return (
+      <div className="ledger-wrapper">
+        <div className="ledger-content">
+          {!isPrinting && (
+            <>
+              <div className="ledger-section-header">
+                <div>
+                  <h2 className="ledger-section-title">Tuition Ledger</h2>
+                  <p className="ledger-section-subtitle">Complete tuition transaction history</p>
+                </div>
+                <div className="ledger-header-actions">
+                  <button
+                    className="ledger-btn-print"
+                    onClick={handlePrint}
+                    type="button"
+                    title="Print ledger"
+                  >
+                    <span>🖨️</span> Print Ledger
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="ledger-sumCard ledger-sumCard--success">
-              <div className="ledger-sumCard__label">Total Paid</div>
-              <div className="ledger-sumCard__value">
-                {formatCurrency(summary?.total_paid || 0)}
+              <div className="ledger-tabs">
+                <button
+                  type="button"
+                  className={`ledger-tab ${
+                    viewMode === "transactions" ? "active" : ""
+                  }`}
+                  onClick={() => setViewMode("transactions")}
+                >
+                  Account Ledger
+                </button>
+                <button
+                  type="button"
+                  className={`ledger-tab ${
+                    viewMode === "installments" ? "active" : ""
+                  }`}
+                  onClick={() => setViewMode("installments")}
+                >
+                  Current Registration 
+                </button>
               </div>
-            </div>
+            </>
+          )}
 
-            <div
-              className={`ledger-sumCard ledger-sumCard--balance ${
-                Number(summary?.balance || 0) > 0
-                  ? "ledger-sumCard--balanceOwed"
-                  : "ledger-sumCard--balanceClear"
-              }`}
-            >
-              <div className="ledger-sumCard__label">Current Balance</div>
-              <div className="ledger-sumCard__value ledger-sumCard__value--lg">
-                {formatCurrency(summary?.balance || 0)}
+          {!loading && !error && !isPrinting && (
+            <div className="ledger-summary-row">
+              <div className="ledger-sumCard ledger-sumCard--blue">
+                <div className="ledger-sumCard__label">Total Billed</div>
+                <div className="ledger-sumCard__value">
+                  {formatCurrency(summary?.total_billed || 0)}
+                </div>
               </div>
-              <div className="ledger-sumCard__sub">
-                {Number(summary?.balance || 0) > 0
-                  ? "Outstanding balance"
-                  : "Account settled"}
+
+              <div className="ledger-sumCard ledger-sumCard--success">
+                <div className="ledger-sumCard__label">Total Paid</div>
+                <div className="ledger-sumCard__value">
+                  {formatCurrency(summary?.total_paid || 0)}
+                </div>
               </div>
-            </div>
-          </div>
-        )}
 
-        {loading && (
-          <div className="ledger-loading">
-            <div className="spinner-border text-primary me-2" role="status" />
-            Loading ledger...
-          </div>
-        )}
-
-        {!loading && error && <div className="ledger-error">{error}</div>}
-
-        {!loading && !error && viewMode === "transactions" && !isPrinting && (
-          <section className="ledger-section">
-            <div className="section-header blue-header">
-              <i className="bi bi-book-fill me-2"></i>Account Ledger
-            </div>
-
-            <div
-              className="ledger-info"
-              style={{
-                background: "#f0f9ff",
-                padding: "1rem",
-                borderRadius: "0.5rem",
-                marginBottom: "1rem",
-                fontSize: "0.875rem",
-                color: "#64748b",
-              }}
-            >
-              <strong style={{ color: "#1e293b" }}>Ledger Format:</strong> Charges
-              appear under <strong>Debit</strong>, payments appear under{" "}
-              <strong>Credit</strong>, and the <strong>Balance</strong> column
-              shows the running account balance for each entry.
-            </div>
-
-            {transactions.length === 0 ? (
               <div
-                style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}
+                className={`ledger-sumCard ledger-sumCard--balance ${
+                  Number(summary?.balance || 0) > 0
+                    ? "ledger-sumCard--balanceOwed"
+                    : "ledger-sumCard--balanceClear"
+                }`}
               >
-                No transactions found.
+                <div className="ledger-sumCard__label">Current Balance</div>
+                <div className="ledger-sumCard__value ledger-sumCard__value--lg">
+                  {formatCurrency(summary?.balance || 0)}
+                </div>
+                <div className="ledger-sumCard__sub">
+                  {Number(summary?.balance || 0) > 0
+                    ? "Outstanding balance"
+                    : "Account settled"}
+                </div>
               </div>
-            ) : filteredTransactions.length === 0 ? (
+
+              <div className="ledger-sumCard ledger-sumCard--info">
+                <div className="ledger-sumCard__label">Advance Available</div>
+                <div className="ledger-sumCard__value">
+                  {formatCurrency(summary?.advance_available || 0)}
+                </div>
+                <div className="ledger-sumCard__sub">
+                  {Number(summary?.advance_available || 0) > 0
+                    ? "Available for refund or future use"
+                    : "No available advance"}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {loading && (
+            <div className="ledger-loading">
+              <div className="spinner-border text-primary me-2" role="status" />
+              Loading ledger…
+            </div>
+          )}
+
+          {!loading && error && <div className="ledger-error">{error}</div>}
+
+          {!loading && !error && viewMode === "transactions" && !isPrinting && (
+            <section className="ledger-section">
+              <div className="section-header blue-header">
+                <i className="bi bi-book-fill me-2"></i>Account Ledger
+              </div>
+
               <div
-                style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}
+                className="ledger-info"
+                style={{
+                  background: "#f0f9ff",
+                  padding: "1rem",
+                  borderRadius: "0.5rem",
+                  marginBottom: "1rem",
+                  fontSize: "0.875rem",
+                  color: "#64748b",
+                }}
               >
-                No posted or paid ledger entries to display.
+                <strong style={{ color: "#1e293b" }}>Tuition History Format:</strong> Charges
+                appear under <strong>Debit</strong>, payments appear under{" "}
+                <strong>Credit</strong>, and the <strong>Balance</strong> column
+                shows the running tuition balance for each entry.
               </div>
-            ) : (
-              <>
-                <div className="ledger-group-list">
-                  {paginatedTransactions.map((group) => (
-                    <div
-                      key={group.key}
-                      className="ledger-group-card"
-                      style={{
-                        background: "#ffffff",
-                        border: "1px solid #dbeafe",
-                        borderRadius: "16px",
-                        overflow: "hidden",
-                        marginBottom: "1.25rem",
-                        boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
-                      }}
-                    >
+
+              {transactions.length === 0 ? (
+                <div
+                  style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}
+                >
+                  No transactions found.
+                </div>
+              ) : filteredTransactions.length === 0 ? (
+                <div
+                  style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}
+                >
+                  No posted or paid ledger entries to display.
+                </div>
+              ) : (
+                <>
+                  <div className="ledger-group-list">
+                    {paginatedTransactions.map((group) => (
                       <div
-                        className="ledger-group-header"
+                        key={group.key}
+                        className="ledger-group-card"
                         style={{
-                          background:
-                            "linear-gradient(135deg, #eff6ff 0%, #f8fbff 100%)",
-                          borderBottom: "1px solid #dbeafe",
-                          padding: "1rem 1.25rem",
+                          background: "#ffffff",
+                          border: "1px solid #dbeafe",
+                          borderRadius: "16px",
+                          overflow: "hidden",
+                          marginBottom: "1.25rem",
+                          boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
                         }}
                       >
                         <div
+                          className="ledger-group-header"
                           style={{
-                            fontWeight: 800,
-                            color: "#1d4ed8",
-                            fontSize: "1rem",
-                            marginBottom: "0.4rem",
+                            background:
+                              "linear-gradient(135deg, #eff6ff 0%, #f8fbff 100%)",
+                            borderBottom: "1px solid #dbeafe",
+                            padding: "1rem 1.25rem",
                           }}
                         >
-                          {buildLedgerGroupTitle(group) || "Ledger Record"}
+                          <div
+                            style={{
+                              fontWeight: 800,
+                              color: "#1d4ed8",
+                              fontSize: "1rem",
+                              marginBottom: "0.8rem",
+                            }}
+                          >
+                            {buildLedgerGroupTitle(group) || "Ledger Record"}
+                          </div>
+
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                              gap: "1rem",
+                              fontSize: "0.82rem",
+                              color: "#64748b",
+                            }}
+                            className="ledger-group-info"
+                          >
+                            <div>
+                              <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Total Billed</div>
+                              <div style={{ fontWeight: 700, color: "#1e293b" }}>{formatCurrency(group.totalDebit)}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Total Paid</div>
+                              <div style={{ fontWeight: 700, color: "#16a34a" }}>{formatCurrency(group.totalCredit)}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Payable Balance</div>
+                              <div style={{ fontWeight: 700, color: group.payableBalance > 0 ? "#dc2626" : "#16a34a" }}>{formatCurrency(group.payableBalance)}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Advance Available</div>
+                              <div style={{ fontWeight: 700, color: group.advanceAvailable > 0 ? "#1d4ed8" : "#1e293b" }}>{formatCurrency(group.advanceAvailable)}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Status</div>
+                              <div>
+                                <span
+                                  className="status-pill"
+                                  style={statusPillStyle(getGroupStatus(group))}
+                                >
+                                  {getGroupStatus(group)}
+                                </span>
+                                {group.advanceAvailable > 0 ? (
+                                  <span
+                                    className="status-pill"
+                                    style={{
+                                      background: "#dbeafe",
+                                      color: "#1d4ed8",
+                                      marginLeft: "0.5rem",
+                                    }}
+                                  >
+                                    ADVANCE {formatCurrency(group.advanceAvailable)}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+
+                          {group.advanceAvailable > 0 && (
+                            <div
+                              style={{
+                                marginTop: "1rem",
+                                display: "flex",
+                                gap: "0.75rem",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                className="ledger-btn-print"
+                                onClick={() => openRequestModal(group, "APPLY_ADVANCE")}
+                              >
+                                Request Apply Advance
+                              </button>
+
+                              <button
+                                type="button"
+                                className="ledger-btn-print"
+                                onClick={() => openRequestModal(group, "REFUND")}
+                              >
+                                Request Refund
+                              </button>
+                            </div>
+                          )}
                         </div>
 
-                        <div
-                          style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: "0.85rem",
-                            fontSize: "0.82rem",
-                            color: "#64748b",
-                          }}
-                        >
-                          <span>
-                            Semester: <strong>{group.semester || "—"}</strong>
-                          </span>
-                          <span>
-                            Total Billed:{" "}
-                            <strong>{formatCurrency(group.totalDebit)}</strong>
-                          </span>
-                          <span>
-                            Total Paid:{" "}
-                            <strong>{formatCurrency(group.totalCredit)}</strong>
-                          </span>
-                          <span>
-                            Balance: <strong>{formatCurrency(group.balance)}</strong>
-                          </span>
-                        </div>
-                      </div>
+                        <div className="table-responsive ledger-table-scroll ledger-table-scroll--accounting">
+                          <table
+                            className="ledger-table ledger-accounting"
+                            style={{ marginBottom: 0 }}
+                          >
+                            <thead>
+                              <tr>
+                                <th>Date</th>
+                                <th>Reference</th>
+                                <th>Description</th>
+                                <th className="text-center">Debit</th>
+                                <th className="text-center">Credit</th>
+                                <th className="text-right">Balance</th>
+                              </tr>
+                            </thead>
 
-                      <div className="table-responsive">
-                        <table
-                          className="ledger-table ledger-accounting"
-                          style={{ marginBottom: 0 }}
-                        >
-                          <thead>
-                            <tr>
-                              <th>Date</th>
-                              <th>Reference</th>
-                              <th>Description</th>
-                              <th className="text-center">Debit</th>
-                              <th className="text-center">Credit</th>
-                              <th className="text-right">Balance</th>
-                              <th className="text-center">Status</th>
-                            </tr>
-                          </thead>
+                            <tbody>
+                              {group.rows.map((tx) => {
+                                const debit = Number(tx.debit || 0);
+                                const credit = Number(tx.credit || 0);
 
-                          <tbody>
-                            {group.rows.map((tx) => {
-                              const debit = Number(tx.debit || 0);
-                              const credit = Number(tx.credit || 0);
-
-                              return (
-                                <tr key={tx.id}>
-                                  <td
-                                    data-label="Date"
-                                    style={{ fontWeight: 500 }}
-                                  >
-                                    {tx.transaction_date || "—"}
-                                  </td>
-
-                                  <td
-                                    data-label="Reference"
-                                    style={{ fontSize: "0.85rem" }}
-                                  >
-                                    {tx.reference_number || "—"}
-                                  </td>
-
-                                  <td data-label="Description">
-                                    <div
-                                      style={{
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        gap: "0.25rem",
-                                      }}
+                                return (
+                                  <tr key={tx.id}>
+                                    <td
+                                      data-label="Date"
+                                      style={{ fontWeight: 500 }}
                                     >
-                                      <span
+                                      {tx.transaction_date || "—"}
+                                    </td>
+
+
+                                    <td
+                                      data-label="Reference"
+                                      style={{ fontSize: "0.85rem" }}
+                                    >
+                                      {tx.reference_number || "—"}
+                                    </td>
+
+                                    <td data-label="Description">
+                                      <div
                                         style={{
-                                          fontWeight: 700,
-                                          color: "#0f172a",
+                                          display: "flex",
+                                          flexDirection: "column",
+                                          gap: "0.25rem",
                                         }}
                                       >
-                                        {ITEM_LABELS[tx.item] || tx.item || "Entry"}
-                                      </span>
+                                        <span
+                                          style={{
+                                            fontWeight: 700,
+                                            color: "#0f172a",
+                                          }}
+                                        >
+                                          {ITEM_LABELS[tx.item] || tx.item || "Entry"}
+                                        </span>
 
-                                      <span
-                                        style={{
-                                          fontSize: "0.8rem",
-                                          color: "#475569",
-                                        }}
-                                      >
-                                        {TYPE_LABELS[tx.transaction_type] ||
-                                          tx.transaction_type}
-                                        {" • "}
-                                        {ENTRY_LABELS[tx.entry_type] || tx.entry_type}
-                                      </span>
+                                        <span
+                                          style={{
+                                            fontSize: "0.8rem",
+                                            color: "#475569",
+                                          }}
+                                        >
+                                          {TYPE_LABELS[tx.transaction_type] ||
+                                            tx.transaction_type}
+                                          {" • "}
+                                          {ENTRY_LABELS[tx.entry_type] || tx.entry_type}
+                                        </span>
 
-                                      <span
-                                        style={{
-                                          fontSize: "0.75rem",
-                                          color: "#64748b",
-                                        }}
-                                      >
-                                        {tx.due_date
-                                          ? `Due: ${tx.due_date}`
-                                          : "No due date"}
-                                      </span>
-
-                                      {tx.description ? (
                                         <span
                                           style={{
                                             fontSize: "0.75rem",
                                             color: "#64748b",
                                           }}
                                         >
-                                          {tx.description}
+                                          {tx.due_date
+                                            ? `Due: ${tx.due_date}`
+                                            : "No due date"}
                                         </span>
-                                      ) : null}
-                                    </div>
-                                  </td>
 
-                                  <td
-                                    className="text-center"
-                                    data-label="Debit"
-                                    style={{ fontWeight: 700 }}
-                                  >
-                                    {debit > 0 ? formatCurrency(debit) : "—"}
-                                  </td>
+                                        {tx.description ? (
+                                          <span
+                                            style={{
+                                              fontSize: "0.75rem",
+                                              color: "#64748b",
+                                            }}
+                                          >
+                                            {tx.description}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    </td>
 
-                                  <td
-                                    className="text-center"
-                                    data-label="Credit"
-                                    style={{ fontWeight: 700 }}
-                                  >
-                                    {credit > 0 ? formatCurrency(credit) : "—"}
-                                  </td>
-
-                                  <td
-                                    className="text-right"
-                                    data-label="Balance"
-                                    style={{
-                                      fontWeight: 700,
-                                      color: "#dc2626",
-                                    }}
-                                  >
-                                    {formatCurrency(tx._runningBalance)}
-                                  </td>
-
-                                  <td
-                                    className="text-center"
-                                    data-label="Status"
-                                  >
-                                    <span
-                                      className="status-pill"
-                                      style={statusPillStyle(tx.status)}
+                                    <td
+                                      className="text-center"
+                                      data-label="Debit"
+                                      style={{ fontWeight: 700 }}
                                     >
-                                      {tx.status}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
+                                      {debit > 0 ? formatCurrency(debit) : "—"}
+                                    </td>
 
-                          <tfoot>
-                            <tr
-                              style={{
-                                background: "#f8fafc",
-                                borderTop: "2px solid #dbeafe",
-                                fontWeight: 700,
-                              }}
-                            >
-                              <td colSpan="3" style={{ textAlign: "right" }}>
-                                GROUP TOTALS:
-                              </td>
-                              <td className="text-center">
-                                {formatCurrency(group.totalDebit)}
-                              </td>
-                              <td className="text-center">
-                                {formatCurrency(group.totalCredit)}
-                              </td>
-                              <td
-                                className="text-right"
-                                style={{ color: "#dc2626" }}
+                                    <td
+                                      className="text-center"
+                                      data-label="Credit"
+                                      style={{ fontWeight: 700 }}
+                                    >
+                                      {credit > 0 ? formatCurrency(credit) : "—"}
+                                    </td>
+
+                                    <td
+                                      className="text-right"
+                                      data-label="Balance"
+                                      style={{
+                                        fontWeight: 700,
+                                        color: Number(tx._runningBalance) > 0 ? "#dc2626" : "#16a34a",
+                                      }}
+                                    >
+                                      {formatCurrency(tx._runningBalance)}
+                                    </td>
+
+                                    
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+
+                            <tfoot>
+                              <tr
+                                style={{
+                                  background: "#f8fafc",
+                                  borderTop: "2px solid #dbeafe",
+                                  fontWeight: 700,
+                                }}
                               >
-                                {formatCurrency(group.balance)}
-                              </td>
-                              <td></td>
-                            </tr>
-                          </tfoot>
-                        </table>
+                                <td colSpan="3" style={{ textAlign: "right" }}>
+                                  GROUP TOTALS:
+                                </td>
+                                <td className="text-center" data-label="Debit Total">
+                                  {formatCurrency(group.totalDebit)}
+                                </td>
+                                <td className="text-center" data-label="Credit Total">
+                                  {formatCurrency(group.totalCredit)}
+                                </td>
+                                <td
+                                  className="text-right"
+                                  style={{ color: group.payableBalance > 0 ? "#dc2626" : "#16a34a" }}
+                                  data-label="Balance Total"
+                                >
+                                  {formatCurrency(group.payableBalance)}
+                                </td>
+                                <td></td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
 
-                <Pagination
-                  currentPage={txPage}
-                  totalPages={txTotalPages}
-                  onPageChange={setTxPage}
-                  totalItems={groupedTransactions.length}
-                  itemsPerPage={ITEMS_PER_PAGE}
-                />
-              </>
-            )}
-          </section>
-        )}
+                  <Pagination
+                    currentPage={txPage}
+                    totalPages={txTotalPages}
+                    onPageChange={setTxPage}
+                    totalItems={groupedTransactions.length}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                  />
+                </>
+              )}
+            </section>
+          )}
 
-        {!loading && !error && viewMode === "installments" && !isPrinting && (
-          <section className="ledger-section">
-            <div className="section-header blue-header">
-              <i className="bi bi-calendar2-month me-2"></i>Tuition Installment
-              Schedule
-            </div>
-
-            {tuitionInstallments.length === 0 ? (
-              <div
-                style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}
-              >
-                No tuition installment information available.
+          {!loading && !error && viewMode === "installments" && !isPrinting && (
+            <section className="ledger-section">
+              <div className="section-header blue-header">
+                <i className="bi bi-calendar2-month me-2"></i>Tuition Installment
+                Schedule
               </div>
-            ) : (
-              <>
-                {paginatedInstallments.map((student, idx) => (
-                  <div
-                    key={student.student_id || `${student.student_name}-${idx}`}
-                    style={{ marginBottom: "2.5rem" }}
-                  >
+
+              {normalizedTuitionInstallments.length === 0 ? (
+                <div
+                  style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}
+                >
+                  No tuition installment information available.
+                </div>
+              ) : (
+                <>
+                  {paginatedInstallments.map((student, idx) => (
                     <div
-                      style={{
-                        background: "#f1f5f9",
-                        padding: "1.5rem",
-                        borderRadius: "0.5rem",
-                        marginBottom: "1.5rem",
-                        borderLeft: "4px solid #3b82f6",
-                      }}
+                      key={student.student_id || `${student.student_name}-${idx}`}
+                      style={{ marginBottom: "2.5rem" }}
                     >
                       <div
                         style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                          gap: "2rem",
-                          flexWrap: "wrap",
+                          background: "#f1f5f9",
+                          padding: "1.5rem",
+                          borderRadius: "0.5rem",
+                          marginBottom: "1.5rem",
+                          borderLeft: "4px solid #3b82f6",
                         }}
                       >
-                        <div>
-                          <h4
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            gap: "2rem",
+                            flexWrap: "wrap",
+                            flexDirection: "row",
+                          }}
+                        >
+                          <div>
+                            <h4
+                              style={{
+                                margin: "0 0 0.5rem 0",
+                                color: "#1e293b",
+                                fontSize: "1.1rem",
+                              }}
+                            >
+                              📚 {student.student_name}
+                            </h4>
+                          </div>
+
+                          <div
                             style={{
-                              margin: "0 0 0.5rem 0",
-                              color: "#1e293b",
-                              fontSize: "1.1rem",
+                              fontSize: "0.85rem",
+                              color: "#64748b",
+                              textAlign: "right",
+                              display: "grid",
+                              gridTemplateColumns: "auto auto",
+                              gap: "0 1.5rem",
                             }}
                           >
-                            📚 {student.student_name}
-                          </h4>
-                        </div>
-
-                        <div
-                          style={{
-                            fontSize: "0.85rem",
-                            color: "#64748b",
-                            textAlign: "right",
-                          }}
-                        >
-                          <div>
-                            Grade:{" "}
-                            <strong>
-                              {gradeLevelLabel(student.grade_level) || "—"}
-                            </strong>
+                           
+                            {/* <div>School Year:</div>
+                            <div>
+                              <strong>{schoolYearLabel(student) || "—"}</strong>
+                            </div>
+                            <div>Grade:</div>
+                            <div>
+                              <strong>
+                                {gradeLevelLabel(student.grade_level) || "—"}
+                              </strong>
+                            </div>
+                            <div>Mode:</div>
+                            <div>
+                              <strong>
+                                {paymentModeLabel(student.payment_mode) || "—"}
+                              </strong>
+                            </div>
+                            <div>Status:</div>
+                            <div>
+                              <strong
+                                style={{
+                                  color:
+                                    student.overall_status === "PENDING"
+                                      ? "#d97706"
+                                      : "#16a34a",
+                                }}
+                              >
+                                {student.overall_status || "PENDING"}
+                              </strong>
+                            </div> */}
+                            
                           </div>
-                          <div>
-                            Mode:{" "}
-                            <strong>
-                              {paymentModeLabel(student.payment_mode) || "—"}
-                            </strong>
-                          </div>
-                          <div>
-                            Status:{" "}
-                            <strong
-                              style={{
-                                color:
-                                  student.overall_status === "PENDING"
-                                    ? "#d97706"
-                                    : "#16a34a",
-                              }}
-                            >
-                              {student.overall_status || "PENDING"}
-                            </strong>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit, minmax(150px, 1fr))",
-                        gap: "1rem",
-                        marginBottom: "1.5rem",
-                      }}
-                    >
-                      <div
-                        style={{
-                          background: "#eff6ff",
-                          border: "1px solid #bfdbfe",
-                          padding: "1rem",
-                          borderRadius: "0.5rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "#64748b",
-                            marginBottom: "0.5rem",
-                          }}
-                        >
-                          TF (TUITION FEE)
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "1.25rem",
-                            fontWeight: "600",
-                            color: "#0284c7",
-                          }}
-                        >
-                          {formatCurrency(student.total_due)}
                         </div>
                       </div>
 
                       <div
                         style={{
-                          background: "#f0fdf4",
-                          border: "1px solid #bbf7d0",
-                          padding: "1rem",
-                          borderRadius: "0.5rem",
-                          textAlign: "center",
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fit, minmax(150px, 1fr))",
+                          gap: "1rem",
+                          marginBottom: "1.5rem",
                         }}
+                        className="tabbed-summary-grid"
                       >
                         <div
                           style={{
-                            fontSize: "0.75rem",
-                            color: "#64748b",
-                            marginBottom: "0.5rem",
+                            background: "#eff6ff",
+                            border: "1px solid #bfdbfe",
+                            padding: "1rem",
+                            borderRadius: "0.5rem",
+                            textAlign: "center",
                           }}
                         >
-                          TOTAL PAID
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "#64748b",
+                              marginBottom: "0.5rem",
+                              fontWeight: 600,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.3px",
+                            }}
+                          >
+                            TF (TUITION FEE)
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "1.25rem",
+                              fontWeight: "600",
+                              color: "#0284c7",
+                            }}
+                          >
+                            {formatCurrency(student.total_due)}
+                          </div>
                         </div>
+
                         <div
                           style={{
-                            fontSize: "1.25rem",
-                            fontWeight: "600",
-                            color: "#16a34a",
+                            background: "#f0fdf4",
+                            border: "1px solid #bbf7d0",
+                            padding: "1rem",
+                            borderRadius: "0.5rem",
+                            textAlign: "center",
                           }}
                         >
-                          {formatCurrency(student.total_paid)}
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "#64748b",
+                              marginBottom: "0.5rem",
+                              fontWeight: 600,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.3px",
+                            }}
+                          >
+                            TOTAL PAID
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "1.25rem",
+                              fontWeight: "600",
+                              color: "#16a34a",
+                            }}
+                          >
+                            {formatCurrency(student.total_paid)}
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            background: "#fef2f2",
+                            border: "1px solid #fecaca",
+                            padding: "1rem",
+                            borderRadius: "0.5rem",
+                            textAlign: "center",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "#64748b",
+                              marginBottom: "0.5rem",
+                              fontWeight: 600,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.3px",
+                            }}
+                          >
+                            REMAINING BALANCE
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "1.25rem",
+                              fontWeight: "600",
+                              color:
+                                Number(student.remaining_balance || 0) > 0
+                                  ? "#dc2626"
+                                  : "#16a34a",
+                            }}
+                          >
+                            {formatCurrency(student.remaining_balance)}
+                          </div>
                         </div>
                       </div>
 
-                      <div
-                        style={{
-                          background: "#fef2f2",
-                          border: "1px solid #fecaca",
-                          padding: "1rem",
-                          borderRadius: "0.5rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "#64748b",
-                            marginBottom: "0.5rem",
-                          }}
-                        >
-                          REMAINING BALANCE
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "1.25rem",
-                            fontWeight: "600",
-                            color: "#dc2626",
-                          }}
-                        >
-                          {formatCurrency(student.remaining_balance)}
-                        </div>
-                      </div>
-                    </div>
+                      <div className="table-responsive ledger-table-scroll ledger-table-scroll--installments">
+                        <table className="ledger-table">
+                          <thead>
+                            <tr>
+                              <th>#</th>
+                              <th>Due Date</th>
+                              <th>Reference</th>
+                              <th>Description</th>
+                              <th>Amount Due</th>
+                              <th>Amount Paid</th>
+                              <th>Balance</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
 
-                    <div className="table-responsive">
-                      <table className="ledger-table">
-                        <thead>
-                          <tr>
-                            <th>#</th>
-                            <th>Due Date</th>
-                            <th>Description</th>
-                            <th>Amount Due</th>
-                            <th>Amount Paid</th>
-                            <th>Balance</th>
-                            <th>Status</th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {(student.installments || []).length > 0 ? (
+                          <tbody>
+                            {(student.installments || []).length > 0 ? (
                             student.installments.map((item, itemIndex) => {
                               const amount_due = Number(item.amount || 0);
-                              const amount_paid = item.is_paid ? amount_due : 0;
-                              const balance = amount_due - amount_paid;
-                              
+                              const amount_paid = Number(item.amount_paid || 0);
+                              const balance = Number(item.balance || 0);
+
                               return (
-                                <tr
-                                  key={item.id || `${student.student_id}-${itemIndex}`}
-                                >
-                                  <td>{itemIndex + 1}</td>
-                                  <td>{item.due_date || "—"}</td>
-                                  <td>{item.type || "Installment"}</td>
-                                  <td>{formatCurrency(amount_due)}</td>
-                                  <td>{formatCurrency(amount_paid)}</td>
-                                  <td>{formatCurrency(balance)}</td>
-                                  <td>
+                                <tr key={item.id || `${student.student_id}-${itemIndex}`}>
+                                  <td data-label="Item #">{itemIndex + 1}</td>
+                                  <td data-label="Due Date">{item.due_date || "—"}</td>
+                                  <td data-label="Reference">
+                                    {item.reference_number ||
+                                      (Array.isArray(item.reference_numbers) && item.reference_numbers.length > 1
+                                        ? item.reference_numbers.join(", ")
+                                        : "—")}
+                                  </td>
+                                  <td data-label="Description">{item.type || "Installment"}</td>
+                                  <td data-label="Amount Due">{formatCurrency(amount_due)}</td>
+                                  <td data-label="Amount Paid">{formatCurrency(amount_paid)}</td>
+                                  <td
+                                    data-label="Balance"
+                                    style={{
+                                      color: balance > 0 ? "#dc2626" : "#16a34a",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {formatCurrency(balance)}
+                                  </td>
+                                  <td data-label="Status">
                                     <span
                                       className="status-pill"
                                       style={statusPillStyle(item.status)}
@@ -876,7 +1949,7 @@ export default function Ledgers() {
                           ) : (
                             <tr>
                               <td
-                                colSpan="7"
+                                colSpan="8"
                                 style={{
                                   textAlign: "center",
                                   color: "#94a3b8",
@@ -887,67 +1960,487 @@ export default function Ledgers() {
                               </td>
                             </tr>
                           )}
-                        </tbody>
+                          </tbody>
 
-                        {(student.installments || []).length > 0 && (
-                          <tfoot>
+                          {(student.installments || []).length > 0 && (
+                            <tfoot>
+                              <tr
+                                style={{
+                                  background: "#f8fafc",
+                                  borderTop: "2px solid #dbeafe",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                <td style={{ textAlign: "left" }}></td>
+                                <td style={{ textAlign: "left" }}></td>
+                                <td style={{ textAlign: "left" }}></td>
+                                <td style={{ textAlign: "right" }}>TOTAL:</td>
+                                <td style={{ textAlign: "right" }} data-label="Total Due">
+                                  {formatCurrency(
+                                    (student.installments || []).reduce(
+                                      (sum, item) => sum + Number(item.amount || 0),
+                                      0
+                                    )
+                                  )}
+                                </td>
+                                <td style={{ textAlign: "right" }} data-label="Total Paid">
+                                  {formatCurrency(
+                                    (student.installments || []).reduce(
+                                      (sum, item) =>
+                                        sum + Number(item.amount_paid || 0),
+                                      0
+                                    )
+                                  )}
+                                </td>
+                                <td
+                                  style={{
+                                    textAlign: "right",
+                                    color:
+                                      (student.installments || []).reduce(
+                                        (sum, item) =>
+                                          sum + (Number(item.amount || 0) - Number(item.amount_paid || 0)),
+                                        0
+                                      ) > 0
+                                        ? "#dc2626"
+                                        : "#16a34a",
+                                  }}
+                                  data-label="Total Balance"
+                                >
+                                  {formatCurrency(
+                                    (student.installments || []).reduce(
+                                      (sum, item) =>
+                                        sum + (Number(item.amount || 0) - Number(item.amount_paid || 0)),
+                                      0
+                                    )
+                                  )}
+                                </td>
+                                <td></td>
+                              </tr>
+                            </tfoot>
+                          )}
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+
+                  <Pagination
+                    currentPage={installmentPage}
+                    totalPages={installmentTotalPages}
+                    onPageChange={setInstallmentPage}
+                    totalItems={normalizedTuitionInstallments.length}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                  />
+                </>
+              )}
+            </section>
+          )}
+
+          {isPrinting && (
+            <section className="ledger-print-area">
+              <div className="ledger-print-header">
+                <h2 className="ledger-print-title">Account & Financial Ledger</h2>
+                <p className="ledger-print-subtitle">Complete Financial Transaction History</p>
+              </div>
+
+              {viewMode === "transactions" && (
+                <div className="ledger-print-content">
+                  <div className="ledger-print-section">
+                    <h3 className="ledger-print-section-title">Account Ledger Details</h3>
+                    {groupedTransactions.length === 0 ? (
+                      <p style={{ marginTop: "1rem", color: "#64748b" }}>No transactions to display.</p>
+                    ) : (
+                      groupedTransactions.map((group) => (
+                        <div key={group.key} className="ledger-print-group">
+                          <h4 className="ledger-print-group-title">
+                            {buildLedgerGroupTitle(group) || "Ledger Record"}
+                          </h4>
+                          <div className="ledger-print-group-info">
+                            <div><strong>Total Billed:</strong> {formatCurrency(group.totalDebit)}</div>
+                            <div><strong>Total Paid:</strong> {formatCurrency(group.totalCredit)}</div>
+                            <div><strong>Payable Balance:</strong> {formatCurrency(group.payableBalance)}</div>
+                            <div><strong>Advance Available:</strong> {formatCurrency(group.advanceAvailable)}</div>
+                          </div>
+                          <table className="ledger-print-table">
+                            <thead>
+                              <tr>
+                                <th>Date</th>
+                                <th>Reference</th>
+                                <th>Description</th>
+                                <th>Debit</th>
+                                <th>Credit</th>
+                                <th>Balance</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.rows.map((tx) => (
+                                <tr key={tx.id}>
+                                  <td>{tx.transaction_date || "—"}</td>
+                                  <td>{tx.reference_number || tx.id || "—"}</td>
+                                  <td>{ITEM_LABELS[tx.item] || tx.item || "Entry"}</td>
+                                  <td style={{ textAlign: "right" }}>
+                                    {Number(tx.debit || 0) > 0 ? formatCurrency(tx.debit) : "—"}
+                                  </td>
+                                  <td style={{ textAlign: "right" }}>
+                                    {Number(tx.credit || 0) > 0 ? formatCurrency(tx.credit) : "—"}
+                                  </td>
+                                  <td style={{ textAlign: "right" }}>
+                                    {formatCurrency(tx._runningBalance)}
+                                  </td>
+                                  <td style={{ textAlign: "center" }}>{tx.status || "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {viewMode === "installments" && (
+                <div className="ledger-print-content">
+                  <div className="ledger-print-section">
+                    <h3 className="ledger-print-section-title">Tuition Installment Schedule</h3>
+                    {normalizedTuitionInstallments.length === 0 ? (
+                      <p style={{ marginTop: "1rem", color: "#64748b" }}>No installment information available.</p>
+                    ) : (
+                      <table className="ledger-print-table">
+                        <thead>
+                          <tr>
+                            <th>Installment</th>
+                            <th>Due Date</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date Paid</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {normalizedTuitionInstallments.flatMap((student) =>
+                            (student.installments || []).map((inst, idx) => (
+                              <tr key={`${student.student_id}-${idx}`}>
+                                <td>{inst.installment_number ? `Installment ${inst.installment_number}` : `Installment ${idx + 1}`}</td>
+                                <td>{inst.due_date || "—"}</td>
+                                <td style={{ textAlign: "right" }}>{formatCurrency(inst.amount)}</td>
+                                <td>{inst.is_paid ? "Paid" : "Pending"}</td>
+                                <td>{inst.date_paid || "—"}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="ledger-print-footer">
+                <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
+                  Document Generated: {new Date().toLocaleString()}
+                </p>
+              </div>
+            </section>
+          )}
+        </div>
+
+        {showRequestModal && (
+          <div className="th-modal-overlay" onClick={() => setShowRequestModal(false)}>
+            <div className="th-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="th-modal-header">
+                <h3>
+                  {requestForm.request_type === "REFUND"
+                    ? "Request Refund"
+                    : "Request Apply Advance"}
+                </h3>
+                <button
+                  className="th-modal-close"
+                  onClick={() => setShowRequestModal(false)}
+                >
+                  ×
+                </button>
+              </div>
+
+              <form className="th-modal-form" onSubmit={submitAdvanceRequest}>
+                {requestError && <div className="th-form-error">{requestError}</div>}
+
+                <div className="th-form-group">
+                  <label>Enrollment</label>
+                  <input
+                    type="text"
+                    value={
+                      selectedRequestGroup?.enrollment_id
+                        ? `#${selectedRequestGroup.enrollment_id}`
+                        : "—"
+                    }
+                    className="th-form-input"
+                    readOnly
+                  />
+                </div>
+
+                <div className="th-form-group">
+                  <label>Available Advance</label>
+                  <input
+                    type="text"
+                    value={formatCurrency(selectedRequestGroup?.advanceAvailable || 0)}
+                    className="th-form-input"
+                    readOnly
+                  />
+                </div>
+
+                <div className="th-form-group">
+                  <label>Requested Amount</label>
+                  <input
+                    type="number"
+                    name="amount"
+                    step="0.01"
+                    min="0"
+                    value={requestForm.amount}
+                    onChange={handleRequestFormChange}
+                    className="th-form-input"
+                  />
+                </div>
+
+                <div className="th-form-group">
+                  <label>Reason / Note</label>
+                  <textarea
+                    name="reason"
+                    rows="3"
+                    value={requestForm.reason}
+                    onChange={handleRequestFormChange}
+                    className="th-form-input"
+                    placeholder="Optional note..."
+                  />
+                </div>
+
+                <div className="th-modal-footer">
+                  <button
+                    type="button"
+                    className="th-btn-cancel"
+                    onClick={() => setShowRequestModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="th-btn-success"
+                    disabled={requestSubmitting}
+                  >
+                    {requestSubmitting ? "Submitting..." : "Submit Request"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        <PreviewModal
+          isOpen={showPreview}
+          onClose={() => setShowPreview(false)}
+          title="Account & Financial Ledger"
+          onDownloadExcel={handleDownloadExcel}
+          onDownloadPDF={handleDownloadPDF}
+          customPreview={
+            <div
+              style={{
+                padding: "1.5rem",
+                fontSize: "0.9rem",
+                lineHeight: "1.6",
+                color: "#1e293b",
+              }}
+              data-preview-type={viewMode}
+            >
+              {viewMode === "transactions" ? (
+                <div data-transactions-preview="true">
+                  <h3
+                    style={{
+                      marginTop: 0,
+                      marginBottom: "1.5rem",
+                      fontSize: "1.1rem",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Account Ledger Details
+                  </h3>
+                  {paginatedTransactions.length > 0 ? (
+                    paginatedTransactions.map((group) => (
+                      <div
+                        key={group.key}
+                        style={{
+                          marginBottom: "2rem",
+                          paddingBottom: "1.5rem",
+                          borderBottom: "1px solid #e2e8f0",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            color: "#1d4ed8",
+                            marginBottom: "1rem",
+                          }}
+                        >
+                          {buildLedgerGroupTitle(group) || "Ledger Record"}
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              "repeat(auto-fit, minmax(180px, 1fr))",
+                            gap: "0.75rem",
+                            marginBottom: "1rem",
+                            fontSize: "0.85rem",
+                            padding: "0.75rem",
+                            background: "#f8fafc",
+                            borderRadius: "0.5rem",
+                          }}
+                        >
+                          <div><strong>Total Billed:</strong> {formatCurrency(group.totalDebit)}</div>
+                          <div><strong>Total Paid:</strong> {formatCurrency(group.totalCredit)}</div>
+                          <div><strong>Payable Balance:</strong> {formatCurrency(group.payableBalance)}</div>
+                          <div><strong>Advance Available:</strong> {formatCurrency(group.advanceAvailable)}</div>
+                        </div>
+                        <table
+                          style={{
+                            width: "100%",
+                            borderCollapse: "collapse",
+                            fontSize: "0.8rem",
+                          }}
+                        >
+                          <thead>
                             <tr
                               style={{
-                                background: "#f8fafc",
-                                borderTop: "2px solid #dbeafe",
-                                fontWeight: 700,
+                                borderBottom: "2px solid #1d4ed8",
+                                background: "#f0f9ff",
                               }}
                             >
-                              <td colSpan="3" style={{ textAlign: "right" }}>
-                                TOTAL:
-                              </td>
-                              <td style={{ textAlign: "right" }}>
-                                {formatCurrency(
-                                  (student.installments || []).reduce(
-                                    (sum, item) => sum + Number(item.amount || 0),
-                                    0
-                                  )
-                                )}
-                              </td>
-                              <td style={{ textAlign: "right" }}>
-                                {formatCurrency(
-                                  (student.installments || []).reduce(
-                                    (sum, item) => 
-                                      sum + (item.is_paid ? Number(item.amount || 0) : 0),
-                                    0
-                                  )
-                                )}
-                              </td>
-                              <td style={{ textAlign: "right", color: "#dc2626" }}>
-                                {formatCurrency(
-                                  (student.installments || []).reduce(
-                                    (sum, item) => 
-                                      sum + (item.is_paid ? 0 : Number(item.amount || 0)),
-                                    0
-                                  )
-                                )}
-                              </td>
-                              <td></td>
+                              <th style={{ padding: "0.5rem", textAlign: "left" }}>Date</th>
+                              <th style={{ padding: "0.5rem", textAlign: "left" }}>Description</th>
+                              <th style={{ padding: "0.5rem", textAlign: "right" }}>Debit</th>
+                              <th style={{ padding: "0.5rem", textAlign: "right" }}>Credit</th>
+                              <th style={{ padding: "0.5rem", textAlign: "right" }}>Balance</th>
                             </tr>
-                          </tfoot>
+                          </thead>
+                          <tbody>
+                            {group.rows.map((tx, idx) => (
+                              <tr
+                                key={tx.id}
+                                style={{
+                                  borderBottom: "1px solid #e2e8f0",
+                                  background: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
+                                }}
+                              >
+                                <td style={{ padding: "0.5rem" }}>{tx.transaction_date || "—"}</td>
+                                <td style={{ padding: "0.5rem" }}>{ITEM_LABELS[tx.item] || tx.item || "Entry"}</td>
+                                <td style={{ padding: "0.5rem", textAlign: "right" }}>
+                                  {tx.debit ? formatCurrency(tx.debit) : "—"}
+                                </td>
+                                <td style={{ padding: "0.5rem", textAlign: "right" }}>
+                                  {tx.credit ? formatCurrency(tx.credit) : "—"}
+                                </td>
+                                <td style={{ padding: "0.5rem", textAlign: "right", fontWeight: 700 }}>
+                                  {formatCurrency(tx._runningBalance)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))
+                  ) : (
+                    <p style={{ color: "#64748b" }}>No transactions to display.</p>
+                  )}
+                </div>
+              ) : (
+                <div data-installments-preview="true">
+                  <h3
+                    style={{
+                      marginTop: 0,
+                      marginBottom: "1.5rem",
+                      fontSize: "1.1rem",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Tuition Installment Schedule
+                  </h3>
+                  {paginatedInstallments.length > 0 ? (
+                    <table
+                      style={{
+                        width: "100%",
+                        borderCollapse: "collapse",
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      <thead>
+                        <tr
+                          style={{
+                            borderBottom: "2px solid #16a34a",
+                            background: "#f0fdf4",
+                          }}
+                        >
+                          <th style={{ padding: "0.75rem", textAlign: "left" }}>Student</th>
+                          <th style={{ padding: "0.75rem", textAlign: "left" }}>Installment</th>
+                          <th style={{ padding: "0.75rem", textAlign: "left" }}>Due Date</th>
+                          <th style={{ padding: "0.75rem", textAlign: "right" }}>Amount</th>
+                          <th style={{ padding: "0.75rem", textAlign: "center" }}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedInstallments.map((student, sidx) =>
+                          (student.installments || []).map((inst, iidx) => (
+                            <tr
+                              key={`${student.student_id || sidx}-${iidx}`}
+                              style={{
+                                borderBottom: "1px solid #e2e8f0",
+                                background: iidx % 2 === 0 ? "#ffffff" : "#f9fdf6",
+                              }}
+                            >
+                              <td style={{ padding: "0.75rem" }}>{student.student_name || "—"}</td>
+                              <td style={{ padding: "0.75rem" }}>
+                                Installment {inst.installment_number || iidx + 1}
+                              </td>
+                              <td style={{ padding: "0.75rem" }}>{inst.due_date || "—"}</td>
+                              <td style={{ padding: "0.75rem", textAlign: "right", fontWeight: 700 }}>
+                                {formatCurrency(inst.amount)}
+                              </td>
+                              <td style={{ padding: "0.75rem", textAlign: "center" }}>
+                                <span
+                                  style={{
+                                    padding: "0.25rem 0.5rem",
+                                    borderRadius: "0.25rem",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    background: inst.is_paid ? "#dcfce7" : "#fef3c7",
+                                    color: inst.is_paid ? "#166534" : "#b45309",
+                                  }}
+                                >
+                                  {inst.is_paid ? "Paid" : "Pending"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
                         )}
-                      </table>
-                    </div>
-                  </div>
-                ))}
-
-                <Pagination
-                  currentPage={installmentPage}
-                  totalPages={installmentTotalPages}
-                  onPageChange={setInstallmentPage}
-                  totalItems={tuitionInstallments.length}
-                  itemsPerPage={ITEMS_PER_PAGE}
-                />
-              </>
-            )}
-          </section>
-        )}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p style={{ color: "#64748b" }}>No installment information available.</p>
+                  )}
+                </div>
+              )}
+              <div
+                style={{
+                  marginTop: "1.5rem",
+                  paddingTop: "1rem",
+                  borderTop: "1px solid #e2e8f0",
+                  fontSize: "0.75rem",
+                  color: "#64748b",
+                }}
+              >
+                Document Generated: {new Date().toLocaleString()}
+              </div>
+            </div>
+          }
+        />
+        <Toast toasts={toasts} onDismiss={dismissToast} />
       </div>
-    </div>
-  );
-}
+    );
+  }

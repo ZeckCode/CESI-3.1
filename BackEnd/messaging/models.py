@@ -19,7 +19,16 @@ KEY_FILE_PATH = os.path.join(getattr(settings, 'BASE_DIR', '.'), '.env', 'messag
 def get_or_create_encryption_key():
     """Get or create encryption key - stored in file for persistence."""
     # 1) Existing key from environment variable (recommended for team consistency)
-    key_env = os.getenv('MESSAGING_ENCRYPTION_KEY')
+    # Support multiple ways of providing the key: Django settings or env var (case-insensitive name)
+    key_env = None
+    # Prefer explicit setting in Django settings if present
+    key_setting = getattr(settings, 'MESSAGING_ENCRYPTION_KEY', None)
+    if key_setting:
+        key_env = key_setting
+    else:
+        # Check common env var names (uppercase and lowercase)
+        key_env = os.getenv('MESSAGING_ENCRYPTION_KEY') or os.getenv('messaging_encryption_key')
+
     if key_env:
         return key_env.encode() if isinstance(key_env, str) else key_env
 

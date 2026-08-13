@@ -2,6 +2,7 @@
 from decimal import Decimal
 from datetime import date
 
+from django.utils import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -13,8 +14,15 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
+from reminders.views import create_reminder_once
+from reminders.models import Reminder
 from accounts.models import User, UserProfile
-from .models import Transaction, TuitionConfig, ProofOfPayment
+from .models import AdvanceRequest, Transaction, TuitionConfig, ProofOfPayment
+from .utils import (
+    normalize_money,
+    recompute_running_balances_for_enrollment,
+    recompute_transaction_statuses_for_enrollment,
+)
 from .serializers import (
     TransactionSerializer,
     TransactionCreateSerializer,
@@ -22,18 +30,218 @@ from .serializers import (
     TuitionConfigSerializer,
     TuitionConfigCreateSerializer,
     ProofOfPaymentSerializer,
+    AdvanceRequestSerializer,
 )
 
 
-def build_installment_schedule(tuition):
+from django.db import transaction as db_transaction
+from django.utils import timezone
+from enrollment.models import Enrollment
+
+
+# 
+#  helper functions for views, not actual views themselves
+# 
+
+
+def get_active_enrollment_by_student_number(student_number):
+    return Enrollment.objects.filter(
+        student_number=student_number,
+        status='ACTIVE'
+    ).select_related('parent_user', 'student').order_by('-created_at').first()
+
+
+def ledger_totals_for_enrollment(enrollment):
+    totals = Transaction.objects.filter(enrollment=enrollment).aggregate(
+        total_debit=Sum('debit'),
+        total_credit=Sum('credit'),
+    )
+    total_debit = Decimal(str(totals.get('total_debit') or 0))
+    total_credit = Decimal(str(totals.get('total_credit') or 0))
+    balance = total_debit - total_credit
+    return total_debit, total_credit, balance
+
+
+def compute_simple_ledger_status(balance):
+    if balance <= 0:
+        return 'PAID'
+    return 'PARTIAL'
+
+def get_available_advance_for_enrollment(enrollment):
+    advance_total = Transaction.objects.filter(
+        enrollment=enrollment,
+        entry_type='CREDIT',
+        item='ADVANCE'
+    ).aggregate(total=Sum('credit')).get('total') or Decimal('0.00')
+
+    transferred_total = Transaction.objects.filter(
+        enrollment=enrollment,
+        entry_type='DEBIT',
+        item__in=['REFUND', 'ADVANCE_TRANSFER_OUT']
+    ).aggregate(total=Sum('debit')).get('total') or Decimal('0.00')
+
+    available = Decimal(str(advance_total)) - Decimal(str(transferred_total))
+    return available if available > 0 else Decimal('0.00')
+
+
+def ledger_totals_and_advance_for_parent(parent):
+    totals = Transaction.objects.filter(parent=parent).aggregate(
+        total_debit=Sum('debit'),
+        total_credit=Sum('credit'),
+    )
+    total_debit = Decimal(str(totals.get('total_debit') or 0))
+    total_credit = Decimal(str(totals.get('total_credit') or 0))
+    raw_balance = total_debit - total_credit
+
+    payable_balance = raw_balance if raw_balance > 0 else Decimal('0.00')
+    advance_available = abs(raw_balance) if raw_balance < 0 else Decimal('0.00')
+
+    return total_debit, total_credit, payable_balance, advance_available
+
+
+def send_payment_received_reminder(*, sender, payment_tx):
+    recipient = payment_tx.parent
+    if not recipient:
+        return
+
+    remaining_balance = Decimal("0.00")
+    if payment_tx.enrollment:
+        _, _, remaining_balance = ledger_totals_for_enrollment(payment_tx.enrollment)
+        if remaining_balance < 0:
+            remaining_balance = Decimal("0.00")
+
+    title = "Payment Received"
+    message = (
+        f"Good news! We have received your payment for {payment_tx.student_name}.\n"
+        f"Reference No: {payment_tx.reference_number}\n"
+        f"Amount Paid: ₱{Decimal(str(payment_tx.credit or payment_tx.amount or 0))}\n"
+        f"Remaining Balance: ₱{remaining_balance}\n"
+        f"Thank you for your payment."
+    ).strip()
+
+    create_reminder_once(
+        recipient=recipient,
+        sender=sender,
+        title=title,
+        message=message,
+        reminder_type="PAYMENT",
+        event_type="PAYMENT_RECEIVED",
+        transaction=payment_tx,
+        reference_date=payment_tx.transaction_date or timezone.localdate(),
+    )
+
+
+def auto_apply_previous_advance_to_enrollment(target_enrollment):
+    from enrollment.models import Enrollment
+
+    student_number = (target_enrollment.student_number or '').strip()
+    if not student_number:
+        return Decimal('0.00')
+
+    previous_enrollments = Enrollment.objects.filter(
+        student_number=student_number
+    ).exclude(id=target_enrollment.id).order_by('-created_at')
+
+    total_applied = Decimal('0.00')
+
+    target_debit, target_credit, target_balance = ledger_totals_for_enrollment(target_enrollment)
+    remaining_needed = target_balance if target_balance > 0 else Decimal('0.00')
+
+    if remaining_needed <= 0:
+        return Decimal('0.00')
+
+    target_student_name = (
+        f"{target_enrollment.first_name or ''} {target_enrollment.last_name or ''}".strip()
+        or target_enrollment.student.username
+    )
+
+    for source_enrollment in previous_enrollments:
+        if remaining_needed <= 0:
+            break
+
+        available = get_available_advance_for_enrollment(source_enrollment)
+        if available <= 0:
+            continue
+
+        to_apply = available if available <= remaining_needed else remaining_needed
+
+        source_student_name = (
+            f"{source_enrollment.first_name or ''} {source_enrollment.last_name or ''}".strip()
+            or source_enrollment.student.username
+        )
+
+        Transaction.objects.create(
+            parent=source_enrollment.parent_user,
+            enrollment=source_enrollment,
+            student_name=source_student_name,
+            transaction_type='TUITION',
+            entry_type='DEBIT',
+            item='ADVANCE_TRANSFER_OUT',
+            school_year=source_enrollment.academic_year,
+            semester='1st',
+            amount=to_apply,
+            description=f'Advance credit transferred to Enrollment #{target_enrollment.id}.',
+            payment_method='OTHER',
+            transaction_date=timezone.localdate(),
+            status='POSTED',
+            student_number_snapshot=source_enrollment.student_number,
+            grade_level_snapshot=source_enrollment.grade_level,
+            payment_mode_snapshot=source_enrollment.payment_mode,
+            student_type_snapshot=source_enrollment.student_type,
+            reference_number=generate_transaction_reference(),
+        )
+
+        Transaction.objects.create(
+            parent=target_enrollment.parent_user,
+            enrollment=target_enrollment,
+            student_name=target_student_name,
+            transaction_type='TUITION',
+            entry_type='CREDIT',
+            item='ADVANCE_APPLIED',
+            school_year=target_enrollment.academic_year,
+            semester='1st',
+            amount=to_apply,
+            description=f'Advance credit auto-applied from Enrollment #{source_enrollment.id}.',
+            payment_method='OTHER',
+            transaction_date=timezone.localdate(),
+            status='PAID' if to_apply == remaining_needed else 'PARTIAL',
+            student_number_snapshot=target_enrollment.student_number,
+            grade_level_snapshot=target_enrollment.grade_level,
+            payment_mode_snapshot=target_enrollment.payment_mode,
+            student_type_snapshot=target_enrollment.student_type,
+            reference_number=generate_transaction_reference(),
+        )
+
+        recompute_running_balances_for_enrollment(source_enrollment)
+        recompute_transaction_statuses_for_enrollment(source_enrollment)
+        recompute_running_balances_for_enrollment(target_enrollment)
+        recompute_transaction_statuses_for_enrollment(target_enrollment)
+
+        total_applied += to_apply
+        remaining_needed -= to_apply
+
+    return total_applied
+
+def generate_transaction_reference():
+    year = timezone.now().year
+    last = Transaction.objects.order_by('-id').first()
+    seq = (last.id + 1) if last else 1
+    return f"CESI-{year}-{seq:05d}"
+
+
+def build_installment_schedule(tuition, include_assessment=False):
     items = []
 
+    installment = Decimal(str(tuition.installment or 0))
     initial = Decimal(str(tuition.initial or 0))
     monthly = Decimal(str(tuition.monthly or 0))
     misc_aug = Decimal(str(tuition.misc_aug or 0))
     misc_nov = Decimal(str(tuition.misc_nov or 0))
 
-    initial_due = date(2026, 5, 31)
+    # Calculate year from current date for dynamic scheduling
+    current_year = timezone.now().year
+    
+    initial_due = date(current_year, 5, 31)
     if initial > 0:
         items.append({
             'type': 'Initial Payment',
@@ -43,48 +251,95 @@ def build_installment_schedule(tuition):
             'due_date': initial_due,
         })
 
+    assessment = Decimal(str(tuition.assessment or 0)) if include_assessment else Decimal('0.00')
+    if assessment > 0:
+        items.append({
+            'type': 'Assessment Fee',
+            'item': 'ASSESSMENT',
+            'month': 'May',
+            'amount': assessment,
+            'due_date': initial_due,
+        })
+
     months = [
-        ('June', date(2026, 6, 30)),
-        ('July', date(2026, 7, 31)),
-        ('August', date(2026, 8, 31)),
-        ('September', date(2026, 9, 30)),
-        ('October', date(2026, 10, 31)),
-        ('November', date(2026, 11, 30)),
-        ('December', date(2026, 12, 31)),
-        ('January', date(2027, 1, 31)),
-        ('February', date(2027, 2, 28)),
-        ('March', date(2027, 3, 31)),
+        ('June', date(current_year, 6, 30)),
+        ('July', date(current_year, 7, 31)),
+        ('August', date(current_year, 8, 31)),
+        ('September', date(current_year, 9, 30)),
+        ('October', date(current_year, 10, 31)),
+        ('November', date(current_year, 11, 30)),
+        ('December', date(current_year, 12, 31)),
+        ('January', date(current_year + 1, 1, 31)),
+        ('February', date(current_year + 1, 2, 28)),
+        ('March', date(current_year + 1, 3, 31)),
     ]
 
-    if monthly > 0:
-        for label, due in months:
+    scheduled_installment = initial + (monthly * Decimal('10'))
+    installment_adjustment = installment - scheduled_installment
+
+    misc_by_month = {
+        'August': misc_aug,
+        'November': misc_nov,
+    }
+
+    for label, due in months:
+        if monthly > 0:
+            month_amount = monthly
+            # Keep totals aligned with configured installment by adjusting March
+            # instead of adding a separate adjustment row.
+            if label == 'March':
+                month_amount += installment_adjustment
+                if month_amount < 0:
+                    month_amount = Decimal('0.00')
+            if month_amount != 0:
+                items.append({
+                    'type': f'{label} Installment',
+                    'item': 'MONTHLY',
+                    'month': label,
+                    'amount': month_amount,
+                    'due_date': due,
+                })
+
+        # Place month-specific misc immediately after the same month installment
+        # so payment allocation settles "Installment + Misc" before next month.
+        month_misc = misc_by_month.get(label, Decimal('0.00'))
+        if month_misc > 0:
             items.append({
-                'type': f'{label} Installment',
-                'item': 'MONTHLY',
+                'type': f'Miscellaneous ({label})',
+                'item': 'MISC',
                 'month': label,
-                'amount': monthly,
+                'amount': month_misc,
                 'due_date': due,
             })
 
-    if misc_aug > 0:
-        items.append({
-            'type': 'Miscellaneous (August)',
-            'item': 'MISC',
-            'month': 'August',
-            'amount': misc_aug,
-            'due_date': date(2026, 8, 31),
-        })
-
-    if misc_nov > 0:
-        items.append({
-            'type': 'Miscellaneous (November)',
-            'item': 'MISC',
-            'month': 'November',
-            'amount': misc_nov,
-            'due_date': date(2026, 11, 30),
-        })
-
     return items
+
+
+def normalize_grade_key(raw_value):
+    raw = str(raw_value or '').strip().lower()
+    if not raw:
+        return ''
+
+    compact = ''.join(raw.split())
+    if compact in {'prek', 'pre-k', 'prekind', 'pre-kinder', 'prekinder'}:
+        return 'prek'
+    if compact in {'kinder', 'kindergarten'}:
+        return 'kinder'
+
+    if compact.startswith('grade'):
+        suffix = compact.replace('grade', '', 1)
+        if suffix in {'1', '2', '3', '4', '5', '6'}:
+            return f'grade{suffix}'
+
+    if compact in {'1', '2', '3', '4', '5', '6'}:
+        return f'grade{compact}'
+
+    return compact
+
+
+def get_tuition_by_grade_key(tuition_map, grade_value):
+    normalized = normalize_grade_key(grade_value)
+    return tuition_map.get(normalized)
 
 
 def ledger_totals_for_parent(parent):
@@ -114,23 +369,27 @@ def compute_cash_status(total_due, total_paid):
     return 'PENDING'
 
 
-def compute_installment_status(total_due, total_paid, tuition):
-    today = date.today()
+def compute_installment_status(total_due, total_paid, tuition, include_assessment=False):
+    today = timezone.localdate()
 
     if total_due > 0 and total_paid >= total_due:
         return 'PAID'
 
-    schedule = build_installment_schedule(tuition)
+    schedule = build_installment_schedule(tuition, include_assessment=include_assessment)
 
     if total_paid <= 0:
-        has_overdue = any(item['due_date'] < today for item in schedule if item['item'] != 'INITIAL')
+        has_overdue = any(
+            item.get('due_date') and item['due_date'] < today
+            for item in schedule
+            if item['item'] != 'INITIAL'
+        )
         return 'OVERDUE' if has_overdue else 'PENDING'
 
     covered = Decimal('0.00')
     for item in schedule:
         next_covered = covered + item['amount']
         if next_covered > total_paid:
-            if item['due_date'] < today:
+            if item.get('due_date') and item['due_date'] < today:
                 return 'OVERDUE'
             return 'PARTIAL'
         covered = next_covered
@@ -150,19 +409,35 @@ class TransactionListCreate(generics.ListCreateAPIView):
         enrollment_id = self.request.query_params.get('enrollment_id', '').strip()
         
         if search:
-            qs = qs.filter(
+            identity_match = (
                 Q(student_name__icontains=search)
-                | Q(reference_number__icontains=search)
                 | Q(parent__profile__student_first_name__icontains=search)
                 | Q(parent__profile__student_last_name__icontains=search)
                 | Q(parent__profile__student_number__icontains=search)
-                | Q(item__icontains=search)
-            ).distinct()
+                | Q(student_number_snapshot__icontains=search)
+                | Q(enrollment__student_number__icontains=search)
+                | Q(enrollment__first_name__icontains=search)
+                | Q(enrollment__last_name__icontains=search)
+            )
+            row_match = identity_match | Q(reference_number__icontains=search) | Q(item__icontains=search)
+
+            matched_enrollment_ids = list(
+                Transaction.objects.filter(identity_match, enrollment_id__isnull=False)
+                .values_list('enrollment_id', flat=True)
+                .distinct()
+            )
+
+            if matched_enrollment_ids:
+                qs = qs.filter(
+                    Q(enrollment_id__in=matched_enrollment_ids) | row_match
+                ).distinct()
+            else:
+                qs = qs.filter(row_match).distinct()
             
         if enrollment_id:
             qs = qs.filter(enrollment_id=enrollment_id)
 
-        if status_filter and status_filter in ['PAID', 'PARTIAL', 'PENDING', 'OVERDUE', 'POSTED']:
+        if status_filter and status_filter in ['PAID', 'PARTIAL', 'PENDING', 'DUE_TODAY', 'OVERDUE', 'POSTED']:
             qs = qs.filter(status=status_filter)
 
         if entry_type and entry_type in ['DEBIT', 'CREDIT']:
@@ -309,14 +584,14 @@ def my_ledger_summary(request):
     if getattr(request.user, 'role', None) != 'PARENT_STUDENT':
         return Response({'detail': 'Forbidden'}, status=403)
 
-    total_billed, total_paid, balance = ledger_totals_for_parent(request.user)
+    total_billed, total_paid, balance, advance_available = ledger_totals_and_advance_for_parent(request.user)
 
     return Response({
         'total_billed': float(total_billed),
         'total_paid': float(total_paid),
         'balance': float(balance),
+        'advance_available': float(advance_available),
     })
-
 
 class TuitionConfigListCreate(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -468,8 +743,35 @@ def student_tuition_overview(request):
         ).strip()
 
         payment_mode = (profile.payment_mode or '').strip().lower()
-        grade_key = (profile.grade_level or '').strip().lower()
-        tuition = tuition_map.get(grade_key)
+        tuition = get_tuition_by_grade_key(tuition_map, profile.grade_level)
+        enrollment = None
+
+        if profile.user_id and profile.student_number:
+            enrollment = Enrollment.objects.filter(
+                parent_user=profile.user,
+                student_number=profile.student_number,
+                status='ACTIVE'
+            ).order_by('-created_at').first()
+
+        if profile.user_id and not enrollment:
+            enrollment = Enrollment.objects.filter(
+                parent_user=profile.user,
+                status='ACTIVE'
+            ).order_by('-created_at').first()
+
+        if profile.user_id and not enrollment and profile.student_number:
+            enrollment = Enrollment.objects.filter(
+                parent_user=profile.user,
+                student_number=profile.student_number,
+            ).order_by('-created_at').first()
+
+        if profile.user_id and not enrollment:
+            enrollment = Enrollment.objects.filter(
+                parent_user=profile.user,
+            ).order_by('-created_at').first()
+
+        student_type = (enrollment.student_type or '').strip().lower() if enrollment else ''
+        is_new_student = student_type == 'new'
 
         total_due = Decimal('0.00')
         total_paid = Decimal('0.00')
@@ -478,10 +780,31 @@ def student_tuition_overview(request):
         if tuition:
             if payment_mode == 'cash':
                 total_due = Decimal(str(tuition.total_cash or 0))
+                if is_new_student:
+                    total_due += Decimal(str(tuition.assessment or 0))
             elif payment_mode == 'installment':
-                total_due = sum((item['amount'] for item in build_installment_schedule(tuition)), Decimal('0.00'))
+                total_due = sum(
+                    (item['amount'] for item in build_installment_schedule(tuition, include_assessment=is_new_student)),
+                    Decimal('0.00')
+                )
 
-        if profile.user_id:
+        if enrollment:
+            totals = Transaction.objects.filter(
+                parent=profile.user,
+                enrollment=enrollment,
+                transaction_type='TUITION',
+                entry_type='CREDIT',
+            ).aggregate(total_credit=Sum('credit'))
+            total_paid = Decimal(str(totals.get('total_credit') or 0))
+        elif profile.user_id and profile.student_number:
+            totals = Transaction.objects.filter(
+                parent=profile.user,
+                transaction_type='TUITION',
+                entry_type='CREDIT',
+                student_number_snapshot=profile.student_number,
+            ).aggregate(total_credit=Sum('credit'))
+            total_paid = Decimal(str(totals.get('total_credit') or 0))
+        elif profile.user_id:
             total_paid = tuition_paid_for_parent(profile.user)
 
         remaining_balance = total_due - total_paid
@@ -491,7 +814,12 @@ def student_tuition_overview(request):
         if payment_mode == 'cash':
             account_status = compute_cash_status(total_due, total_paid)
         elif payment_mode == 'installment' and tuition:
-            account_status = compute_installment_status(total_due, total_paid, tuition)
+            account_status = compute_installment_status(
+                total_due,
+                total_paid,
+                tuition,
+                include_assessment=is_new_student,
+            )
 
         data.append({
             'id': profile.id,
@@ -499,6 +827,7 @@ def student_tuition_overview(request):
             'parent_name': parent_name or '—',
             'grade_level': profile.grade_level or '',
             'payment_mode': profile.payment_mode or '',
+            'student_type': student_type,
             'student_number': profile.student_number or '',
             'lrn': profile.lrn or '',
             'contact_number': profile.contact_number or '',
@@ -525,8 +854,61 @@ def my_tuition_installments(request):
         for t in TuitionConfig.objects.filter(is_active=True, status='active')
     }
 
-    today = date.today()
+    today = timezone.localdate()
     data = []
+
+    def build_allocation_rows(schedule_items, payment_rows):
+        remaining_payments = [
+            {
+                'id': tx.id,
+                'amount_left': Decimal(str(tx.credit or 0)),
+                'reference_number': tx.reference_number,
+                'transaction_date': tx.transaction_date.isoformat() if tx.transaction_date else None,
+                'item': tx.item,
+            }
+            for tx in payment_rows
+            if Decimal(str(tx.credit or 0)) > 0
+        ]
+
+        rows = []
+        for item in schedule_items:
+            amount_due = Decimal(str(item['amount'] or 0))
+            remaining_due = amount_due
+            refs_used = []
+
+            for payment in remaining_payments:
+                if remaining_due <= 0:
+                    break
+                if payment['amount_left'] <= 0:
+                    continue
+
+                applied = min(payment['amount_left'], remaining_due)
+                if applied > 0:
+                    payment['amount_left'] -= applied
+                    remaining_due -= applied
+
+                    if payment['reference_number']:
+                        refs_used.append(payment['reference_number'])
+
+            paid_amount = amount_due - remaining_due
+            is_paid = remaining_due <= 0
+            is_overdue = (not is_paid) and item['due_date'] and item['due_date'] < today
+
+            rows.append({
+                'type': item['type'],
+                'item': item['item'],
+                'amount': float(amount_due),
+                'amount_paid': float(paid_amount),
+                'balance': float(remaining_due if remaining_due > 0 else Decimal('0.00')),
+                'month': item['month'],
+                'due_date': item['due_date'].isoformat() if item.get('due_date') else None,
+                'is_paid': is_paid,
+                'status': 'PAID' if is_paid else ('OVERDUE' if is_overdue else ('PARTIAL' if paid_amount > 0 else 'PENDING')),
+                'reference_number': refs_used[0] if len(refs_used) == 1 else None,
+                'reference_numbers': refs_used,
+            })
+
+        return rows
 
     for profile in profiles:
         student_name = " ".join(
@@ -544,35 +926,89 @@ def my_tuition_installments(request):
         if not tuition:
             continue
 
-        total_paid = tuition_paid_for_parent(profile.user)
+        enrollment = Enrollment.objects.filter(
+            parent_user=request.user,
+            student_number=profile.student_number,
+            status='ACTIVE'
+        ).order_by('-created_at').first()
+
+        if not enrollment:
+            enrollment = Enrollment.objects.filter(
+                parent_user=request.user,
+                status='ACTIVE'
+            ).order_by('-created_at').first()
+
+        student_type = (enrollment.student_type or '').strip().lower() if enrollment else ''
+        is_new_student = student_type == 'new'
+
+       
+
+        total_paid = Decimal('0.00')
         installments = []
 
+        payment_rows = []
+        if enrollment:
+            payment_rows = list(
+                Transaction.objects.filter(
+                    parent=request.user,
+                    enrollment=enrollment,
+                    transaction_type='TUITION',
+                    entry_type='CREDIT',
+                )
+                .exclude(item='ADVANCE')
+                .exclude(item='ADVANCE_APPLIED')
+                .order_by('transaction_date', 'date_posted', 'id')
+            )
+
+            total_paid = sum(
+                (Decimal(str(tx.credit or 0)) for tx in payment_rows),
+                Decimal('0.00')
+            )
+        else:
+            total_paid = tuition_paid_for_parent(profile.user)
+
         if payment_mode == 'installment':
-            schedule = build_installment_schedule(tuition)
-            covered = Decimal('0.00')
-
-            for item in schedule:
-                amount = item['amount']
-                next_covered = covered + amount
-
-                is_paid = total_paid >= next_covered
-                is_overdue = (not is_paid) and (item['due_date'] < today)
-
-                installments.append({
-                    'type': item['type'],
-                    'item': item['item'],
-                    'amount': float(amount),
-                    'month': item['month'],
-                    'due_date': item['due_date'].isoformat(),
-                    'is_paid': is_paid,
-                    'status': 'PAID' if is_paid else ('OVERDUE' if is_overdue else 'PENDING'),
-                })
-                covered = next_covered
+            schedule = build_installment_schedule(tuition, include_assessment=is_new_student)
+            installments = build_allocation_rows(schedule, payment_rows)
 
             total_due = sum((item['amount'] for item in schedule), Decimal('0.00'))
-            overall_status = compute_installment_status(total_due, total_paid, tuition)
+            overall_status = compute_installment_status(
+                total_due,
+                total_paid,
+                tuition,
+                include_assessment=is_new_student,
+            )
+
         else:
-            total_due = Decimal(str(tuition.total_cash or 0))
+            cash_schedule = []
+
+            if enrollment:
+                debit_rows = list(
+                    Transaction.objects.filter(
+                        parent=request.user,
+                        enrollment=enrollment,
+                        transaction_type='TUITION',
+                        entry_type='DEBIT',
+                    )
+                    .order_by('transaction_date', 'date_posted', 'id')
+                )
+
+                for tx in debit_rows:
+                    cash_schedule.append({
+                        'type': tx.description or tx.item or 'Charge',
+                        'item': tx.item,
+                        'amount': Decimal(str(tx.debit or 0)),
+                        'month': '',
+                        'due_date': tx.due_date or tx.transaction_date,
+                    })
+
+            installments = build_allocation_rows(cash_schedule, payment_rows) if cash_schedule else []
+
+            total_due = sum((item['amount'] for item in cash_schedule), Decimal('0.00'))
+            if total_due <= 0:
+                total_due = Decimal(str(tuition.total_cash or 0))
+                if is_new_student:
+                    total_due += Decimal(str(tuition.assessment or 0))
             overall_status = compute_cash_status(total_due, total_paid)
 
         remaining_balance = total_due - total_paid
@@ -583,6 +1019,7 @@ def my_tuition_installments(request):
             'student_id': profile.id,
             'student_name': student_name or '—',
             'grade_level': profile.grade_level or '',
+            'student_type': student_type,
             'payment_mode': payment_mode,
             'total_due': float(total_due),
             'total_paid': float(total_paid),
@@ -594,6 +1031,550 @@ def my_tuition_installments(request):
     return Response(data)
 
 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def pay_student_balance(request):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    student_number = str(request.data.get('student_number', '')).strip()
+    amount_raw = request.data.get('amount')
+    payment_method = str(request.data.get('payment_method', 'CASH')).strip().upper() or 'CASH'
+    description = str(request.data.get('description', '')).strip()
+    transaction_date = request.data.get('transaction_date')
+
+    if not student_number:
+        return Response({'detail': 'Student number is required.'}, status=400)
+
+    try:
+        amount = Decimal(str(amount_raw))
+    except Exception:
+        return Response({'detail': 'Invalid amount.'}, status=400)
+
+    amount = normalize_money(amount)
+
+    if amount <= 0:
+        return Response({'detail': 'Amount must be greater than 0.'}, status=400)
+
+    enrollment = get_active_enrollment_by_student_number(student_number)
+    if not enrollment:
+        return Response({'detail': 'Active enrollment not found for this student number.'}, status=404)
+
+    if not enrollment.parent_user:
+        return Response({'detail': 'Enrollment has no linked parent account.'}, status=400)
+
+    total_debit, total_credit, current_balance = ledger_totals_for_enrollment(enrollment)
+
+    if current_balance <= 0:
+        return Response({
+            'detail': 'This ledger has no outstanding balance.',
+            'student_number': enrollment.student_number,
+            'student_name': f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip(),
+            'balance_before': float(max(current_balance, Decimal('0.00'))),
+        }, status=400)
+
+    applied_amount = amount if amount <= current_balance else current_balance
+    excess_amount = amount - applied_amount if amount > current_balance else Decimal('0.00')
+
+    student_name = f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() or enrollment.student.username
+
+    with db_transaction.atomic():
+        payment_tx = Transaction.objects.create(
+            parent=enrollment.parent_user,
+            enrollment=enrollment,
+            student_name=student_name,
+            transaction_type='TUITION',
+            entry_type='CREDIT',
+            item='PAYMENT',
+            school_year=enrollment.academic_year,
+            semester='1st',
+            amount=applied_amount,
+            description=description or 'Payment posted via admin ledger payment.',
+            payment_method=payment_method,
+            transaction_date=transaction_date or timezone.localdate(),
+            status='PAID' if applied_amount == current_balance else 'PARTIAL',
+            student_number_snapshot=enrollment.student_number,
+            grade_level_snapshot=enrollment.grade_level,
+            payment_mode_snapshot=enrollment.payment_mode,
+            student_type_snapshot=enrollment.student_type,
+            reference_number=generate_transaction_reference(),
+        )
+
+        if excess_amount > 0:
+            Transaction.objects.create(
+                parent=enrollment.parent_user,
+                enrollment=enrollment,
+                student_name=student_name,
+                transaction_type='TUITION',
+                entry_type='CREDIT',
+                item='ADVANCE',
+                school_year=enrollment.academic_year,
+                semester='1st',
+                amount=excess_amount,
+                description='Excess payment recorded as advance credit.',
+                payment_method=payment_method,
+                transaction_date=transaction_date or timezone.localdate(),
+                status='PAID',
+                student_number_snapshot=enrollment.student_number,
+                grade_level_snapshot=enrollment.grade_level,
+                payment_mode_snapshot=enrollment.payment_mode,
+                student_type_snapshot=enrollment.student_type,
+                reference_number=generate_transaction_reference(),
+            )
+
+
+            
+        new_balance = recompute_running_balances_for_enrollment(enrollment)
+        recompute_transaction_statuses_for_enrollment(enrollment)
+        send_payment_received_reminder(sender=request.user, payment_tx=payment_tx)
+        
+    return Response({
+        'success': True,
+        'student_number': enrollment.student_number,
+        'student_name': student_name,
+        'enrollment_id': enrollment.id,
+        'balance_before': float(current_balance),
+        'paid_amount': float(amount),
+        'applied_amount': float(applied_amount),
+        'excess_amount': float(excess_amount),
+        'new_balance': float(max(new_balance, Decimal('0.00'))),
+        'status': compute_simple_ledger_status(new_balance),
+        'payment_transaction_id': payment_tx.id,
+        'has_overpayment': excess_amount > 0,
+    }, status=201)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def refund_student_payment(request):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    student_number = str(request.data.get('student_number', '')).strip()
+    amount_raw = request.data.get('amount')
+    payment_method = str(request.data.get('payment_method', 'CASH')).strip().upper() or 'CASH'
+    description = str(request.data.get('description', '')).strip()
+
+    if not student_number:
+        return Response({'detail': 'Student number is required.'}, status=400)
+
+    try:
+        amount = Decimal(str(amount_raw))
+    except Exception:
+        return Response({'detail': 'Invalid amount.'}, status=400)
+
+    amount = normalize_money(amount)
+
+    if amount <= 0:
+        return Response({'detail': 'Refund amount must be greater than 0.'}, status=400)
+
+    enrollment = get_active_enrollment_by_student_number(student_number)
+    if not enrollment:
+        return Response({'detail': 'Active enrollment not found for this student number.'}, status=404)
+
+    if not enrollment.parent_user:
+        return Response({'detail': 'Enrollment has no linked parent account.'}, status=400)
+
+    refundable = get_available_advance_for_enrollment(enrollment)
+
+    if refundable <= 0:
+        return Response({'detail': 'No refundable excess payment found.'}, status=400)
+
+    if amount > refundable:
+        return Response({
+            'detail': f'Refund exceeds refundable amount. Maximum refundable: {refundable}.'
+        }, status=400)
+
+    student_name = f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() or enrollment.student.username
+
+    with db_transaction.atomic():
+        refund_tx = Transaction.objects.create(
+            parent=enrollment.parent_user,
+            enrollment=enrollment,
+            student_name=student_name,
+            transaction_type='TUITION',
+            entry_type='DEBIT',
+            item='REFUND',
+            school_year=enrollment.academic_year,
+            semester='1st',
+            amount=amount,
+            description=description or 'Refund issued for excess payment.',
+            payment_method=payment_method,
+            transaction_date=timezone.localdate(),
+            status='POSTED',
+            student_number_snapshot=enrollment.student_number,
+            grade_level_snapshot=enrollment.grade_level,
+            payment_mode_snapshot=enrollment.payment_mode,
+            student_type_snapshot=enrollment.student_type,
+            reference_number=generate_transaction_reference(),
+        )
+
+
+        new_balance = recompute_running_balances_for_enrollment(enrollment)
+        recompute_transaction_statuses_for_enrollment(enrollment)
+        
+    return Response({
+        'success': True,
+        'student_number': enrollment.student_number,
+        'student_name': student_name,
+        'enrollment_id': enrollment.id,
+        'refunded_amount': float(amount),
+        'remaining_refundable': float(refundable - amount),
+        'new_balance': float(max(new_balance, Decimal('0.00'))),
+        'refund_transaction_id': refund_tx.id,
+    }, status=201)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def auto_apply_advance(request):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    student_number = str(request.data.get('student_number', '')).strip()
+    if not student_number:
+        return Response({'detail': 'Student number is required.'}, status=400)
+
+    enrollment = get_active_enrollment_by_student_number(student_number)
+    if not enrollment:
+        return Response({'detail': 'Active enrollment not found for this student number.'}, status=404)
+
+    with db_transaction.atomic():
+        applied_amount = auto_apply_previous_advance_to_enrollment(enrollment)
+        _, _, new_balance = ledger_totals_for_enrollment(enrollment)
+
+    return Response({
+        'success': True,
+        'student_number': enrollment.student_number,
+        'enrollment_id': enrollment.id,
+        'applied_amount': float(applied_amount),
+        'new_balance': float(new_balance if new_balance > 0 else Decimal('0.00')),
+        'status': 'PAID' if new_balance <= 0 else 'PARTIAL',
+    }, status=200)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def repair_ledger_statuses(request):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    enrollment_id = request.data.get('enrollment_id')
+    enrollment_ids = request.data.get('enrollment_ids') or []
+    student_number = str(request.data.get('student_number', '')).strip()
+
+    if not enrollment_id and not student_number and not enrollment_ids:
+        return Response(
+            {'detail': 'Provide enrollment_id, student_number, or enrollment_ids.'},
+            status=400,
+        )
+
+    is_single_target = bool(enrollment_id or student_number)
+    enrollments = []
+
+    if enrollment_id:
+        enrollment = Enrollment.objects.filter(id=enrollment_id).select_related('parent_user', 'student').first()
+        if enrollment:
+            enrollments = [enrollment]
+    elif student_number:
+        enrollment = get_active_enrollment_by_student_number(student_number)
+        if enrollment:
+            enrollments = [enrollment]
+    else:
+        normalized_ids = []
+        for raw_id in enrollment_ids:
+            try:
+                normalized_ids.append(int(raw_id))
+            except (TypeError, ValueError):
+                continue
+
+        normalized_ids = list(dict.fromkeys(normalized_ids))
+        if not normalized_ids:
+            return Response({'detail': 'No valid enrollment_ids were provided.'}, status=400)
+
+        enrollments = list(
+            Enrollment.objects.filter(id__in=normalized_ids).select_related('parent_user', 'student')
+        )
+
+    if not enrollments:
+        return Response({'detail': 'Enrollment not found.'}, status=404)
+
+    def status_counts_for(enroll):
+        counts = {
+            'PAID': 0,
+            'PARTIAL': 0,
+            'PENDING': 0,
+            'DUE_TODAY': 0,
+            'OVERDUE': 0,
+            'POSTED': 0,
+        }
+        rows = Transaction.objects.filter(enrollment=enroll)
+        for row in rows:
+            key = str(row.status or '').upper()
+            if key in counts:
+                counts[key] += 1
+        return counts
+
+    results = []
+    repairs_applied = 0
+
+    for enrollment in enrollments:
+        before_counts = status_counts_for(enrollment)
+        before_balance = ledger_totals_for_enrollment(enrollment)[2]
+
+        with db_transaction.atomic():
+            recompute_running_balances_for_enrollment(enrollment)
+            recompute_transaction_statuses_for_enrollment(enrollment)
+
+        _, _, new_balance = ledger_totals_for_enrollment(enrollment)
+        after_counts = status_counts_for(enrollment)
+
+        changed = (before_counts != after_counts) or (before_balance != new_balance)
+        if changed:
+            repairs_applied += 1
+
+        results.append({
+            'enrollment_id': enrollment.id,
+            'student_number': enrollment.student_number,
+            'student_name': (
+                f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip()
+                or enrollment.student.username
+            ),
+            'new_balance': float(new_balance if new_balance > 0 else Decimal('0.00')),
+            'status_counts_before': before_counts,
+            'status_counts_after': after_counts,
+            'changed': changed,
+        })
+
+    if is_single_target and len(results) == 1:
+        single = results[0]
+        return Response({
+            'success': True,
+            'enrollment_id': single['enrollment_id'],
+            'student_number': single['student_number'],
+            'student_name': single['student_name'],
+            'new_balance': single['new_balance'],
+            'status_counts_before': single['status_counts_before'],
+            'status_counts_after': single['status_counts_after'],
+            'changed': single['changed'],
+        }, status=200)
+
+    return Response({
+        'success': True,
+        'processed_count': len(results),
+        'repairs_applied': repairs_applied,
+        'enrollment_ids_repaired': [x['enrollment_id'] for x in results],
+        'results': results,
+    }, status=200)
+    
+    
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def my_advance_requests(request):
+    if getattr(request.user, 'role', None) != 'PARENT_STUDENT':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    if request.method == 'GET':
+        qs = AdvanceRequest.objects.filter(user=request.user).select_related('enrollment')
+        return Response(AdvanceRequestSerializer(qs, many=True).data)
+
+    request_type = str(request.data.get('request_type', '')).strip().upper()
+    amount_raw = request.data.get('amount')
+    reason = str(request.data.get('reason', '')).strip()
+    enrollment_id = request.data.get('enrollment')
+
+    if request_type not in {'APPLY_ADVANCE', 'REFUND'}:
+        return Response({'detail': 'Invalid request type.'}, status=400)
+
+    try:
+        amount = Decimal(str(amount_raw))
+    except Exception:
+        return Response({'detail': 'Invalid amount.'}, status=400)
+
+    amount = normalize_money(amount)
+
+    if amount <= 0:
+        return Response({'detail': 'Amount must be greater than 0.'}, status=400)
+
+    enrollment = None
+    if enrollment_id:
+        enrollment = Enrollment.objects.filter(
+            id=enrollment_id,
+            parent_user=request.user
+        ).first()
+
+    if not enrollment:
+        return Response({'detail': 'Valid enrollment is required.'}, status=400)
+
+    if request_type == 'REFUND':
+        available = get_available_advance_for_enrollment(enrollment)
+        if available <= 0:
+            return Response({'detail': 'No available advance to refund.'}, status=400)
+        if amount > available:
+            return Response(
+                {'detail': f'Request exceeds available advance: {available}.'},
+                status=400
+            )
+
+    if request_type == 'APPLY_ADVANCE':
+        _, _, current_balance = ledger_totals_for_enrollment(enrollment)
+        if current_balance <= 0:
+            return Response(
+                {'detail': 'This enrollment has no outstanding balance to apply advance to.'},
+                status=400
+            )
+
+    obj = AdvanceRequest.objects.create(
+        user=request.user,
+        enrollment=enrollment,
+        request_type=request_type,
+        amount=amount,
+        reason=reason,
+        status='PENDING',
+    )
+
+    return Response(AdvanceRequestSerializer(obj).data, status=201)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def advance_requests_admin(request):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    qs = AdvanceRequest.objects.select_related('user', 'enrollment').all()
+    return Response(AdvanceRequestSerializer(qs, many=True).data)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def process_advance_request(request, pk):
+    if getattr(request.user, 'role', None) != 'ADMIN':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    obj = AdvanceRequest.objects.filter(pk=pk).select_related('enrollment', 'user').first()
+    if not obj:
+        return Response({'detail': 'Request not found.'}, status=404)
+
+    action_type = str(request.data.get('action', '')).strip().upper()
+    remarks = str(request.data.get('remarks', '')).strip()
+
+    if action_type not in {'APPROVE', 'REJECT', 'PROCESS'}:
+        return Response({'detail': 'Invalid action.'}, status=400)
+
+    if obj.status == 'PROCESSED':
+        return Response({'detail': 'This request has already been processed.'}, status=400)
+
+    if obj.status == 'REJECTED' and action_type == 'PROCESS':
+        return Response({'detail': 'Rejected requests cannot be processed.'}, status=400)
+
+    if action_type == 'REJECT':
+        obj.status = 'REJECTED'
+        obj.admin_remarks = remarks
+        obj.processed_at = timezone.now()
+        obj.save(update_fields=['status', 'admin_remarks', 'processed_at', 'updated_at'])
+        return Response({'success': True, 'status': obj.status})
+
+    if action_type == 'APPROVE':
+        obj.status = 'APPROVED'
+        obj.admin_remarks = remarks
+        obj.save(update_fields=['status', 'admin_remarks', 'updated_at'])
+        return Response({'success': True, 'status': obj.status})
+
+    if obj.status != 'APPROVED':
+        return Response({'detail': 'Only approved requests can be processed.'}, status=400)
+
+    if obj.request_type == 'APPLY_ADVANCE':
+        if not obj.enrollment or not obj.enrollment.student_number:
+            return Response({'detail': 'Enrollment or student number missing.'}, status=400)
+
+        with db_transaction.atomic():
+            applied_amount = auto_apply_previous_advance_to_enrollment(obj.enrollment)
+            _, _, new_balance = ledger_totals_for_enrollment(obj.enrollment)
+
+        obj.status = 'PROCESSED'
+        obj.admin_remarks = remarks or f'Advance applied: {applied_amount}'
+        obj.processed_at = timezone.now()
+        obj.save(update_fields=['status', 'admin_remarks', 'processed_at', 'updated_at'])
+
+        return Response({
+            'success': True,
+            'status': obj.status,
+            'applied_amount': float(applied_amount),
+            'new_balance': float(new_balance if new_balance > 0 else Decimal('0.00')),
+        })
+
+    if obj.request_type == 'REFUND':
+        if not obj.enrollment or not obj.enrollment.student_number:
+            return Response({'detail': 'Enrollment or student number missing.'}, status=400)
+
+        available = get_available_advance_for_enrollment(obj.enrollment)
+        if obj.amount > available:
+            return Response(
+                {'detail': f'Request exceeds available advance: {available}.'},
+                status=400
+            )
+
+        student_name = (
+            f"{obj.enrollment.first_name or ''} {obj.enrollment.last_name or ''}".strip()
+            or obj.enrollment.student.username
+        )
+
+        with db_transaction.atomic():
+            refund_tx = Transaction.objects.create(
+                parent=obj.enrollment.parent_user,
+                enrollment=obj.enrollment,
+                student_name=student_name,
+                transaction_type='TUITION',
+                entry_type='DEBIT',
+                item='REFUND',
+                school_year=obj.enrollment.academic_year,
+                semester='1st',
+                amount=obj.amount,
+                description=f"Refund processed from student request #{obj.id}.",
+                payment_method='OTHER',
+                transaction_date=timezone.localdate(),
+                status='POSTED',
+                student_number_snapshot=obj.enrollment.student_number,
+                grade_level_snapshot=obj.enrollment.grade_level,
+                payment_mode_snapshot=obj.enrollment.payment_mode,
+                student_type_snapshot=obj.enrollment.student_type,
+                reference_number=generate_transaction_reference(),
+            )
+
+            new_balance = recompute_running_balances_for_enrollment(obj.enrollment)
+            recompute_transaction_statuses_for_enrollment(obj.enrollment)
+
+        obj.status = 'PROCESSED'
+        obj.admin_remarks = remarks or f'Refund transaction #{refund_tx.id} created.'
+        obj.processed_at = timezone.now()
+        obj.save(update_fields=['status', 'admin_remarks', 'processed_at', 'updated_at'])
+
+        return Response({
+            'success': True,
+            'status': obj.status,
+            'refund_transaction_id': refund_tx.id,
+            'new_balance': float(new_balance if new_balance > 0 else Decimal('0.00')),
+        })
+
+    return Response({'detail': 'Unsupported request type.'}, status=400)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 # ═══════════════════════════════════════════════════════════
 # PROOF OF PAYMENT VIEWS
 # ═══════════════════════════════════════════════════════════
@@ -603,28 +1584,185 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        if self.request.user.is_staff:
-            return ProofOfPayment.objects.all().select_related('user')
-        return ProofOfPayment.objects.filter(user=self.request.user).select_related('user')
+        if self.request.user.is_staff or self.request.user.role == 'ADMIN':
+            queryset = ProofOfPayment.objects.all().select_related('user', 'enrollment')
+        else:
+            queryset = ProofOfPayment.objects.filter(
+                Q(user=self.request.user) | Q(enrollment__parent_user=self.request.user)
+            ).select_related('user', 'enrollment').distinct()
+        
+        # Filter by status if provided
+        status = self.request.query_params.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+        
+        # Filter by payment type if provided
+        payment_type = self.request.query_params.get('payment_type')
+        if payment_type:
+            queryset = queryset.filter(payment_type=payment_type)
+        
+        return queryset
     
     def get_serializer_context(self):
         return {'request': self.request}
     
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        enrollment = Enrollment.objects.filter(
+            parent_user=self.request.user,
+            status='ACTIVE'
+        ).order_by('-created_at').first()
+
+        serializer.save(
+            user=self.request.user,
+            payment_type='installment',
+            source='student_portal',
+            status='pending',
+            enrollment=enrollment,
+        )
     
     @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAdminUser])
     def approve(self, request, pk=None):
         proof = self.get_object()
-        proof.status = 'approved'
-        proof.admin_remarks = request.data.get('remarks', '')
-        proof.save()
-        return Response({'status': 'approved', 'message': 'Payment proof approved'})
-    
+
+        if proof.status == 'approved':
+            return Response(
+                {'detail': 'This proof of payment has already been approved.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if proof.approved_transaction_id:
+            return Response(
+                {'detail': 'This proof is already linked to a posted transaction.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not proof.enrollment:
+            return Response(
+                {'detail': 'No active enrollment is linked to this proof of payment.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not proof.enrollment.parent_user:
+            return Response(
+                {'detail': 'The linked enrollment has no parent account.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        amount = Decimal(str(proof.amount or 0))
+        if amount <= 0:
+            return Response(
+                {'detail': 'Proof amount must be greater than 0 before approval.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        proof.enrollment.refresh_from_db()
+        student_name = (
+            f"{proof.enrollment.first_name or ''} {proof.enrollment.last_name or ''}".strip()
+            or proof.enrollment.student.username
+        )
+
+        with db_transaction.atomic():
+            payment_tx = Transaction.objects.create(
+                parent=proof.enrollment.parent_user,
+                enrollment=proof.enrollment,
+                student_name=student_name,
+                transaction_type='TUITION',
+                entry_type='CREDIT',
+                item='PAYMENT',
+                school_year=proof.enrollment.academic_year,
+                semester='1st',
+                amount=amount,
+                description=proof.description or f'Payment posted from approved proof #{proof.id}.',
+                payment_method='OTHER',
+                transaction_date=timezone.localdate(),
+                status='PAID',
+                student_number_snapshot=proof.enrollment.student_number,
+                grade_level_snapshot=proof.enrollment.grade_level,
+                payment_mode_snapshot=proof.enrollment.payment_mode,
+                student_type_snapshot=proof.enrollment.student_type,
+                reference_number=proof.reference_number or generate_transaction_reference(),
+            )
+
+            new_balance = recompute_running_balances_for_enrollment(proof.enrollment)
+            recompute_transaction_statuses_for_enrollment(proof.enrollment)
+
+            proof.status = 'approved'
+            proof.admin_remarks = request.data.get('remarks', '')
+            proof.approved_transaction = payment_tx
+            proof.save(update_fields=['status', 'admin_remarks', 'approved_transaction', 'updated_at'])
+
+            send_payment_received_reminder(sender=request.user, payment_tx=payment_tx)
+
+            create_reminder_once(
+                recipient=proof.user,
+                sender=request.user,
+                title="Proof of Payment Approved",
+                message=(
+                    f"Your proof of payment has been approved.\n"
+                    f"Reference Number: {proof.reference_number}\n"
+                    f"Amount Paid: ₱{amount}\n"
+                    f"Remaining Balance: ₱{max(new_balance, Decimal('0.00'))}"
+                ),
+                reminder_type="PAYMENT",
+                event_type="PROOF_APPROVED",
+                transaction=payment_tx,
+                proof_of_payment=proof,
+                reference_date=timezone.localdate(),
+            )
+
+            if proof.payment_type == 'enrollment' and proof.enrollment and proof.enrollment.status == 'PENDING':
+                proof.enrollment.status = 'ACTIVE'
+                proof.enrollment.save(update_fields=['status'])
+
+        return Response({
+            'status': 'approved',
+            'message': 'Payment proof approved and payment posted successfully.',
+            'transaction_id': payment_tx.id,
+            'new_balance': float(max(new_balance, Decimal('0.00'))),
+        })
+        
+        
     @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAdminUser])
     def reject(self, request, pk=None):
         proof = self.get_object()
+
+        if proof.status == 'approved':
+            return Response(
+                {'detail': 'Approved proofs cannot be rejected.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if proof.status == 'rejected':
+            return Response(
+                {'detail': 'This proof of payment has already been rejected.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        remarks = request.data.get('remarks', '').strip()
+
         proof.status = 'rejected'
-        proof.admin_remarks = request.data.get('remarks', '')
-        proof.save()
-        return Response({'status': 'rejected', 'message': 'Payment proof rejected'})
+        proof.admin_remarks = remarks
+        proof.save(update_fields=['status', 'admin_remarks', 'updated_at'])
+
+        create_reminder_once(
+            recipient=proof.user,
+            sender=request.user,
+            title="Proof of Payment Rejected",
+            message=(
+                f"Your submitted proof of payment was rejected.\n"
+                f"Reference Number: {proof.reference_number}\n"
+                f"{f'Reason: {remarks}' if remarks else 'Please contact the school for clarification.'}"
+            ),
+            reminder_type="PAYMENT",
+            event_type="PROOF_REJECTED",
+            transaction=proof.approved_transaction,
+            proof_of_payment=proof,
+            reference_date=timezone.localdate(),
+        )
+
+        if proof.payment_type == 'enrollment' and proof.enrollment and proof.enrollment.status == 'PENDING':
+            proof.enrollment.status = 'DROPPED'
+            proof.enrollment.remarks = f"Payment proof rejected: {remarks or 'No reason provided'}"
+            proof.enrollment.save(update_fields=['status', 'remarks'])
+
+        return Response({'status': 'rejected', 'message': 'Payment proof rejected'}) 

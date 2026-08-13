@@ -1,5 +1,8 @@
 # accounts/serializers.py
+from django.db import models
+from django.utils.text import slugify
 from rest_framework import serializers
+from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
 from .models import User, UserProfile, TeacherProfile, AdminProfile, Section, Subject, PasswordResetRequest
 
 # Enrollment
@@ -8,25 +11,58 @@ from enrollment.models import Enrollment
 
 # ── Read-only serializers ──────────────────────────────
 
-class SubjectTeacherSerializer(serializers.Serializer):
+class SubjectTeacherSerializer(SafeSerializer):
     """Lightweight teacher info nested inside a subject."""
     id = serializers.IntegerField(source="user.id")
     username = serializers.CharField(source="user.username")
     employee_id = serializers.CharField()
 
 
-class SubjectSerializer(serializers.ModelSerializer):
-    teachers = SubjectTeacherSerializer(many=True, read_only=True)
+class SubjectLiteSerializer(SafeModelSerializer):
+    class Meta:
+        model = Subject
+        fields = ["id", "name", "code"]
+
+
+class SubjectSerializer(SafeModelSerializer):
+    teachers = serializers.SerializerMethodField()
     assigned_teacher = serializers.IntegerField(
         write_only=True, required=False, allow_null=True,
+    )
+    assigned_teachers = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        allow_empty=True,
     )
 
     class Meta:
         model = Subject
-        fields = ["id", "name", "code", "teachers", "assigned_teacher"]
+        fields = ["id", "name", "code", "teachers", "assigned_teacher", "assigned_teachers"]
+
+    @staticmethod
+    def _strip_assignment_fields(validated_data):
+        # Assignment is applied in views after subject save.
+        validated_data.pop("assigned_teacher", None)
+        validated_data.pop("assigned_teachers", None)
+        return validated_data
+
+    def create(self, validated_data):
+        clean_data = self._strip_assignment_fields(dict(validated_data))
+        return super().create(clean_data)
+
+    def update(self, instance, validated_data):
+        clean_data = self._strip_assignment_fields(dict(validated_data))
+        return super().update(instance, clean_data)
+
+    def get_teachers(self, obj):
+        teacher_profiles = TeacherProfile.objects.select_related("user").filter(
+            models.Q(subject=obj) | models.Q(subjects=obj)
+        ).distinct()
+        return SubjectTeacherSerializer(teacher_profiles, many=True).data
 
 
-class SectionSerializer(serializers.ModelSerializer):
+class SectionSerializer(SafeModelSerializer):
     adviser_name = serializers.SerializerMethodField(read_only=True)
     student_count = serializers.SerializerMethodField()
     is_full = serializers.SerializerMethodField()
@@ -37,12 +73,14 @@ class SectionSerializer(serializers.ModelSerializer):
     grade_level_display = serializers.CharField(source="get_grade_level_display", read_only=True)
     room_code = serializers.CharField(source="room.code", read_only=True, allow_null=True)
     room_name = serializers.CharField(source="room.name", read_only=True, allow_null=True)
+    school_year_name = serializers.CharField(source="school_year.name", read_only=True, allow_null=True)
 
     class Meta:
         model = Section
         fields = [
             "id", "name", "grade_level", "grade_level_display",
             "capacity",
+            "school_year", "school_year_name",
             "room", "room_code", "room_name",
             "adviser", "adviser_name",
             "student_count", "is_full",
@@ -73,21 +111,34 @@ class SectionSerializer(serializers.ModelSerializer):
         ]
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(SafeModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email", "role", "status", "created_at"]
+        fields = ["id", "username", "first_name", "last_name", "email", "role", "status", "created_at"]
 
 
-class TeacherProfileReadSerializer(serializers.ModelSerializer):
+class AdminProfileReadSerializer(SafeModelSerializer):
+    class Meta:
+        model = AdminProfile
+        fields = ["id", "permissions_level"]
+
+
+class TeacherProfileReadSerializer(SafeModelSerializer):
     """Nested read-only representation returned inside UserDetailSerializer."""
     subject = SubjectSerializer(read_only=True)
+    subjects = serializers.SerializerMethodField()
     section = SectionSerializer(read_only=True)
     avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = TeacherProfile
-        fields = ["id", "employee_id", "subject", "section", "avatar", "avatar_url"]
+        fields = ["id", "employee_id", "subject", "subjects", "section", "avatar", "avatar_url"]
+
+    def get_subjects(self, obj):
+        subjects = list(obj.subjects.all())
+        if obj.subject and all(s.id != obj.subject_id for s in subjects):
+            subjects.insert(0, obj.subject)
+        return SubjectLiteSerializer(subjects, many=True).data
 
     def get_avatar_url(self, obj):
         if obj.avatar:
@@ -98,9 +149,10 @@ class TeacherProfileReadSerializer(serializers.ModelSerializer):
         return None
 
 
-class UserProfileReadSerializer(serializers.ModelSerializer):
+class UserProfileReadSerializer(SafeModelSerializer):
     section = SectionSerializer(read_only=True)
     avatar_url = serializers.SerializerMethodField()
+    transfer_clearance_url = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
@@ -113,6 +165,13 @@ class UserProfileReadSerializer(serializers.ModelSerializer):
             "payment_mode",
             "parent_first_name", "parent_middle_name", "parent_last_name",
             "contact_number", "address",
+            "transfer_status", "is_read_only",
+            "transfer_date", "transfer_reason",
+            "destination_school_name", "destination_school_address", "destination_school_contact",
+            "transfer_reference_number", "transfer_notes",
+            "allow_transfer_with_balance", "outstanding_balance_snapshot",
+            "transfer_requested_at", "transfer_approved_at", "transfer_approved_by",
+            "transfer_clearance", "transfer_clearance_url",
             "avatar", "avatar_url",
         ]
 
@@ -124,13 +183,22 @@ class UserProfileReadSerializer(serializers.ModelSerializer):
             return obj.avatar.url
         return None
 
+    def get_transfer_clearance_url(self, obj):
+        if obj.transfer_clearance:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.transfer_clearance.url)
+            return obj.transfer_clearance.url
+        return None
 
-class UserDetailSerializer(serializers.ModelSerializer):
+
+class UserDetailSerializer(SafeModelSerializer):
     """
     Full user + nested profile + current enrollment for parent/student.
     """
     teacher_profile = TeacherProfileReadSerializer(read_only=True)
     profile = UserProfileReadSerializer(read_only=True)
+    admin_profile = AdminProfileReadSerializer(read_only=True)
     enrollment = serializers.SerializerMethodField()
 
     class Meta:
@@ -138,12 +206,15 @@ class UserDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "username",
+            "first_name",
+            "last_name",
             "email",
             "role",
             "status",
             "created_at",
             "teacher_profile",
             "profile",
+            "admin_profile",
             "enrollment",
         ]
 
@@ -168,9 +239,14 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
 # ── Write serializers ──────────────────────────────────
 
-class TeacherAssignmentSerializer(serializers.Serializer):
+class TeacherAssignmentSerializer(SafeSerializer):
     """Update a teacher's subject / section assignment."""
     subject = serializers.IntegerField(required=False, allow_null=True)
+    subjects = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_empty=True,
+    )
     section = serializers.IntegerField(required=False, allow_null=True)
     employee_id = serializers.CharField(required=False, allow_blank=True)
 
@@ -179,13 +255,63 @@ class TeacherAssignmentSerializer(serializers.Serializer):
             raise serializers.ValidationError("Subject not found")
         return value
 
+    def validate_subjects(self, values):
+        unique_values = []
+        for value in (values or []):
+            try:
+                subject_id = int(value)
+            except (TypeError, ValueError):
+                continue
+            if subject_id > 0:
+                unique_values.append(subject_id)
+
+        unique_values = list(dict.fromkeys(unique_values))
+        if not unique_values:
+            return []
+
+        found_ids = set(Subject.objects.filter(id__in=unique_values).values_list("id", flat=True))
+        missing = [v for v in unique_values if v not in found_ids]
+        if missing:
+            raise serializers.ValidationError(
+                "One or more selected subjects no longer exist. Please reselect subjects and try again."
+            )
+        return unique_values
+
     def validate_section(self, value):
         if value is not None and not Section.objects.filter(id=value).exists():
             raise serializers.ValidationError("Section not found")
         return value
 
 
-class StudentProfileUpdateSerializer(serializers.Serializer):
+class AdminProfileUpdateSerializer(SafeSerializer):
+    """Update an admin account's editable fields."""
+    username = serializers.CharField(max_length=50, required=False)
+    first_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False)
+    current_password = serializers.CharField(required=False, allow_blank=True)
+    new_password = serializers.CharField(required=False, allow_blank=True, min_length=8)
+    confirm_password = serializers.CharField(required=False, allow_blank=True, min_length=8)
+
+    def validate(self, attrs):
+        new_password = (attrs.get("new_password") or "").strip()
+        confirm_password = (attrs.get("confirm_password") or "").strip()
+        current_password = (attrs.get("current_password") or "").strip()
+
+        if new_password or confirm_password or current_password:
+            if not current_password:
+                raise serializers.ValidationError({"current_password": "Current password is required."})
+            if not new_password:
+                raise serializers.ValidationError({"new_password": "New password is required."})
+            if not confirm_password:
+                raise serializers.ValidationError({"confirm_password": "Please confirm the new password."})
+            if new_password != confirm_password:
+                raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
+
+        return attrs
+
+
+class StudentProfileUpdateSerializer(SafeSerializer):
     """Update a student's profile fields."""
     student_first_name = serializers.CharField(max_length=50, required=False)
     student_middle_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
@@ -205,18 +331,39 @@ class StudentProfileUpdateSerializer(serializers.Serializer):
         return value
 
 
-class LoginSerializer(serializers.Serializer):
+class StudentTransferDecisionSerializer(SafeSerializer):
+    decision = serializers.ChoiceField(choices=["PENDING", "APPROVED", "REJECTED"])
+    transfer_date = serializers.DateField(required=False, allow_null=True)
+    transfer_reason = serializers.CharField(required=False, allow_blank=True)
+    destination_school_name = serializers.CharField(required=False, allow_blank=True)
+    destination_school_address = serializers.CharField(required=False, allow_blank=True)
+    destination_school_contact = serializers.CharField(required=False, allow_blank=True)
+    transfer_reference_number = serializers.CharField(required=False, allow_blank=True)
+    transfer_notes = serializers.CharField(required=False, allow_blank=True)
+    allow_transfer_with_balance = serializers.BooleanField(required=False, default=False)
+
+
+class StudentTransferRequestSerializer(SafeSerializer):
+    transfer_reason = serializers.CharField(required=True, allow_blank=False)
+    destination_school_name = serializers.CharField(required=True, allow_blank=False)
+    destination_school_address = serializers.CharField(required=False, allow_blank=True)
+    destination_school_contact = serializers.CharField(required=False, allow_blank=True)
+    transfer_reference_number = serializers.CharField(required=False, allow_blank=True)
+    transfer_notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class LoginSerializer(SafeSerializer):
     username = serializers.CharField()
     password = serializers.CharField()
 
 
-class CreateUserSerializer(serializers.Serializer):
-    username = serializers.CharField(max_length=50)
+class CreateUserSerializer(SafeSerializer):
+    username = serializers.CharField(max_length=50, required=False, allow_blank=True)
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=6)
     role = serializers.ChoiceField(choices=["ADMIN", "TEACHER", "PARENT_STUDENT"])
     status = serializers.ChoiceField(
-        choices=["ACTIVE", "INACTIVE", "SUSPENDED"],
+        choices=["NEW", "ACTIVE", "INACTIVE", "SUSPENDED", "TRANSFERRED"],
         required=False,
     )
 
@@ -235,8 +382,30 @@ class CreateUserSerializer(serializers.Serializer):
 
     # Teacher profile fields
     subject = serializers.IntegerField(required=False)
+    subjects = serializers.ListField(child=serializers.IntegerField(), required=False, allow_empty=True)
     section_teacher = serializers.IntegerField(required=False)
     employee_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
+
+    @staticmethod
+    def _build_student_username_base(first_name, last_name):
+        safe_last = slugify(str(last_name or "").strip()).replace("-", "")
+        safe_first = slugify(str(first_name or "").strip()).replace("-", "")
+        base = "_".join(part for part in [safe_last, safe_first] if part).strip("_")
+        return base or "student_user"
+
+    @staticmethod
+    def _generate_unique_student_username(first_name, last_name):
+        max_len = User._meta.get_field("username").max_length
+        base = CreateUserSerializer._build_student_username_base(first_name, last_name)[:max_len]
+
+        candidate = base
+        counter = 1
+        while User.objects.filter(username__iexact=candidate).exists():
+            suffix = str(counter)
+            trimmed = base[: max_len - len(suffix)]
+            candidate = f"{trimmed}{suffix}"
+            counter += 1
+        return candidate
 
     def validate(self, attrs):
         role = attrs.get("role")
@@ -264,7 +433,17 @@ class CreateUserSerializer(serializers.Serializer):
                 except Section.DoesNotExist:
                     raise serializers.ValidationError({"section": "Section not found"})
 
+            attrs["username"] = self._generate_unique_student_username(
+                attrs.get("student_first_name"),
+                attrs.get("student_last_name"),
+            )
+
         elif role == "TEACHER":
+            username = (attrs.get("username") or "").strip()
+            if not username:
+                raise serializers.ValidationError({"username": "Username is required for teacher accounts."})
+            attrs["username"] = username
+
             subject_id = attrs.get("subject")
             if subject_id:
                 try:
@@ -272,12 +451,40 @@ class CreateUserSerializer(serializers.Serializer):
                 except Subject.DoesNotExist:
                     raise serializers.ValidationError({"subject": "Subject not found"})
 
+            subject_ids = []
+            for value in (attrs.get("subjects") or []):
+                try:
+                    subject_id = int(value)
+                except (TypeError, ValueError):
+                    continue
+                if subject_id > 0:
+                    subject_ids.append(subject_id)
+
+            subject_ids = list(dict.fromkeys(subject_ids))
+            attrs["subjects"] = subject_ids
+            if subject_ids:
+                found_ids = set(Subject.objects.filter(id__in=subject_ids).values_list("id", flat=True))
+                missing_ids = [sid for sid in subject_ids if sid not in found_ids]
+                if missing_ids:
+                    raise serializers.ValidationError(
+                        {
+                            "subjects": "One or more selected subjects no longer exist. "
+                            "Please reselect subjects and try again."
+                        }
+                    )
+
             section_id = attrs.get("section_teacher")
             if section_id:
                 try:
                     Section.objects.get(id=section_id)
                 except Section.DoesNotExist:
                     raise serializers.ValidationError({"section_teacher": "Section not found"})
+
+        else:
+            username = (attrs.get("username") or "").strip()
+            if not username:
+                raise serializers.ValidationError({"username": "Username is required."})
+            attrs["username"] = username
 
         return attrs
 
@@ -306,7 +513,7 @@ class CreateUserSerializer(serializers.Serializer):
                     parent_profile_data[f] = validated_data.pop(f)
 
         elif validated_data.get("role") == "TEACHER":
-            teacher_fields = ["subject", "section_teacher", "employee_id"]
+            teacher_fields = ["subject", "subjects", "section_teacher", "employee_id"]
             for f in teacher_fields:
                 if f in validated_data:
                     teacher_profile_data[f] = validated_data.pop(f)
@@ -338,36 +545,73 @@ class CreateUserSerializer(serializers.Serializer):
             )
 
         elif user.role == "TEACHER":
+            subject_ids = list(dict.fromkeys(teacher_profile_data.get("subjects") or []))
             subject_obj = None
             if teacher_profile_data.get("subject"):
                 subject_obj = Subject.objects.get(id=teacher_profile_data.get("subject"))
+            elif subject_ids:
+                subject_obj = Subject.objects.filter(id__in=subject_ids).order_by("id").first()
 
             section_obj = None
             if teacher_profile_data.get("section_teacher"):
                 section_obj = Section.objects.get(id=teacher_profile_data.get("section_teacher"))
 
-            TeacherProfile.objects.create(
+            teacher_profile = TeacherProfile.objects.create(
                 user=user,
                 subject=subject_obj,
                 section=section_obj,
                 employee_id=teacher_profile_data.get("employee_id", ""),
             )
 
+            if subject_ids:
+                teacher_profile.subjects.set(Subject.objects.filter(id__in=subject_ids))
+            elif subject_obj:
+                teacher_profile.subjects.set([subject_obj])
+
         return user
 
 
-class PasswordResetRequestCreateSerializer(serializers.Serializer):
+class PasswordResetRequestCreateSerializer(SafeSerializer):
+    username = serializers.CharField(max_length=50)
     email = serializers.EmailField()
     message = serializers.CharField(required=False, allow_blank=True)
 
-    def validate_email(self, value):
-        if not User.objects.filter(email__iexact=value).exists():
-            raise serializers.ValidationError("No account found with this email.")
-        return value
+    def validate(self, attrs):
+        username = (attrs.get("username") or "").strip()
+        email = (attrs.get("email") or "").strip().lower()
+
+        if not username:
+            raise serializers.ValidationError({"username": "Username is required."})
+
+        user = User.objects.filter(username__iexact=username).first()
+        if not user:
+            raise serializers.ValidationError(
+                {"detail": "No account found with this username."}
+            )
+
+        # Allow shared recipient emails by validating enrollment contact email too.
+        matches_user_email = (user.email or "").strip().lower() == email
+        matches_enrollment_email = Enrollment.objects.filter(
+            student=user,
+            email__iexact=email,
+        ).exists()
+
+        if not (matches_user_email or matches_enrollment_email):
+            raise serializers.ValidationError(
+                {"detail": "This email does not match the selected username."}
+            )
+
+        attrs["username"] = username
+        attrs["email"] = email
+        attrs["recipient_email"] = email
+        attrs["user"] = user
+        return attrs
 
 
-class PasswordResetRequestSerializer(serializers.ModelSerializer):
+class PasswordResetRequestSerializer(SafeModelSerializer):
     user_name = serializers.SerializerMethodField()
+    account_email = serializers.SerializerMethodField()
+    email_matches_account = serializers.SerializerMethodField()
 
     class Meta:
         model = PasswordResetRequest
@@ -376,12 +620,22 @@ class PasswordResetRequestSerializer(serializers.ModelSerializer):
             "user",
             "user_name",
             "email",
+            "account_email",
+            "email_matches_account",
             "message",
             "status",
             "requested_at",
             "sent_at",
             "completed_at",
         ]
+
+    def get_account_email(self, obj):
+        return (getattr(obj.user, "email", "") or "").strip()
+
+    def get_email_matches_account(self, obj):
+        request_email = (obj.email or "").strip().lower()
+        account_email = (getattr(obj.user, "email", "") or "").strip().lower()
+        return bool(request_email and account_email and request_email == account_email)
 
     def get_user_name(self, obj):
         user = obj.user

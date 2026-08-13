@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Calendar, CheckCircle, XCircle, Clock, AlertCircle, 
-  ChevronLeft, ChevronRight, X, List, LayoutGrid 
+  ChevronLeft, ChevronRight, X, List, LayoutGrid, Info
 } from 'lucide-react';
 import "../StudentWebsiteCSS/Attendance.css";
 import { apiFetch } from "../api/apiFetch";
+import Toast from "../Global/Toast";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
@@ -12,10 +13,27 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December"
 ];
 
+const toNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const normalizeAttendanceStats = (payload = {}) => ({
+  school_year: payload.school_year || "",
+  total_classes: toNumber(payload.total_classes ?? payload.total),
+  present_count: toNumber(payload.present_count ?? payload.present),
+  absent_count: toNumber(payload.absent_count ?? payload.absent),
+  late_count: toNumber(payload.late_count ?? payload.late),
+  excused_count: toNumber(payload.excused_count ?? payload.excused),
+  attendance_rate: toNumber(payload.attendance_rate ?? payload.percentage),
+});
+
 const Attendance = () => {
   const [view, setView] = useState("calendar");
   const [loading, setLoading] = useState(true);
+  const [activeTooltip, setActiveTooltip] = useState(null);
   const [stats, setStats] = useState({
+    school_year: "",
     total_classes: 0,
     present_count: 0,
     absent_count: 0,
@@ -30,6 +48,19 @@ const Attendance = () => {
   const [filterSubject, setFilterSubject] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [subjectOptions, setSubjectOptions] = useState([]);
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
   
   // Calendar navigation
   const today = new Date();
@@ -51,7 +82,8 @@ const Attendance = () => {
         ]);
         
         if (statsRes.ok) {
-          setStats(await statsRes.json());
+          const statsPayload = await statsRes.json();
+          setStats(normalizeAttendanceStats(statsPayload));
         }
         if (attendanceRes.ok) {
           const data = await attendanceRes.json();
@@ -60,12 +92,13 @@ const Attendance = () => {
         }
       } catch (err) {
         console.error("Attendance fetch error:", err);
+        addToast("Attendance Error", "Failed to load attendance data. Please try again.", "error");
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [currentMonth, currentYear, filterSubject]);
+  }, [currentMonth, currentYear, filterSubject, addToast]);
 
   // Fetch daily detail when a date is clicked
   const handleDateClick = async (dateStr) => {
@@ -78,6 +111,7 @@ const Attendance = () => {
       }
     } catch (err) {
       console.error("Daily detail fetch error:", err);
+      addToast("Detail Error", "Failed to load daily attendance details.", "error");
     } finally {
       setDetailLoading(false);
     }
@@ -100,6 +134,96 @@ const Attendance = () => {
         : calendarData.filter((d) => d.overall_status === filterStatus),
     [calendarData, filterStatus]
   );
+
+  const calendarTotals = useMemo(
+    () =>
+      displayedCalendarData.reduce(
+        (acc, day) => {
+          acc.total += toNumber(day.total);
+          acc.present += toNumber(day.present);
+          acc.absent += toNumber(day.absent);
+          acc.late += toNumber(day.late);
+          acc.excused += toNumber(day.excused);
+          return acc;
+        },
+        { total: 0, present: 0, absent: 0, late: 0, excused: 0 }
+      ),
+    [displayedCalendarData]
+  );
+
+  const effectiveStats = useMemo(() => {
+    const hasServerStats =
+      stats.total_classes > 0 ||
+      stats.present_count > 0 ||
+      stats.absent_count > 0 ||
+      stats.late_count > 0 ||
+      stats.excused_count > 0;
+
+    if (hasServerStats || calendarTotals.total === 0) {
+      return stats;
+    }
+
+    const attended = calendarTotals.present + calendarTotals.late + calendarTotals.excused;
+    const attendanceRate = calendarTotals.total
+      ? (attended / calendarTotals.total) * 100
+      : 0;
+
+    return {
+      school_year: stats.school_year,
+      total_classes: calendarTotals.total,
+      present_count: calendarTotals.present,
+      absent_count: calendarTotals.absent,
+      late_count: calendarTotals.late,
+      excused_count: calendarTotals.excused,
+      attendance_rate: attendanceRate,
+    };
+  }, [stats, calendarTotals]);
+
+  const attendanceInsights = useMemo(() => {
+    const total = effectiveStats.total_classes;
+    const attended =
+      effectiveStats.present_count +
+      effectiveStats.late_count +
+      effectiveStats.excused_count;
+    const rate = total > 0 ? (attended / total) * 100 : 0;
+    const onTimeRate = attended > 0 ? (effectiveStats.present_count / attended) * 100 : 0;
+    const trackedDays = displayedCalendarData.length;
+    const cleanDays = displayedCalendarData.filter(
+      (d) => toNumber(d.absent) === 0 && toNumber(d.late) === 0 && toNumber(d.present) > 0
+    ).length;
+
+    let profileText = "No classes logged yet for this period.";
+    if (rate >= 95) profileText = "Excellent consistency. Keep this rhythm to stay ahead.";
+    else if (rate >= 90) profileText = "Strong attendance habit with only minor gaps.";
+    else if (rate >= 80) profileText = "Fair attendance. A few more present days will boost performance.";
+    else if (total > 0) profileText = "Attendance is below target. Focus on reducing absences this month.";
+
+    const absenceShare = total > 0 ? (effectiveStats.absent_count / total) * 100 : 0;
+    let focusText = "On-time arrivals look stable.";
+    if (onTimeRate < 80 && attended > 0) {
+      focusText = "Late arrivals are frequent. Target earlier check-in for stronger routine.";
+    } else if (absenceShare > 15) {
+      focusText = "Absences are affecting momentum. Prioritize consistent attendance this week.";
+    }
+
+    return {
+      profile: {
+        value: `${rate.toFixed(1)}%`,
+        label: "Attendance Profile",
+        note: profileText,
+      },
+      punctuality: {
+        value: `${onTimeRate.toFixed(1)}%`,
+        label: "On-Time Rate",
+        note: "Share of attended classes that started on time.",
+      },
+      momentum: {
+        value: `${cleanDays}/${trackedDays || 0}`,
+        label: "Clean Attendance Days",
+        note: focusText,
+      },
+    };
+  }, [effectiveStats, displayedCalendarData]);
 
   const getAttendanceForDate = (day) => {
     const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -187,6 +311,91 @@ const Attendance = () => {
     return `${hour12}:${m} ${ampm}`;
   };
 
+  const visibleDailyRecords = useMemo(() => {
+    const records = dailyDetail?.records || [];
+    return records.filter((item) => {
+      const status = String(item?.status || "").trim();
+      return status && status.toUpperCase() !== "UNMARKED";
+    });
+  }, [dailyDetail]);
+
+  if (loading) {
+    return (
+      <main className="student-attendance-main">
+        <section className="sa-section">
+          <div className="sa-stats-grid">
+            {[...Array(6)].map((_, idx) => (
+              <div key={idx} className="sa-stat-card saSkel__statCard">
+                <div className="sa-stat-header">
+                  <div className="saSkel sa-shimmer saSkel__line saSkel__line--statLabel" />
+                  <div className="saSkel sa-shimmer saSkel__icon" />
+                </div>
+                <div className="saSkel sa-shimmer saSkel__line saSkel__line--statValue" />
+                <div className="saSkel sa-shimmer saSkel__line saSkel__line--statChange" />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="sa-section">
+          <div className="sa-insights-panel">
+            <div className="sa-insights-header">
+              <div className="saSkel sa-shimmer saSkel__line saSkel__line--title" />
+              <div className="saSkel sa-shimmer saSkel__line saSkel__line--subtitle" />
+            </div>
+            <div className="sa-insights-grid">
+              {[...Array(3)].map((_, idx) => (
+                <article key={idx} className="sa-insight-card">
+                  <div className="saSkel sa-shimmer saSkel__line saSkel__line--insightLabel" />
+                  <div className="saSkel sa-shimmer saSkel__line saSkel__line--insightValue" />
+                  <div className="saSkel sa-shimmer saSkel__line saSkel__line--insightNote" />
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="sa-section">
+          <div className="sa-section-header">
+            <div>
+              <div className="saSkel sa-shimmer saSkel__line saSkel__line--sectionSub" />
+            </div>
+            <div className="sa-header-actions">
+              <div className="saSkel sa-shimmer saSkel__toggle" />
+            </div>
+          </div>
+        </section>
+
+        <section className="sa-section">
+          <div className="sa-filter-bar saSkel__filterBar">
+            <div className="saSkel sa-shimmer saSkel__line saSkel__line--filter" />
+            <div className="saSkel sa-shimmer saSkel__line saSkel__line--filter" />
+          </div>
+        </section>
+
+        <section className="sa-section">
+          <div className="sa-calendar-container saSkel__calendarContainer">
+            <div className="sa-calendar-header">
+              <div className="saSkel sa-shimmer saSkel__navBtn" />
+              <div className="saSkel sa-shimmer saSkel__line saSkel__line--month" />
+              <div className="saSkel sa-shimmer saSkel__navBtn" />
+            </div>
+
+            <div className="sa-calendar-grid">
+              {[...Array(7)].map((_, idx) => (
+                <div key={`head-${idx}`} className="saSkel sa-shimmer saSkel__line saSkel__line--dayHeader" />
+              ))}
+              {[...Array(35)].map((_, idx) => (
+                <div key={`cell-${idx}`} className="saSkel sa-shimmer saSkel__calendarCell" />
+              ))}
+            </div>
+          </div>
+        </section>
+        <Toast toasts={toasts} onDismiss={dismissToast} />
+      </main>
+    );
+  }
+
   return (
     <main className="student-attendance-main">
       {/* Stats Overview */}
@@ -197,7 +406,7 @@ const Attendance = () => {
               <span className="sa-stat-label">Total Classes</span>
               <Calendar size={24} className="sa-stat-icon" />
             </div>
-            <div className="sa-stat-value">{stats.total_classes}</div>
+            <div className="sa-stat-value">{effectiveStats.total_classes}</div>
             <div className="sa-stat-change">This school year</div>
           </div>
 
@@ -206,7 +415,7 @@ const Attendance = () => {
               <span className="sa-stat-label">Present</span>
               <CheckCircle size={24} className="sa-stat-icon" />
             </div>
-            <div className="sa-stat-value">{stats.present_count}</div>
+            <div className="sa-stat-value">{effectiveStats.present_count}</div>
             <div className="sa-stat-change positive">On time attendance</div>
           </div>
 
@@ -215,7 +424,7 @@ const Attendance = () => {
               <span className="sa-stat-label">Late</span>
               <Clock size={24} className="sa-stat-icon" />
             </div>
-            <div className="sa-stat-value">{stats.late_count}</div>
+            <div className="sa-stat-value">{effectiveStats.late_count}</div>
             <div className="sa-stat-change">Arrived late</div>
           </div>
 
@@ -224,7 +433,7 @@ const Attendance = () => {
               <span className="sa-stat-label">Absent</span>
               <XCircle size={24} className="sa-stat-icon" />
             </div>
-            <div className="sa-stat-value">{stats.absent_count}</div>
+            <div className="sa-stat-value">{effectiveStats.absent_count}</div>
             <div className="sa-stat-change">Days missed</div>
           </div>
 
@@ -233,7 +442,7 @@ const Attendance = () => {
               <span className="sa-stat-label">Excused</span>
               <AlertCircle size={24} className="sa-stat-icon" />
             </div>
-            <div className="sa-stat-value">{stats.excused_count}</div>
+            <div className="sa-stat-value">{effectiveStats.excused_count}</div>
             <div className="sa-stat-change">Legitimate absences</div>
           </div>
 
@@ -242,10 +451,78 @@ const Attendance = () => {
               <span className="sa-stat-label">Attendance Rate</span>
               <AlertCircle size={24} className="sa-stat-icon" />
             </div>
-            <div className="sa-stat-value">{stats.attendance_rate?.toFixed(1) || 0}%</div>
-            <div className={`sa-stat-change ${stats.attendance_rate >= 90 ? 'positive' : ''}`}>
-              {stats.attendance_rate >= 90 ? 'Excellent' : stats.attendance_rate >= 75 ? 'Good' : 'Needs improvement'}
+            <div className="sa-stat-value">{effectiveStats.attendance_rate?.toFixed(1) || 0}%</div>
+            <div className={`sa-stat-change ${effectiveStats.attendance_rate >= 90 ? 'positive' : ''}`}>
+              {effectiveStats.attendance_rate >= 90 ? 'Excellent' : effectiveStats.attendance_rate >= 75 ? 'Good' : 'Needs improvement'}
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="sa-section">
+        <div className="sa-insights-panel">
+          <div className="sa-insights-header">
+            <h3>Attendance Insights</h3>
+            <span>Quick interpretation of your current attendance pattern</span>
+          </div>
+          <div className="sa-insights-grid">
+            <article className="sa-insight-card">
+              <div className="sa-insight-header">
+                <p className="sa-insight-label">{attendanceInsights.profile.label}</p>
+                <button 
+                  className="sa-info-btn"
+                  onClick={() => setActiveTooltip(activeTooltip === 'profile' ? null : 'profile')}
+                  title="Learn more about Attendance Profile"
+                >
+                  <Info size={16} />
+                </button>
+              </div>
+              {activeTooltip === 'profile' && (
+                <div className="sa-tooltip">
+                  <p>Your overall attendance percentage for this school year. More than 90% is considered excellent attendance.</p>
+                </div>
+              )}
+              <p className="sa-insight-value">{attendanceInsights.profile.value}</p>
+              <p className="sa-insight-note">{attendanceInsights.profile.note}</p>
+            </article>
+            <article className="sa-insight-card">
+              <div className="sa-insight-header">
+                <p className="sa-insight-label">{attendanceInsights.punctuality.label}</p>
+                <button 
+                  className="sa-info-btn"
+                  onClick={() => setActiveTooltip(activeTooltip === 'punctuality' ? null : 'punctuality')}
+                  title="Learn more about On-Time Rate"
+                >
+                  <Info size={16} />
+                </button>
+              </div>
+              {activeTooltip === 'punctuality' && (
+                <div className="sa-tooltip">
+                  <p>The percentage of your attended classes where you arrived on time. Higher rates show good punctuality habits.</p>
+                </div>
+              )}
+              <p className="sa-insight-value">{attendanceInsights.punctuality.value}</p>
+              <p className="sa-insight-note">{attendanceInsights.punctuality.note}</p>
+            </article>
+            <article className="sa-insight-card">
+              <div className="sa-insight-header">
+                <p className="sa-insight-label">{attendanceInsights.momentum.label}</p>
+                <button 
+                  className="sa-info-btn"
+                  onClick={() => setActiveTooltip(activeTooltip === 'momentum' ? null : 'momentum')}
+                  title="Learn more about Clean Attendance Days"
+                >
+                  <Info size={16} />
+                </button>
+              </div>
+              {activeTooltip === 'momentum' && (
+                <div className="sa-tooltip">
+                  <p>Days where you attended all classes on time with no absences or late arrivals. These show your best attendance days.</p>
+                </div>
+              )}
+              <p className="sa-insight-value">{attendanceInsights.momentum.value}</p>
+              <p className="sa-insight-note">{attendanceInsights.momentum.note}</p>
+            </article>
           </div>
         </div>
       </section>
@@ -255,7 +532,7 @@ const Attendance = () => {
         <div className="sa-section-header">
           <div>
             
-            <p className="sa-section-subtitle">S.Y. {stats.school_year || '2025-2026'}</p>
+            <p className="sa-section-subtitle">S.Y. {effectiveStats.school_year || '2025-2026'}</p>
           </div>
           <div className="sa-header-actions">
             <div className="sa-view-toggle">
@@ -323,9 +600,7 @@ const Attendance = () => {
       </section>
 
       {/* Main Content */}
-      {loading ? (
-        <div className="sa-loading">Loading attendance data...</div>
-      ) : view === "calendar" ? (
+      {view === "calendar" ? (
         /* CALENDAR VIEW */
         <section className="sa-section">
           <div className="sa-calendar-container">
@@ -374,61 +649,63 @@ const Attendance = () => {
         /* LIST VIEW */
         <section className="sa-section">
           <div className="sa-table-container">
-            <table className="sa-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Present</th>
-                  <th>Late</th>
-                  <th>Absent</th>
-                  <th>Excused</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayedCalendarData.length === 0 ? (
+            <div className="sa-table-scroll">
+              <table className="sa-table">
+                <thead>
                   <tr>
-                    <td colSpan="7" className="sa-empty-cell">
-                      No attendance records found for this month.
-                    </td>
+                    <th>Date</th>
+                    <th>Present</th>
+                    <th>Late</th>
+                    <th>Absent</th>
+                    <th>Excused</th>
+                    <th>Status</th>
+                    <th>Action</th>
                   </tr>
-                ) : (
-                  displayedCalendarData.map((record) => (
-                    <tr key={record.date}>
-                      <td data-label="Date">{record.date}</td>
-                      <td data-label="Present">
-                        <span className="sa-count-badge sa-count-present">{record.present}</span>
-                      </td>
-                      <td data-label="Late">
-                        <span className="sa-count-badge sa-count-late">{record.late}</span>
-                      </td>
-                      <td data-label="Absent">
-                        <span className="sa-count-badge sa-count-absent">{record.absent}</span>
-                      </td>
-                      <td data-label="Excused">
-                        <span className="sa-count-badge" style={{ backgroundColor: '#f3e8ff', color: '#7c3aed', fontWeight: '600' }}>
-                          {record.excused || 0}
-                        </span>
-                      </td>
-                      <td data-label="Status">
-                        <span className={`sa-status-badge sa-badge-${record.overall_status}`}>
-                          {record.overall_status}
-                        </span>
-                      </td>
-                      <td data-label="Action">
-                        <button 
-                          className="sa-detail-btn"
-                          onClick={() => handleDateClick(record.date)}
-                        >
-                          View Details
-                        </button>
+                </thead>
+                <tbody>
+                  {displayedCalendarData.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="sa-empty-cell">
+                        No attendance records found for this month.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    displayedCalendarData.map((record) => (
+                      <tr key={record.date}>
+                        <td data-label="Date">{record.date}</td>
+                        <td data-label="Present">
+                          <span className="sa-count-badge sa-count-present">{record.present}</span>
+                        </td>
+                        <td data-label="Late">
+                          <span className="sa-count-badge sa-count-late">{record.late}</span>
+                        </td>
+                        <td data-label="Absent">
+                          <span className="sa-count-badge sa-count-absent">{record.absent}</span>
+                        </td>
+                        <td data-label="Excused">
+                          <span className="sa-count-badge" style={{ backgroundColor: '#f3e8ff', color: '#7c3aed', fontWeight: '600' }}>
+                            {record.excused || 0}
+                          </span>
+                        </td>
+                        <td data-label="Status">
+                          <span className={`sa-status-badge sa-badge-${record.overall_status}`}>
+                            {record.overall_status}
+                          </span>
+                        </td>
+                        <td data-label="Action">
+                          <button 
+                            className="sa-detail-btn"
+                            onClick={() => handleDateClick(record.date)}
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       )}
@@ -446,9 +723,9 @@ const Attendance = () => {
             <div className="sa-modal-body">
               {detailLoading ? (
                 <div className="sa-loading">Loading...</div>
-              ) : dailyDetail?.records?.length > 0 ? (
+              ) : visibleDailyRecords.length > 0 ? (
                 <div className="sa-detail-list">
-                  {dailyDetail.records.map((item, idx) => (
+                  {visibleDailyRecords.map((item, idx) => (
                     <div key={idx} className={`sa-detail-item sa-item-${item.status.toLowerCase()}`}>
                       <div className="sa-detail-subject">
                         <span className="sa-subject-name">{item.subject_name || '—'}</span>
@@ -502,6 +779,7 @@ const Attendance = () => {
           </div>
         </div>
       )}
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </main>
   );
 };

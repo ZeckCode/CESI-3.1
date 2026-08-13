@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { List, Calendar, BookOpen, Users, Clock, MapPin, Download, Printer } from "lucide-react";
+import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import jsPDF from "jspdf";
 import "../TeacherWebsiteCSS/TeacherClassSchedule.css";
 import { apiFetch } from "../api/apiFetch";
+import PreviewModal from "../PreviewModal";
+import Toast from "../Global/Toast";
 
 const API = "";
 
@@ -15,10 +20,19 @@ const DAY_MAP = {
 };
 
 const DAYS_ORDER = ["MON", "TUE", "WED", "THU", "FRI"];
-const TIME_SLOTS = [
-  "07:00", "08:00", "09:00", "10:00", "11:00", "12:00",
-  "13:00", "14:00", "15:00", "16:00", "17:00",
-];
+
+const normalizeTimeKey = (time) => {
+  if (!time) return "";
+  const [h = "00", m = "00", s = "00"] = String(time).split(":");
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+};
+
+const timeToMinutes = (time) => {
+  const [h = 0, m = 0] = String(time)
+    .split(":")
+    .map((part) => Number(part));
+  return h * 60 + m;
+};
 
 // Color palette for subjects
 const SUBJECT_COLORS = [
@@ -110,14 +124,29 @@ const TeacherClassSchedule = () => {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [schoolYear, setSchoolYear] = useState(null);
+  const [schedulePreviewOpen, setSchedulePreviewOpen] = useState(false);
+  const [schedulePreviewData, setSchedulePreviewData] = useState(null);
+  const [toasts, setToasts] = useState([]);
   const printRef = useRef(null);
+
+  const dismissToast = useCallback((toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  }, []);
+
+  const pushToast = useCallback((title, message, type = "warning") => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 4500);
+  }, []);
 
   // Fetch schedules + sections on mount
   useEffect(() => {
     (async () => {
       try {
         const [schedRes, secRes, syRes] = await Promise.all([
-          apiFetch(`${API}/api/classmanagement/schedules/my/`),
+          apiFetch(`${API}/api/classmanagement/schedules/my/?include_free_period=0`),
           apiFetch(`${API}/api/attendance/my-sections/`),
           apiFetch(`${API}/api/classmanagement/school-years/active/`),
         ]);
@@ -216,436 +245,423 @@ const TeacherClassSchedule = () => {
     return `${gradeLabel} - ${sectionName}`;
   };
 
-  const getClassForSlot = (day, timeSlot) => {
-    const slotHour = parseInt(timeSlot.split(":")[0], 10);
+  const calendarStartSlots = useMemo(() => {
+    const uniqueSlots = new Set(
+      schedules
+        .map((sched) => normalizeTimeKey(sched.start_time))
+        .filter(Boolean)
+    );
 
-    return schedules.find((s) => {
-      if (s.day_of_week !== day) return false;
-      if (!s.start_time) return false;
-
-      const startHour = parseInt(s.start_time.split(":")[0], 10);
-      const endHour = s.end_time ? parseInt(s.end_time.split(":")[0], 10) : startHour + 1;
-
-      return slotHour >= startHour && slotHour < endHour;
-    });
-  };
+    return Array.from(uniqueSlots).sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
+  }, [schedules]);
 
   const handlePrint = () => {
-    const printWindow = window.open("", "", "width=1000,height=800");
-    const sortedSchedules = schedules.sort((a, b) => {
-      const dayA = DAY_MAP[a.day_of_week]?.order ?? 99;
-      const dayB = DAY_MAP[b.day_of_week]?.order ?? 99;
-      if (dayA !== dayB) return dayA - dayB;
-      return (a.start_time || "").localeCompare(b.start_time || "");
+    // Build grid structure: rows = time slots, columns = days
+    const gridBySlot = {};
+
+    // Group schedules by time slot
+    schedules.forEach((sched) => {
+      const timeKey = normalizeTimeKey(sched.start_time);
+      if (!gridBySlot[timeKey]) {
+        gridBySlot[timeKey] = {};
+      }
+      if (!gridBySlot[timeKey][sched.day_of_week]) {
+        gridBySlot[timeKey][sched.day_of_week] = [];
+      }
+      gridBySlot[timeKey][sched.day_of_week].push(sched);
     });
 
-    const schoolYearText = schoolYear
-      ? `S.Y. ${schoolYear.name || `${schoolYear.start_year}-${schoolYear.end_year}`}`
-      : "N/A";
+    // Sort time slots
+    const sortedTimeSlots = Object.keys(gridBySlot).sort(
+      (a, b) => timeToMinutes(a) - timeToMinutes(b)
+    );
 
-    const currentDate = new Date().toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    // Create custom preview JSX
+    const customPreviewContent = (
+      <div style={{ overflowX: 'auto', padding: '20px' }}>
+        <table style={{ 
+          width: '100%', 
+          borderCollapse: 'collapse',
+          fontSize: '13px'
+        }}>
+          <thead>
+            <tr>
+              <th style={{
+                background: '#1f2937',
+                color: '#fff',
+                padding: '12px',
+                textAlign: 'center',
+                fontWeight: 'bold',
+                border: '1px solid #ddd',
+                minWidth: '100px',
+                fontSize: '12px'
+              }}>
+                Time
+              </th>
+              {DAYS_ORDER.map((day) => (
+                <th key={day} style={{
+                  background: '#1f2937',
+                  color: '#fff',
+                  padding: '12px',
+                  textAlign: 'center',
+                  fontWeight: 'bold',
+                  border: '1px solid #ddd',
+                  minWidth: '140px',
+                  fontSize: '12px'
+                }}>
+                  {DAY_MAP[day].full}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sortedTimeSlots.map((timeSlot, idx) => (
+              <tr key={timeSlot} style={{ height: '80px' }}>
+                <td style={{
+                  background: '#f9fafb',
+                  padding: '10px',
+                  textAlign: 'center',
+                  fontWeight: 'bold',
+                  border: '1px solid #ddd',
+                  fontSize: '11px',
+                  verticalAlign: 'top'
+                }}>
+                  {formatTime(timeSlot)} - {formatTime(
+                    `${String(Math.floor((timeToMinutes(timeSlot) + 60) / 60)).padStart(2, "0")}:${String((timeToMinutes(timeSlot) + 60) % 60).padStart(2, "0")}:00`
+                  )}
+                </td>
+                {DAYS_ORDER.map((day) => {
+                  const daySchedules = gridBySlot[timeSlot][day] || [];
+                  return (
+                    <td key={day} style={{
+                      padding: '8px',
+                      border: '1px solid #ddd',
+                      background: '#fafbfc',
+                      fontSize: '12px',
+                      verticalAlign: 'top',
+                      whiteSpace: 'pre-wrap',
+                      wordWrap: 'break-word',
+                      textAlign: 'center'
+                    }}>
+                      {daySchedules.map((sched, schedIdx) => (
+                        <div key={sched.id} style={{ marginBottom: schedIdx < daySchedules.length - 1 ? '10px' : 0 }}>
+                          <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
+                            {sched.subject_name}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>
+                            ({sectionLabel(sched)})
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#666' }}>
+                            🏛 {sched.room_code || 'TBA'}
+                          </div>
+                        </div>
+                      ))}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
 
-    const scheduleTableHTML = sortedSchedules
-      .map(
-        (sched) => `
-        <tr>
-          <td>${sched.subject_name || "-"} ${
-          sched.subject_code ? `<span class="code-label">${sched.subject_code}</span>` : ""
-        }</td>
-          <td>${sectionLabel(sched)}</td>
-          <td>${DAY_MAP[sched.day_of_week]?.full || sched.day_of_week}</td>
-          <td>${formatTime(sched.start_time)} - ${formatTime(sched.end_time)}</td>
-          <td>${sched.room_code || "TBA"}</td>
-        </tr>
-      `
-      )
-      .join("");
+    setSchedulePreviewData(customPreviewContent);
+    setSchedulePreviewOpen(true);
+  };
 
-    const calendarTableHTML = TIME_SLOTS.map((timeSlot) => {
-      const cells = DAYS_ORDER.map((day) => {
-        const sched = getClassForSlot(day, timeSlot);
-        if (sched) {
-          return `
-            <td class="cal-cell filled">
-              <div class="cal-subject">${sched.subject_name || "-"}</div>
-              <div class="cal-section">${sectionLabel(sched)}</div>
-              <div class="cal-room">${sched.room_code || "TBA"}</div>
-              <div class="cal-time">${formatTime(sched.start_time)} - ${formatTime(sched.end_time)}</div>
-            </td>
-          `;
+  const handleDownloadScheduleExcel = async () => {
+    try {
+      // Build grid structure for Excel
+      const gridBySlot = {};
+      schedules.forEach((sched) => {
+        const timeKey = normalizeTimeKey(sched.start_time);
+        if (!gridBySlot[timeKey]) {
+          gridBySlot[timeKey] = {};
         }
-        return '<td class="cal-cell empty"></td>';
-      }).join("");
+        if (!gridBySlot[timeKey][sched.day_of_week]) {
+          gridBySlot[timeKey][sched.day_of_week] = [];
+        }
+        gridBySlot[timeKey][sched.day_of_week].push(sched);
+      });
 
-      return `
-        <tr>
-          <td class="cal-time">${formatTime(timeSlot + ":00")}</td>
-          ${cells}
-        </tr>
-      `;
-    }).join("");
+      // Sort time slots
+      const sortedTimeSlots = Object.keys(gridBySlot).sort(
+        (a, b) => timeToMinutes(a) - timeToMinutes(b)
+      );
 
-    const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Teacher Schedule</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+      // Create workbook with ExcelJS
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Schedule');
+
+      // Set column widths
+      worksheet.columns = [
+        { header: 'Time', key: 'time', width: 18 },
+        { header: 'Monday', key: 'MON', width: 30 },
+        { header: 'Tuesday', key: 'TUE', width: 30 },
+        { header: 'Wednesday', key: 'WED', width: 30 },
+        { header: 'Thursday', key: 'THU', width: 30 },
+        { header: 'Friday', key: 'FRI', width: 30 },
+      ];
+
+      // Style header row
+      const headerRow = worksheet.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF1f2937' }, // Dark blue
+        };
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } },
+        };
+      });
+      headerRow.height = 25;
+
+      // Add data rows
+      sortedTimeSlots.forEach((timeSlot) => {
+        const rowData = {
+          time: `${formatTime(timeSlot)} - ${formatTime(
+            `${String(Math.floor((timeToMinutes(timeSlot) + 60) / 60)).padStart(2, "0")}:${String((timeToMinutes(timeSlot) + 60) % 60).padStart(2, "0")}:00`
+          )}`,
+        };
+
+        // Add schedules for each day
+        DAYS_ORDER.forEach((day) => {
+          const daySchedules = gridBySlot[timeSlot][day] || [];
+          const dayContent = daySchedules
+            .map((s) => `${s.subject_name}\n(${sectionLabel(s)})\nRoom: ${s.room_code || 'TBA'}`)
+            .join('\n\n');
+          rowData[day] = dayContent;
+        });
+
+        const row = worksheet.addRow(rowData);
+        row.height = 60; // Taller rows for wrapped content
+        
+        // Style data cells
+        row.eachCell((cell) => {
+          cell.alignment = { 
+            horizontal: 'center', 
+            vertical: 'top', 
+            wrapText: true 
+          };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFdddddd' } },
+            left: { style: 'thin', color: { argb: 'FFdddddd' } },
+            bottom: { style: 'thin', color: { argb: 'FFdddddd' } },
+            right: { style: 'thin', color: { argb: 'FFdddddd' } },
+          };
+          cell.font = { size: 11 };
+        });
+      });
+
+      // Generate file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `Class-Schedule_${timestamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      pushToast("Download Complete", "Schedule downloaded successfully.", "success");
+    } catch (err) {
+      console.error('Error downloading Excel:', err);
+      pushToast("Download Failed", "Failed to download schedule. Please try again.", "error");
     }
+  };
 
-    body {
-      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: white;
-      color: #1f2937;
-      line-height: 1.6;
-    }
+  const handleDownloadSchedulePDF = async () => {
+    try {
+      // Build grid structure for PDF
+      const gridBySlot = {};
+      schedules.forEach((sched) => {
+        const timeKey = normalizeTimeKey(sched.start_time);
+        if (!gridBySlot[timeKey]) {
+          gridBySlot[timeKey] = {};
+        }
+        if (!gridBySlot[timeKey][sched.day_of_week]) {
+          gridBySlot[timeKey][sched.day_of_week] = [];
+        }
+        gridBySlot[timeKey][sched.day_of_week].push(sched);
+      });
 
-    .print-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 40px;
-    }
+      // Sort time slots
+      const sortedTimeSlots = Object.keys(gridBySlot).sort(
+        (a, b) => timeToMinutes(a) - timeToMinutes(b)
+      );
 
-    .print-header {
-      text-align: center;
-      margin-bottom: 40px;
-      border-bottom: 2px solid #1f2937;
-      padding-bottom: 20px;
-    }
+      // Create PDF in landscape
+      const doc = new jsPDF('l', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 5;
+      const usableWidth = pageWidth - 2 * margin;
 
-    .print-header h1 {
-      font-size: 28px;
-      font-weight: 800;
-      margin-bottom: 8px;
-      letter-spacing: -0.5px;
-    }
+      // Title
+      doc.setFontSize(16);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(31, 41, 55);
+      doc.text('Class Schedule', margin, 15);
 
-    .print-header .metadata {
-      display: flex;
-      justify-content: center;
-      gap: 30px;
-      font-size: 13px;
-      color: #6b7280;
-      margin-top: 12px;
-    }
+      // Add timestamp
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(107, 114, 128);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 22);
 
-    .metadata-item {
-      display: flex;
-      gap: 4px;
-      align-items: center;
-    }
+      let yPos = 28;
 
-    .metadata-label {
-      font-weight: 600;
-      color: #1f2937;
-    }
+      // Table dimensions
+      const timeColWidth = 27;
+      const dayColWidth = (usableWidth - timeColWidth) / 5;
+      const headerRowHeight = 8;
+      const dataRowHeight = 18;
 
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      margin-bottom: 40px;
-    }
+      const headers = ['Time', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
-    .stat-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 16px;
-      background: #f3f4f6;
-    }
+      // Draw header once
+      let xPos = margin;
+      doc.setFillColor(31, 41, 55);
+      doc.setDrawColor(31, 41, 55);
+      doc.setLineWidth(0.4);
 
-    .stat-card .label {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #6b7280;
-      margin-bottom: 6px;
-    }
+      // Fill all header cells
+      headers.forEach((header, idx) => {
+        const colWidth = idx === 0 ? timeColWidth : dayColWidth;
+        doc.rect(xPos, yPos, colWidth, headerRowHeight, 'F');
+        xPos += colWidth;
+      });
 
-    .stat-card .value {
-      font-size: 24px;
-      font-weight: 700;
-      color: #1f2937;
-    }
+      // Draw header text
+      xPos = margin;
+      doc.setTextColor(255, 255, 255);
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(6.5);
 
-    .section-title {
-      font-size: 16px;
-      font-weight: 700;
-      margin: 30px 0 16px 0;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #1f2937;
-      border-bottom: 2px solid #5ba3c7;
-      padding-bottom: 8px;
-    }
+      headers.forEach((header, idx) => {
+        const colWidth = idx === 0 ? timeColWidth : dayColWidth;
+        doc.text(header, xPos + colWidth / 2, yPos + 4.5, { align: 'center' });
+        xPos += colWidth;
+      });
 
-    .table-wrapper {
-      margin-bottom: 40px;
-      overflow: auto;
-    }
+      yPos += headerRowHeight;
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      overflow: hidden;
-    }
+      // Draw data rows
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(7.5);
+      doc.setDrawColor(150, 150, 150);
+      doc.setLineWidth(0.2);
 
-    th {
-      background: #1f2937;
-      color: white;
-      padding: 12px 14px;
-      text-align: left;
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
+      sortedTimeSlots.forEach((timeSlot, idx) => {
+        // Check if we need a new page
+        if (yPos + dataRowHeight > pageHeight - 10) {
+          doc.addPage();
+          yPos = margin;
 
-    td {
-      padding: 11px 14px;
-      text-align: left;
-      border-bottom: 1px solid #e5e7eb;
-      font-size: 13px;
-    }
+          // Redraw header on new page
+          xPos = margin;
+          doc.setFillColor(31, 41, 55);
+          doc.setLineWidth(0.4);
+          headers.forEach((header, idx) => {
+            const colWidth = idx === 0 ? timeColWidth : dayColWidth;
+            doc.rect(xPos, yPos, colWidth, headerRowHeight, 'F');
+            xPos += colWidth;
+          });
 
-    tr:last-child td {
-      border-bottom: none;
-    }
+          xPos = margin;
+          doc.setTextColor(255, 255, 255);
+          doc.setFont(undefined, 'bold');
+          doc.setFontSize(6.5);
+          headers.forEach((header, idx) => {
+            const colWidth = idx === 0 ? timeColWidth : dayColWidth;
+            doc.text(header, xPos + colWidth / 2, yPos + 4.5, { align: 'center' });
+            xPos += colWidth;
+          });
 
-    tr:nth-child(even) {
-      background: #f9fafb;
-    }
+          yPos += headerRowHeight;
 
-    .code-label {
-      display: inline-block;
-      background: #e0f2f9;
-      color: #5ba3c7;
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-size: 11px;
-      font-weight: 600;
-      margin-left: 6px;
-    }
+          doc.setTextColor(0, 0, 0);
+          doc.setFont(undefined, 'normal');
+          doc.setFontSize(7);
+          doc.setDrawColor(150, 150, 150);
+          doc.setLineWidth(0.2);
+        }
 
-    .pill {
-      display: inline-block;
-      background: #f0f0f0;
-      border: 1px solid #d5d5d5;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-    }
+        const timeLabel = `${formatTime(timeSlot)} - ${formatTime(
+          `${String(Math.floor((timeToMinutes(timeSlot) + 60) / 60)).padStart(2, "0")}:${String((timeToMinutes(timeSlot) + 60) % 60).padStart(2, "0")}:00`
+        )}`;
 
-    /* Calendar view styles */
-    .cal-table-wrapper {
-      overflow: auto;
-    }
+        const isEvenRow = idx % 2 === 0;
+        const bgColor = isEvenRow ? [250, 250, 250] : [255, 255, 255];
 
-    .cal-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
+        xPos = margin;
 
-    .cal-table th,
-    .cal-table td {
-      border: 1px solid #d5d5d5;
-      padding: 8px;
-      font-size: 12px;
-      text-align: center;
-    }
+        // Time cell
+        doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+        doc.rect(xPos, yPos, timeColWidth, dataRowHeight, 'F');
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(xPos, yPos, timeColWidth, dataRowHeight);
+        doc.setTextColor(0, 0, 0);
+        doc.text(
+          timeLabel,
+          xPos + 1,
+          yPos + 3,
+          { maxWidth: timeColWidth - 2, fontSize: 7.5 }
+        );
+        xPos += timeColWidth;
 
-    .cal-table th {
-      background: #1f2937;
-      color: white;
-      font-weight: 700;
-      padding: 10px 8px;
-    }
+        // Day cells
+        DAYS_ORDER.forEach((day) => {
+          const daySchedules = gridBySlot[timeSlot][day] || [];
+          const dayContent = daySchedules
+            .map((s) => `${s.subject_name}\n(${sectionLabel(s)})\nRoom: ${s.room_code || 'TBA'}`)
+            .join('\n\n');
 
-    .cal-time {
-      background: #f3f4f6;
-      font-weight: 600;
-      width: 80px;
-      min-width: 80px;
-    }
+          doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+          doc.rect(xPos, yPos, dayColWidth, dataRowHeight, 'F');
+          doc.setDrawColor(200, 200, 200);
+          doc.rect(xPos, yPos, dayColWidth, dataRowHeight);
+          doc.setTextColor(0, 0, 0);
 
-    .cal-cell {
-      height: 100px;
-      vertical-align: top;
-      padding: 6px;
-      font-size: 11px;
-    }
-
-    .cal-cell.filled {
-      background: #e0f2f9;
-      border: 1px solid #5ba3c7;
-    }
-
-    .cal-cell.empty {
-      background: white;
-    }
-
-    .cal-subject {
-      font-weight: 700;
-      color: #1f2937;
-      margin-bottom: 2px;
-    }
-
-    .cal-section {
-      color: #5ba3c7;
-      font-weight: 600;
-      font-size: 10px;
-      margin-bottom: 2px;
-    }
-
-    .cal-room {
-      color: #6b7280;
-      font-size: 10px;
-      margin-bottom: 2px;
-    }
-
-    .cal-time-slot {
-      color: #6b7280;
-      font-size: 10px;
-      font-weight: 500;
-    }
-
-    .footer {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #e5e7eb;
-      text-align: center;
-      color: #6b7280;
-      font-size: 12px;
-    }
-
-    @media print {
-      body {
-        background: white;
-      }
-      .print-container {
-        padding: 20px;
-      }
-      .stats-grid {
-        page-break-inside: avoid;
-      }
-      .table-wrapper,
-      .cal-table-wrapper {
-        page-break-inside: avoid;
-      }
-    }
-
-    @media screen {
-      .print-container {
-        background: white;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="print-container">
-    <div class="print-header">
-      <h1>CLASS SCHEDULE</h1>
-      <div class="metadata">
-        <div class="metadata-item">
-          <span class="metadata-label">School Year:</span>
-          <span>${schoolYearText}</span>
-        </div>
-        <div class="metadata-item">
-          <span class="metadata-label">Generated:</span>
-          <span>${currentDate}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="label">Total Classes</div>
-        <div class="value">${stats.totalClasses}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Sections</div>
-        <div class="value">${stats.totalSections}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Hours / Week</div>
-        <div class="value">${stats.totalHours}</div>
-      </div>
-    </div>
-
-    <div class="section-title">TABLE VIEW</div>
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Subject</th>
-            <th>Section</th>
-            <th>Day</th>
-            <th>Time</th>
-            <th>Room</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            scheduleTableHTML ||
-            "<tr><td colspan='5' style='text-align: center; color: #6b7280;'>No schedules assigned</td></tr>"
+          if (dayContent) {
+            doc.text(
+              dayContent,
+              xPos + dayColWidth / 2,
+              yPos + 2,
+              { maxWidth: dayColWidth - 2, fontSize: 7.5, align: 'center' }
+            );
           }
-        </tbody>
-      </table>
-    </div>
 
-    <div class="section-title">WEEK VIEW</div>
-    <div class="cal-table-wrapper">
-      <table class="cal-table">
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Monday</th>
-            <th>Tuesday</th>
-            <th>Wednesday</th>
-            <th>Thursday</th>
-            <th>Friday</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${calendarTableHTML}
-        </tbody>
-      </table>
-    </div>
+          xPos += dayColWidth;
+        });
 
-    <div class="footer">
-      <p>This schedule is confidential and for official use only.</p>
-    </div>
-  </div>
-</body>
-</html>
-    `;
+        yPos += dataRowHeight;
+      });
 
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
+      // Download
+      const timestamp = new Date().toISOString().slice(0, 10);
+      doc.save(`Class-Schedule_${timestamp}.pdf`);
 
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+      pushToast("Download Complete", "PDF downloaded successfully.", "success");
+    } catch (err) {
+      console.error('Error downloading PDF:', err);
+      pushToast("Download Failed", "Failed to download PDF. Please try again.", "error");
+    }
   };
 
   const handleExportPDF = () => {
-    // Alternative export functionality - can be enhanced with a library like jsPDF
-    handlePrint();
+    handleDownloadSchedulePDF();
   };
 
   return (
@@ -795,44 +811,68 @@ const TeacherClassSchedule = () => {
                 </tr>
               </thead>
               <tbody>
-                {TIME_SLOTS.map((timeSlot) => (
-                  <tr key={timeSlot} className="calTr">
-                    <td className="calTime">{formatTime(timeSlot + ":00")}</td>
-                    {DAYS_ORDER.map((day) => {
-                      const sched = getClassForSlot(day, timeSlot);
-                      const bgColor = sched ? subjectColorMap[sched.subject] : "transparent";
-                      return (
-                        <td
-                          key={day}
-                          className="calTd"
-                          style={{ backgroundColor: bgColor }}
-                        >
-                          {sched && (
-                            <div className="calBlock">
-                              <div className="calBlock__title">
-                                {sched.subject_name}
-                              </div>
-                              <div className="calBlock__meta">
-                                {sectionLabel(sched)}
-                              </div>
-                              <div className="calBlock__meta">
-                                {sched.room_code || "TBA"}
-                              </div>
-                              <div className="calBlock__time">
-                                {formatTime(sched.start_time)} - {formatTime(sched.end_time)}
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
+                {calendarStartSlots.length === 0 ? (
+                  <tr>
+                    <td className="tcsTd tcs__empty" colSpan={DAYS_ORDER.length + 1}>
+                      No schedules assigned yet.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  calendarStartSlots.map((timeSlot) => (
+                    <tr key={timeSlot} className="calTr">
+                      <td className="calTime">{formatTime(timeSlot)}</td>
+                      {DAYS_ORDER.map((day) => {
+                        const slotSchedules = schedules
+                          .filter(
+                            (s) => s.day_of_week === day && normalizeTimeKey(s.start_time) === timeSlot
+                          )
+                          .sort((a, b) => timeToMinutes(a.end_time) - timeToMinutes(b.end_time));
+
+                        return (
+                          <td key={day} className="calTd">
+                            {slotSchedules.map((sched) => (
+                              <div
+                                key={sched.id}
+                                className="calBlock"
+                                style={{ backgroundColor: subjectColorMap[sched.subject] || "#ffffff" }}
+                              >
+                                <div className="calBlock__title">
+                                  {sched.subject_name}
+                                </div>
+                                <div className="calBlock__meta">
+                                  {sectionLabel(sched)}
+                                </div>
+                                <div className="calBlock__meta">
+                                  {sched.room_code || "TBA"}
+                                </div>
+                                <div className="calBlock__time">
+                                  {formatTime(sched.start_time)} - {formatTime(sched.end_time)}
+                                </div>
+                              </div>
+                            ))}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </section>
       )}
+
+      <PreviewModal
+        isOpen={schedulePreviewOpen}
+        onClose={() => setSchedulePreviewOpen(false)}
+        title="Class Schedule"
+        customPreview={schedulePreviewData}
+        data={[]}
+        onDownloadExcel={handleDownloadScheduleExcel}
+        onDownloadPDF={handleDownloadSchedulePDF}
+        filename="Class-Schedule"
+      />
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };

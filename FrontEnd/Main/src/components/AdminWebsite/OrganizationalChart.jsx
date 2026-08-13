@@ -68,6 +68,19 @@ const OrganizationalChart = () => {
     return '#6b7280';
   };
 
+  const maskEmail = (email) => {
+    if (!email || typeof email !== 'string' || !email.includes('@')) return ''; 
+    const [localPart, domain] = email.split('@');
+    if (!localPart || !domain) return '';
+    if (localPart.length <= 2) {
+      return `***@${domain}`;
+    }
+    const visiblePrefix = localPart[0];
+    const visibleSuffix = localPart.slice(-1);
+    const maskedMiddle = '*'.repeat(Math.max(2, localPart.length - 2));
+    return `${visiblePrefix}${maskedMiddle}${visibleSuffix}@${domain}`;
+  };
+
   const PersonCard = ({ user, isAdmin = false }) => (
     <div className="org-person-card">
       <div className="org-avatar" style={{ background: getRoleColor(user.role) }}>
@@ -85,7 +98,7 @@ const OrganizationalChart = () => {
         {user.email && (
           <div className="org-person-contact">
             <Mail size={14} />
-            <span>{user.email}</span>
+            <span>{maskEmail(user.email)}</span>
           </div>
         )}
         {isAdmin && user.admin_profile?.permissions_level && (
@@ -203,7 +216,7 @@ const OrganizationalChart = () => {
                       ? `${admin.first_name} ${admin.last_name}`
                       : admin.username}
                   </td>
-                  <td>{admin.email}</td>
+                  <td>{maskEmail(admin.email)}</td>
                   <td><span className="org-role-badge admin">Administrator</span></td>
                 </tr>
               ))}
@@ -217,7 +230,7 @@ const OrganizationalChart = () => {
                       ? `${teacher.first_name} ${teacher.last_name}`
                       : teacher.username}
                   </td>
-                  <td>{teacher.email}</td>
+                  <td>{maskEmail(teacher.email)}</td>
                   <td><span className="org-role-badge teacher">Faculty</span></td>
                 </tr>
               ))}
