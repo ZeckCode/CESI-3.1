@@ -39,6 +39,7 @@ import { apiFetch } from "../api/apiFetch";
 import { generateRevenueInsight, detectRevenueDips, generateEnrollmentInsight, generateAttendanceInsight, generatePaymentInsight, getChartInsightColor } from "../../utils/chartInsights";
 import Toast from "../Global/Toast";
 import AdminTable from "./AdminTable";
+import StatCard, { StatsGrid } from "./StatCard";
 import "../AdminWebsiteCSS/Dashboard.css";
 
 const COLORS = [
@@ -885,9 +886,9 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
     if (loading) {
       return (
         <main className="dashboard-main">
-          <section className="dash-stat-grid">
+          <StatsGrid>
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="dash-skeleton-card">
+              <div key={i} className="unified-stat-card dash-skeleton-card">
                 <div className="dash-skeleton-icon shimmer" />
                 <div className="dash-skeleton-copy">
                   <div className="dash-skeleton-line dash-skeleton-line--lg shimmer" />
@@ -896,7 +897,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
                 </div>
               </div>
             ))}
-          </section>
+          </StatsGrid>
 
           <section className="dash-row dash-row--3col">
             <div className="dash-card dash-card--list">
@@ -926,61 +927,36 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
 
   return (
     <main className="dashboard-main">
-      <section className="dash-stat-grid">
-        <div className="dash-stat-md dash-stat-md--blue">
-          <div className="dash-stat-icon dash-stat-icon--blue">
-            <Users size={22} />
-          </div>
-          <div className="dash-stat-info">
-            <span className="dash-stat-value">{stats.totalStudents}</span>
-            <span className="dash-stat-label">Total of Enrolled Students</span>
-            <span className="dash-stat-insight">
-              {stats.totalStudents === 0 ? 'No enrollments yet' : stats.totalStudents < 30 ? 'Growing enrollment' : stats.totalStudents < 100 ? 'Strong enrollment trend' : 'Excellent - Large class'}
-            </span>
-          </div>
-        </div>
-
-        <div className="dash-stat-md dash-stat-md--green">
-          <div className="dash-stat-icon dash-stat-icon--green">
-            <Wallet size={22} />
-          </div>
-          <div className="dash-stat-info">
-            <span className="dash-stat-value">
-              {formatCurrency(stats.totalRevenue)}
-            </span>
-            <span className="dash-stat-label">Total Collected</span>
-            <span className="dash-stat-insight">
-              {stats.totalRevenue === 0 ? 'No payments collected' : stats.totalRevenue < 50000 ? 'Building revenue stream' : stats.totalRevenue < 500000 ? 'Good revenue collection' : 'Excellent revenue! ✓'}
-            </span>
-          </div>
-        </div>
-
-        <div className="dash-stat-md dash-stat-md--teal">
-          <div className="dash-stat-icon dash-stat-icon--teal">
-            <AlertCircle size={22} />
-          </div>
-          <div className="dash-stat-info">
-            <span className="dash-stat-value">{stats.overduePayments}</span>
-            <span className="dash-stat-label">Overdue Payments</span>
-            <span className="dash-stat-insight">
-              {stats.overduePayments === 0 ? 'All payments current ✓' : stats.overduePayments < 5 ? 'Few overdue - Monitor' : stats.overduePayments < 15 ? 'Review needed!' : 'Critical - Act now!'}
-            </span>
-          </div>
-        </div>
-
-        <div className="dash-stat-md dash-stat-md--amber">
-          <div className="dash-stat-icon dash-stat-icon--amber">
-            <Clock size={22} />
-          </div>
-          <div className="dash-stat-info">
-            <span className="dash-stat-value">{stats.pendingEnrollments}</span>
-            <span className="dash-stat-label">Pending Applications</span>
-            <span className="dash-stat-insight">
-              {stats.pendingEnrollments === 0 ? 'All processed ✓' : stats.pendingEnrollments < 5 ? 'Light workflow' : stats.pendingEnrollments < 20 ? 'Review needed!' : 'High volume - Process now!'}
-            </span>
-          </div>
-        </div>
-      </section>
+      <StatsGrid>
+        <StatCard
+          label="Total of Enrolled Students"
+          value={stats.totalStudents}
+          icon={<Users size={22} />}
+          color="blue"
+          insight={stats.totalStudents === 0 ? 'No enrollments yet' : stats.totalStudents < 30 ? 'Growing enrollment' : stats.totalStudents < 100 ? 'Strong enrollment trend' : 'Excellent - Large class'}
+        />
+        <StatCard
+          label="Total Collected"
+          value={formatCurrency(stats.totalRevenue)}
+          icon={<Wallet size={22} />}
+          color="green"
+          insight={stats.totalRevenue === 0 ? 'No payments collected' : stats.totalRevenue < 50000 ? 'Building revenue stream' : stats.totalRevenue < 500000 ? 'Good revenue collection' : 'Excellent revenue! ✓'}
+        />
+        <StatCard
+          label="Overdue Payments"
+          value={stats.overduePayments}
+          icon={<AlertCircle size={22} />}
+          color="red"
+          insight={stats.overduePayments === 0 ? 'All payments current ✓' : stats.overduePayments < 5 ? 'Few overdue - Monitor' : stats.overduePayments < 15 ? 'Review needed!' : 'Critical - Act now!'}
+        />
+        <StatCard
+          label="Pending Applications"
+          value={stats.pendingEnrollments}
+          icon={<Clock size={22} />}
+          color="yellow"
+          insight={stats.pendingEnrollments === 0 ? 'All processed ✓' : stats.pendingEnrollments < 5 ? 'Light workflow' : stats.pendingEnrollments < 20 ? 'Review needed!' : 'High volume - Process now!'}
+        />
+      </StatsGrid>
 
       <section className="dash-insights">
         <div className="dash-insights-head">

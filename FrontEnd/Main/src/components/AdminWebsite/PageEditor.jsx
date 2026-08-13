@@ -97,11 +97,11 @@ export default function PageEditor({ endpoint, title, fields }) {
 
   return (
     <div className="cms-page-editor">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="cms-page-editor-header">
         <h3>{title}</h3>
         <button 
+          className="cms-preview-btn"
           onClick={() => setPreviewOpen(true)}
-          style={{ padding: "8px 16px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "6px", cursor: "pointer" }}
         >
           👀 Preview
         </button>
@@ -157,14 +157,8 @@ export default function PageEditor({ endpoint, title, fields }) {
       </div>
 
       {previewOpen && (
-        <div className="cms-preview-overlay" style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0, 
-          background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000
-        }} onClick={() => setPreviewOpen(false)}>
-          <div className="cms-preview-modal" style={{
-            background: "#fff", width: "80%", maxWidth: "800px", maxHeight: "90vh", 
-            borderRadius: "12px", overflowY: "auto", padding: "24px"
-          }} onClick={e => e.stopPropagation()}>
+        <div className="cms-preview-overlay" onClick={() => setPreviewOpen(false)}>
+          <div className="cms-preview-modal" onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #eee", paddingBottom: "16px", marginBottom: "16px" }}>
               <h2>Live Preview</h2>
               <button onClick={() => setPreviewOpen(false)} style={{ background: "transparent", border: "none", fontSize: "20px", cursor: "pointer" }}>✕</button>

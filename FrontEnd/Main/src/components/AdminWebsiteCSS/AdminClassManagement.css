@@ -60,98 +60,7 @@
   background: #f0f3ff;
 }
 
-/* ── Stat card overrides for class management ── */
-.admin-class-management .unified-stats-grid {
-  grid-template-columns: repeat(4, 1fr);
-  margin-bottom: 0;
-  gap: 16px;
-}
-
-@media (max-width: 1200px) {
-  .admin-class-management .unified-stats-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-  }
-}
-
-@media (max-width: 768px) {
-  .admin-class-management .unified-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-}
-
-@media (max-width: 600px) {
-  .admin-class-management .unified-stats-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .admin-class-management .unified-stats-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-}
-
-.admin-class-management .unified-stat-card {
-  padding: 1.5rem 1.75rem;
-}
-
-@media (max-width: 768px) {
-  .admin-class-management .unified-stat-card {
-    padding: 1.2rem 1.4rem;
-  }
-}
-
-@media (max-width: 600px) {
-  .admin-class-management .unified-stat-card {
-    padding: 1rem 1.2rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .admin-class-management .unified-stat-card {
-    padding: 0.8rem 1rem;
-  }
-}
-
-.admin-class-management .unified-stat-value {
-  font-size: 2rem;
-}
-
-@media (max-width: 768px) {
-  .admin-class-management .unified-stat-value {
-    font-size: 1.4rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .admin-class-management .unified-stat-value {
-    font-size: 1.1rem;
-  }
-}
-
-.admin-class-management .unified-stat-label {
-  font-size: 0.85rem;
-}
-
-@media (max-width: 480px) {
-  .admin-class-management .unified-stat-label {
-    font-size: 0.75rem;
-  }
-}
-
-/* Colored background tints per card */
-.admin-class-management .unified-stat-card.blue   { background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%); }
-.admin-class-management .unified-stat-card.green  { background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%); }
-.admin-class-management .unified-stat-card.yellow { background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%); }
-.admin-class-management .unified-stat-card.red    { background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%); }
-.admin-class-management .unified-stat-card.purple { background: linear-gradient(135deg, #f5f3ff 0%, #ffffff 100%); }
-.admin-class-management .unified-stat-card.teal   { background: linear-gradient(135deg, #f0fdfa 0%, #ffffff 100%); }
+/* ── Stat card overrides removed; now using shared StatCard.css defaults (matching UserManagement) ── */
 
 /* ========== SECTION HEADER ========== */
 .admin-section-header {
@@ -578,60 +487,87 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   z-index: 1000;
-  animation: fadeIn 0.3s ease;
+  animation: adminModalFadeIn 0.25s ease;
   overflow-y: auto;
+  padding: 40px 16px 60px;
+  box-sizing: border-box;
 }
 
-@keyframes fadeIn {
+@keyframes adminModalFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 .admin-modal-content {
   background: white;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  padding: 0;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0,0,0,0.05);
   max-width: 550px;
-  width: 90%;
-  max-height: 90vh;
+  width: 100%;
+  max-height: 85vh;
   overflow-y: auto;
-  animation: slideUp 0.3s ease;
+  animation: adminModalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  margin: auto;
+  display: flex;
+  flex-direction: column;
 }
 
-@keyframes slideUp {
-  from { transform: translateY(30px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+@keyframes adminModalSlideUp {
+  from { transform: translateY(40px) scale(0.96); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
+/* Modal inner body (padding container) */
+.admin-modal-content > *:not(.admin-modal-header) {
+  padding-left: 28px;
+  padding-right: 28px;
+}
+
+.admin-modal-content > *:last-child {
+  padding-bottom: 28px;
+}
+
+/* ── Modal Header ── */
 .admin-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  padding: 20px 28px 18px;
+  margin-bottom: 0;
   gap: 16px;
+  border-bottom: 1px solid #f1f5f9;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 16px 16px 0 0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .admin-modal-header h2 {
   margin: 0;
-  font-size: 22px;
-  color: #1f2937;
-  font-weight: 600;
+  font-size: 20px;
+  color: #0f172a;
+  font-weight: 700;
   flex: 1;
+  letter-spacing: -0.3px;
 }
 
+/* ── Close button ── */
 .admin-modal-close-btn {
-  background: #f3f4f6;
-  border: none;
-  color: #6b7280;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  background: rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.08);
+  color: #64748b;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -639,19 +575,184 @@
   transition: all 0.2s ease;
   flex-shrink: 0;
   padding: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 500;
   font-family: inherit;
+  line-height: 1;
 }
 
 .admin-modal-close-btn:hover {
-  background: #e5e7eb;
-  color: #374151;
-  transform: scale(1.1);
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #ef4444;
+  transform: rotate(90deg);
 }
 
 .admin-modal-close-btn:active {
-  transform: scale(0.95);
+  transform: rotate(90deg) scale(0.9);
+}
+
+/* ── Form groups inside modal ── */
+.admin-modal-content .admin-form-group {
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-modal-content .admin-form-group label {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.admin-modal-content .admin-form-group input,
+.admin-modal-content .admin-form-group select,
+.admin-modal-content .admin-form-group textarea {
+  padding: 11px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.admin-modal-content .admin-form-group input:hover,
+.admin-modal-content .admin-form-group select:hover,
+.admin-modal-content .admin-form-group textarea:hover {
+  border-color: #cbd5e1;
+  background: #fff;
+}
+
+.admin-modal-content .admin-form-group input:focus,
+.admin-modal-content .admin-form-group select:focus,
+.admin-modal-content .admin-form-group textarea:focus {
+  outline: none;
+  border-color: #5BA3C7;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(91, 163, 199, 0.1);
+}
+
+.admin-modal-content .admin-form-group small {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* ── Form row (side-by-side fields) ── */
+.admin-modal-content .admin-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* ── Form actions ── */
+.admin-modal-content .admin-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.admin-modal-content .admin-form-actions button {
+  flex: 1;
+  padding: 11px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.admin-modal-content .admin-form-actions .admin-btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1.5px solid #e2e8f0;
+}
+
+.admin-modal-content .admin-form-actions .admin-btn-secondary:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.admin-modal-content .admin-form-actions .admin-btn-primary {
+  background: linear-gradient(135deg, #5BA3C7 0%, #4A8FB0 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(91, 163, 199, 0.3);
+}
+
+.admin-modal-content .admin-form-actions .admin-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(91, 163, 199, 0.4);
+}
+
+.admin-modal-content .admin-form-actions .admin-btn-primary:disabled {
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* ── Modal scrollbar ── */
+.admin-modal-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-modal-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-modal-content::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 20px;
+}
+
+.admin-modal-content::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* ── Error / Warning boxes inside modal ── */
+.admin-modal-content .admin-error-box,
+.admin-modal-content .admin-warning-box {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* ── Tables inside modals (Manage Students, etc.) ── */
+.admin-modal-content .admin-schedule-table {
+  font-size: 13px;
+}
+
+.admin-modal-content .admin-schedule-table th {
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #64748b;
+  padding: 10px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.admin-modal-content .admin-schedule-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+/* ── Section headers inside modal ── */
+.admin-modal-content h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 16px 0 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .admin-modal-content h2 {
@@ -1272,7 +1373,58 @@
 
 @media (max-width: 768px) {
   .admin-modal-overlay {
-    padding: 12px;
+    padding: 0;
+    align-items: flex-end;
+    background: rgba(15, 23, 42, 0.5);
+  }
+
+  .admin-modal-content {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.2);
+    padding: 0;
+    margin: 0;
+    animation: adminModalSlideUpMobile 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+  }
+
+  @keyframes adminModalSlideUpMobile {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .admin-modal-header {
+    border-radius: 20px 20px 0 0;
+    padding: 16px 20px 14px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .admin-modal-header h2 {
+    font-size: 17px;
+  }
+
+  .admin-modal-content > *:not(.admin-modal-header) {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .admin-modal-content > *:last-child {
+    padding-bottom: 24px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .admin-modal-content .admin-form-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .admin-modal-close-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
   }
 
   .cm-capacity-alert-item {
@@ -1291,7 +1443,6 @@
 
   .cm-stats-section { padding: 14px 16px 18px; }
   .cm-stats-header { flex-direction: column; gap: 12px; text-align: center; }
-  .admin-class-management .unified-stats-grid { grid-template-columns: repeat(2, 1fr); }
 
   .admin-class-controls {
     grid-template-columns: 1fr;
@@ -1299,25 +1450,6 @@
 
   .admin-form-row {
     grid-template-columns: 1fr;
-  }
-
-  .admin-modal-content {
-    width: 90%;
-    max-width: 600px;
-    padding: 18px;
-    max-height: 85vh;
-    box-sizing: border-box;
-  }
-
-  .admin-modal-header {
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .admin-modal-close-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 16px;
   }
 
   .admin-classes-grid {
@@ -1375,41 +1507,64 @@
 
 @media (max-width: 480px) {
   .admin-modal-overlay {
-    padding: 8px;
+    padding: 0;
+    align-items: flex-end;
   }
 
   .admin-class-management {
     padding: 10px;
   }
 
-  .admin-class-management .unified-stats-grid {
-    grid-template-columns: 1fr;
-  }
-
   .admin-modal-content {
     width: 100%;
     max-width: 100%;
-    padding: 14px;
-    max-height: 90vh;
+    max-height: 88vh;
+    border-radius: 18px 18px 0 0;
+    padding: 0;
+    margin: 0;
     box-sizing: border-box;
-    border-radius: 10px;
   }
 
   .admin-modal-header {
-    flex-direction: column;
+    border-radius: 18px 18px 0 0;
+    padding: 14px 16px;
+    flex-direction: row;
     gap: 10px;
-    align-items: flex-start;
+    align-items: center;
   }
 
   .admin-modal-header h2 {
-    font-size: 18px;
+    font-size: 16px;
+  }
+
+  .admin-modal-content > *:not(.admin-modal-header) {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .admin-modal-content > *:last-child {
+    padding-bottom: 20px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .admin-modal-content .admin-form-actions {
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 14px;
+    margin-top: 16px;
+  }
+
+  .admin-modal-content .admin-form-actions button {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 14px;
   }
 
   .admin-modal-close-btn {
-    align-self: flex-end;
     width: 30px;
     height: 30px;
     font-size: 14px;
+    flex-shrink: 0;
   }
 
   .admin-tabs-container {

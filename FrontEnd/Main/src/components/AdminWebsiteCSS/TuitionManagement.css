@@ -10,70 +10,7 @@
   margin-bottom: 2rem;
 }
 
-/* Stats Grid */
-.tm-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1.5rem;
-}
-
-.tm-stat-card {
-  background-color: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid;
-  transition: all 0.3s ease;
-}
-
-.tm-stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.tm-stat-blue {
-  border-left-color: #2196F3;
-  background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
-}
-
-.tm-stat-green {
-  border-left-color: #10b981;
-  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
-}
-
-.tm-stat-purple {
-  border-left-color: #8b5cf6;
-  background: linear-gradient(135deg, #f5f3ff 0%, #ffffff 100%);
-}
-
-.tm-stat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.tm-stat-label {
-  font-size: 0.875rem;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.tm-stat-icon {
-  color: #94a3b8;
-}
-
-.tm-stat-value {
-  font-size: 1.875rem;
-  font-weight: bold;
-  color: #1e293b;
-  margin-bottom: 0.5rem;
-}
-
-.tm-stat-change {
-  font-size: 0.875rem;
-  color: #64748b;
-}
+/* Stats Grid — removed; now using shared StatCard.css */
 
 /* Skeleton Loading */
 @keyframes tm-skeleton-shimmer {
@@ -683,19 +620,6 @@
     padding: 18px;
   }
 
-  .tm-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-  }
-
-  .tm-stat-card {
-    padding: 14px;
-  }
-
-  .tm-stat-value {
-    font-size: 1.5rem;
-  }
-
   .tm-section-title {
     font-size: 1.25rem;
   }
@@ -716,24 +640,6 @@
 @media (max-width: 768px) {
   .tuition-management-main {
     padding: 1rem;
-  }
-
-  .tm-stats-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .tm-stat-card {
-    padding: 12px;
-  }
-
-  .tm-stat-value {
-    font-size: 1.5rem;
-  }
-
-  .tm-stat-header {
-    flex-direction: column;
-    align-items: flex-start;
   }
 
   .tm-section-header {
@@ -807,19 +713,6 @@
     padding: 12px;
   }
 
-  .tm-stats-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .tm-stat-card {
-    padding: 10px;
-  }
-
-  .tm-stat-value {
-    font-size: 1.25rem;
-  }
-
   .tm-section-title {
     font-size: 1.1rem;
   }
@@ -884,31 +777,6 @@
 @media (max-width: 479px) {
   .tuition-management-main {
     padding: 10px;
-  }
-
-  .tm-stats-grid {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .tm-stat-card {
-    padding: 10px;
-  }
-
-  .tm-stat-header {
-    margin-bottom: 8px;
-  }
-
-  .tm-stat-label {
-    font-size: 11px;
-  }
-
-  .tm-stat-value {
-    font-size: 1.125rem;
-  }
-
-  .tm-stat-change {
-    font-size: 10px;
   }
 
   .tm-section-title {
@@ -1095,7 +963,6 @@
 
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
-  .tm-stat-card,
   .tm-btn-primary,
   .tm-btn-secondary,
   .tm-view-toggle {
@@ -1105,8 +972,7 @@
 
 /* High contrast mode support */
 @media (prefers-contrast: more) {
-  .tm-status,
-  .tm-stat-card {
+  .tm-status {
     border: 1.5px solid currentColor;
   }
 }

@@ -5,6 +5,7 @@ import {
   Users, Split, AlertCircle, CheckCircle, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import Pagination from './Pagination';
+import StatCard, { StatsGrid } from './StatCard';
 import '../AdminWebsiteCSS/TuitionManagement.css';
 import { apiFetchData } from '../api/apiFetch';
 import Toast from '../Global/Toast';
@@ -598,67 +599,44 @@ const TuitionManagement = () => {
 
       <section className="tm-section">
         {isInitialLoading ? (
-          <div className="tm-stats-grid">
-            <div className="tm-stat-card tm-skeleton-stat-card">
+          <StatsGrid>
+            <div className="unified-stat-card tm-skeleton-stat-card">
               <div className="tm-skeleton-line w-md" />
               <div className="tm-skeleton-line w-sm" />
             </div>
-            <div className="tm-stat-card tm-skeleton-stat-card">
+            <div className="unified-stat-card tm-skeleton-stat-card">
               <div className="tm-skeleton-line w-md" />
               <div className="tm-skeleton-line w-sm" />
             </div>
-            <div className="tm-stat-card tm-skeleton-stat-card">
+            <div className="unified-stat-card tm-skeleton-stat-card">
               <div className="tm-skeleton-line w-md" />
               <div className="tm-skeleton-line w-sm" />
             </div>
-          </div>
+          </StatsGrid>
         ) : (
-          <div className="tm-stats-grid">
-            <div className="tm-stat-card tm-stat-blue">
-              <div className="tm-stat-header">
-                <span className="tm-stat-label">
-                  {viewMode === 'student' ? 'Total Students' : 'Grade Levels'}
-                </span>
-                <Users size={24} className="tm-stat-icon" />
-              </div>
-              <div className="tm-stat-value">
-                {viewMode === 'student' ? stats.totalStudents : stats.totalConfigs}
-              </div>
-              <div className="tm-stat-change">
-                {viewMode === 'student' ? 'Student tuition profiles' : 'Fee structures configured'}
-              </div>
-            </div>
-
-            <div className="tm-stat-card tm-stat-green">
-              <div className="tm-stat-header">
-                <span className="tm-stat-label">
-                  {viewMode === 'student' ? 'Cash Mode' : 'Active Fees'}
-                </span>
-                <CheckCircle size={24} className="tm-stat-icon" />
-              </div>
-              <div className="tm-stat-value">
-                {viewMode === 'student' ? stats.cashCount : stats.activeConfigs}
-              </div>
-              <div className="tm-stat-change">
-                {viewMode === 'student' ? 'Students on cash plan' : 'Active tuition configurations'}
-              </div>
-            </div>
-
-            <div className="tm-stat-card tm-stat-purple">
-              <div className="tm-stat-header">
-                <span className="tm-stat-label">
-                  {viewMode === 'student' ? 'Installment Mode' : 'Avg Total Cash'}
-                </span>
-                <Split size={24} className="tm-stat-icon" />
-              </div>
-              <div className="tm-stat-value">
-                {viewMode === 'student' ? stats.installmentCount : formatCurrency(stats.avgTotalCash)}
-              </div>
-              <div className="tm-stat-change">
-                {viewMode === 'student' ? 'Students on installment plan' : 'Average configured cash total'}
-              </div>
-            </div>
-          </div>
+          <StatsGrid>
+            <StatCard
+              label={viewMode === 'student' ? 'Total Students' : 'Grade Levels'}
+              value={viewMode === 'student' ? stats.totalStudents : stats.totalConfigs}
+              icon={<Users size={20} />}
+              color="blue"
+              subtitle={viewMode === 'student' ? 'Student tuition profiles' : 'Fee structures configured'}
+            />
+            <StatCard
+              label={viewMode === 'student' ? 'Cash Mode' : 'Active Fees'}
+              value={viewMode === 'student' ? stats.cashCount : stats.activeConfigs}
+              icon={<CheckCircle size={20} />}
+              color="green"
+              subtitle={viewMode === 'student' ? 'Students on cash plan' : 'Active tuition configurations'}
+            />
+            <StatCard
+              label={viewMode === 'student' ? 'Installment Mode' : 'Avg Total Cash'}
+              value={viewMode === 'student' ? stats.installmentCount : formatCurrency(stats.avgTotalCash)}
+              icon={<Split size={20} />}
+              color="purple"
+              subtitle={viewMode === 'student' ? 'Students on installment plan' : 'Average configured cash total'}
+            />
+          </StatsGrid>
         )}
       </section>
 

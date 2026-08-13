@@ -15,8 +15,8 @@
 * { box-sizing: border-box; }
 
 .msg{
-  min-height: 100vh;
-  max-height: 100vh;
+  height: 100dvh;
+  height: 100vh;
   padding: 16px;
   background: #ffffff;
   color: var(--text);
@@ -82,8 +82,8 @@
 
   display: grid;
   grid-template-columns: 360px 1fr;
-  height: calc(100vh - 120px);
-  max-height: calc(100vh - 120px);
+  flex: 1;
+  min-height: 0;
 }
 
 .msg__listOverlay{
@@ -104,6 +104,8 @@
   display: flex;
   flex-direction: column;
   background: #fff;
+  overflow: hidden;
+  min-height: 0;
 }
 
 @media (max-width: 900px){
@@ -140,13 +142,14 @@
 
 /* scroll list */
 .msg__scroll{
+  flex: 1;
   overflow: auto;
   padding-bottom: 8px;
-  max-height: calc(100vh - 190px);
+  min-height: 0;
 }
 
 @media (max-width: 900px){
-  .msg__scroll{ max-height: 360px; }
+  .msg__scroll{ max-height: none; }
 }
 
 .msg__sectionTitle{
@@ -247,11 +250,6 @@
   overflow: hidden;
 }
 
-.chatBody {
-  min-height: 0;
-  overflow-y: auto;
-}
-
 /* chat header */
 .chatHead{
   display: flex;
@@ -344,7 +342,7 @@
   flex-direction: column;
   gap: 14px;
   scroll-behavior: smooth;
-  scrollbar-width: none;
+  min-height: 0;
 }
 
 /* Webkit scrollbar styling for Chrome, Safari */

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
 import Pagination from "./Pagination";
+import StatCard, { StatsGrid } from "./StatCard";
 import Toast from "../Global/Toast";
 import "../AdminWebsiteCSS/PaymentReminders.css";
 
@@ -250,49 +251,44 @@ const PaymentReminders = () => {
     <main className="pr-main">
       <section className="pr-section">
         {loading ? (
-          <div className="pr-stats-grid">
-            <div className="pr-stat-card pr-skeleton-stat-card">
+          <StatsGrid>
+            <div className="unified-stat-card pr-skeleton-stat-card">
               <div className="pr-skeleton-line w-md" />
               <div className="pr-skeleton-line w-sm" />
             </div>
-            <div className="pr-stat-card pr-skeleton-stat-card">
+            <div className="unified-stat-card pr-skeleton-stat-card">
               <div className="pr-skeleton-line w-md" />
               <div className="pr-skeleton-line w-sm" />
             </div>
-            <div className="pr-stat-card pr-skeleton-stat-card">
+            <div className="unified-stat-card pr-skeleton-stat-card">
               <div className="pr-skeleton-line w-md" />
               <div className="pr-skeleton-line w-sm" />
             </div>
-          </div>
+          </StatsGrid>
         ) : (
-          <div className="pr-stats-grid">
-            <div className="pr-stat-card pr-stat-blue">
-              <div className="pr-stat-header">
-                <span className="pr-stat-label">Total Outstanding</span>
-                <Wallet size={24} className="pr-stat-icon" />
-              </div>
-              <div className="pr-stat-value">₱{totalOutstanding.toLocaleString()}</div>
-              <div className="pr-stat-change">Sum of current student ledger balances</div>
-            </div>
-
-            <div className="pr-stat-card pr-stat-yellow">
-              <div className="pr-stat-header">
-                <span className="pr-stat-label">Due Within 7 Days</span>
-                <Clock size={24} className="pr-stat-icon" />
-              </div>
-              <div className="pr-stat-value">{dueWithin7Days}</div>
-              <div className="pr-stat-change">Nearest-due student ledgers</div>
-            </div>
-
-            <div className="pr-stat-card pr-stat-green">
-              <div className="pr-stat-header">
-                <span className="pr-stat-label">Students With Balance</span>
-                <CheckCircle size={24} className="pr-stat-icon" />
-              </div>
-              <div className="pr-stat-value">{studentsWithBalance}</div>
-              <div className="pr-stat-change">Overdue: {overdueCount}</div>
-            </div>
-          </div>
+          <StatsGrid>
+            <StatCard
+              label="Total Outstanding"
+              value={`₱${totalOutstanding.toLocaleString()}`}
+              icon={<Wallet size={20} />}
+              color="blue"
+              subtitle="Sum of current student ledger balances"
+            />
+            <StatCard
+              label="Due Within 7 Days"
+              value={dueWithin7Days}
+              icon={<Clock size={20} />}
+              color="yellow"
+              subtitle="Nearest-due student ledgers"
+            />
+            <StatCard
+              label="Students With Balance"
+              value={studentsWithBalance}
+              icon={<CheckCircle size={20} />}
+              color="green"
+              subtitle={`Overdue: ${overdueCount}`}
+            />
+          </StatsGrid>
         )}
       </section>
 

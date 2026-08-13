@@ -259,6 +259,8 @@ const Reports = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   
   // Stats state
   const [enrollmentStats, setEnrollmentStats] = useState({
@@ -1029,6 +1031,25 @@ const Reports = () => {
   });
   
   const totalReports = filteredReports.length;
+  const totalPages = Math.max(1, Math.ceil(filteredReports.length / itemsPerPage));
+  const paginatedReports = filteredReports.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to page 1 when filters change
+  const handleReportTypeChange = (val) => {
+    setReportType(val);
+    setCurrentPage(1);
+  };
+  const handleDateRangeChange = (val) => {
+    setDateRange(val);
+    setCurrentPage(1);
+  };
+  const handlePageSizeChange = (size) => {
+    setItemsPerPage(size);
+    setCurrentPage(1);
+  };
 
   const renderSkeletonRows = (columnCount) =>
     Array.from({ length: REPORT_SKELETON_ROWS }).map((_, rowIdx) => (
@@ -1116,7 +1137,7 @@ const Reports = () => {
       <div className="class-controls">
         <div className="filter-box">
           <Filter size={20} />
-          <select value={reportType} onChange={(e) => setReportType(e.target.value)}>
+          <select value={reportType} onChange={(e) => handleReportTypeChange(e.target.value)}>
             <option value="all">All Reports</option>
             <option value="students">Student Enrollment Reports</option>
             <option value="financial">Financial Reports</option>
@@ -1129,7 +1150,7 @@ const Reports = () => {
         
         <div className="filter-box">
           <Clock size={20} />
-          <select value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
+          <select value={dateRange} onChange={(e) => handleDateRangeChange(e.target.value)}>
             <option value="all">All Time</option>
             <option value="month">This Month</option>
             <option value="quarter">This Quarter</option>
@@ -1189,8 +1210,16 @@ const Reports = () => {
             { key: "date", label: "Date Generated" },
             { key: "format", label: "Format", render: (v) => <span className="badge-pdf">{v}</span> },
           ]}
-          data={filteredReports}
+          data={paginatedReports}
           loading={false}
+          pagination={{
+            currentPage,
+            totalPages,
+            totalItems: filteredReports.length,
+            itemsPerPage,
+            onPageChange: setCurrentPage,
+            onPageSizeChange: handlePageSizeChange,
+          }}
           emptyState={
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', color: '#94a3b8' }}>
               <FileText size={48} style={{ opacity: 0.5 }} />

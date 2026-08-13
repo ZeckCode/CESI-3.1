@@ -191,13 +191,13 @@
 /* stats */
 .tcs__stats{
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   margin-bottom: 24px;
 }
 
-@media (max-width: 900px){
-  .tcs__stats{ grid-template-columns: 1fr; }
+@media (max-width: 500px){
+  .tcs__stats{ gap: 12px; }
 }
 
 .tcsStat{
@@ -252,7 +252,10 @@
 
 .tcsTableWrap{
   overflow: auto;
-  max-height: calc(100vh - 320px);
+  overflow-x: auto;
+  max-height: 70vh;
+  min-height: 420px;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* table view */
