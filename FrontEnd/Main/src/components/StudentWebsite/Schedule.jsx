@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Calendar, List, Clock, MapPin, User, BookOpen, Download } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from "react";
+import { Calendar, List, Clock, MapPin, User, BookOpen, Download, Filter, X } from 'lucide-react';
 import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
 import "../StudentWebsiteCSS/Schedule.css";
@@ -59,6 +59,12 @@ const Schedule = () => {
   const [previewData, setPreviewData] = useState([]);
   const [toasts, setToasts] = useState([]);
 
+  // ── Filters ──────────────────────────────────────
+  const [filterDay, setFilterDay] = useState("All");
+  const [filterSubject, setFilterSubject] = useState("All");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
   const dismissToast = (toastId) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
   };
@@ -106,10 +112,43 @@ const Schedule = () => {
     color: SUBJECT_COLORS[idx % SUBJECT_COLORS.length],
   }));
 
+  // ── Derived filter options ────────────────────────
+  const uniqueSubjects = useMemo(
+    () => [...new Set(scheduleData.map((s) => s.subject).filter(Boolean))].sort(),
+    [scheduleData]
+  );
+
+  // ── Filtered data ─────────────────────────────────
+  const filteredScheduleData = useMemo(() => {
+    return scheduleData.filter((s) => {
+      if (filterDay !== "All" && s.day !== filterDay) return false;
+      if (filterSubject !== "All" && s.subject !== filterSubject) return false;
+      if (filterSearch.trim()) {
+        const q = filterSearch.toLowerCase();
+        const haystack = [
+          s.subject, s.subject_code, s.teacher, s.room, s.day, s.section,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [scheduleData, filterDay, filterSubject, filterSearch]);
+
+  const hasActiveFilters = filterDay !== "All" || filterSubject !== "All" || filterSearch.trim() !== "";
+
+  const clearFilters = () => {
+    setFilterDay("All");
+    setFilterSubject("All");
+    setFilterSearch("");
+  };
+
   // Get unique time slots for calendar view (sorted)
   const getTimeSlots = () => {
     const times = new Set();
-    scheduleData.forEach(s => {
+    filteredScheduleData.forEach(s => {
       times.add(s.startTime);
     });
     return Array.from(times).sort();
@@ -129,7 +168,7 @@ const Schedule = () => {
 
   // Check if schedule falls on a specific time slot
   const getSessionsForTimeSlot = (day, timeSlot) => {
-    return scheduleData.filter(s => 
+    return filteredScheduleData.filter(s => 
       s.day === day && s.startTime === timeSlot
     );
   };
@@ -137,7 +176,7 @@ const Schedule = () => {
   const handleExport = () => {
     // Build grid structure
     const gridBySlot = {};
-    scheduleData.forEach((sched) => {
+    filteredScheduleData.forEach((sched) => {
       if (!gridBySlot[sched.startTime]) {
         gridBySlot[sched.startTime] = {};
       }
@@ -261,7 +300,7 @@ const Schedule = () => {
     try {
       // Build grid structure
       const gridBySlot = {};
-      scheduleData.forEach((sched) => {
+      filteredScheduleData.forEach((sched) => {
         if (!gridBySlot[sched.startTime]) {
           gridBySlot[sched.startTime] = {};
         }
@@ -384,7 +423,7 @@ const handleDownloadSchedulePDF = () => {
 
   // Build grid structure
   const gridBySlot = {};
-  scheduleData.forEach((sched) => {
+  filteredScheduleData.forEach((sched) => {
     if (!gridBySlot[sched.startTime]) {
       gridBySlot[sched.startTime] = {};
     }
@@ -583,16 +622,77 @@ const handleDownloadSchedulePDF = () => {
                   Table
                 </button>
               </div>
-              <button
-                className="ss-export-btn"
-                onClick={handleExport}
-              >
-                <Download size={18} />
-                Export
-              </button>
+              <div className="ss-header-actions">
+                <button
+                  className={`ss-filter-btn ${hasActiveFilters ? "has-active" : ""}`}
+                  onClick={() => setShowFilters((v) => !v)}
+                >
+                  <Filter size={18} />
+                  Filter
+                  {hasActiveFilters && <span className="ss-filter-count">{filteredScheduleData.length}</span>}
+                </button>
+                <button
+                  className="ss-export-btn"
+                  onClick={handleExport}
+                >
+                  <Download size={18} />
+                  Export
+                </button>
+              </div>
             </>
           )}
         </div>
+
+        {/* Filter Bar */}
+        {!loading && (
+          <div className={`ss-filter-bar ${showFilters ? "open" : ""}`}>
+            <div className="ss-filter-group">
+              <label className="ss-filter-label">Day</label>
+              <select
+                className="ss-filter-select"
+                value={filterDay}
+                onChange={(e) => setFilterDay(e.target.value)}
+              >
+                <option value="All">All Days</option>
+                {DAY_ORDER.map((day) => (
+                  <option key={day} value={day}>{day}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="ss-filter-group">
+              <label className="ss-filter-label">Subject</label>
+              <select
+                className="ss-filter-select"
+                value={filterSubject}
+                onChange={(e) => setFilterSubject(e.target.value)}
+              >
+                <option value="All">All Subjects</option>
+                {uniqueSubjects.map((subject) => (
+                  <option key={subject} value={subject}>{subject}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="ss-filter-group ss-filter-search-group">
+              <label className="ss-filter-label">Search</label>
+              <input
+                type="text"
+                className="ss-filter-search"
+                placeholder="Search subject, teacher, room…"
+                value={filterSearch}
+                onChange={(e) => setFilterSearch(e.target.value)}
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <button className="ss-filter-clear" onClick={clearFilters}>
+                <X size={16} />
+                Clear
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Loading / Error */}
@@ -634,14 +734,16 @@ const handleDownloadSchedulePDF = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {scheduleData.length === 0 ? (
+                    {filteredScheduleData.length === 0 ? (
                       <tr>
                         <td colSpan="5" className="ss-empty-cell">
-                          No schedules found for your section.
+                          {hasActiveFilters
+                            ? "No classes match your filters."
+                            : "No schedules found for your section."}
                         </td>
                       </tr>
                     ) : (
-                      scheduleData.map((row) => (
+                      filteredScheduleData.map((row) => (
                         <tr key={row.id}>
                           <td data-label="Subject">
                             <div className="ss-subject-info">
@@ -690,7 +792,7 @@ const handleDownloadSchedulePDF = () => {
                 {/* Time Slot Rows */}
                 {timeSlots.length === 0 ? (
                   <div className="ss-empty-calendar" style={{ gridColumn: '1 / -1' }}>
-                    No classes scheduled.
+                    {hasActiveFilters ? "No classes match your filters." : "No classes scheduled."}
                   </div>
                 ) : (
                   timeSlots.map((time) => (

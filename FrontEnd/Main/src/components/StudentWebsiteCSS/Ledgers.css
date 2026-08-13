@@ -1,36 +1,3 @@
-@media (max-width: 350px) {
-  .ledger-summary-row {
-    grid-template-columns: repeat(4, minmax(40px, 1fr));
-    gap: 0.15rem;
-  }
-  .ledger-sumCard {
-    padding: 0.3rem 0.2rem;
-    gap: 0.12rem;
-  }
-  .ledger-sumCard__label,
-  .ledger-sumCard__sub {
-    font-size: 0.55rem;
-  }
-  .ledger-sumCard__value {
-    font-size: 0.7rem;
-  }
-  .ledger-sumCard__value--lg {
-    font-size: 0.8rem;
-  }
-}
-@media (max-width: 400px) {
-  .ledger-summary-row {
-    grid-template-columns: repeat(4, minmax(60px, 1fr));
-    gap: 0.5rem;
-  }
-}
-
-@media (max-width: 350px) {
-  .ledger-summary-row {
-    grid-template-columns: repeat(4, minmax(48px, 1fr));
-    gap: 0.3rem;
-  }
-}
 :root {
   --yellow-bg: #ffffff;
   --blue-soft: #B1D9EC;
@@ -170,42 +137,37 @@
 
 .ledger-summary-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(80px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.2rem;
   margin-bottom: 2rem;
 }
 
-@media (max-width: 500px) {
+@media (max-width: 900px) {
   .ledger-summary-row {
-    grid-template-columns: repeat(2, minmax(80px, 1fr));
-  }
-}
-
-@media (max-width: 500px) {
-  .ledger-summary-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 1100px) {
-  .ledger-summary-row {
-    grid-template-columns: repeat(4, minmax(100px, 300px));
-    justify-content: center;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
   }
 }
 
 @media (max-width: 700px) {
   .ledger-summary-row {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
   }
 }
 
-@media (max-width: 1100px) {
-  .ledger-summary-row { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+@media (max-width: 480px) {
+  .ledger-summary-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
 }
 
-@media (max-width: 700px) {
-  .ledger-summary-row { grid-template-columns: 1fr; }
+@media (max-width: 360px) {
+  .ledger-summary-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
 }
 
 .ledger-sumCard {
@@ -483,296 +445,6 @@
   .ledger-table-scroll .ledger-table td {
     white-space: nowrap;
   }
-  
-  /* Generic table responsive */
-  .ledger-table thead { display: none; }
-  .ledger-table td {
-    display: flex;
-    justify-content: space-between;
-    border-right: none !important;
-    padding: 0.8rem 1.5rem;
-  }
-  .ledger-table td::before {
-    content: attr(data-label);
-    font-weight: 800;
-    color: #000000;
-    font-size: 0.7rem;
-  }
-
-  .ledger-accounting td[data-label="Charge (₱)"]::before,
-  .ledger-accounting td[data-label="Payment (₱)"]::before,
-  .ledger-accounting td[data-label="Balance"]::before {
-    content: attr(data-label) ": ";
-  }
-
-  /* ── Mobile: Account Ledger Transactions ─────────────────────── */
-  .ledger-accounting tbody tr {
-    display: block;
-    margin-bottom: 1.25rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.75rem;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    overflow: hidden;
-  }
-
-  .ledger-accounting tbody td {
-    display: grid;
-    grid-template-columns: 80px 1fr;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem !important;
-    border: none !important;
-    border-bottom: 1px solid #f1f5f9;
-    font-size: 0.9rem;
-    text-align: left !important;
-  }
-
-  .ledger-accounting tbody td:last-child {
-    border-bottom: none !important;
-  }
-
-  .ledger-accounting tbody td::before {
-    content: attr(data-label);
-    font-weight: 700;
-    color: #64748b;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  /* Special handling for Description column on mobile */
-  .ledger-accounting tbody td[data-label="Description"] {
-    grid-template-columns: 1fr;
-  }
-
-  .ledger-accounting tbody td[data-label="Description"]::before {
-    content: "Description";
-    display: block;
-    margin-bottom: 0.5rem;
-  }
-
-  .ledger-accounting tbody td[data-label="Description"] > div {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  /* Status pill on mobile */
-  .ledger-accounting tbody td[data-label="Status"] {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem !important;
-    border-bottom: none !important;
-    border-top: 1px solid #f1f5f9;
-  }
-
-  .ledger-accounting tbody td[data-label="Status"]::before {
-    display: none;
-  }
-
-  /* Mobile accounting ledger footer */
-  .ledger-accounting tfoot tr {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 0.5rem;
-    border: none !important;
-    border-top: 2px solid #dbeafe !important;
-    background: #f8fafc !important;
-    padding: 1.25rem;
-    border-radius: 0 0 0.75rem 0.75rem;
-  }
-
-  .ledger-accounting tfoot td {
-    display: none;
-  }
-
-  /* Show only numbered footer cells */
-  .ledger-accounting tfoot td:nth-child(4),
-  .ledger-accounting tfoot td:nth-child(5),
-  .ledger-accounting tfoot td:nth-child(6) {
-    display: flex !important;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 1rem !important;
-    border: none !important;
-    font-weight: 700;
-    background: white;
-    border-radius: 0.5rem;
-    border: 1px solid #e2e8f0;
-    font-size: 0.9rem;
-    text-align: left !important;
-  }
-
-  .ledger-accounting tfoot td:nth-child(4)::before {
-    content: "Debit Total:";
-    font-weight: 700;
-    color: #1e40af;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    flex-shrink: 0;
-    margin-right: 0.75rem;
-  }
-
-  .ledger-accounting tfoot td:nth-child(5)::before {
-    content: "Credit Total:";
-    font-weight: 700;
-    color: #166534;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    flex-shrink: 0;
-    margin-right: 0.75rem;
-  }
-
-  .ledger-accounting tfoot td:nth-child(6)::before {
-    content: "Balance:";
-    font-weight: 700;
-    color: #b91c1c;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    flex-shrink: 0;
-    margin-right: 0.75rem;
-  }
-
-  /* ── Mobile: Tuition Installments ─────────────────────── */
-  .ledger-table tbody tr {
-    display: block;
-    margin-bottom: 1.5rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.75rem;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    overflow: hidden;
-  }
-
-  .ledger-table tbody td {
-    display: grid;
-    grid-template-columns: 100px 1fr;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem !important;
-    border: none !important;
-    border-bottom: 1px solid #f1f5f9;
-    font-size: 0.9rem;
-  }
-
-  .ledger-table tbody td:last-child {
-    border-bottom: none !important;
-  }
-
-  .ledger-table tbody td::before {
-    content: attr(data-label);
-    font-weight: 700;
-    color: #64748b;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  /* Hide # column label on mobile */
-  .ledger-table tbody td:first-child::before {
-    content: "Item #";
-  }
-
-  /* Status pill on mobile */
-  .ledger-table tbody td:last-child {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem !important;
-    border-bottom: none !important;
-    border-top: 1px solid #f1f5f9;
-  }
-
-  /* Mobile table footer - ALWAYS VISIBLE */
-  .ledger-table tfoot tr {
-    display: flex !important;
-    flex-direction: row !important;
-    gap: 0.5rem !important;
-    margin-top: 1rem;
-    border: none !important;
-    border-top: 2px solid #dbeafe !important;
-    background: #f8fafc !important;
-    padding: 1.25rem;
-    border-radius: 0 0 0.75rem 0.75rem;
-    width: 100% !important;
-    overflow: visible !important;
-    white-space: nowrap !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    flex-wrap: wrap !important;
-  }
-
-  /* Hide empty cells by default */
-  .ledger-table tfoot td:nth-child(1),
-  .ledger-table tfoot td:nth-child(2),
-  .ledger-table tfoot td:nth-child(7) {
-    display: none !important;
-  }
-
-  /* Show and style the "TOTAL:" label cell */
-  .ledger-table tfoot td:nth-child(3) {
-    display: none !important;
-  }
-
-  /* Show only the numeric total cells on mobile - FULL WIDTH */
-  .ledger-table tfoot td[data-label="Total Due"],
-  .ledger-table tfoot td[data-label="Total Paid"],
-  .ledger-table tfoot td[data-label="Total Balance"] {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    padding: 0.6rem 0.8rem !important;
-    border: none !important;
-    font-weight: 700;
-    background: white;
-    border-radius: 0.5rem;
-    border: 1px solid #e2e8f0;
-    font-size: 0.85rem;
-    gap: 0.6rem !important;
-    flex: 1 1 auto !important;
-    white-space: nowrap !important;
-    min-width: 110px !important;
-  }
-
-  /* Style the labels - show inline with values */
-  .ledger-table tfoot td[data-label]::before {
-    content: attr(data-label);
-    font-weight: 700;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    display: inline !important;
-    width: auto !important;
-    flex-shrink: 0;
-  }
-
-  .ledger-table tfoot td:nth-child(3)::before {
-    content: "TOTAL:";
-    font-weight: 700;
-    color: #64748b;
-    font-size: 0.8rem;
-  }
-
-  /* Color code totals for clarity */
-  .ledger-table tfoot td[data-label="Total Due"]::before {
-    color: #1e40af;
-    content: "DUE:";
-  }
-
-  .ledger-table tfoot td[data-label="Total Paid"]::before {
-    color: #166534;
-    content: "PAID:";
-  }
-
-  .ledger-table tfoot td[data-label="Total Balance"]::before {
-    color: #b91c1c;
-    content: "BALANCE:";
-  }
 
   /* Summary cards - better spacing on mobile */
   .ledger-summary-row {
@@ -830,65 +502,6 @@
 
   .ledger-group-header {
     padding: 1rem 1.25rem !important;
-  }
-
-  /* Hide table header on mobile */
-  .ledger-accounting thead {
-    display: none;
-  }
-
-  /* Keep table rows intact on small screens and rely on horizontal scroll. */
-  .ledger-table thead,
-  .ledger-accounting thead {
-    display: table-header-group !important;
-  }
-
-  .ledger-table tbody tr,
-  .ledger-accounting tbody tr,
-  .ledger-table tfoot tr,
-  .ledger-accounting tfoot tr {
-    display: table-row !important;
-    margin: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    overflow: visible !important;
-    background: transparent !important;
-  }
-
-  .ledger-table tbody td,
-  .ledger-accounting tbody td,
-  .ledger-table tfoot td,
-  .ledger-accounting tfoot td {
-    display: table-cell !important;
-    padding: 0.75rem !important;
-    border-right: 1px solid var(--border-color) !important;
-    border-bottom: 1px solid var(--border-color) !important;
-    text-align: center !important;
-    white-space: nowrap !important;
-  }
-
-  .ledger-table th:last-child,
-  .ledger-table td:last-child,
-  .ledger-accounting th:last-child,
-  .ledger-accounting td:last-child {
-    border-right: none !important;
-  }
-
-  .ledger-table td::before,
-  .ledger-accounting td::before,
-  .ledger-table tfoot td::before,
-  .ledger-accounting tfoot td::before {
-    content: none !important;
-    display: none !important;
-  }
-
-  .ledger-accounting .text-center {
-    text-align: center !important;
-  }
-
-  .ledger-accounting .text-right {
-    text-align: right !important;
   }
 }
 
@@ -1244,21 +857,6 @@
     padding: 0.8rem;
   }
 
-  .ledger-table tbody tr {
-    margin-bottom: 1rem;
-  }
-
-  .ledger-table tbody td {
-    grid-template-columns: 90px 1fr;
-    gap: 0.25rem;
-    padding: 0.65rem !important;
-    font-size: 0.85rem;
-  }
-
-  .ledger-table tbody td::before {
-    font-size: 0.7rem;
-  }
-
   .status-pill {
     padding: 0.3rem 0.6rem;
     font-size: 0.65rem;
@@ -1267,57 +865,12 @@
   .tabbed-summary-grid {
     grid-template-columns: 1fr !important;
   }
-
-  /* Extra small screens: ensure footer shows in row */
-  .ledger-table tfoot tr {
-    flex-direction: row !important;
-    gap: 0.4rem !important;
-    padding: 1rem !important;
-  }
-
-  .ledger-table tfoot td:nth-child(3) {
-    display: none !important;
-  }
-
-  .ledger-table tfoot td[data-label="Total Due"],
-  .ledger-table tfoot td[data-label="Total Paid"],
-  .ledger-table tfoot td[data-label="Total Balance"] {
-    padding: 0.6rem 0.7rem !important;
-    font-size: 0.85rem;
-    gap: 0.4rem;
-    flex: 1 1 auto !important;
-    min-width: 90px !important;
-  }
-
-  .ledger-table tfoot td[data-label]::before {
-    font-size: 0.65rem;
-  }
 }
 
 
 .ledger-tab i {
   margin-right: 0.25rem;
 }
-
-/* Responsive */
-@media (max-width: 768px) {
-  .ledger-wrapper { flex-direction: column; }
-  .ledger-table thead { display: none; }
-  .ledger-table td {
-    display: flex;
-    justify-content: space-between;
-    border-right: none !important;
-    padding: 0.8rem 1.5rem;
-  }
-  .ledger-table td::before {
-    content: attr(data-label);
-    font-weight: 800;
-    color: #000000;
-    font-size: 0.7rem;
-  }
-}
-
-
 
 .ledger-sumCard--info {
   background: #eff6ff;

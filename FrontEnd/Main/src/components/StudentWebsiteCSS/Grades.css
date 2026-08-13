@@ -13,8 +13,36 @@
 /* Stats Grid */
 .sg-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .sg-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 700px) {
+  .sg-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .sg-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .sg-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
 }
 
 .sg-stat-card {
@@ -591,11 +619,6 @@
     justify-content: center;
   }
 
-  .sg-stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1rem;
-  }
-
   .sg-stat-value {
     font-size: 1.5rem;
   }
@@ -607,9 +630,6 @@
 
 /* Mobile: convert table to stacked cards */
 @media (max-width: 600px) {
-  .sg-stats-grid {
-    grid-template-columns: 1fr;
-  }
 
   .sgSkel__tableHead,
   .sgSkel__tableRow {

@@ -440,12 +440,33 @@
 /* Stats Row */
 .sd__statsRow {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
+@media (max-width: 900px) {
+  .sd__statsRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+}
+
 @media (max-width: 700px) {
+  .sd__statsRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .sd__statsRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+}
+
+@media (max-width: 360px) {
   .sd__statsRow { grid-template-columns: 1fr; }
 }
 
@@ -527,6 +548,29 @@
 .sdStat:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
+}
+
+@media (max-width: 700px) {
+  .sdStat {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .sdStat {
+    padding: 0.75rem 0.85rem;
+    gap: 0.6rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .sdStat__icon {
+    font-size: 22px;
+  }
+  .sdStat__value {
+    font-size: 1.4rem;
+  }
 }
 
 .sdStat--blue   { border-left-color: var(--primary); }
