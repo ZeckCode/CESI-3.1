@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Plus, Edit2, Trash2, Filter, Clock, Users, BookOpen, FileDown , 
   Calendar, Save, X, UserCheck, Zap, Download,
@@ -699,6 +699,10 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
   const [assigningEnrollmentId, setAssigningEnrollmentId] = useState(null);
   const [classFilterGrade, setClassFilterGrade] = useState('');
   const [classFilterText, setClassFilterText] = useState('');
+  const [studentSearchIn, setStudentSearchIn] = useState('');
+  const [studentSearchOut, setStudentSearchOut] = useState('');
+  const [swipedId, setSwipedId] = useState(null);
+  const swipeStartX = useRef(0);
 
   const filteredSections = useMemo(() => {
     return sections.filter((sec) => {
@@ -1094,6 +1098,8 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
 
   const openStudentsModal = (sec) => {
     setSelectedSection(sec);
+    setStudentSearchIn('');
+    setStudentSearchOut('');
     setShowStudentsModal(true);
   };
 
@@ -1101,6 +1107,28 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
     setShowStudentsModal(false);
     setSelectedSection(null);
     setAssigningEnrollmentId(null);
+    setStudentSearchIn('');
+    setStudentSearchOut('');
+    setSwipedId(null);
+  };
+
+  const handleSwipeStart = (e, id) => {
+    swipeStartX.current = e.touches[0].clientX;
+  };
+
+  const handleSwipeEnd = (e, id) => {
+    const deltaX = e.changedTouches[0].clientX - swipeStartX.current;
+    if (deltaX < -40) {
+      // Swiped left — reveal remove
+      setSwipedId(id);
+    } else if (deltaX > 40) {
+      // Swiped right — hide
+      setSwipedId(null);
+    }
+  };
+
+  const handleRowClick = (id) => {
+    setSwipedId((prev) => (prev === id ? null : id));
   };
 
   const assignStudentToSection = async (enrollmentId, sectionId) => {
@@ -1177,6 +1205,34 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
   const isSelectedSectionFull = selectedSectionLive
     ? inSection.length >= selectedSectionCapacity
     : false;
+
+  const studentNameOf = (e) =>
+    `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.student_username || '—';
+
+  const filteredInSection = studentSearchIn.trim()
+    ? inSection.filter((e) => {
+        const q = studentSearchIn.trim().toLowerCase();
+        return (
+          studentNameOf(e).toLowerCase().includes(q) ||
+          (e.student_number || '').toLowerCase().includes(q)
+        );
+      })
+    : inSection;
+
+  const filteredAvailable = studentSearchOut.trim()
+    ? availableForSection.filter((e) => {
+        const q = studentSearchOut.trim().toLowerCase();
+        return (
+          studentNameOf(e).toLowerCase().includes(q) ||
+          (e.student_number || '').toLowerCase().includes(q)
+        );
+      })
+    : availableForSection;
+
+  const capacityPercent =
+    selectedSectionCapacity > 0
+      ? Math.min(100, Math.round((inSection.length / selectedSectionCapacity) * 100))
+      : 0;
 
   return (
     <>
@@ -1474,128 +1530,159 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
       {showStudentsModal && selectedSection && (
         <div className="admin-modal-overlay" onClick={closeStudentsModal}>
           <div
-            className="admin-modal-content"
+            className="admin-modal-content admin-manage-students-modal"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 760 }}
+            style={{ maxWidth: 960 }}
           >
             <div className="admin-modal-header">
-              <h2>
-                Manage Students: {gradeLabel(selectedSectionLive?.grade_level)} - {selectedSectionLive?.name}
-              </h2>
+              <div>
+                <h2>
+                  {gradeLabel(selectedSectionLive?.grade_level)} — {selectedSectionLive?.name}
+                </h2>
+                <span className="admin-ms-subtitle">Manage Students</span>
+              </div>
               <button className="admin-modal-close-btn" onClick={closeStudentsModal} title="Close" type="button">
                 <X size={20} />
               </button>
             </div>
 
-            <p style={{ color: '#64748b', marginTop: 0, marginBottom: 14 }}>
-              Approved enrollments for this grade can be assigned to this class. This automatically
-              syncs with attendance lists.
-            </p>
-
-            <h3 style={{ margin: '8px 0' }}>
-              Students In This Section ({inSection.length}/{selectedSectionCapacity || 0})
-            </h3>
-            {inSection.length === 0 ? (
-              <div className="admin-no-results" style={{ padding: 16 }}>
-                <p>No students assigned yet.</p>
+            {/* ── Capacity bar ── */}
+            <div className="admin-ms-capacity">
+              <div className="admin-ms-capacity-header">
+                <span className="admin-ms-capacity-label">
+                  <Users size={16} /> {inSection.length} / {selectedSectionCapacity || '—'} enrolled
+                </span>
+                <span className={`admin-ms-capacity-pct ${capacityPercent >= 100 ? 'full' : capacityPercent >= 80 ? 'warn' : ''}`}>
+                  {capacityPercent}%
+                </span>
               </div>
-            ) : (
-              <div style={{ maxHeight: 180, overflow: 'auto', marginBottom: 14 }}>
-                <table className="admin-schedule-table enhanced-table">
-                  <thead>
-                    <tr>
-                      <th>Student</th>
-                      <th>Student No.</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inSection.map((e) => (
-                      <tr key={e.id}>
-                        <td>
-                          {`${e.first_name || ''} ${e.last_name || ''}`.trim() || e.student_username}
-                        </td>
-                        <td>{e.student_number || '—'}</td>
-                        <td>
-                          <button
-                            className="admin-btn-delete-small"
-                            disabled={assigningEnrollmentId === e.id}
-                            onClick={() => removeStudentFromSection(e.id)}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="admin-ms-progress-track">
+                <div
+                  className={`admin-ms-progress-fill ${capacityPercent >= 100 ? 'full' : capacityPercent >= 80 ? 'warn' : ''}`}
+                  style={{ width: `${capacityPercent}%` }}
+                />
               </div>
-            )}
+            </div>
 
-            <h3 style={{ margin: '8px 0' }}>
-              Available Approved Students ({availableForSection.length})
-            </h3>
             {isSelectedSectionFull && (
-              <div className="admin-warning-box" style={{ marginBottom: 12 }}>
+              <div className="admin-warning-box" style={{ marginBottom: 16 }}>
                 <AlertTriangle size={18} />
                 <span>
-                  This section is full ({inSection.length}/{selectedSectionCapacity}). Remove a student or open a new room and section.
+                  This section is full. Remove a student or open a new room and section to add more.
                 </span>
               </div>
             )}
-            {availableForSection.length === 0 ? (
-              <div className="admin-no-results" style={{ padding: 16 }}>
-                <p>No other approved students for this grade.</p>
+
+            {/* ── Two-column layout ── */}
+            <div className="admin-ms-columns">
+              {/* ── Left: Students in this section ── */}
+              <div className="admin-ms-col">
+                <div className="admin-ms-col-header">
+                  <h3>In This Section</h3>
+                  <span className="admin-ms-count">{inSection.length}</span>
+                </div>
+                <div className="admin-ms-search">
+                  <input
+                    type="text"
+                    placeholder="Search student…"
+                    value={studentSearchIn}
+                    onChange={(e) => setStudentSearchIn(e.target.value)}
+                  />
+                </div>
+                <div className="admin-ms-list">
+                  {filteredInSection.length === 0 ? (
+                    <div className="admin-ms-empty">
+                      {studentSearchIn.trim() ? 'No students match your search.' : 'No students assigned yet.'}
+                    </div>
+                  ) : (
+                    filteredInSection.map((e) => (
+                      <div
+                        key={e.id}
+                        className={`admin-ms-student-row admin-ms-swipe-row ${swipedId === e.id ? 'swiped' : ''}`}
+                        onTouchStart={(ev) => handleSwipeStart(ev, e.id)}
+                        onTouchEnd={(ev) => handleSwipeEnd(ev, e.id)}
+                        onClick={() => handleRowClick(e.id)}
+                      >
+                        <button
+                          className="admin-ms-remove-btn"
+                          disabled={assigningEnrollmentId === e.id}
+                          onClick={(ev) => { ev.stopPropagation(); removeStudentFromSection(e.id); }}
+                        >
+                          {assigningEnrollmentId === e.id ? '…' : 'Remove'}
+                        </button>
+                        <div className="admin-ms-swipe-inner">
+                          <div className="admin-ms-student-info">
+                            <div className="admin-ms-student-avatar">
+                              {studentNameOf(e).charAt(0).toUpperCase()}
+                            </div>
+                            <div className="admin-ms-student-text">
+                              <div className="admin-ms-student-name">{studentNameOf(e)}</div>
+                              <div className="admin-ms-student-meta">#{e.student_number || '—'}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            ) : (
-              <div style={{ maxHeight: 220, overflow: 'auto' }}>
-                <table className="admin-schedule-table enhanced-table">
-                  <thead>
-                    <tr>
-                      <th>Student</th>
-                      <th>Current Class</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {availableForSection.map((e) => {
+
+              {/* ── Right: Available students ── */}
+              <div className="admin-ms-col">
+                <div className="admin-ms-col-header">
+                  <h3>Available</h3>
+                  <span className="admin-ms-count">{availableForSection.length}</span>
+                </div>
+                <div className="admin-ms-search">
+                  <input
+                    type="text"
+                    placeholder="Search student…"
+                    value={studentSearchOut}
+                    onChange={(e) => setStudentSearchOut(e.target.value)}
+                  />
+                </div>
+                <div className="admin-ms-list">
+                  {filteredAvailable.length === 0 ? (
+                    <div className="admin-ms-empty">
+                      {studentSearchOut.trim() ? 'No students match your search.' : 'No other approved students for this grade.'}
+                    </div>
+                  ) : (
+                    filteredAvailable.map((e) => {
                       const currentSection = sections.find(
                         (s) => Number(s.id) === Number(getEnrollmentSectionId(e))
                       );
                       return (
-                        <tr key={e.id}>
-                          <td>
-                            {`${e.first_name || ''} ${e.last_name || ''}`.trim() || e.student_username}
-                          </td>
-                          <td>
-                            {currentSection
-                              ? `${gradeLabel(currentSection.grade_level)} - ${currentSection.name}`
-                              : 'Unassigned'}
-                          </td>
-                          <td>
-                            <button
-                              className="admin-btn-primary"
-                              disabled={assigningEnrollmentId !== null || isSelectedSectionFull}
-                              onClick={() => assignStudentToSection(e.id, selectedSectionLive.id)}
-                              style={{ padding: '8px 12px' }}
-                            >
-                              {assigningEnrollmentId === e.id
-                                ? 'Adding...'
-                                : isSelectedSectionFull
-                                ? 'Full'
-                                : 'Add'}
-                            </button>
-                          </td>
-                        </tr>
+                        <div key={e.id} className="admin-ms-student-row">
+                          <div className="admin-ms-student-info">
+                            <div className="admin-ms-student-avatar">
+                              {studentNameOf(e).charAt(0).toUpperCase()}
+                            </div>
+                            <div className="admin-ms-student-text">
+                              <div className="admin-ms-student-name">{studentNameOf(e)}</div>
+                              <div className="admin-ms-student-meta">
+                                {currentSection
+                                  ? `${gradeLabel(currentSection.grade_level)} — ${currentSection.name}`
+                                  : 'Unassigned'}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            className="admin-ms-add-btn"
+                            disabled={assigningEnrollmentId !== null || isSelectedSectionFull}
+                            onClick={() => assignStudentToSection(e.id, selectedSectionLive.id)}
+                          >
+                            {assigningEnrollmentId === e.id
+                              ? 'Adding…'
+                              : isSelectedSectionFull
+                              ? 'Full'
+                              : 'Add'}
+                          </button>
+                        </div>
                       );
-                    })}
-                  </tbody>
-                </table>
+                    })
+                  )}
+                </div>
               </div>
-            )}
-
-            <div className="admin-form-actions" style={{ marginTop: 14 }}>
-
             </div>
           </div>
         </div>

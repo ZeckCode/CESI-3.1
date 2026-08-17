@@ -762,6 +762,384 @@
   font-weight: 600;
 }
 
+/* ========== MANAGE STUDENTS MODAL ========== */
+.admin-manage-students-modal {
+  width: 100%;
+  height: min(88vh, 760px);
+  max-height: min(88vh, 760px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 28px;
+  box-sizing: border-box;
+}
+
+/* The header gradient stays edge-to-edge by pulling it back out of the
+   container padding, so only the body content gets the surrounding space. */
+.admin-manage-students-modal .admin-modal-header {
+  margin: -28px -28px 0;
+  border-radius: 16px 16px 0 0;
+}
+
+/* Fix the generic modal rule that double-pads these children and squishes
+   the two columns — they define their own horizontal padding below. */
+.admin-manage-students-modal > *:not(.admin-modal-header) {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Warning/full banner needs no extra margins now that the container
+   provides the surrounding padding. */
+.admin-manage-students-modal > .admin-warning-box {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.admin-manage-students-modal .admin-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.admin-ms-subtitle {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+/* Capacity bar */
+.admin-ms-capacity {
+  flex: 0 0 auto;
+  padding: 40px 0 12px;
+}
+
+.admin-ms-capacity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.admin-ms-capacity-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.admin-ms-capacity-pct {
+  font-size: 14px;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.admin-ms-capacity-pct.warn { color: #f59e0b; }
+.admin-ms-capacity-pct.full { color: #ef4444; }
+
+.admin-ms-progress-track {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.admin-ms-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #10b981, #059669);
+  transition: width 0.4s ease;
+}
+
+.admin-ms-progress-fill.warn {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.admin-ms-progress-fill.full {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+/* Two-column layout (fills the remaining modal height and scrolls inside) */
+.admin-ms-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  padding: 18px 0 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-ms-col {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-ms-col-header {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.admin-ms-col-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.admin-ms-count {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+.admin-ms-search {
+  flex: 0 0 auto;
+  margin-bottom: 12px;
+}
+
+.admin-ms-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9px;
+  font-size: 14px;
+  background: white;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.admin-ms-search input:focus {
+  border-color: #5BA3C7;
+  box-shadow: 0 0 0 3px rgba(91, 163, 199, 0.15);
+}
+
+/* The scrolling list — fills the column and scrolls when content overflows */
+.admin-ms-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-ms-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-ms-list::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 20px;
+}
+
+.admin-ms-empty {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 24px 12px;
+  font-style: italic;
+}
+
+.admin-ms-student-row {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: white;
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.15s ease;
+}
+
+.admin-ms-student-row:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* ── Swipe-to-reveal row ── */
+.admin-ms-swipe-row {
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-ms-swipe-inner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: white;
+  position: relative;
+  z-index: 1;
+  transform: translateX(0);
+  transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1.2);
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.admin-ms-swipe-row.swiped .admin-ms-swipe-inner {
+  transform: translateX(-88px);
+}
+
+.admin-ms-student-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+  padding: 14px 16px;
+}
+
+.admin-ms-student-text {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.admin-ms-student-avatar {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5BA3C7 0%, #4A8FB0 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.admin-ms-student-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.admin-ms-student-meta {
+  font-size: 12.5px;
+  color: #94a3b8;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  margin-top: 2px;
+  line-height: 1.35;
+}
+
+/* Remove button (revealed on swipe, sits behind the row) */
+.admin-ms-remove-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 88px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+  z-index: 0;
+}
+
+.admin-ms-remove-btn:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.admin-ms-remove-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-ms-add-btn {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #5BA3C7 0%, #4A8FB0 100%);
+  color: white;
+  border: none;
+  border-radius: 9px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-right: 14px;
+}
+
+.admin-ms-add-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(91, 163, 199, 0.35);
+}
+
+.admin-ms-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Mobile: stack columns; the columns container scrolls as a whole */
+@media (max-width: 640px) {
+  .admin-manage-students-modal {
+    height: 92vh;
+    max-height: 92vh;
+    padding: 16px;
+  }
+
+  .admin-manage-students-modal .admin-modal-header {
+    margin: -16px -16px 0;
+  }
+
+  .admin-ms-capacity {
+    padding: 32px 0 12px;
+  }
+
+  .admin-ms-columns {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+    padding: 14px 0 0;
+  }
+
+  .admin-ms-col {
+    min-height: 0;
+  }
+
+  .admin-ms-list {
+    max-height: 320px;
+  }
+}
+
 /* ========== FORM STYLES ========== */
 .admin-form-group {
   margin-bottom: 20px;
