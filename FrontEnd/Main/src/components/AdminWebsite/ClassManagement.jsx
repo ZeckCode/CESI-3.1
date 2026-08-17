@@ -697,6 +697,35 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
   const [showStudentsModal, setShowStudentsModal] = useState(false);
   const [selectedSection, setSelectedSection] = useState(null);
   const [assigningEnrollmentId, setAssigningEnrollmentId] = useState(null);
+  const [classFilterGrade, setClassFilterGrade] = useState('');
+  const [classFilterText, setClassFilterText] = useState('');
+
+  const filteredSections = useMemo(() => {
+    return sections.filter((sec) => {
+      const gradeCode = normalizeGradeCode(sec.grade_level);
+      const matchesGrade =
+        !classFilterGrade ||
+        classFilterGrade === 'all' ||
+        gradeCode === classFilterGrade ||
+        gradeLabel(sec.grade_level) === classFilterGrade;
+      const text = classFilterText.trim().toLowerCase();
+      const matchesText =
+        !text ||
+        (sec.name || '').toLowerCase().includes(text) ||
+        (sec.room_code || '').toLowerCase().includes(text) ||
+        (sec.adviser_name || '').toLowerCase().includes(text) ||
+        gradeLabel(sec.grade_level).toLowerCase().includes(text);
+      return matchesGrade && matchesText;
+    });
+  }, [sections, classFilterGrade, classFilterText]);
+
+  const hasActiveClassFilter =
+    (classFilterGrade && classFilterGrade !== 'all') || classFilterText.trim() !== '';
+
+  const clearClassFilter = () => {
+    setClassFilterGrade('');
+    setClassFilterText('');
+  };
 
   const sectionCapacityEntries = useMemo(() => {
     return sections.map((sec) => {
@@ -1305,6 +1334,35 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
         </div>
       )}
 
+      <div className="admin-class-filter-bar">
+        <select
+          className="admin-filter-select"
+          value={classFilterGrade}
+          onChange={(e) => setClassFilterGrade(e.target.value)}
+          aria-label="Filter by grade level"
+        >
+          <option value="">All Grades</option>
+          {GRADE_LEVELS.map((g) => (
+            <option key={g.value} value={g.value}>
+              {g.label}
+            </option>
+          ))}
+        </select>
+        <input
+          className="admin-filter-input"
+          type="text"
+          value={classFilterText}
+          onChange={(e) => setClassFilterText(e.target.value)}
+          placeholder="Search name, room, adviser…"
+          aria-label="Search classes"
+        />
+        {hasActiveClassFilter && (
+          <button className="admin-filter-clear" onClick={clearClassFilter} type="button">
+            Clear
+          </button>
+        )}
+      </div>
+
       <div className="admin-classes-grid">
         {sections.length === 0 && (
           <div className="admin-no-results">
@@ -1313,7 +1371,14 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
           </div>
         )}
 
-        {sections.map((sec) => {
+        {sections.length > 0 && filteredSections.length === 0 && (
+          <div className="admin-no-results">
+            <Filter size={40} />
+            <p>No sections match your filter.</p>
+          </div>
+        )}
+
+        {filteredSections.map((sec) => {
           const sectionSchedules = schedules.filter((s) => Number(s.section) === Number(sec.id));
           const subjectIds = [...new Set(sectionSchedules.map((s) => s.subject))];
 

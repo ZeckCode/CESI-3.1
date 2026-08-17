@@ -891,6 +891,75 @@
   margin-bottom: 25px;
 }
 
+/* ── Filter bar ── */
+.admin-class-filter-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.admin-class-filter-bar .admin-filter-select,
+.admin-class-filter-bar .admin-filter-input {
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 14px;
+  background-color: white;
+  color: #1f2937;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.admin-class-filter-bar .admin-filter-select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  max-width: 160px;
+  padding-right: 28px;
+  appearance: auto;
+  -webkit-appearance: auto;
+  background-image: none !important;
+}
+
+.admin-class-filter-bar .admin-filter-input {
+  flex: 1;
+  min-width: 140px;
+}
+
+.admin-class-filter-bar .admin-filter-input:focus,
+.admin-class-filter-bar .admin-filter-select:focus {
+  border-color: #5BA3C7;
+  box-shadow: 0 0 0 3px rgba(91, 163, 199, 0.15);
+}
+
+.admin-class-filter-bar .admin-filter-clear {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: white;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.admin-class-filter-bar .admin-filter-clear:hover {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.admin-class-filter-results {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
 .admin-classes-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -1453,7 +1522,78 @@
   }
 
   .admin-classes-grid {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    max-height: 62vh;
+    overflow-y: auto;
+    padding-right: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-classes-grid .admin-class-card {
+    min-width: 0;
+  }
+
+  .admin-classes-grid .admin-class-card-header {
+    padding: 12px 14px;
+  }
+
+  .admin-classes-grid .admin-class-card-header h3 {
+    font-size: 14px;
+  }
+
+  .admin-classes-grid .admin-class-grade {
+    font-size: 10px;
+  }
+
+  .admin-classes-grid .admin-class-card-body {
+    padding: 12px 14px;
+  }
+
+  .admin-classes-grid .admin-info-row {
+    font-size: 11px;
+    padding: 6px 0;
+  }
+
+  .admin-classes-grid .admin-card-actions {
+    gap: 4px;
+  }
+
+  .admin-classes-grid .admin-card-actions button {
+    padding: 5px 7px !important;
+  }
+
+  .admin-classes-grid .admin-card-actions button svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .admin-classes-grid .admin-no-results {
+    grid-column: 1 / -1;
+    padding: 40px 20px;
+  }
+
+  .admin-class-filter-bar {
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .admin-class-filter-bar .admin-filter-select {
+    max-width: 130px;
+    padding: 9px 10px;
+    font-size: 13px;
+  }
+
+  .admin-class-filter-bar .admin-filter-input {
+    min-width: 100px;
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .admin-class-filter-bar .admin-filter-clear {
+    padding: 9px 10px;
+    font-size: 12px;
   }
 
   .admin-subjects-grid-view {
