@@ -1232,14 +1232,18 @@ const AttendanceMonitoring = () => {
 
       pdf.setFontSize(11);
       pdf.setFont(undefined, "bold");
-      pdf.text(`Prepared by: ${teacherName}`, margin, yPosition);
+      pdf.text(
+        `Grade: ${currentSection ? GRADE_FULL_LABEL(getGradeSource(currentSection)) : "N/A"}`,
+        margin,
+        yPosition
+      );
       yPosition += 6;
-      
-      pdf.setFontSize(11);
-      pdf.setFont(undefined, "bold");
-      pdf.text(`Subject: ${getScheduleSubjectName(currentSchedule)}`, margin, yPosition);
-      pdf.text(`Section: ${currentSection?.name || "N/A"}`, margin, yPosition + 6);
-      yPosition += 16;
+      pdf.text(`Section: ${currentSection?.name || "N/A"}`, margin, yPosition);
+      yPosition += 6;
+      pdf.text(`Subject: ${getScheduleSubjectName(currentSchedule).toUpperCase()}`, margin, yPosition);
+      yPosition += 6;
+      pdf.text(`Prepared by: ${teacherName}`, margin, yPosition);
+      yPosition += 10;
       
       // Add legend
       pdf.setFontSize(9);

@@ -1937,8 +1937,13 @@ const Grade = () => {
       <PreviewModal
         isOpen={printPreviewOpen}
         onClose={() => setPrintPreviewOpen(false)}
-        title={`Grade Sheet - ${selectedSubject?.name || "N/A"} (${currentSection?.name || "N/A"})`}
-        pdfHeader={`Printed by: ${teacherName}`}
+        title="Student Grade Sheet"
+        pdfDetails={[
+          `Grade: ${currentSection ? gradeLabel(currentSection.grade_level) : "N/A"}`,
+          `Section: ${currentSection?.name || "N/A"}`,
+          `Subject: ${(selectedSubject?.name || "N/A").toUpperCase()}`,
+          `Prepared by: ${teacherName}`,
+        ]}
         data={printPreviewData}
         columns={gradePreviewColumns.length > 0 ? gradePreviewColumns : [
           { key: "Student Name", label: "Student Name" },

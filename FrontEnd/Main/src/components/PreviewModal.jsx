@@ -13,6 +13,7 @@ const PreviewModal = ({
   columns,
   filename = 'report',
   pdfHeader,
+  pdfDetails,
   onDownloadExcel,
   onDownloadPDF,
   onPrint,
@@ -85,6 +86,18 @@ const PreviewModal = ({
           doc.setTextColor(0, 0, 0);
           doc.text(pdfHeader, margin, titleUnderlineY + 11);
           generatedY = titleUnderlineY + 20;
+        }
+
+        if (pdfDetails) {
+          doc.setFontSize(11);
+          doc.setFont(undefined, 'bold');
+          doc.setTextColor(0, 0, 0);
+          const detailLines = Array.isArray(pdfDetails) ? pdfDetails : [pdfDetails];
+          const detailStartY = titleUnderlineY + 11;
+          detailLines.forEach((detailLine, index) => {
+            doc.text(detailLine, margin, detailStartY + (index * 6));
+          });
+          generatedY = detailStartY + 9 + ((detailLines.length - 1) * 6);
         }
         
         // Add timestamp
