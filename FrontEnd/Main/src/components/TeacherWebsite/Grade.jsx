@@ -2,10 +2,11 @@
 import { Plus, X, Edit2, Trash2, Settings, Calendar, FileText, Printer } from "lucide-react";
 import "../TeacherWebsiteCSS/Grade.css";
 import { apiFetch } from "../api/apiFetch";
-import { getToken } from "../Auth/auth";
+import { getToken, getUser } from "../Auth/auth";
 import PreviewModal from "../PreviewModal";
 import ExcelJS from "exceljs";
 import Toast from "../Global/Toast";
+import { getDisplayName } from "../../utils/userDisplayName";
 
 const API = "";
 
@@ -119,6 +120,7 @@ const Grade = () => {
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [quarter, setQuarter] = useState(1);
   const [teacherSubject, setTeacherSubject] = useState(null);
+  const [teacherName, setTeacherName] = useState(() => getDisplayName(getUser()));
   const [schoolYear, setSchoolYear] = useState(null);
 
   const [items, setItems] = useState([]);
@@ -320,6 +322,13 @@ const Grade = () => {
           apiFetch(`${API}/api/grades/teacher-info/`),
           apiFetch(`${API}/api/classmanagement/school-years/active/`),
         ]);
+
+        const userRes = await apiFetch(`${API}/api/accounts/me/detail/`);
+
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setTeacherName(getDisplayName(userData));
+        }
 
         if (teacherRes.ok) {
           const data = await teacherRes.json();
@@ -1929,6 +1938,7 @@ const Grade = () => {
         isOpen={printPreviewOpen}
         onClose={() => setPrintPreviewOpen(false)}
         title={`Grade Sheet - ${selectedSubject?.name || "N/A"} (${currentSection?.name || "N/A"})`}
+        pdfHeader={`Printed by: ${teacherName}`}
         data={printPreviewData}
         columns={gradePreviewColumns.length > 0 ? gradePreviewColumns : [
           { key: "Student Name", label: "Student Name" },

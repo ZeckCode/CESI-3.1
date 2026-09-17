@@ -5,8 +5,10 @@ import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
 import "../TeacherWebsiteCSS/AttendanceMonitoring.css";
 import { apiFetch } from "../api/apiFetch";
+import { getUser } from "../Auth/auth";
 import PreviewModal from "../PreviewModal";
 import Toast from "../Global/Toast";
+import { getDisplayName } from "../../utils/userDisplayName";
 
 const API = "";
 
@@ -166,6 +168,7 @@ const AttendanceMonitoring = () => {
   const [attendancePreviewOpen, setAttendancePreviewOpen] = useState(false);
   const [attendancePreviewData, setAttendancePreviewData] = useState([]);
   const [monthlyPreviewContent, setMonthlyPreviewContent] = useState(null);
+  const [teacherName, setTeacherName] = useState(() => getDisplayName(getUser()));
   const [toasts, setToasts] = useState([]);
 
   const dismissToast = useCallback((toastId) => {
@@ -208,10 +211,16 @@ const AttendanceMonitoring = () => {
   useEffect(() => {
     (async () => {
       try {
-        const [sectionsRes, schedulesRes] = await Promise.all([
+        const [sectionsRes, schedulesRes, userRes] = await Promise.all([
           apiFetch(`${API}/api/attendance/my-sections/`),
           apiFetch(`${API}/api/classmanagement/schedules/my/?include_free_period=0`),
+          apiFetch(`${API}/api/accounts/me/detail/`),
         ]);
+
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setTeacherName(getDisplayName(userData));
+        }
 
         if (sectionsRes.ok) {
           const data = await sectionsRes.json();
@@ -1211,20 +1220,30 @@ const AttendanceMonitoring = () => {
       const margin = 15;
       let yPosition = margin;
       
-      // Add title and month
-      pdf.setFontSize(16);
+      // Add title and divider matching the grade sheet PDF header
+      pdf.setFontSize(14);
       pdf.setFont(undefined, "bold");
-      pdf.text("Monthly Attendance Report", margin, yPosition);
-      yPosition += 10;
+      pdf.text(`Monthly Attendance Report of ${monthYear}`, margin, yPosition);
+
+      pdf.setDrawColor(0, 123, 255);
+      pdf.setLineWidth(1);
+      pdf.line(margin, yPosition + 3, pageWidth - margin, yPosition + 3);
+      yPosition += 14;
+
+      pdf.setFontSize(11);
+      pdf.setFont(undefined, "bold");
+      pdf.text(`Prepared by: ${teacherName}`, margin, yPosition);
+      yPosition += 6;
       
       pdf.setFontSize(11);
-      pdf.setFont(undefined, "normal");
-      pdf.text(`Month: ${monthYear}`, margin, yPosition);
+      pdf.setFont(undefined, "bold");
+      pdf.text(`Subject: ${getScheduleSubjectName(currentSchedule)}`, margin, yPosition);
       pdf.text(`Section: ${currentSection?.name || "N/A"}`, margin, yPosition + 6);
       yPosition += 16;
       
       // Add legend
       pdf.setFontSize(9);
+      pdf.setFont(undefined, "normal");
       pdf.text("P = Present | A = Absent | L = Late | E = Excused", margin, yPosition);
       yPosition += 8;
       
@@ -1833,6 +1852,7 @@ const AttendanceMonitoring = () => {
         data={attendancePreviewData}
         customPreview={monthlyPreviewContent}
         filename={`Monthly-Attendance-${currentSection?.name || "N/A"}`}
+        pdfHeader={`Prepared by: ${teacherName}`}
         onDownloadExcel={handleDownloadAttendanceExcel}
         onDownloadPDF={handleDownloadAttendancePDF}
       />

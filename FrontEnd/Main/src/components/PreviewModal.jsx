@@ -12,6 +12,7 @@ const PreviewModal = ({
   data, 
   columns,
   filename = 'report',
+  pdfHeader,
   onDownloadExcel,
   onDownloadPDF,
   onPrint,
@@ -64,21 +65,33 @@ const PreviewModal = ({
         const usableWidth = pageWidth - 2 * margin;
         
         // Add title
+        const titleY = 15;
         doc.setFontSize(14); // Reduced from 16
         doc.setFont(undefined, 'bold');
         doc.setTextColor(0, 0, 0);
-        doc.text(title || 'Report', margin, 15);
+        doc.text(title || 'Report', margin, titleY);
         
         // Add underline below title
         doc.setDrawColor(0, 123, 255);
         doc.setLineWidth(1);
-        doc.line(margin, 18, pageWidth - margin, 18); // Adjusted y position
+        const titleUnderlineY = titleY + 3;
+        doc.line(margin, titleUnderlineY, pageWidth - margin, titleUnderlineY);
+
+        // Add teacher/header line below the report title when provided
+        let generatedY = titleUnderlineY + 7;
+        if (pdfHeader) {
+          doc.setFontSize(14);
+          doc.setFont(undefined, 'bold');
+          doc.setTextColor(0, 0, 0);
+          doc.text(pdfHeader, margin, titleUnderlineY + 11);
+          generatedY = titleUnderlineY + 20;
+        }
         
         // Add timestamp
         doc.setFontSize(10); // Reduced from 11
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0);
-        doc.text(`Generated: ${timestamp}`, margin, 25); // Adjusted y position
+        doc.text(`Generated: ${timestamp}`, margin, generatedY);
         
         // Get formatted data for PDF
         let pdfData = data;
@@ -106,7 +119,7 @@ const PreviewModal = ({
           
           const headerRowHeight = 10;
           const rowHeight = 8;
-          let yPos = 32; // Adjusted from 35 to account for reduced header/footer
+          let yPos = generatedY + 7;
           
           // Draw header row
           headers.forEach((header, idx) => {
