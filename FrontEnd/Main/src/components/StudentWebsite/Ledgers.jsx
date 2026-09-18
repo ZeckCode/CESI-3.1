@@ -7,6 +7,7 @@
   import ExcelJS from 'exceljs';
   import jsPDF from 'jspdf';
   import 'jspdf-autotable';
+  import { getDisplayName } from "../../utils/userDisplayName";
 
   const API_BASE = "";
   const ITEMS_PER_PAGE = 5;
@@ -187,6 +188,9 @@
     const [tuitionInstallments, setTuitionInstallments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [studentName, setStudentName] = useState("—");
+    const [studentGrade, setStudentGrade] = useState("—");
+    const [studentSection, setStudentSection] = useState("—");
 
     const [txPage, setTxPage] = useState(1);
     const [installmentPage, setInstallmentPage] = useState(1);
@@ -225,11 +229,21 @@
           setLoading(true);
           setError(null);
 
-          const [txRes, sumRes, instRes] = await Promise.all([
+          const [txRes, sumRes, instRes, userRes] = await Promise.all([
             apiFetch(`${API_BASE}/api/finance/my-transactions/`),
             apiFetch(`${API_BASE}/api/finance/my-ledger-summary/`),
             apiFetch(`${API_BASE}/api/finance/my-tuition-installments/`),
+            apiFetch(`${API_BASE}/api/accounts/me/detail/`),
           ]);
+
+          if (userRes.ok) {
+            const userData = await userRes.json();
+            const sectionDetails = userData?.enrollment?.section_details || {};
+            const profile = userData?.profile || {};
+            setStudentName(getDisplayName(userData));
+            setStudentGrade(gradeLevelLabel(sectionDetails.grade_level ?? profile.grade_level));
+            setStudentSection(sectionDetails.name || profile.section?.name || profile.section_name || "—");
+          }
 
           if (!txRes.ok) {
             throw new Error("Failed to load transactions");
@@ -961,13 +975,21 @@
           doc.setDrawColor(0, 120, 255);
           doc.setLineWidth(1);
           doc.line(margin, 19, pageWidth - margin, 19);
+
+          // Add student details below the title, matching the student grades PDF
+          doc.setFontSize(11);
+          doc.setFont(undefined, 'bold');
+          doc.setTextColor(0, 0, 0);
+          doc.text(`Student: ${studentName}`, margin, 30);
+          doc.text(`Grade: ${studentGrade}`, margin, 36);
+          doc.text(`Section: ${studentSection}`, margin, 42);
           
           // Timestamp
           doc.setFontSize(10);
           doc.setFont(undefined, 'normal');
-          doc.text(`Generated: ${timestamp}`, margin, 26);
+          doc.text(`Generated: ${timestamp}`, margin, 51);
           
-          let yPos = 32;
+          let yPos = 58;
           let pageNum = 1;
           
           // Check if there's data to display
@@ -1115,13 +1137,21 @@
           doc.setDrawColor(0, 120, 255);
           doc.setLineWidth(1);
           doc.line(margin, 19, pageWidth - margin, 19);
+
+          // Add student details below the title, matching the student grades PDF
+          doc.setFontSize(11);
+          doc.setFont(undefined, 'bold');
+          doc.setTextColor(0, 0, 0);
+          doc.text(`Student: ${studentName}`, margin, 30);
+          doc.text(`Grade: ${studentGrade}`, margin, 36);
+          doc.text(`Section: ${studentSection}`, margin, 42);
           
           // Timestamp
           doc.setFontSize(10);
           doc.setFont(undefined, 'normal');
-          doc.text(`Generated: ${timestamp}`, margin, 26);
+          doc.text(`Generated: ${timestamp}`, margin, 51);
           
-          let yPos = 32;
+          let yPos = 58;
           let pageNum = 1;
           
           // Check if there's data to display

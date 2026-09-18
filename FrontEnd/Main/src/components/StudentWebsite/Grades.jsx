@@ -8,6 +8,7 @@ import "../StudentWebsiteCSS/Grades.css";
 import { apiFetch } from "../api/apiFetch";
 import PreviewModal from "../PreviewModal";
 import Toast from "../Global/Toast";
+import { getDisplayName } from "../../utils/userDisplayName";
 
 const toNumberOrNull = (value) => {
   if (value === null || value === undefined || value === "") return null;
@@ -40,11 +41,24 @@ const getApiErrorMessage = (payload, fallback) => {
   }
 };
 
+const formatGradeLevel = (value) => {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "0" || normalized === "kinder") return "Kinder";
+  if (normalized === "prek" || normalized === "pre-kinder" || normalized === "-1") return "Pre-Kinder";
+  if (/^grade\s*\d+$/.test(normalized)) {
+    return normalized.replace(/^grade\s*/, "Grade ");
+  }
+  if (/^\d+$/.test(normalized)) return `Grade ${normalized}`;
+  return value || "—";
+};
+
 const Grades = () => {
   const [grades, setGrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [schoolYear, setSchoolYear] = useState("");
   const [studentName, setStudentName] = useState("");
+  const [studentGrade, setStudentGrade] = useState("—");
+  const [studentSection, setStudentSection] = useState("—");
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState([]);
   const [activeTooltip, setActiveTooltip] = useState(null);
@@ -67,10 +81,11 @@ const Grades = () => {
   useEffect(() => {
     (async () => {
       try {
-        const [gradesRes, syRes, schedulesRes] = await Promise.all([
+        const [gradesRes, syRes, schedulesRes, userRes] = await Promise.all([
           apiFetch("/api/grades/my-grades/"),
           apiFetch("/api/classmanagement/school-years/active/"),
           apiFetch("/api/classmanagement/schedules/my/"),
+          apiFetch("/api/accounts/me/detail/"),
         ]);
         if (!gradesRes.ok) {
           const errPayload = await parseResponseJson(gradesRes);
@@ -89,6 +104,14 @@ const Grades = () => {
           const schData = await parseResponseJson(schedulesRes);
           console.log("Schedules API response:", schData);
           setSchedules(Array.isArray(schData) ? schData : []);
+        }
+        if (userRes.ok) {
+          const userData = await parseResponseJson(userRes);
+          const sectionDetails = userData?.enrollment?.section_details || {};
+          const profile = userData?.profile || {};
+          setStudentName(getDisplayName(userData));
+          setStudentGrade(formatGradeLevel(sectionDetails.grade_level ?? profile.grade_level));
+          setStudentSection(sectionDetails.name || profile.section?.name || profile.section_name || "—");
         }
       } catch (e) {
         console.error("Error fetching data:", e);
@@ -349,11 +372,19 @@ const Grades = () => {
       doc.setLineWidth(1);
       doc.line(margin, 18, pageWidth - margin, 18);
 
+      // Add student details below the title, matching the teacher PDF header
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Student: ${studentName || '—'}`, margin, 29);
+      doc.text(`Grade: ${studentGrade}`, margin, 35);
+      doc.text(`Section: ${studentSection}`, margin, 41);
+
       // Add timestamp
       doc.setFontSize(9);
       doc.setFont(undefined, 'normal');
       doc.setTextColor(0, 0, 0);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 24);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 50);
 
       const headers = ['SUBJECT', 'QUARTER 1', 'QUARTER 2', 'QUARTER 3', 'QUARTER 4', 'FINAL', 'TEACHER'];
       const keys = ['Subject', 'Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4', 'Final Grade', 'Teacher'];
@@ -384,7 +415,7 @@ const Grades = () => {
 
       const headerRowHeight = 10;
       const rowHeight = 9;
-      let yPos = 30;
+      let yPos = 57;
 
       // Draw header
       let xPos = margin;
