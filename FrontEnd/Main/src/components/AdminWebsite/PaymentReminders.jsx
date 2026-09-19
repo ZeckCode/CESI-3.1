@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Bell,
   Search,
@@ -7,45 +7,76 @@ import {
   AlertCircle,
   Clock,
   CheckCircle,
-  DollarSign,
+  Wallet,
 } from "lucide-react";
-import { getToken } from "../Auth/auth";
+import { apiFetch } from "../api/apiFetch";
+import Pagination from "./Pagination";
+import StatCard, { StatsGrid } from "./StatCard";
+import Toast from "../Global/Toast";
 import "../AdminWebsiteCSS/PaymentReminders.css";
 
-const API_BASE = "";
+const REMINDER_SKELETON_ROWS = 6;
 
-const authHeaders = (extra = {}) => {
-  const token = getToken();
-  return {
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...extra,
-  };
+const canSendReminderForTransaction = (row) =>
+  Boolean(row?.transaction_id) && row?.can_send_payment_reminder === true;
+
+const dueStateLabel = (state) => {
+  if (state === "paid") return "Paid";
+  if (state === "overdue") return "Overdue";
+  if (state === "due_today") return "Due Today";
+  return "Upcoming";
+};
+
+const dueStateBadgeClass = (state) => {
+  if (state === "paid") return "reminded";
+  if (state === "overdue") return "reminded";
+  return "pending";
 };
 
 const PaymentReminders = () => {
   const [hoveredRow, setHoveredRow] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [reminders, setReminders] = useState([]);
+  const [ledgerRows, setLedgerRows] = useState([]);
+  const [reminderSummary, setReminderSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sendingId, setSendingId] = useState(null);
   const [sendingBulk, setSendingBulk] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const loadReminders = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/reminders/?type=PAYMENT`, {
-        credentials: "include",
-        headers: authHeaders(),
-      });
+      const res = await apiFetch("/api/reminders/payments/ledger/nearest-due/");
 
-      if (!res.ok) throw new Error("Failed to load reminders");
+      if (!res.ok) throw new Error("Failed to load payment ledger");
 
       const data = await res.json();
-      setReminders(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        setLedgerRows(data);
+        setReminderSummary(null);
+      } else {
+        setLedgerRows(Array.isArray(data?.rows) ? data.rows : []);
+        setReminderSummary(data?.summary || null);
+      }
     } catch (err) {
-      console.error("Error loading payment reminders:", err);
-      setReminders([]);
+      console.error("Error loading payment ledger:", err);
+      setLedgerRows([]);
+      setReminderSummary(null);
     } finally {
       setLoading(false);
     }
@@ -55,46 +86,111 @@ const PaymentReminders = () => {
     loadReminders();
   }, []);
 
-  const filteredReminders = useMemo(() => {
-    return reminders.filter((r) => {
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [ledgerRows.length, filterStatus, searchTerm]);
+
+  const filteredRows = useMemo(() => {
+    return ledgerRows.filter((r) => {
       const text = searchTerm.toLowerCase();
 
       const matchesSearch =
         (r.reference_number || "").toLowerCase().includes(text) ||
-        String(r.transaction || "").toLowerCase().includes(text) ||
-        (r.title || "").toLowerCase().includes(text) ||
-        (r.recipient_name || "").toLowerCase().includes(text);
+        String(r.transaction_id || "").toLowerCase().includes(text) ||
+        (r.student_name || "").toLowerCase().includes(text) ||
+        (r.student_number || "").toLowerCase().includes(text) ||
+        (r.parent_name || "").toLowerCase().includes(text);
 
-      const statusValue = r.is_read ? "reminded" : "pending";
+      const statusValue = r.due_state || "upcoming";
       const matchesFilter = filterStatus === "all" || statusValue === filterStatus;
 
       return matchesSearch && matchesFilter;
     });
-  }, [reminders, searchTerm, filterStatus]);
+  }, [ledgerRows, searchTerm, filterStatus]);
 
-  const totalOutstanding = reminders.reduce((sum, r) => {
-    return sum + Number(r.amount_to_pay || 0);
+  const totalOutstanding = ledgerRows.reduce((sum, r) => {
+    return sum + Number(r.remaining_balance || 0);
   }, 0);
 
-  const pendingCount = reminders.filter((r) => !r.is_read).length;
-  const remindedCount = reminders.filter((r) => r.is_read).length;
+  const studentsWithBalance = ledgerRows.filter((r) => Number(r.remaining_balance || 0) > 0).length;
+  const overdueCount = reminderSummary?.overdue_transactions ?? ledgerRows.filter((r) => r.due_state === "overdue" && !r.is_paid_already).length;
 
-  const sendReminder = async (transactionId) => {
+  const dueWithin7Days = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sevenDays = new Date(today);
+    sevenDays.setDate(today.getDate() + 7);
+
+    return ledgerRows.filter((r) => {
+      if (!r?.due_date) return false;
+      const due = new Date(`${r.due_date}T00:00:00`);
+      if (Number.isNaN(due.getTime())) return false;
+      return due >= today && due <= sevenDays;
+    }).length;
+  }, [ledgerRows]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
+  const paginatedRows = useMemo(
+    () => filteredRows.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
+    [filteredRows, currentPage]
+  );
+
+  const renderSkeletonRows = (columnCount) =>
+    Array.from({ length: REMINDER_SKELETON_ROWS }).map((_, rowIdx) => (
+      <tr key={`pr-skeleton-row-${rowIdx}`}>
+        {Array.from({ length: columnCount }).map((__, colIdx) => (
+          <td key={`pr-skeleton-cell-${rowIdx}-${colIdx}`}>
+            <div
+              className={`pr-skeleton-line ${
+                colIdx === 0 ? 'w-lg' : colIdx === columnCount - 1 ? 'w-sm' : 'w-md'
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ));
+
+  const sendReminder = async (row) => {
+    const transactionId = row?.transaction_id;
     if (!transactionId) {
-      alert("This reminder has no linked transaction.");
+      addToast("Error", "This student row has no linked transaction.", "error");
+      return;
+    }
+
+    if (!canSendReminderForTransaction(row)) {
+      if (row?.due_state === "upcoming" && row?.due_date) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dueDate = new Date(`${row.due_date}T00:00:00`);
+        if (!Number.isNaN(dueDate.getTime())) {
+          const eligibleDate = new Date(dueDate);
+          eligibleDate.setDate(dueDate.getDate() - 7);
+          if (today < eligibleDate) {
+            addToast(
+              "Too Early",
+              `Reminder can be sent starting ${eligibleDate.toLocaleDateString()} (7 days before due date ${dueDate.toLocaleDateString()}).`,
+              "info"
+            );
+            return;
+          }
+        }
+      }
+
+      addToast(
+        "Blocked",
+        row?.is_paid_already
+          ? "This reminder is already paid. No reminder needed."
+          : "Reminder is not eligible yet. Eligible rows are overdue, due today, or upcoming within 7 days (with remaining balance).",
+        "warning"
+      );
       return;
     }
 
     setSendingId(transactionId);
     try {
-      const res = await fetch(
-        `${API_BASE}/api/reminders/payments/${transactionId}/send/`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: authHeaders(),
-        }
-      );
+      const res = await apiFetch(`/api/reminders/payments/${transactionId}/send/`, {
+        method: "POST",
+      });
 
       const data = await res.json().catch(() => ({}));
 
@@ -102,23 +198,37 @@ const PaymentReminders = () => {
         throw new Error(data.detail || "Failed to send reminder.");
       }
 
-      alert(data.detail || "Payment reminder sent successfully.");
-      loadReminders();
+      addToast("Success", data.detail || "Payment reminder sent successfully!", "success");
+      await loadReminders();
     } catch (err) {
       console.error("Error sending reminder:", err);
-      alert(err.message || "Failed to send reminder.");
+      addToast("Error", err.message || "Failed to send reminder.", "error");
     } finally {
       setSendingId(null);
     }
   };
 
   const sendBulkReminders = async () => {
+    const selectedTransactionIds = filteredRows
+      .filter((row) => canSendReminderForTransaction(row))
+      .map((row) => row.transaction_id)
+      .filter(Boolean);
+
+    if (selectedTransactionIds.length === 0) {
+      addToast(
+        "Blocked",
+        "No eligible rows in the current filter. Include overdue, due today, or upcoming within 7 days with remaining balance.",
+        "warning"
+      );
+      return;
+    }
+
     setSendingBulk(true);
     try {
-      const res = await fetch(`${API_BASE}/api/reminders/payments/send-bulk/`, {
-        method: "POST",
-        credentials: "include",
-        headers: authHeaders(),
+      const res = await apiFetch('/api/reminders/payments/send-bulk/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transaction_ids: selectedTransactionIds }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -127,11 +237,11 @@ const PaymentReminders = () => {
         throw new Error(data.detail || "Failed to send bulk reminders.");
       }
 
-      alert(data.detail || "Bulk reminders sent successfully.");
-      loadReminders();
+      addToast("Success", data.detail || "Bulk reminders sent successfully!", "success");
+      await loadReminders();
     } catch (err) {
       console.error("Error sending bulk reminders:", err);
-      alert(err.message || "Failed to send bulk reminders.");
+      addToast("Error", err.message || "Failed to send bulk reminders.", "error");
     } finally {
       setSendingBulk(false);
     }
@@ -140,169 +250,224 @@ const PaymentReminders = () => {
   return (
     <main className="pr-main">
       <section className="pr-section">
-        <div className="pr-stats-grid">
-          <div className="pr-stat-card pr-stat-blue">
-            <div className="pr-stat-header">
-              <span className="pr-stat-label">Total Outstanding</span>
-              <DollarSign size={24} className="pr-stat-icon" />
+        {loading ? (
+          <StatsGrid>
+            <div className="unified-stat-card pr-skeleton-stat-card">
+              <div className="pr-skeleton-line w-md" />
+              <div className="pr-skeleton-line w-sm" />
             </div>
-            <div className="pr-stat-value">₱{totalOutstanding.toLocaleString()}</div>
-            <div className="pr-stat-change">Based on reminder-linked transactions</div>
-          </div>
-
-          <div className="pr-stat-card pr-stat-yellow">
-            <div className="pr-stat-header">
-              <span className="pr-stat-label">Pending Reminders</span>
-              <Clock size={24} className="pr-stat-icon" />
+            <div className="unified-stat-card pr-skeleton-stat-card">
+              <div className="pr-skeleton-line w-md" />
+              <div className="pr-skeleton-line w-sm" />
             </div>
-            <div className="pr-stat-value">{pendingCount}</div>
-            <div className="pr-stat-change">Unread reminders</div>
-          </div>
-
-          <div className="pr-stat-card pr-stat-green">
-            <div className="pr-stat-header">
-              <span className="pr-stat-label">Reminders Sent</span>
-              <CheckCircle size={24} className="pr-stat-icon" />
+            <div className="unified-stat-card pr-skeleton-stat-card">
+              <div className="pr-skeleton-line w-md" />
+              <div className="pr-skeleton-line w-sm" />
             </div>
-            <div className="pr-stat-value">{remindedCount}</div>
-            <div className="pr-stat-change">Read reminders</div>
-          </div>
-        </div>
+          </StatsGrid>
+        ) : (
+          <StatsGrid>
+            <StatCard
+              label="Total Outstanding"
+              value={`₱${totalOutstanding.toLocaleString()}`}
+              icon={<Wallet size={20} />}
+              color="blue"
+              subtitle="Sum of current student ledger balances"
+            />
+            <StatCard
+              label="Due Within 7 Days"
+              value={dueWithin7Days}
+              icon={<Clock size={20} />}
+              color="yellow"
+              subtitle="Nearest-due student ledgers"
+            />
+            <StatCard
+              label="Students With Balance"
+              value={studentsWithBalance}
+              icon={<CheckCircle size={20} />}
+              color="green"
+              subtitle={`Overdue: ${overdueCount}`}
+            />
+          </StatsGrid>
+        )}
       </section>
 
       <section className="pr-section">
-        <div className="pr-section-header">
-          <div>
-            <h2 className="pr-section-title">Payment Reminders</h2>
-            <p className="pr-section-subtitle">
-              Manage payment reminders already saved in the system
-            </p>
+        {loading ? (
+          <div className="pr-section-header pr-section-header-skeleton">
+            <div>
+              <div className="pr-skeleton-line pr-skeleton-title" />
+              <div className="pr-skeleton-line pr-skeleton-subtitle" />
+            </div>
+            <div className="pr-header-actions">
+              <div className="pr-skeleton-line pr-skeleton-control" />
+            </div>
           </div>
+        ) : (
+          <div className="pr-section-header">
+            <div>
+              <h2 className="pr-section-title">Payment Reminders</h2>
+              <p className="pr-section-subtitle">
+                One nearest-due ledger row per student with remaining balance
+              </p>
+            </div>
 
-          <div className="pr-header-actions">
-            <button
-              className="pr-btn-success"
-              onClick={sendBulkReminders}
-              disabled={sendingBulk}
-            >
-              <Bell size={18} /> {sendingBulk ? "Sending..." : "Send Bulk Reminders"}
-            </button>
+            <div className="pr-header-actions">
+              <button
+                className="pr-btn-success"
+                onClick={sendBulkReminders}
+                disabled={sendingBulk}
+              >
+                <Bell size={18} /> {sendingBulk ? "Sending..." : "Send Bulk Reminders"}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="pr-filters-container">
-          <div className="pr-search-box">
-            <Search size={20} className="pr-search-icon" />
-            <input
-              type="text"
-              placeholder="Search by reference, recipient, or title..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pr-search-input"
-            />
+        {loading ? (
+          <div className="pr-filters-container pr-filters-skeleton">
+            <div className="pr-skeleton-line pr-skeleton-search" />
+            <div className="pr-skeleton-line pr-skeleton-filter" />
           </div>
+        ) : (
+          <div className="pr-filters-container">
+            <div className="pr-search-box">
+              <Search size={20} className="pr-search-icon" />
+              <input
+                type="text"
+                placeholder="Search by student, student no., parent, or reference..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pr-search-input"
+              />
+            </div>
 
-          <div className="pr-filter-group">
-            <Filter size={20} />
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="pr-filter-select"
-            >
-              <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="reminded">Reminded</option>
-            </select>
+            <div className="pr-filter-group">
+              <Filter size={20} />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="pr-filter-select"
+              >
+                <option value="all">All Statuses</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="due_today">Due Today</option>
+                <option value="overdue">Overdue</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="pr-table-container">
+          <div className="pr-table-scroll-hint">← Swipe to scroll →</div>
           <table className="pr-table">
             <thead>
               <tr>
-                <th>Transaction</th>
-                <th>Recipient</th>
-                <th>Title</th>
-                <th>Amount to Pay</th>
-                <th>Created</th>
+                <th>Student</th>
+                <th>Parent</th>
+                <th>Next Due Date</th>
+                <th>Amount Due</th>
+                <th>Remaining Balance</th>
                 <th>Status</th>
+                <th>Payment Info</th>
                 <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan="7" className="pr-no-data">
-                    <p>Loading reminders...</p>
-                  </td>
-                </tr>
-              ) : filteredReminders.length > 0 ? (
-                filteredReminders.map((r) => (
+                renderSkeletonRows(8)
+              ) : filteredRows.length > 0 ? (
+                paginatedRows.map((r) => (
                   <tr
-                    key={r.id}
-                    className={hoveredRow === r.id ? "pr-row-hover" : ""}
-                    onMouseEnter={() => setHoveredRow(r.id)}
+                    key={`${r.enrollment_id || "none"}-${r.transaction_id}`}
+                    className={hoveredRow === r.transaction_id ? "pr-row-hover" : ""}
+                    onMouseEnter={() => setHoveredRow(r.transaction_id)}
                     onMouseLeave={() => setHoveredRow(null)}
                   >
                     <td>
-                      {r.reference_number || r.transaction ? (
+                      {r.student_name || r.transaction_id ? (
                         <div className="pr-transaction-cell">
                           <div className="pr-transaction-id">
-                            #{r.transaction || "—"}
+                            {r.student_name || "—"}
                           </div>
                           <div className="pr-transaction-ref">
-                            {r.reference_number || "—"}
+                            {r.student_number ? `SN: ${r.student_number}` : "SN: —"}
                           </div>
-                          
+                          <div className="pr-transaction-ref">
+                            {r.reference_number ? `Ref: ${r.reference_number}` : `Txn #${r.transaction_id || "—"}`}
+                          </div>
                         </div>
                       ) : (
                         "—"
                       )}
                     </td>
-                    <td className="pr-student-name">{r.recipient_name || "—"}</td>
-                    <td>{r.title || "—"}</td>
+                    <td className="pr-student-name">{r.parent_name || "—"}</td>
                     <td>
-                      {r.amount_to_pay != null
-                        ? `₱${Number(r.amount_to_pay).toLocaleString()}`
-                        : "—"}
+                      {r.due_date ? new Date(`${r.due_date}T00:00:00`).toLocaleDateString() : "—"}
                     </td>
-                    <td>
-                      {r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
-                    </td>
+                    <td>{`₱${Number(r.outstanding_balance || r.amount_to_pay || 0).toLocaleString()}`}</td>
+                    <td>{`₱${Number(r.remaining_balance || 0).toLocaleString()}`}</td>
                     <td>
                       <span
                         className={`pr-status-badge pr-status-${
-                          r.is_read ? "reminded" : "pending"
+                          dueStateBadgeClass(r.due_state)
                         }`}
                       >
-                        {r.is_read ? "Reminded" : "Pending"}
+                        {dueStateLabel(r.due_state)}
                       </span>
                     </td>
+                    <td>{r.payment_info || (r.is_paid_already ? "Paid already" : "With remaining balance")}</td>
                     <td>
                       <button
                         className="pr-btn-send"
-                        onClick={() => sendReminder(r.transaction)}
-                        disabled={!r.transaction || sendingId === r.transaction}
+                        onClick={() => sendReminder(r)}
+                        disabled={
+                          !r.transaction_id ||
+                          sendingId === r.transaction_id
+                        }
+                        title={
+                          !r.transaction_id
+                            ? "No linked transaction"
+                            : sendingId === r.transaction_id
+                            ? "Sending..."
+                            : r.is_paid_already
+                            ? "Paid already"
+                            : !canSendReminderForTransaction(r)
+                            ? "Click to see why this row is not eligible"
+                            : "Send payment reminder"
+                        }
                       >
                         <Send size={16} />{" "}
-                        {sendingId === r.transaction ? "Sending..." : "Send"}
+                        {sendingId === r.transaction_id ? "Sending..." : "Send"}
                       </button>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="pr-no-data">
+                  <td colSpan="8" className="pr-no-data">
                     <AlertCircle size={24} />
-                    <p>No reminders found</p>
+                    <p>No student ledger rows found</p>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {!loading && filteredRows.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredRows.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
+        )}
       </section>
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </main>
   );
 };

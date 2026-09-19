@@ -1,15 +1,16 @@
+from accounts.models import User, Subject
 from rest_framework import serializers
-from accounts.models import User
-from .models import Schedule, Room, SchoolYear
+from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
+from .models import Schedule, Room, SchoolYear, ScheduleTemplate
 
 
-class RoomSerializer(serializers.ModelSerializer):
+class RoomSerializer(SafeModelSerializer):
     class Meta:
         model = Room
         fields = ["id", "code", "name", "capacity", "is_active"]
 
 
-class SchoolYearSerializer(serializers.ModelSerializer):
+class SchoolYearSerializer(SafeModelSerializer):
     status = serializers.SerializerMethodField()
 
     class Meta:
@@ -20,8 +21,7 @@ class SchoolYearSerializer(serializers.ModelSerializer):
         return obj.status
 
 
-class ScheduleReadSerializer(serializers.ModelSerializer):
-    """Read-only schedule with nested human-readable names."""
+class ScheduleReadSerializer(SafeModelSerializer):
     teacher_name = serializers.CharField(source="teacher.username", read_only=True)
     subject_name = serializers.SerializerMethodField()
     subject_code = serializers.CharField(source="subject.code", read_only=True, allow_null=True)
@@ -47,7 +47,7 @@ class ScheduleReadSerializer(serializers.ModelSerializer):
     def get_subject_name(self, obj):
         if obj.subject:
             return obj.subject.name
-        return "Free Period"  # Fallback for non-subject entries
+        return "Free Period"
 
     def get_room_code(self, obj):
         if obj.room:
@@ -73,10 +73,14 @@ class ScheduleReadSerializer(serializers.ModelSerializer):
             return obj.section.room.name
         return None
 
-
-class ScheduleWriteSerializer(serializers.ModelSerializer):
+class ScheduleWriteSerializer(SafeModelSerializer):
     teacher = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role="TEACHER"),
+        required=False,
+        allow_null=True,
+    )
+    subject = serializers.PrimaryKeyRelatedField(
+        queryset=Subject.objects.all(),
         required=False,
         allow_null=True,
     )
@@ -91,6 +95,36 @@ class ScheduleWriteSerializer(serializers.ModelSerializer):
     def validate(self, data):
         start = data.get("start_time") or (self.instance and self.instance.start_time)
         end = data.get("end_time") or (self.instance and self.instance.end_time)
+
         if start and end and start >= end:
-            raise serializers.ValidationError("end_time must be after start_time")
+            raise serializers.ValidationError({
+                "end_time": "End time must be later than the start time.",
+            })
+
         return data
+
+
+class ScheduleTemplateSerializer(SafeModelSerializer):
+    source_school_year_name = serializers.CharField(source="source_school_year.name", read_only=True)
+    created_by_username = serializers.CharField(source="created_by.username", read_only=True)
+    entry_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ScheduleTemplate
+        fields = [
+            "id",
+            "name",
+            "source_school_year",
+            "source_school_year_name",
+            "entry_count",
+            "created_by",
+            "created_by_username",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_entry_count(self, obj):
+        payload = obj.payload or []
+        if not isinstance(payload, list):
+            return 0
+        return sum(1 for row in payload if str((row or {}).get("entry_type") or "SCHEDULE").upper() != "SECTION_BLUEPRINT")

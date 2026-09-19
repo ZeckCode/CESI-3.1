@@ -1,5 +1,7 @@
 from django.db import models
+from django.db.models import Q
 from django.conf import settings
+from collections import Counter
 
 
 class AttendanceRecord(models.Model):
@@ -13,6 +15,7 @@ class AttendanceRecord(models.Model):
         ("LATE", "Late"),
         ("EXCUSED", "Excused"),
     ]
+    STATUS_VALUES = [choice[0] for choice in STATUS_CHOICES]
 
     student = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -42,7 +45,13 @@ class AttendanceRecord(models.Model):
         help_text="Canonical subject snapshot for this attendance record",
     )
     date = models.DateField()
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="PRESENT")
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default="PRESENT",
+        null=True,
+        blank=True,
+    )
     marked_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -67,6 +76,16 @@ class AttendanceRecord(models.Model):
         else:
             subject = "General"
         return f"{self.student.username} - {self.date} - {subject} - {self.status}"
+
+    @classmethod
+    def _dedupe_records(cls, records):
+        latest_by_key = {}
+        for record in records:
+            dedupe_key = (record.date, record.schedule_id, record.subject_id)
+            current = latest_by_key.get(dedupe_key)
+            if current is None or (record.updated_at, record.id) > (current.updated_at, current.id):
+                latest_by_key[dedupe_key] = record
+        return list(latest_by_key.values())
 
     @classmethod
     def get_student_attendance_stats(
@@ -95,14 +114,24 @@ class AttendanceRecord(models.Model):
         elif schedule_id:
             records = records.filter(schedule_id=schedule_id)
 
-        total = records.count()
+        records = records.filter(status__in=cls.STATUS_VALUES)
+
+        deduped_records = cls._dedupe_records(
+            list(records.only("id", "date", "status", "schedule_id", "subject_id", "updated_at"))
+        )
+
+        total = len(deduped_records)
         if total == 0:
             return {"total": 0, "present": 0, "absent": 0, "late": 0, "excused": 0, "percentage": None}
 
-        present = records.filter(status="PRESENT").count()
-        absent = records.filter(status="ABSENT").count()
-        late = records.filter(status="LATE").count()
-        excused = records.filter(status="EXCUSED").count()
+        status_counts = Counter(
+            record.status for record in deduped_records if record.status in cls.STATUS_VALUES
+        )
+
+        present = status_counts.get("PRESENT", 0)
+        absent = status_counts.get("ABSENT", 0)
+        late = status_counts.get("LATE", 0)
+        excused = status_counts.get("EXCUSED", 0)
 
         # For grade: Present + Late + Excused counts as "attended"
         attended = present + late + excused
@@ -124,11 +153,18 @@ class AttendanceRecord(models.Model):
         Get all attendance records for a student on a specific date.
         Returns a summary of attendance per subject/period.
         """
-        records = cls.objects.filter(
+        records_qs = cls.objects.filter(
             student_id=student_id,
             date=date,
-            subject__isnull=False,
+        ).filter(
+            Q(subject__isnull=False) | Q(schedule__subject__isnull=False)
+        ).filter(
+            status__in=cls.STATUS_VALUES,
         ).select_related("subject", "schedule", "schedule__subject", "schedule__teacher")
+
+        records = cls._dedupe_records(
+            list(records_qs.order_by("schedule__start_time", "-updated_at", "-id"))
+        )
         
         summary = []
         for record in records:

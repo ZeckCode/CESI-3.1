@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   History,
   BookOpen,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
 import "../StudentWebsiteCSS/AcademicHistory.css";
+import Toast from "../Global/Toast";
 
 const GRADE_LEVEL_LABELS = {
   0: "Kinder",
@@ -115,7 +116,20 @@ function YearBlock({ yearData }) {
 
       {open && (
         <div className="ah-year-body">
-          <div className="sg-table-container">
+          <div className="ah-table-header-flex" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'1rem 1.2rem 0.2rem 1.2rem',gap:'1rem',flexWrap:'wrap'}}>
+            <div>
+              <span className="ah-year-title">S.Y. {school_year}</span>
+              <span className="ah-year-sub" style={{marginLeft:8}}>{gradeLabel}{section_name ? ` — ${section_name}` : ""}</span>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:'1.2rem',flexWrap:'wrap'}}>
+              {gwa !== null && (
+                <span className="ah-year-gwa">GWA <strong>{gwa}</strong></span>
+              )}
+              <span className="ah-count-pass">{passed} Passed</span>
+              {failed > 0 && <span className="ah-count-fail">{failed} Failed</span>}
+            </div>
+          </div>
+          <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '0.5rem' }}>
             <table className="sg-table">
               <thead>
                 <tr>
@@ -196,6 +210,19 @@ export default function AcademicHistory() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   useEffect(() => {
     apiFetch("/api/grades/my-academic-history/")
@@ -208,15 +235,70 @@ export default function AcademicHistory() {
         setLoading(false);
       })
       .catch(() => {
-        setError("Failed to load academic history. Please try again.");
+        const message = "Failed to load academic history. Please try again.";
+        setError(message);
+        addToast("Load Error", message, "error");
         setLoading(false);
       });
-  }, []);
+  }, [addToast]);
 
   if (loading) {
     return (
       <div className="student-grades-main">
-        <p className="sg-loading">Loading academic history…</p>
+        <div className="sg-section">
+          <div className="sg-section-header">
+            <div>
+              <div className="ahSkel ah-shimmer ahSkel__line ahSkel__line--subtitle" />
+            </div>
+          </div>
+        </div>
+
+        <div className="sg-section">
+          <div className="sg-stats-grid">
+            {[...Array(4)].map((_, idx) => (
+              <div key={idx} className="sg-stat-card ahSkel__statCard">
+                <div className="sg-stat-header">
+                  <div className="ahSkel ah-shimmer ahSkel__line ahSkel__line--statLabel" />
+                  <div className="ahSkel ah-shimmer ahSkel__icon" />
+                </div>
+                <div className="ahSkel ah-shimmer ahSkel__line ahSkel__line--statValue" />
+                <div className="ahSkel ah-shimmer ahSkel__line ahSkel__line--statNote" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="sg-section">
+          <div className="ah-years-list">
+            {[...Array(2)].map((_, idx) => (
+              <div key={idx} className="ah-year-block ahSkel__yearBlock">
+                <div className="ah-year-header">
+                  <div className="ah-year-left">
+                    <div className="ahSkel ah-shimmer ahSkel__yearIcon" />
+                    <div>
+                      <div className="ahSkel ah-shimmer ahSkel__line ahSkel__line--yearTitle" />
+                      <div className="ahSkel ah-shimmer ahSkel__line ahSkel__line--yearSub" />
+                    </div>
+                  </div>
+                  <div className="ah-year-right">
+                    <div className="ahSkel ah-shimmer ahSkel__pill" />
+                    <div className="ahSkel ah-shimmer ahSkel__pill" />
+                  </div>
+                </div>
+                <div className="ah-year-body ahSkel__yearBody">
+                  {[...Array(4)].map((__, rowIdx) => (
+                    <div key={rowIdx} className="ahSkel__row">
+                      {[...Array(7)].map((___, colIdx) => (
+                        <div key={colIdx} className="ahSkel ah-shimmer ahSkel__line ahSkel__line--cell" />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <Toast toasts={toasts} onDismiss={dismissToast} />
       </div>
     );
   }
@@ -228,6 +310,7 @@ export default function AcademicHistory() {
           <AlertCircle size={24} />
           <p>{error}</p>
         </div>
+        <Toast toasts={toasts} onDismiss={dismissToast} />
       </div>
     );
   }
@@ -319,7 +402,10 @@ export default function AcademicHistory() {
         {has_history ? (
           <div className="ah-years-list">
             {records_by_year.map((yearData) => (
-              <YearBlock key={yearData.school_year} yearData={yearData} />
+              <YearBlock
+                key={yearData.group_key || `${yearData.school_year}-${yearData.grade_level}-${yearData.section_name || ''}`}
+                yearData={yearData}
+              />
             ))}
           </div>
         ) : (
@@ -333,6 +419,7 @@ export default function AcademicHistory() {
           </div>
         )}
       </div>
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

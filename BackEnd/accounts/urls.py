@@ -17,8 +17,12 @@ from .views import (
     user_list,
     update_teacher_assignment,
     update_student_profile,
+    transfer_student,
+    delete_user_with_records,
+    request_transfer,
     UpdateProfileView,
     PasswordResetRequestCreateView,
+    PasswordResetRequestVerifyCodeView,
     AdminPasswordResetRequestListView,
     AdminSendPasswordResetLinkView,
     PasswordResetConfirmView,
@@ -36,6 +40,7 @@ urlpatterns = [
     path("me/detail/", views.me_detail),
     path("me/update/", UpdateProfileView.as_view(), name="update-profile"),
     path("me/update/", UpdateProfileView.as_view(), name="me-update"),
+    path("me/transfer-request/", request_transfer, name="me-transfer-request"),
     
     path("logout/", logout_view, name="logout"),
 
@@ -51,14 +56,17 @@ urlpatterns = [
     path("users/", user_list, name="user-list"),
     path("users/<int:user_id>/assign/", update_teacher_assignment, name="update-teacher-assignment"),
     path("users/<int:user_id>/update-student/", update_student_profile, name="update-student-profile"),
+    path("users/<int:user_id>/transfer/", transfer_student, name="transfer-student"),
+    path("users/<int:user_id>/", delete_user_with_records, name="delete-user-with-records"),
    
     
     # Set new Password
-    path("set-password/", SetPasswordView.as_view(), name="set-password"),
+    # path("set-password/", SetPasswordView.as_view(), name="set-password"),
     path("set-password/<str:uidb64>/<str:token>/", SetPasswordView.as_view(), name="set-password"),
 
     # Forgot Password
     path("password-reset-request/", PasswordResetRequestCreateView.as_view(), name="password-reset-request"),
+    path("password-reset-request/verify-code/", PasswordResetRequestVerifyCodeView.as_view(), name="password-reset-request-verify-code"),
     path("admin/password-reset-requests/", AdminPasswordResetRequestListView.as_view(), name="admin-password-reset-requests"),
     path("admin/password-reset-requests/<int:pk>/send-link/", AdminSendPasswordResetLinkView.as_view(), name="admin-send-password-reset-link"),
     path("password-reset-confirm/", PasswordResetConfirmView.as_view(), name="password-reset-confirm"),

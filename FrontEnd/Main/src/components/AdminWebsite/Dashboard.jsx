@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -17,11 +17,12 @@ import {
   Area,
   RadialBarChart,
   RadialBar,
+  ReferenceDot,
 } from "recharts";
 import {
   Users,
   Calendar,
-  DollarSign,
+  Wallet,
   Bell,
   ClipboardCheck,
   Clock,
@@ -32,8 +33,13 @@ import {
   AlertCircle,
   Key,
   Send,
+  Crown,
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
+import { generateRevenueInsight, detectRevenueDips, generateEnrollmentInsight, generateAttendanceInsight, generatePaymentInsight, getChartInsightColor } from "../../utils/chartInsights";
+import Toast from "../Global/Toast";
+import AdminTable from "./AdminTable";
+import StatCard, { StatsGrid } from "./StatCard";
 import "../AdminWebsiteCSS/Dashboard.css";
 
 const COLORS = [
@@ -64,6 +70,11 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
     overduePayments: 0,
   });
 
+  // Raw data for Recent Activity table
+  const [recentEnrollments, setRecentEnrollments] = useState([]);
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [recentAttendance, setRecentAttendance] = useState([]);
+
   const [enrollmentByLevel, setEnrollmentByLevel] = useState([]);
   const [paymentBreakdown, setPaymentBreakdown] = useState([]);
   const [revenueMonthly, setRevenueMonthly] = useState([]);
@@ -78,6 +89,20 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
   const [pendingApplications, setPendingApplications] = useState([]);
   const [performanceMetrics, setPerformanceMetrics] = useState([]);
   const [selectedGradeLevel, setSelectedGradeLevel] = useState("All");
+  const [expandedAnalysisSection, setExpandedAnalysisSection] = useState("");
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
@@ -133,16 +158,29 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
     return map[raw] || value || "Unknown";
   };
 
+  const gradeDisplayMap = {
+    prek: "Pre-Kinder",
+    kinder: "Kinder",
+    grade1: "1",
+    grade2: "2",
+    grade3: "3",
+    grade4: "4",
+    grade5: "5",
+    grade6: "6",
+  };
+
   const getEnrollmentGrade = (e) => {
-    return (
+    const rawGrade =
       e.grade_level_label ||
       e.grade_level_display ||
       e.grade_level_name ||
       e.grade_level ||
       e.level ||
       e.student_grade_level ||
-      "Unknown"
-    );
+      "Unknown";
+    
+    // Map grade codes to display names
+    return gradeDisplayMap[rawGrade] || rawGrade;
   };
 
   const getTransactionStatus = (t) =>
@@ -162,12 +200,15 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
 
       if (!res.ok) {
         const data = await res.json();
+        addToast("Error", data.detail || "Failed to send reset link.", "error");
         console.error("Failed to send reset link:", data.detail || "Unknown error");
       } else {
         // Refresh the dashboard data to update the display
         loadDashboardData();
+        addToast("Success", "Reset link sent successfully.", "success");
       }
     } catch (err) {
+      addToast("Error", err.message || "Failed to send reset link.", "error");
       console.error("Error sending reset link:", err);
     } finally {
       setSendingResetId(null);
@@ -335,6 +376,11 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         pendingEnrollments: pendingEnrollments.length,
         overduePayments: overdue,
       });
+
+      // Store raw data for Recent Activity table
+      setRecentEnrollments(approvedEnrollments.slice(0, 5));
+      setRecentTransactions(transactions.slice(0, 5));
+      setRecentAttendance(attendRecords.slice(0, 5));
 
       // ─────────────────────────
       // Students per grade level
@@ -591,7 +637,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
           status: normalizeStatusUpper(r.status),
           requestedAt: r.requested_at || "",
           message: r.message || "",
-          userName: r.user?.username || r.user?.first_name || "Unknown User",
+          userName: r.user_name || "Unknown User",
         }));
 
       setPasswordResetRequests(pendingResets);
@@ -621,10 +667,11 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         grade: getEnrollmentGrade(e),
         appliedDate: e.created_at || e.date_applied || "",
       }));
-
+      
       setPendingApplications(pendingAppsList);
     } catch (err) {
       console.error("Dashboard load error:", err);
+      addToast("Load Error", err.message || "Failed to load dashboard data.", "error");
     } finally {
       setLoading(false);
     }
@@ -632,60 +679,328 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
 
   const formatCurrency = (val) => `₱${Number(val || 0).toLocaleString()}`;
 
-  if (loading) {
-    return (
-      <main className="dashboard-main">
-        <div className="dash-loading">
-          <div className="dash-spinner" />
-          <p>Loading dashboard...</p>
-        </div>
-      </main>
-    );
-  }
+  const filteredPerformanceMetrics = useMemo(
+    () => {
+      // Sort by performance score descending
+      const sorted = [...performanceMetrics].sort(
+        (a, b) => Number(b.performanceScore) - Number(a.performanceScore)
+      );
+
+      // If "All Grades" selected or not set yet, limit to 2 per grade level
+      if (!selectedGradeLevel || selectedGradeLevel === "All") {
+        const gradeLevelMap = {};
+        const result = [];
+
+        sorted.forEach((student) => {
+          const grade = student.gradeLevel || "Unassigned";
+          if (!gradeLevelMap[grade]) {
+            gradeLevelMap[grade] = 0;
+          }
+          if (gradeLevelMap[grade] < 2) {
+            result.push(student);
+            gradeLevelMap[grade]++;
+          }
+        });
+
+        return result;
+      } else {
+        // For specific grade, return top performers from that grade
+        return sorted.filter((student) => student.gradeLevel === selectedGradeLevel);
+      }
+    },
+    [performanceMetrics, selectedGradeLevel]
+  );
+
+  const analysisSections = useMemo(() => {
+    const latestRevenue = revenueMonthly[revenueMonthly.length - 1];
+    const previousRevenue = revenueMonthly[revenueMonthly.length - 2];
+
+    const revenueDeltaPct =
+      latestRevenue && previousRevenue && Number(previousRevenue.revenue) > 0
+        ? ((latestRevenue.revenue - previousRevenue.revenue) /
+            previousRevenue.revenue) *
+          100
+        : null;
+
+    const paidCount = paymentBreakdown.find((item) => item.name === "Paid")?.value || 0;
+    const pendingCount =
+      paymentBreakdown.find((item) => item.name === "Pending")?.value || 0;
+    const overdueCount =
+      paymentBreakdown.find((item) => item.name === "Overdue")?.value || 0;
+
+    const receivablesTotal = paidCount + pendingCount + overdueCount;
+    const receivableRiskPct =
+      receivablesTotal > 0
+        ? Math.round(((pendingCount + overdueCount) / receivablesTotal) * 100)
+        : null;
+
+    const atRiskStudents = performanceMetrics.filter(
+      (student) => Number(student.performanceScore) < 70
+    ).length;
+
+    const highPerformers = performanceMetrics.filter(
+      (student) => Number(student.performanceScore) >= 80
+    ).length;
+
+    const enrollmentDescriptive =
+      `A total of ${stats.totalStudents} students are currently enrolled. ` +
+      `${stats.pendingEnrollments} pending application${stats.pendingEnrollments === 1 ? "" : "s"} ` +
+      `are currently recorded in the system.`;
+
+    const financeDescriptive =
+      `The total amount collected is ${formatCurrency(stats.totalRevenue)}. ` +
+      `The most recent monthly revenue recorded is ${formatCurrency(latestRevenue?.revenue || 0)}. ` +
+      `There ${stats.overduePayments === 1 ? "is" : "are"} ${stats.overduePayments} overdue payment${stats.overduePayments === 1 ? "" : "s"}.`;
+
+    const attendanceDescriptive =
+      `The attendance rate for the current day is ${stats.todayAttendanceRate}%, ` +
+      `with ${stats.todayPresent} out of ${stats.todayTotal} students present. ` +
+      `The overall attendance rate is ${stats.attendanceRate}%.`;
+
+    const performanceDescriptive =
+      `A total of ${highPerformers} students are currently classified under the high-performance band. ` +
+      `${atRiskStudents} students have recorded scores below 70.`;
+
+    const riskDescriptive =
+      receivableRiskPct === null
+        ? "Financial risk exposure cannot be computed because there are no payment records yet."
+        : `Financial risk exposure accounts for ${receivableRiskPct}% of all payment records.`;
+
+    const financeInterpretation =
+      revenueDeltaPct === null
+        ? `The available finance data confirms total collections of ${formatCurrency(stats.totalRevenue)} and no month-over-month comparison yet due to limited trend points.`
+        : `Total collections have reached ${formatCurrency(stats.totalRevenue)}. The most recent monthly revenue of ${formatCurrency(latestRevenue?.revenue || 0)} is ${Math.abs(revenueDeltaPct).toFixed(1)}% ${revenueDeltaPct >= 0 ? "higher" : "lower"} than the previous month, while overdue payments remain at ${stats.overduePayments}.`;
+
+    const attendanceInterpretation =
+      `The current attendance rate of ${stats.todayAttendanceRate}% compared with the overall rate of ${stats.attendanceRate}% ` +
+      `${stats.todayAttendanceRate < stats.attendanceRate
+        ? "indicates lower student presence for the day relative to the broader pattern."
+        : stats.todayAttendanceRate > stats.attendanceRate
+        ? "indicates higher student presence for the day relative to the broader pattern."
+        : "indicates the day is aligned with the broader attendance pattern."}`;
+
+    const performanceInterpretation =
+      `With ${highPerformers} students in the high-performance band and ${atRiskStudents} students below 70, ` +
+      `the data reflects a strong-performing group alongside a smaller segment that may require targeted support.`;
+
+    const riskInterpretation =
+      receivableRiskPct === null
+        ? "Financial risk interpretation is currently unavailable due to missing payment records."
+        : `A financial risk exposure of ${receivableRiskPct}% indicates that a substantial share of payment records is currently in pending or overdue status, which can affect revenue predictability.`;
+
+    return [
+      {
+        key: "descriptive",
+        title: "Descriptive Analysis",
+        subtitle: "What is happening in the current dataset.",
+        items: [
+          { title: "Enrollment Data", body: enrollmentDescriptive },
+          { title: "Financial Data", body: financeDescriptive },
+          { title: "Attendance Data", body: attendanceDescriptive },
+          { title: "Performance Data", body: performanceDescriptive },
+          { title: "Financial Risk Data", body: riskDescriptive },
+        ],
+      },
+      {
+        key: "interpretation",
+        title: "Interpretation of Results",
+        subtitle: "What the current patterns indicate.",
+        items: [
+          {
+            title: "Enrollment Interpretation",
+            body: `The presence of ${stats.pendingEnrollments} pending application${stats.pendingEnrollments === 1 ? "" : "s"} alongside ${stats.totalStudents} enrolled students suggests continuous admission activity that requires timely processing.`,
+          },
+          { title: "Financial Interpretation", body: financeInterpretation },
+          { title: "Attendance Interpretation", body: attendanceInterpretation },
+          { title: "Performance Interpretation", body: performanceInterpretation },
+          { title: "Financial Risk Interpretation", body: riskInterpretation },
+        ],
+      },
+      {
+        key: "recommendations",
+        title: "Recommendations",
+        subtitle: "What actions can be prioritized next.",
+        items: [
+          {
+            title: "Admissions Workflow",
+            body: "Set daily processing targets for pending applications and monitor turnaround time to keep enrollment flow consistent.",
+          },
+          {
+            title: "Revenue Monitoring",
+            body: "Track month-over-month revenue movement in a weekly finance review to quickly identify trend shifts and follow-up actions.",
+          },
+          {
+            title: "Attendance Follow-up",
+            body: "Trigger adviser follow-ups when daily attendance falls below the overall baseline and track recurring absence patterns by section.",
+          },
+          {
+            title: "Academic Support",
+            body: "Create an intervention list for students below 70 and pair it with periodic progress checks while sustaining enrichment for high performers.",
+          },
+          {
+            title: "Financial Risk Reduction",
+            body: "Prioritize outreach for pending and overdue accounts before due dates to reduce risk exposure and improve payment predictability.",
+          },
+        ],
+      },
+    ];
+  }, [
+    revenueMonthly,
+    paymentBreakdown,
+    performanceMetrics,
+    stats.pendingEnrollments,
+    stats.totalStudents,
+    stats.totalRevenue,
+    stats.overduePayments,
+    stats.todayAttendanceRate,
+    stats.todayPresent,
+    stats.todayTotal,
+    stats.attendanceRate,
+  ]);
+
+
+
+    const getPerformanceColorSet = (id, idx = 0) => {
+    const colors = [
+      { fill: "#ff6b6b", soft: "rgba(255, 107, 107, 0.18)", border: "rgba(255, 107, 107, 0.38)" },
+      { fill: "#8b5cf6", soft: "rgba(139, 92, 246, 0.18)", border: "rgba(139, 92, 246, 0.38)" },
+      { fill: "#3b82f6", soft: "rgba(59, 130, 246, 0.18)", border: "rgba(59, 130, 246, 0.38)" },
+      { fill: "#06b6d4", soft: "rgba(6, 182, 212, 0.18)", border: "rgba(6, 182, 212, 0.38)" },
+      { fill: "#10b981", soft: "rgba(16, 185, 129, 0.18)", border: "rgba(16, 185, 129, 0.38)" },
+      { fill: "#f59e0b", soft: "rgba(245, 158, 11, 0.18)", border: "rgba(245, 158, 11, 0.38)" },
+      { fill: "#ec4899", soft: "rgba(236, 72, 153, 0.18)", border: "rgba(236, 72, 153, 0.38)" },
+      { fill: "#14b8a6", soft: "rgba(20, 184, 166, 0.18)", border: "rgba(20, 184, 166, 0.38)" },
+      { fill: "#f97316", soft: "rgba(249, 115, 22, 0.18)", border: "rgba(249, 115, 22, 0.38)" },
+      { fill: "#6366f1", soft: "rgba(99, 102, 241, 0.18)", border: "rgba(99, 102, 241, 0.38)" },
+    ];
+
+    const source = String(id ?? `student-${idx}`);
+    const seed = source.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    return colors[seed % colors.length];
+  };
+
+  const getScoreWidth = (score) => {
+    const safe = Math.max(0, Math.min(100, Number(score) || 0));
+    return `${safe}%`;
+  };
+    if (loading) {
+      return (
+        <main className="dashboard-main">
+          <StatsGrid>
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="unified-stat-card dash-skeleton-card">
+                <div className="dash-skeleton-icon shimmer" />
+                <div className="dash-skeleton-copy">
+                  <div className="dash-skeleton-line dash-skeleton-line--lg shimmer" />
+                  <div className="dash-skeleton-line dash-skeleton-line--sm shimmer" />
+                  <div className="dash-skeleton-line dash-skeleton-line--xs shimmer" />
+                </div>
+              </div>
+            ))}
+          </StatsGrid>
+
+          <section className="dash-row dash-row--3col">
+            <div className="dash-card dash-card--list">
+              <div className="dash-card-head">
+                <ClipboardCheck size={16} />
+                <h3 className="dash-card-title" style={{ fontSize: "13px" }}>Top Students by Performance</h3>
+              </div>
+
+              <div className="dash-performance-list">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="dash-performance-skeleton shimmer" />
+                ))}
+              </div>
+            </div>
+
+            <div className="dash-card">
+              <div className="dash-chart-skeleton shimmer" />
+            </div>
+
+            <div className="dash-card">
+              <div className="dash-chart-skeleton shimmer" />
+            </div>
+          </section>
+        </main>
+      );
+    }
 
   return (
     <main className="dashboard-main">
-      <section className="dash-stat-grid">
-        <div className="dash-stat-md dash-stat-md--blue">
-          <div className="dash-stat-icon dash-stat-icon--blue">
-            <Users size={22} />
-          </div>
-          <div className="dash-stat-info">
-            <span className="dash-stat-value">{stats.totalStudents}</span>
-            <span className="dash-stat-label">Total of Enrolled Students</span>
-          </div>
+      <StatsGrid>
+        <StatCard
+          label="Total of Enrolled Students"
+          value={stats.totalStudents}
+          icon={<Users size={22} />}
+          color="blue"
+          insight={stats.totalStudents === 0 ? 'No enrollments yet' : stats.totalStudents < 30 ? 'Growing enrollment' : stats.totalStudents < 100 ? 'Strong enrollment trend' : 'Excellent - Large class'}
+        />
+        <StatCard
+          label="Total Collected"
+          value={formatCurrency(stats.totalRevenue)}
+          icon={<Wallet size={22} />}
+          color="green"
+          insight={stats.totalRevenue === 0 ? 'No payments collected' : stats.totalRevenue < 50000 ? 'Building revenue stream' : stats.totalRevenue < 500000 ? 'Good revenue collection' : 'Excellent revenue! ✓'}
+        />
+        <StatCard
+          label="Overdue Payments"
+          value={stats.overduePayments}
+          icon={<AlertCircle size={22} />}
+          color="red"
+          insight={stats.overduePayments === 0 ? 'All payments current ✓' : stats.overduePayments < 5 ? 'Few overdue - Monitor' : stats.overduePayments < 15 ? 'Review needed!' : 'Critical - Act now!'}
+        />
+        <StatCard
+          label="Pending Applications"
+          value={stats.pendingEnrollments}
+          icon={<Clock size={22} />}
+          color="yellow"
+          insight={stats.pendingEnrollments === 0 ? 'All processed ✓' : stats.pendingEnrollments < 5 ? 'Light workflow' : stats.pendingEnrollments < 20 ? 'Review needed!' : 'High volume - Process now!'}
+        />
+      </StatsGrid>
+
+      <section className="dash-insights">
+        <div className="dash-insights-head">
+          <h3 className="dash-insights-title">Dashboard Analysis</h3>
+          <p className="dash-insights-sub">
+            Structured view of what is happening, what it means, and what can be
+            prioritized next across enrollment, finance, attendance, and performance.
+          </p>
         </div>
 
-        <div className="dash-stat-md dash-stat-md--green">
-          <div className="dash-stat-icon dash-stat-icon--green">
-            <DollarSign size={22} />
-          </div>
-          <div className="dash-stat-info">
-            <span className="dash-stat-value">
-              {formatCurrency(stats.totalRevenue)}
-            </span>
-            <span className="dash-stat-label">Total Collected</span>
-          </div>
-        </div>
+        <div className="dash-analysis-accordion">
+          {analysisSections.map((section) => {
+            const isOpen = expandedAnalysisSection === section.key;
 
-        <div className="dash-stat-md dash-stat-md--teal">
-          <div className="dash-stat-icon dash-stat-icon--teal">
-            <AlertCircle size={22} />
-          </div>
-          <div className="dash-stat-info">
-            <span className="dash-stat-value">{stats.overduePayments}</span>
-            <span className="dash-stat-label">Overdue Payments</span>
-          </div>
-        </div>
+            return (
+              <div key={section.key} className="dash-analysis-section">
+                <button
+                  type="button"
+                  className={`dash-analysis-header ${isOpen ? "is-open" : ""}`}
+                  onClick={() => setExpandedAnalysisSection(isOpen ? "" : section.key)}
+                  aria-expanded={isOpen}
+                >
+                  <div className="dash-analysis-header-content">
+                    <h4 className="dash-insight-title">{section.title}</h4>
+                    <p className="dash-insights-sub">{section.subtitle}</p>
+                  </div>
+                  <ChevronDown size={20} className={`dash-analysis-header-chevron ${isOpen ? "is-open" : ""}`} />
+                </button>
 
-        <div className="dash-stat-md dash-stat-md--amber">
-          <div className="dash-stat-icon dash-stat-icon--amber">
-            <Clock size={22} />
-          </div>
-          <div className="dash-stat-info">
-            <span className="dash-stat-value">{stats.pendingEnrollments}</span>
-            <span className="dash-stat-label">Pending Applications</span>
-          </div>
+                {isOpen && (
+                  <div className="dash-analysis-body">
+                    <div className="dash-analysis-items">
+                      {section.items.map((item) => (
+                        <div key={item.title} className="dash-analysis-detail-item">
+                          <h5 className="dash-analysis-detail-title">{item.title}</h5>
+                          <p className="dash-insight-text">{item.body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -717,6 +1032,12 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
               </defs>
             </BarChart>
           </ResponsiveContainer>
+          <div 
+            className="chart-insight" 
+            style={{ color: getChartInsightColor(generateEnrollmentInsight(enrollmentByLevel)) }}
+          >
+            {generateEnrollmentInsight(enrollmentByLevel)}
+          </div>
         </div>
 
         <div className="dash-card">
@@ -750,8 +1071,26 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
                 strokeWidth={2.5}
                 fill="url(#areaGradient)"
               />
+              {detectRevenueDips(revenueMonthly).map((dip, idx) => (
+                <ReferenceDot
+                  key={`dip-${idx}`}
+                  x={dip.label}
+                  y={dip.value}
+                  r={6}
+                  fill="#ef4444"
+                  stroke="#fff"
+                  strokeWidth={2}
+                  title={`Dip: ${dip.percentDrop}% drop`}
+                />
+              ))}
             </AreaChart>
           </ResponsiveContainer>
+          <div 
+            className="chart-insight" 
+            style={{ color: getChartInsightColor(generateRevenueInsight(revenueMonthly)) }}
+          >
+            {generateRevenueInsight(revenueMonthly)}
+          </div>
         </div>
       </section>
 
@@ -759,21 +1098,22 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         <div className="dash-card dash-card--list">
           <div className="dash-card-head">
             <ClipboardCheck size={16} />
-            <h3 className="dash-card-title">Top 10 Students by Performance</h3>
-            <select 
-              value={selectedGradeLevel}
-              onChange={(e) => setSelectedGradeLevel(e.target.value)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: "6px",
-                border: "1px solid #e5e7eb",
-                fontSize: "13px",
-                fontWeight: 500,
-                backgroundColor: "#fff",
-                cursor: "pointer",
-                marginLeft: "auto"
-              }}
-            >
+            <h3 className="dash-card-title">Top Students by Performance</h3>
+           <select
+            value={selectedGradeLevel}
+            onChange={(e) => setSelectedGradeLevel(e.target.value)}
+            style={{
+              padding: "5px 10px",
+              borderRadius: "8px",
+              border: "1px solid #d1d5db",
+              fontSize: "12px",
+              fontWeight: 600,
+              backgroundColor: "#fff",
+              cursor: "pointer",
+              marginLeft: "auto",
+              height: "32px"
+            }}
+          >
               <option value="All">All Grades</option>
               <option value="Pre-Kinder">Pre-Kinder</option>
               <option value="Kinder">Kinder</option>
@@ -785,81 +1125,71 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
               <option value="Grade 6">Grade 6</option>
             </select>
           </div>
-          {performanceMetrics.length === 0 && (
+          {filteredPerformanceMetrics.length === 0 && (
             <div className="dash-empty-state">
               <CheckCircle size={24} className="dash-empty-icon" />
               <p className="dash-empty">No student data available</p>
-              <span className="dash-empty-sub">Student performance will appear here once enrollment data is available</span>
+              <span className="dash-empty-sub">Student performance data will appear here once enrollment data is available</span>
             </div>
           )}
-          {performanceMetrics.length > 0 && (
-            <div className="dash-pending-list">
-              {performanceMetrics
-                .filter(student => selectedGradeLevel === "All" || student.gradeLevel === selectedGradeLevel)
-                .slice(0, 10)
-                .map((student, idx) => {
+          {filteredPerformanceMetrics.length > 0 && (
+              <div className="dash-performance-list">
+                {filteredPerformanceMetrics.slice(0, 10).map((student, idx) => {
                   const rank = idx + 1;
-                  const scoreColor =
-                    student.performanceScore >= 80
-                      ? "#10b981"
-                      : student.performanceScore >= 70
-                      ? "#f59e0b"
-                      : student.performanceScore >= 60
-                      ? "#3b82f6"
-                      : "#ef4444";
-                  const rowBg =
-                    student.performanceScore >= 80
-                      ? "#ecfdf5"
-                      : student.performanceScore >= 70
-                      ? "#fffbeb"
-                      : student.performanceScore >= 60
-                      ? "#eff6ff"
-                      : "#fef2f2";
+                  const colorSet = getPerformanceColorSet(student.id, idx);
+                  const scorePercent = Number(student.performanceScore) || 0;
+                  const isTopOne = rank === 1;
 
                   return (
                     <div
                       key={student.id || idx}
-                      className="dash-pending-item"
-                      style={{ backgroundColor: rowBg }}
-                      title={`${student.studentName} - ${student.status}`}
+                      className={`dash-performance-item ${isTopOne ? "is-top" : ""}`}
+                      title={`${student.studentName} - ${student.gradeLevel}`}
                     >
-                      <div className="dash-pending-left" style={{ alignItems: "center" }}>
-                        <div
-                          className="dash-rank-badge"
-                          style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: "50%",
-                            backgroundColor: "#eef2ff",
-                            color: "#3730a3",
-                            fontWeight: 700,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            marginRight: 8,
-                            fontSize: 12,
-                          }}
-                        >
-                          {rank}
+                      <div
+                        className="dash-performance-track"
+                        style={{
+                          "--perf-fill": colorSet.fill,
+                          "--perf-soft": colorSet.soft,
+                          "--perf-border": colorSet.border,
+                          "--perf-width": getScoreWidth(scorePercent),
+                        }}
+                      >
+                        <div className="dash-performance-fill" />
+
+                        <div className="dash-performance-content">
+                          <div className="dash-performance-left">
+                            <div className="dash-performance-rank-wrap">
+                              {isTopOne && (
+                                <span className="dash-performance-crown">
+                                  <Crown size={13} />
+                                </span>
+                              )}
+                              <span className="dash-performance-rank">{rank}</span>
+                            </div>
+
+                            <div className="dash-performance-text">
+                              <span className="dash-performance-name">
+                                {student.studentName}
+                              </span>
+                              <span className="dash-performance-grade">
+                                {student.gradeLevel}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="dash-performance-right">
+                            <span className="dash-performance-score">
+                              {scorePercent}%
+                            </span>
+                          </div>
                         </div>
-                        <div className="dash-list-content">
-                          <span className="dash-list-title">{student.studentName}</span>
-                          <span className="dash-list-sub">{student.gradeLevel}</span>
-                        </div>
-                      </div>
-                      <div className="dash-pending-right">
-                        <span
-                          className="dash-pending-date"
-                          style={{ fontWeight: 600, color: scoreColor }}
-                        >
-                          {student.performanceScore}%
-                        </span>
                       </div>
                     </div>
                   );
                 })}
-            </div>
-          )}
+              </div>
+            )}
         </div>
 
         <div className="dash-card dash-card--center">
@@ -894,6 +1224,12 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
               />
             </PieChart>
           </ResponsiveContainer>
+          <div 
+            className="chart-insight" 
+            style={{ color: getChartInsightColor(generatePaymentInsight(paymentBreakdown)) }}
+          >
+            {generatePaymentInsight(paymentBreakdown)}
+          </div>
         </div>
 
         <div className="dash-card dash-card--list">
@@ -1017,7 +1353,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
               </span>
               <div className="dash-list-content">
                 <span className="dash-list-title">
-                  {req.userName || "User"}
+                  {req.userName}
                 </span>
                 <span className="dash-list-sub">
                   {req.email}
@@ -1097,7 +1433,50 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
             </p>
           </div>
         </div>
-      )}    </main>
+      )}
+      <Toast toasts={toasts} dismissToast={dismissToast} />
+
+      {/* ── Recent Activity Table ── */}
+      <section style={{ marginTop: "0.5rem" }}>
+        <h3 className="dash-card-title" style={{ marginBottom: "0.75rem" }}>Recent Activity</h3>
+        <AdminTable
+          columns={[
+            { key: "type", label: "Type", render: (v) => {
+              const icons = { enrollment: "📝", payment: "💰", attendance: "📋", announcement: "📢" };
+              return <span>{icons[v] || "📌"} {v}</span>;
+            }},
+            { key: "description", label: "Description" },
+            { key: "date", label: "Date", render: (v) => v ? new Date(v).toLocaleDateString() : "—" },
+            { key: "status", label: "Status", render: (v) => {
+              const colors = { completed: "#10b981", pending: "#f59e0b", overdue: "#ef4444" };
+              return <span style={{ color: colors[v] || "#64748b", fontWeight: 600, textTransform: "capitalize" }}>{v}</span>;
+            }},
+          ]}
+          data={(() => {
+            const activity = [];
+            recentEnrollments.forEach(e => {
+              activity.push({ type: "enrollment", description: `${e.student_name || "Student"} enrolled`, date: e.enrollment_date || e.created_at, status: "completed" });
+            });
+            recentTransactions.forEach(t => {
+              activity.push({ type: "payment", description: `${t.description || "Payment"} - ${formatCurrency(t.amount || 0)}`, date: t.date_created || t.transaction_date, status: (t.status || "pending").toLowerCase() });
+            });
+            recentAttendance.forEach(r => {
+              activity.push({ type: "attendance", description: `Attendance recorded for ${r.student_name || "Student"}`, date: r.date, status: "completed" });
+            });
+            activity.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+            return activity.slice(0, 10);
+          })()}
+          emptyState={
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem", color: "#94a3b8" }}>
+              <span style={{ fontSize: "1.5rem" }}>📋</span>
+              <span>No recent activity to display</span>
+            </div>
+          }
+          zebra={true}
+          stickyHeader={false}
+        />
+      </section>
+    </main>
   );
 };
 

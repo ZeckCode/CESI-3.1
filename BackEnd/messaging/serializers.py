@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
 from django.utils import timezone
 from .models import (
     ProfanityWord, Chat, ChatMember, Message, ChatRestriction, ChatRestrictionAuditLog, MessageFlag,
@@ -7,14 +8,14 @@ from .models import (
 from accounts.models import User, Section, Subject
 
 
-class ProfanityWordSerializer(serializers.ModelSerializer):
+class ProfanityWordSerializer(SafeModelSerializer):
     class Meta:
         model = ProfanityWord
         fields = ['id', 'word', 'category', 'is_active', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
 
-class UserMinimalSerializer(serializers.ModelSerializer):
+class UserMinimalSerializer(SafeModelSerializer):
     """Minimal user info for chat display."""
     display_name = serializers.SerializerMethodField()
 
@@ -37,10 +38,19 @@ class UserMinimalSerializer(serializers.ModelSerializer):
             if p_full:
                 return p_full
 
+        if obj.role == 'PARENT_STUDENT':
+            enrollment = None
+            if hasattr(obj, 'parent_enrollments'):
+                enrollment = obj.parent_enrollments.order_by('-updated_at', '-created_at').first()
+            if enrollment:
+                full = f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip()
+                if full:
+                    return full
+
         return obj.username
 
 
-class ChatMemberSerializer(serializers.ModelSerializer):
+class ChatMemberSerializer(SafeModelSerializer):
     user = UserMinimalSerializer(read_only=True)
 
     class Meta:
@@ -49,7 +59,7 @@ class ChatMemberSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'joined_at']
 
 
-class MessageSerializer(serializers.ModelSerializer):
+class MessageSerializer(SafeModelSerializer):
     """Serialize messages with decryption."""
     sender = UserMinimalSerializer(read_only=True)
     content = serializers.SerializerMethodField()
@@ -69,7 +79,7 @@ class MessageSerializer(serializers.ModelSerializer):
         return obj.content
 
 
-class ChatListSerializer(serializers.ModelSerializer):
+class ChatListSerializer(SafeModelSerializer):
     """Lightweight chat list serializer."""
     section_name = serializers.CharField(source='section.name', read_only=True, allow_null=True)
     subject_name = serializers.CharField(source='subject.name', read_only=True, allow_null=True)
@@ -117,7 +127,7 @@ class ChatListSerializer(serializers.ModelSerializer):
         return None
 
 
-class ChatDetailSerializer(serializers.ModelSerializer):
+class ChatDetailSerializer(SafeModelSerializer):
     """Detailed chat with members and messages."""
     section_name = serializers.CharField(source='section.name', read_only=True, allow_null=True)
     subject_name = serializers.CharField(source='subject.name', read_only=True, allow_null=True)
@@ -175,7 +185,7 @@ class ChatDetailSerializer(serializers.ModelSerializer):
         }
 
 
-class ChatRestrictionSerializer(serializers.ModelSerializer):
+class ChatRestrictionSerializer(SafeModelSerializer):
     user = UserMinimalSerializer(read_only=True)
     restricted_by = UserMinimalSerializer(read_only=True)
     chat_name = serializers.SerializerMethodField()
@@ -197,7 +207,7 @@ class ChatRestrictionSerializer(serializers.ModelSerializer):
         return obj.chat is None
 
 
-class ChatRestrictionAuditLogSerializer(serializers.ModelSerializer):
+class ChatRestrictionAuditLogSerializer(SafeModelSerializer):
     restriction_id = serializers.IntegerField(source='restriction.id', read_only=True)
     restriction_user = serializers.SerializerMethodField()
     restriction_chat_name = serializers.SerializerMethodField()
@@ -219,7 +229,7 @@ class ChatRestrictionAuditLogSerializer(serializers.ModelSerializer):
         return f'Chat #{obj.restriction.chat.id}'
 
 
-class MessageDeletionLogSerializer(serializers.ModelSerializer):
+class MessageDeletionLogSerializer(SafeModelSerializer):
     message = serializers.PrimaryKeyRelatedField(read_only=True)
     message_chat_name = serializers.SerializerMethodField()
     message_sender_name = serializers.SerializerMethodField()
@@ -241,7 +251,7 @@ class MessageDeletionLogSerializer(serializers.ModelSerializer):
         return None
 
 
-class MessageFlagSerializer(serializers.ModelSerializer):
+class MessageFlagSerializer(SafeModelSerializer):
     """Serialize flagged messages for admin review."""
     message = MessageSerializer(read_only=True)
     reviewed_by = UserMinimalSerializer(read_only=True)
@@ -255,7 +265,7 @@ class MessageFlagSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'flagged_at']
 
 
-class ChatCreateSerializer(serializers.ModelSerializer):
+class ChatCreateSerializer(SafeModelSerializer):
     """Serializer for creating new chats."""
     class Meta:
         model = Chat
@@ -267,7 +277,7 @@ class ChatCreateSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class MessageCreateSerializer(serializers.ModelSerializer):
+class MessageCreateSerializer(SafeModelSerializer):
     """Serializer for creating messages with encryption."""
     content = serializers.CharField(write_only=True)
 
@@ -286,7 +296,7 @@ class MessageCreateSerializer(serializers.ModelSerializer):
         return message
 
 
-class ChatRequestSerializer(serializers.ModelSerializer):
+class ChatRequestSerializer(SafeModelSerializer):
     """Serialize chat requests for students."""
     requester = UserMinimalSerializer(read_only=True)
     recipient = UserMinimalSerializer(read_only=True)
@@ -298,14 +308,14 @@ class ChatRequestSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'requester', 'created_at']
 
 
-class ChatRequestCreateSerializer(serializers.ModelSerializer):
+class ChatRequestCreateSerializer(SafeModelSerializer):
     """Serializer for creating chat requests."""
     class Meta:
         model = ChatRequest
         fields = ['recipient', 'first_message']
 
 
-class MessageReportSerializer(serializers.ModelSerializer):
+class MessageReportSerializer(SafeModelSerializer):
     """Serialize message reports for admin review."""
     reporter = UserMinimalSerializer(read_only=True)
     message = MessageSerializer(read_only=True)
@@ -320,7 +330,7 @@ class MessageReportSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'reporter', 'created_at', 'reviewed_by', 'reviewed_at']
 
 
-class MessageReportCreateSerializer(serializers.ModelSerializer):
+class MessageReportCreateSerializer(SafeModelSerializer):
     """Serializer for creating message reports."""
     class Meta:
         model = MessageReport

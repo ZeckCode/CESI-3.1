@@ -1,42 +1,266 @@
-import React, { useState, useEffect } from 'react';
-import { FileText, Download, Filter, BarChart2, Clock, CheckCircle, FileDown } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FileText, Download, Filter, BarChart2, Clock, CheckCircle, FileDown, X, RefreshCw } from 'lucide-react';
 import StatCard, { StatsGrid } from './StatCard';
+import AdminTable from './AdminTable';
+import Toast from '../Global/Toast';
 import '../AdminWebsiteCSS/ClassManagement.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { getToken } from '../Auth/auth';
+import { apiFetch } from '../api/apiFetch';
+import dejavuSansTtfUrl from 'dejavu-fonts-ttf/ttf/DejaVuSans.ttf?url';
 
-const API_BASE = 'http://127.0.0.1:8000';
-
-function authHeaders(json = true) {
-  const token = getToken();
-  return {
-    ...(json ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-  };
-}
-
-// Helper function for academic year expiry
-const getAcademicYearExpiry = (academicYear) => {
-  if (!academicYear) return null;
-  const parts = String(academicYear).split("-");
-  if (parts.length !== 2) return null;
-  const endYear = parseInt(parts[1], 10);
-  if (isNaN(endYear)) return null;
-  return new Date(endYear, 2, 31, 23, 59, 59);
-};
-
+// Helper functions
 const getCurrentAcademicYear = () => {
   const today = new Date();
   const year = today.getFullYear();
   return today.getMonth() >= 5 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 };
 
+const formatCurrency = (value) => {
+  const amount = Number(value || 0);
+  return `₱${amount.toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
+};
+
+const GRADE_LEVEL_MAP = {
+  prek: 'Pre Kinder',
+  'pre-k': 'Pre Kinder',
+  'pre k': 'Pre Kinder',
+  'pre kinder': 'Pre Kinder',
+  'pre-kinder': 'Pre Kinder',
+  prekindergarten: 'Pre Kinder',
+  kinder: 'Kinder',
+  kindergarten: 'Kinder',
+  grade1: 'Grade 1',
+  'grade 1': 'Grade 1',
+  grade2: 'Grade 2',
+  'grade 2': 'Grade 2',
+  grade3: 'Grade 3',
+  'grade 3': 'Grade 3',
+  grade4: 'Grade 4',
+  'grade 4': 'Grade 4',
+  grade5: 'Grade 5',
+  'grade 5': 'Grade 5',
+  grade6: 'Grade 6',
+  'grade 6': 'Grade 6',
+};
+
+const buildHistoryStats = (records = []) => {
+  const validRecords = Array.isArray(records) ? records : [];
+  const finalGrades = validRecords
+    .map((record) => Number(record.final_grade))
+    .filter((value) => !Number.isNaN(value));
+
+  return {
+    totalRecords: validRecords.length,
+    uniqueStudents: new Set(
+      validRecords.map((record) => record.student_id || record.student || record.student_username || record.student_number)
+    ).size,
+    schoolYears: new Set(validRecords.map((record) => record.school_year).filter(Boolean)).size,
+    averageFinal: finalGrades.length
+      ? (finalGrades.reduce((sum, value) => sum + value, 0) / finalGrades.length).toFixed(2)
+      : '—',
+  };
+};
+
+const buildAttendanceStats = (records = []) => {
+  const validRecords = Array.isArray(records) ? records : [];
+
+  return {
+    total_records: validRecords.length,
+    present: validRecords.filter((record) => record.status === 'PRESENT').length,
+    absent: validRecords.filter((record) => record.status === 'ABSENT').length,
+    late: validRecords.filter((record) => record.status === 'LATE').length,
+    excused: validRecords.filter((record) => record.status === 'EXCUSED').length,
+  };
+};
+
+const getAttendanceQuery = (schoolYear) => {
+  if (!schoolYear?.start_date || !schoolYear?.end_date) {
+    return '';
+  }
+
+  return `?start_date=${encodeURIComponent(schoolYear.start_date)}&end_date=${encodeURIComponent(schoolYear.end_date)}`;
+};
+
+const REPORT_STORAGE_KEY = 'generatedReports';
+const STORED_REPORT_LIMIT = 30;
+const STORED_ARRAY_LIMIT = 25;
+
+const limitArrayField = (value) => (Array.isArray(value) ? value.slice(0, STORED_ARRAY_LIMIT) : value);
+
+const toStorageSafeReports = (reports = []) =>
+  reports.slice(0, STORED_REPORT_LIMIT).map((report) => {
+    const data = report?.data || {};
+
+    return {
+      ...report,
+      data: {
+        ...data,
+        enrollments: limitArrayField(data.enrollments),
+        sections: limitArrayField(data.sections),
+        teachers: limitArrayField(data.teachers),
+        transactions: limitArrayField(data.transactions),
+        attendanceRecords: limitArrayField(data.attendanceRecords),
+        historyRecords: limitArrayField(data.historyRecords),
+      },
+    };
+  });
+
+const toStorageMetaReports = (reports = []) =>
+  reports.slice(0, STORED_REPORT_LIMIT).map((report) => ({
+    id: report.id,
+    name: report.name,
+    type: report.type,
+    date: report.date,
+    period: report.period,
+    format: report.format,
+    // Keep an empty data object so older cached entries never break report rendering paths.
+    data: {},
+  }));
+
+let pdfFontReady;
+
+const ensurePdfFont = async (doc) => {
+  if (!pdfFontReady) {
+    pdfFontReady = (async () => {
+      const response = await fetch(dejavuSansTtfUrl);
+      if (!response.ok) {
+        throw new Error('Failed to load PDF font');
+      }
+
+      const fontBuffer = await response.arrayBuffer();
+      let binary = '';
+      const bytes = new Uint8Array(fontBuffer);
+      const chunkSize = 0x8000;
+
+      for (let index = 0; index < bytes.length; index += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+      }
+
+      return btoa(binary);
+    })();
+  }
+
+  const fontBase64 = await pdfFontReady;
+  if (!doc.getFontList().DejaVuSans) {
+    doc.addFileToVFS('DejaVuSans.ttf', fontBase64);
+    doc.addFont('DejaVuSans.ttf', 'DejaVuSans', 'normal');
+  }
+
+  doc.setFont('DejaVuSans', 'normal');
+};
+
+const normalizeGradeLevel = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const normalized = String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[_.-]+/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  const gradeMap = {
+    prek: -1,
+    'pre-k': -1,
+    'pre k': -1,
+    'pre kinder': -1,
+    'pre-kinder': -1,
+    prekindergarten: -1,
+    kinder: 0,
+    kindergarten: 0,
+    grade1: 1,
+    'grade 1': 1,
+    grade2: 2,
+    'grade 2': 2,
+    grade3: 3,
+    'grade 3': 3,
+    grade4: 4,
+    'grade 4': 4,
+    grade5: 5,
+    'grade 5': 5,
+    grade6: 6,
+    'grade 6': 6,
+    0: 0,
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 4,
+    5: 5,
+    6: 6,
+  };
+
+  const preKinderMatch = normalized.match(/\b(pre\s*k(?:inder)?|pre\s*kinder|prekindergarten)\b/);
+  if (preKinderMatch) {
+    return -1;
+  }
+
+  const kinderMatch = normalized.match(/\b(kinder(?:garten)?)\b/);
+  if (kinderMatch) {
+    return 0;
+  }
+
+  const gradeMatch = normalized.match(/\b(?:grade\s*)?(\d)\b/);
+  if (gradeMatch) {
+    const gradeNumber = Number(gradeMatch[1]);
+    if (gradeNumber >= 1 && gradeNumber <= 6) {
+      return gradeNumber;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(gradeMap, normalized)) {
+    return gradeMap[normalized];
+  }
+
+  const numeric = Number(normalized);
+  return Number.isInteger(numeric) ? numeric : null;
+};
+
+const formatGradeLevel = (value) => {
+  const normalized = normalizeGradeLevel(value);
+  if (normalized === -1) return 'Pre Kinder';
+  if (normalized === 0) return 'Kinder';
+  if (normalized > 0) return `Grade ${normalized}`;
+
+  const rawValue = String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return GRADE_LEVEL_MAP[rawValue] || String(value || '—').trim() || '—';
+};
+
+const formatStudentName = (record) => {
+  const directName = String(record?.student_name || record?.student_display_name || record?.name || '').trim();
+  if (directName && !/^public_user$/i.test(directName)) return directName;
+
+  const displayName = String(record?.student_display_name || '').trim();
+  if (displayName && !/^public_user$/i.test(displayName)) return displayName;
+
+  const nestedName = `${record?.student?.first_name || ''} ${record?.student?.last_name || ''}`.trim();
+  if (nestedName) return nestedName;
+
+  const fallbackName = `${record?.first_name || ''} ${record?.last_name || ''}`.trim();
+  if (fallbackName) return fallbackName;
+
+  return record?.student_username || record?.username || '—';
+};
+
+const pdfTableStyles = {
+  font: 'DejaVuSans',
+  fontStyle: 'normal',
+};
+
+const REPORT_SKELETON_ROWS = 6;
+
 const Reports = () => {
   const [reportType, setReportType] = useState('all');
   const [dateRange, setDateRange] = useState('all');
   const [generatedReports, setGeneratedReports] = useState([]);
   const [currentAcademicYear, setCurrentAcademicYear] = useState('');
+  const [activeSchoolYear, setActiveSchoolYear] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   
   // Stats state
   const [enrollmentStats, setEnrollmentStats] = useState({
@@ -60,6 +284,8 @@ const Reports = () => {
     total_subjects: 0
   });
   
+  const [toasts, setToasts] = useState([]);
+  
   const [teacherStats, setTeacherStats] = useState({
     total_teachers: 0,
     active_teachers: 0,
@@ -75,13 +301,6 @@ const Reports = () => {
     excused: 0
   });
   
-  const [gradeStats, setGradeStats] = useState({
-    total_students: 0,
-    graded_students: 0,
-    pending_grades: 0,
-    average_grade: '—'
-  });
-  
   const [historyStats, setHistoryStats] = useState({
     totalRecords: 0,
     uniqueStudents: 0,
@@ -89,236 +308,244 @@ const Reports = () => {
     averageFinal: '—'
   });
   
-  const [loading, setLoading] = useState(true);
+  // Data for tables
+  const [enrollments, setEnrollments] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [historyRecords, setHistoryRecords] = useState([]);
   
   const now = new Date();
 
-  // -----------------------------
-  // FETCH ACADEMIC YEAR
-  // -----------------------------
-  const fetchAcademicYear = async () => {
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  // Load saved reports from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(REPORT_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const normalized = Array.isArray(parsed)
+          ? parsed.map((report) => ({ ...report, data: report?.data || {} }))
+          : [];
+        setGeneratedReports(normalized);
+      } catch (e) {
+        console.error('Failed to load saved reports', e);
+      }
+    }
+  }, []);
+
+  // Save reports to localStorage
+  useEffect(() => {
+    if (generatedReports.length > 0) {
+      try {
+        localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(toStorageSafeReports(generatedReports)));
+      } catch (error) {
+        const isQuotaError =
+          error?.name === 'QuotaExceededError' ||
+          error?.code === 22 ||
+          error?.code === 1014;
+
+        if (!isQuotaError) {
+          console.error('Failed to persist generated reports', error);
+          return;
+        }
+
+        try {
+          localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(toStorageMetaReports(generatedReports)));
+          console.warn('Report cache exceeded localStorage quota; saved report metadata only.');
+        } catch (fallbackError) {
+          console.error('Failed to persist report metadata fallback', fallbackError);
+        }
+      }
+    }
+  }, [generatedReports]);
+
+  // Fetch academic year
+  const fetchAcademicYear = useCallback(async () => {
+    let academicYear = getCurrentAcademicYear();
+    let schoolYear = null;
+
     try {
-      const res = await fetch(`${API_BASE}/api/enrollment-settings/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
+      const res = await apiFetch('/api/enrollment-settings/');
       const data = await res.json();
-      setCurrentAcademicYear(data.academic_year || getCurrentAcademicYear());
-      console.log('Academic year loaded:', data.academic_year);
+      academicYear = data.academic_year || academicYear;
     } catch (error) {
       console.error('Error fetching academic year:', error);
-      setCurrentAcademicYear(getCurrentAcademicYear());
     }
-  };
 
-  // -----------------------------
-  // FETCH REAL DATA FROM API
-  // -----------------------------
-  const fetchEnrollmentStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/enrollments/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const enrollments = await res.json();
-      const list = Array.isArray(enrollments) ? enrollments : [];
-      
-      const total = list.length;
-      const active = list.filter(e => e.status === 'ACTIVE').length;
-      const pending = list.filter(e => e.status === 'PENDING').length;
-      const dropped = list.filter(e => e.status === 'DROPPED').length;
-      const expired = list.filter(e => {
-        const expiry = getAcademicYearExpiry(e.academic_year);
-        return expiry ? new Date() > expiry : false;
-      }).length;
-      
-      setEnrollmentStats({ total, active, pending, dropped, expired });
+      const schoolYearRes = await apiFetch('/api/classmanagement/school-years/active/');
+      if (schoolYearRes.ok) {
+        schoolYear = await schoolYearRes.json();
+      }
     } catch (error) {
-      console.error('Error fetching enrollment stats:', error);
+      console.warn('Error fetching active school year:', error);
     }
-  };
 
-  const fetchTransactionStats = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/finance/transactions/stats/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const data = await res.json();
-      setTransactionStats({
-        total_billed: data.total_billed || 0,
-        total_collected: data.total_collected || 0,
-        outstanding_balance: data.outstanding_balance || 0
-      });
-    } catch (error) {
-      console.error('Error fetching transaction stats:', error);
-    }
-  };
+    setCurrentAcademicYear(academicYear);
+    setActiveSchoolYear(schoolYear);
 
-  const fetchClassStats = async () => {
+    return { academicYear, schoolYear };
+  }, []);
+
+  // Fetch all data
+  const refreshAllData = useCallback(async () => {
+    setRefreshing(true);
     try {
-      const [sectionsRes, subjectsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/accounts/sections/`, {
-          method: "GET",
-          headers: authHeaders(),
-          credentials: "include",
-        }),
-        fetch(`${API_BASE}/api/accounts/subjects/`, {
-          method: "GET",
-          headers: authHeaders(),
-          credentials: "include",
-        })
-      ]);
+      const { schoolYear } = await fetchAcademicYear();
+
+      const enrollRes = await apiFetch('/api/enrollments/');
+      const enrollData = await enrollRes.json();
+      const enrollList = Array.isArray(enrollData) ? enrollData : [];
+      setEnrollments(enrollList);
       
-      const sections = await sectionsRes.json();
-      const subjects = await subjectsRes.json();
+      const total = enrollList.length;
+      const active = enrollList.filter(e => e.status === 'ACTIVE').length;
+      const pending = enrollList.filter(e => e.status === 'PENDING').length;
+      const dropped = enrollList.filter(e => e.status === 'DROPPED').length;
+      setEnrollmentStats({ total, active, pending, dropped, expired: 0 });
       
-      const sectionsList = Array.isArray(sections) ? sections : [];
-      const subjectsList = Array.isArray(subjects) ? subjects : [];
+      const sectionsRes = await apiFetch('/api/accounts/sections/');
+      const sectionsData = await sectionsRes.json();
+      const sectionsList = Array.isArray(sectionsData) ? sectionsData : [];
+      setSections(sectionsList);
       
-      const total_students = sectionsList.reduce((sum, s) => sum + (s.student_count || 0), 0);
-      const active_sections = sectionsList.filter(s => s.student_count > 0).length;
+      const subjectsRes = await apiFetch('/api/accounts/subjects/');
+      const subjectsData = await subjectsRes.json();
+      const subjectsList = Array.isArray(subjectsData) ? subjectsData : [];
       
+      const totalStudents = sectionsList.reduce((sum, s) => sum + (s.student_count || 0), 0);
+      const activeSections = sectionsList.filter(s => s.student_count > 0).length;
       setClassStats({
         total_sections: sectionsList.length,
-        total_students: total_students,
-        active_sections: active_sections,
+        total_students: totalStudents,
+        active_sections: activeSections,
         total_subjects: subjectsList.length
       });
-    } catch (error) {
-      console.error('Error fetching class stats:', error);
-    }
-  };
-
-  const fetchTeacherStats = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/accounts/users/?role=TEACHER`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const teachers = await res.json();
-      const teachersList = Array.isArray(teachers) ? teachers : [];
       
-      const active_teachers = teachersList.filter(t => t.is_active).length;
+      const teachersRes = await apiFetch('/api/accounts/users/?role=TEACHER');
+      const teachersData = await teachersRes.json();
+      const teachersList = Array.isArray(teachersData) ? teachersData : [];
+      setTeachers(teachersList);
       
+      const activeTeachers = teachersList.filter(t => t.status === 'ACTIVE').length;
       setTeacherStats({
         total_teachers: teachersList.length,
-        active_teachers: active_teachers,
+        active_teachers: activeTeachers,
         total_subjects: 0,
         total_classes: 0
       });
-    } catch (error) {
-      console.error('Error fetching teacher stats:', error);
-    }
-  };
+      
+      const statsRes = await apiFetch('/api/finance/transactions/stats/');
+      const statsData = await statsRes.json();
+      setTransactionStats({
+        total_billed: statsData.total_billed || 0,
+        total_collected: statsData.total_collected || 0,
+        outstanding_balance: statsData.outstanding_balance || 0
+      });
+      
+      const transRes = await apiFetch('/api/finance/transactions/');
+      const transData = await transRes.json();
+      setTransactions(Array.isArray(transData) ? transData : []);
+      
+      const attendRes = await apiFetch(`/api/attendance/records/${getAttendanceQuery(schoolYear)}`);
+      const attendData = await attendRes.json();
+      const attendList = Array.isArray(attendData) ? attendData : [];
+      setAttendanceRecords(attendList);
+      setAttendanceStats(buildAttendanceStats(attendList));
+      
+      try {
+        const historyRes = await apiFetch('/api/grades/academic-history/');
+        const historyData = await historyRes.json();
+        const historyList = Array.isArray(historyData) ? historyData : [];
+        setHistoryRecords(historyList);
 
-  const fetchAttendanceStats = async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const res = await fetch(`${API_BASE}/api/attendance/records/?date=${today}`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const records = await res.json();
-      const recordsList = Array.isArray(records) ? records : [];
+        setHistoryStats(buildHistoryStats(historyList));
+      } catch (e) {
+        console.warn('History endpoint failed:', e);
+      }
       
-      const present = recordsList.filter(r => r.status === 'PRESENT').length;
-      const absent = recordsList.filter(r => r.status === 'ABSENT').length;
-      const late = recordsList.filter(r => r.status === 'LATE').length;
-      const excused = recordsList.filter(r => r.status === 'EXCUSED').length;
-      
-      setAttendanceStats({
-        total_records: recordsList.length,
-        present: present,
-        absent: absent,
-        late: late,
-        excused: excused
-      });
+      await fetchAcademicYear();
     } catch (error) {
-      console.error('Error fetching attendance stats:', error);
+      console.error('Error fetching data:', error);
+    } finally {
+      setRefreshing(false);
     }
-  };
+  }, [fetchAcademicYear]);
 
-  const fetchGradeStats = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/grades/admin-monitoring/?quarter=1`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const data = await res.json();
-      const summary = data.summary || {};
-      
-      setGradeStats({
-        total_students: summary.total_students || 0,
-        graded_students: summary.graded_students || 0,
-        pending_grades: summary.pending_grades || 0,
-        average_grade: summary.average_grade || '—'
-      });
-    } catch (error) {
-      console.error('Error fetching grade stats:', error);
-    }
-  };
-
-  const fetchHistoryStats = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/grades/academic-history/`, {
-        method: "GET",
-        headers: authHeaders(),
-        credentials: "include",
-      });
-      const history = await res.json();
-      const historyList = Array.isArray(history) ? history : [];
-      
-      const finalGrades = historyList
-        .map(r => Number(r.final_grade))
-        .filter(v => !isNaN(v));
-      
-      const averageFinal = finalGrades.length
-        ? (finalGrades.reduce((sum, v) => sum + v, 0) / finalGrades.length).toFixed(2)
-        : '—';
-      
-      setHistoryStats({
-        totalRecords: historyList.length,
-        uniqueStudents: new Set(historyList.map(r => r.student)).size,
-        schoolYears: new Set(historyList.map(r => r.school_year)).size,
-        averageFinal: averageFinal
-      });
-    } catch (error) {
-      console.error('Error fetching history stats:', error);
-    }
-  };
-
-  // Fetch all stats on mount
   useEffect(() => {
-    const fetchAllStats = async () => {
+    const fetchAllData = async () => {
       setLoading(true);
-      await Promise.all([
-        fetchEnrollmentStats(),
-        fetchTransactionStats(),
-        fetchClassStats(),
-        fetchTeacherStats(),
-        fetchAttendanceStats(),
-        fetchGradeStats(),
-        fetchHistoryStats(),
-        fetchAcademicYear()
-      ]);
+      await refreshAllData();
       setLoading(false);
     };
-    
-    fetchAllStats();
-  }, []);
+    fetchAllData();
+  }, [refreshAllData]);
 
-  // -----------------------------
-  // PDF EXPORT FUNCTION
-  // -----------------------------
-  const exportReportToPDF = (report) => {
+  const openPrintView = async (report) => {
     const doc = new jsPDF('landscape');
+    await ensurePdfFont(doc);
+
+    let historyRecordsForExport = report.data.historyRecords || [];
+    let historySummaryForExport = report.data.history || {
+      totalRecords: report.data.totalRecords || 0,
+      uniqueStudents: report.data.uniqueStudents || 0,
+      schoolYears: report.data.schoolYears || 0,
+      averageFinal: report.data.averageFinal || '—',
+    };
+
+    let attendanceRecordsForExport = report.data.attendanceRecords || [];
+    let attendanceSummaryForExport = report.data.attendanceStats || {
+      total_records: report.data.total_records || 0,
+      present: report.data.present || 0,
+      absent: report.data.absent || 0,
+      late: report.data.late || 0,
+      excused: report.data.excused || 0,
+    };
+
+    if (report.type === 'history' || report.type === 'all') {
+      try {
+        const historyRes = await apiFetch('/api/grades/academic-history/');
+        const historyData = await historyRes.json();
+        const liveHistoryRecords = Array.isArray(historyData) ? historyData : [];
+        historyRecordsForExport = liveHistoryRecords;
+        historySummaryForExport = buildHistoryStats(liveHistoryRecords);
+      } catch (error) {
+        console.warn('Failed to refresh academic history for export:', error);
+      }
+    }
+
+    if (report.type === 'attendance' || report.type === 'all') {
+      try {
+        let activeSchoolYearForExport = activeSchoolYear;
+        if (!activeSchoolYearForExport?.start_date || !activeSchoolYearForExport?.end_date) {
+          const schoolYearRes = await apiFetch('/api/classmanagement/school-years/active/');
+          if (schoolYearRes.ok) {
+            activeSchoolYearForExport = await schoolYearRes.json();
+          }
+        }
+
+        const attendanceRes = await apiFetch(`/api/attendance/records/${getAttendanceQuery(activeSchoolYearForExport)}`);
+        const attendanceData = await attendanceRes.json();
+        const liveAttendanceRecords = Array.isArray(attendanceData) ? attendanceData : [];
+        attendanceRecordsForExport = liveAttendanceRecords;
+        attendanceSummaryForExport = buildAttendanceStats(liveAttendanceRecords);
+      } catch (error) {
+        console.warn('Failed to refresh attendance for export:', error);
+      }
+    }
     
     doc.setFontSize(18);
     doc.setTextColor(33, 37, 41);
@@ -327,175 +554,409 @@ const Reports = () => {
     doc.setFontSize(10);
     doc.setTextColor(108, 117, 125);
     const currentDate = new Date().toLocaleDateString('en-PH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+      year: 'numeric', month: 'long', day: 'numeric'
     });
     doc.text(`Generated: ${currentDate}`, 14, 22);
     doc.text(`Report Period: ${report.period || 'Current'}`, 14, 29);
     
-    let statsData = [];
-    let headers = ['Metric', 'Value'];
+    let startY = 38;
     
-    if (report.type === 'students' || report.type === 'all') {
-      const data = report.type === 'students' ? report.data : report.data?.enrollment;
-      statsData = [
-        ['Total Enrollments', data?.total || 0],
-        ['Active/Enrolled', data?.active || 0],
-        ['Pending', data?.pending || 0],
-        ['Dropped', data?.dropped || 0],
-        ['Expired', data?.expired || 0],
-      ];
-    } 
-    else if (report.type === 'financial') {
-      const data = report.data;
-      statsData = [
-        ['Total Billed', `₱${(data?.total_billed || 0).toLocaleString()}`],
-        ['Total Collected', `₱${(data?.total_collected || 0).toLocaleString()}`],
-        ['Outstanding Balance', `₱${(data?.outstanding_balance || 0).toLocaleString()}`],
-        ['Collection Rate', data?.total_billed > 0 
-          ? `${Math.round((data?.total_collected / data?.total_billed) * 100)}%` 
-          : '—'],
+    // SUMMARY STATISTICS
+    doc.setFontSize(12);
+    doc.setTextColor(33, 37, 41);
+    doc.text('Summary Statistics', 14, startY);
+    
+    let summaryData = [];
+    
+    if (report.type === 'students') {
+      summaryData = [
+        ['Total Enrollments', report.data.total || 0],
+        ['Active/Enrolled', report.data.active || 0],
+        ['Pending', report.data.pending || 0],
+        ['Declined/Dropped', report.data.dropped || 0],
+        ['Academic Year', report.data.academicYear || '—'],
       ];
     } 
     else if (report.type === 'classes') {
-      const data = report.data;
-      statsData = [
-        ['Total Sections', data?.total_sections || 0],
-        ['Total Students', data?.total_students || 0],
-        ['Active Sections', data?.active_sections || 0],
-        ['Subjects Offered', data?.total_subjects || 0],
-      ];
-    } 
-    else if (report.type === 'teachers') {
-      const data = report.data;
-      statsData = [
-        ['Total Teachers', data?.total_teachers || 0],
-        ['Active Teachers', data?.active_teachers || 0],
-        ['Subjects Assigned', data?.total_subjects || 0],
-        ['Classes Handled', data?.total_classes || 0],
-      ];
-    } 
-    else if (report.type === 'attendance') {
-      const data = report.data;
-      statsData = [
-        ['Total Records', data?.total_records || 0],
-        ['Present', data?.present || 0],
-        ['Absent', data?.absent || 0],
-        ['Late', data?.late || 0],
-        ['Excused', data?.excused || 0],
+      summaryData = [
+        ['Total Sections', report.data.total_sections || 0],
+        ['Total Students (All Sections)', report.data.total_students || 0],
+        ['Active Enrollments', report.data.active_enrollments || 0],
+        ['Pending Enrollments', report.data.pending_enrollments || 0],
+        ['Expired Classes', report.data.expired_classes || 0],
       ];
     }
-    else if (report.type === 'grades') {
-      const data = report.data;
-      statsData = [
-        ['Total Students', data?.total_students || 0],
-        ['Students With Grades', data?.graded_students || 0],
-        ['Pending / Partial', data?.pending_grades || 0],
-        ['Average Grade', data?.average_grade || '—'],
+    else if (report.type === 'financial') {
+      summaryData = [
+        ['Total Billed', formatCurrency(report.data.total_billed || 0)],
+        ['Total Collected', formatCurrency(report.data.total_collected || 0)],
+        ['Outstanding Balance', formatCurrency(report.data.outstanding_balance || 0)],
+      ];
+    }
+    else if (report.type === 'teachers') {
+      summaryData = [
+        ['Total Teachers', report.data.total_teachers || 0],
+        ['Active Teachers', report.data.active_teachers || 0],
+      ];
+    }
+    else if (report.type === 'attendance') {
+      summaryData = [
+        ['Total Records', attendanceSummaryForExport.total_records || 0],
+        ['Present', attendanceSummaryForExport.present || 0],
+        ['Absent', attendanceSummaryForExport.absent || 0],
+        ['Late', attendanceSummaryForExport.late || 0],
+        ['Excused', attendanceSummaryForExport.excused || 0],
       ];
     }
     else if (report.type === 'history') {
-      const data = report.data;
-      statsData = [
-        ['Total Records', data?.totalRecords || 0],
-        ['Unique Students', data?.uniqueStudents || 0],
-        ['School Years', data?.schoolYears || 0],
-        ['Average Final Grade', data?.averageFinal || '—'],
+      summaryData = [
+        ['Total Records', historySummaryForExport.totalRecords || 0],
+        ['Unique Students', historySummaryForExport.uniqueStudents || 0],
+        ['School Years', historySummaryForExport.schoolYears || 0],
+        ['Average Final Grade', historySummaryForExport.averageFinal || '—'],
+      ];
+    }
+    else if (report.type === 'all') {
+      summaryData = [
+        ['Total Enrollments', report.data.enrollment?.total || 0],
+        ['Active/Enrolled', report.data.enrollment?.active || 0],
+        ['Total Sections', report.data.classes?.total_sections || 0],
+        ['Total Students', report.data.classes?.total_students || 0],
+        ['Total Teachers', report.data.teachers?.total_teachers || 0],
+        ['Total Collected', formatCurrency(report.data.financial?.total_collected || 0)],
+        ['Outstanding Balance', formatCurrency(report.data.financial?.outstanding_balance || 0)],
+        ['Attendance Records', report.data.attendanceStats?.total_records || 0],
+        ['History Records', historySummaryForExport.totalRecords || 0],
       ];
     }
     
-    doc.setFontSize(12);
-    doc.setTextColor(33, 37, 41);
-    doc.text('Report Summary', 14, 38);
+    if (summaryData.length > 0) {
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['Metric', 'Value']],
+        body: summaryData,
+        theme: 'grid',
+        styles: pdfTableStyles,
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
+        bodyStyles: { fontSize: 9 },
+        margin: { left: 14, right: 14 },
+      });
+      startY = doc.lastAutoTable.finalY + 15;
+    }
     
-    autoTable(doc, {
-      startY: 43,
-      head: [headers],
-      body: statsData,
-      theme: 'grid',
-      headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 10 },
-      bodyStyles: { fontSize: 9 },
-      margin: { left: 14, right: 14 },
-      columnStyles: {
-        0: { cellWidth: 80 },
-        1: { cellWidth: 60 }
+    // DETAILS TABLES
+    if (report.type === 'students' && report.data.enrollments?.length > 0) {
+      doc.text('Enrollment Details', 14, startY);
+      const tableData = report.data.enrollments.map(e => [
+        `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.student_name || '—',
+        formatGradeLevel(e.grade_level),
+        e.section_name || '—',
+        e.enrolled_at ? new Date(e.enrolled_at).toLocaleDateString() : '—',
+        e.status || '—',
+        e.payment_mode || '—',
+        e.parent_info?.guardian_name || e.parent_info?.mother_name || e.parent_info?.father_name || '—',
+        e.mobile_number || e.telephone_number || '—'
+      ]);
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['Student Name', 'Grade', 'Section', 'Date', 'Status', 'Payment', 'Parent', 'Contact']],
+        body: tableData,
+        theme: 'grid',
+        styles: pdfTableStyles,
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+        bodyStyles: { fontSize: 7 },
+        margin: { left: 14, right: 14 },
+      });
+    }
+    else if (report.type === 'classes' && report.data.sections?.length > 0) {
+      doc.text('Class Details', 14, startY);
+      const tableData = report.data.sections.map(s => [
+        formatGradeLevel(s.grade_level),
+        s.name || '—',
+        s.adviser_name || 'Unassigned',
+        s.room_code || 'Unassigned',
+        s.student_count || 0,
+        s.pending_count || 0,
+        s.student_count > 0 ? 'ONGOING' : 'EXPIRED'
+      ]);
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['Grade Level', 'Section', 'Adviser', 'Room', 'Active', 'Pending', 'Status']],
+        body: tableData,
+        theme: 'grid',
+        styles: pdfTableStyles,
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+        bodyStyles: { fontSize: 7 },
+        margin: { left: 14, right: 14 },
+      });
+    }
+    else if (report.type === 'financial' && report.data.transactions?.length > 0) {
+      doc.text('Transaction Details', 14, startY);
+      const tableData = report.data.transactions.map(t => [
+        t.student_name || '—',
+        t.transaction_date || '—',
+        t.entry_type || '—',
+        formatCurrency(t.debit || 0),
+        formatCurrency(t.credit || 0),
+        t.status || '—'
+      ]);
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['Student', 'Date', 'Type', 'Debit', 'Credit', 'Status']],
+        body: tableData,
+        theme: 'grid',
+        styles: pdfTableStyles,
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+        bodyStyles: { fontSize: 7 },
+        margin: { left: 14, right: 14 },
+      });
+    }
+    else if (report.type === 'teachers' && report.data.teachers?.length > 0) {
+      doc.text('Teacher Details', 14, startY);
+      const tableData = report.data.teachers.map(t => [
+        t.username || '—',
+        t.email || '—',
+        t.teacher_profile?.employee_id || '—',
+        t.teacher_profile?.subject?.name || 'Unassigned',
+        t.status || '—'
+      ]);
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['Teacher Name', 'Email', 'Employee ID', 'Subject', 'Status']],
+        body: tableData,
+        theme: 'grid',
+        styles: pdfTableStyles,
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+        bodyStyles: { fontSize: 7 },
+        margin: { left: 14, right: 14 },
+      });
+    }
+    else if (report.type === 'attendance' && attendanceRecordsForExport?.length > 0) {
+      doc.text('Attendance Record Details', 14, startY);
+      const tableData = attendanceRecordsForExport.map(a => [
+        formatStudentName(a),
+        a.student_number || a.student?.student_number || '—',
+        formatGradeLevel(a.grade_level || a.student?.grade_level),
+        a.section_name || a.section?.name || '—',
+        a.subject_name || a.subject?.name || '—',
+        a.status || '—',
+        a.date || '—',
+        a.marked_by_name || a.marked_by?.username || '—'
+      ]);
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['Student', 'Student #', 'Grade', 'Section', 'Subject', 'Status', 'Date', 'Marked By']],
+        body: tableData,
+        theme: 'grid',
+        styles: pdfTableStyles,
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 7 },
+        bodyStyles: { fontSize: 6 },
+        margin: { left: 14, right: 14 },
+      });
+    }
+    else if (report.type === 'history' && historyRecordsForExport?.length > 0) {
+      doc.text('Academic History Record Details', 14, startY);
+      const tableData = historyRecordsForExport.map(h => [
+        h.school_year || '—',
+        formatStudentName(h),
+        h.student_number || h.student?.student_number || '—',
+        formatGradeLevel(h.grade_level || h.student?.grade_level),
+        h.section_name || h.section?.name || '—',
+        h.subject_name || h.subject?.name || '—',
+        h.final_grade || '—',
+        h.remarks || '—'
+      ]);
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['School Year', 'Student Name', 'Student #', 'Grade', 'Section', 'Subject', 'Final Grade', 'Remarks']],
+        body: tableData,
+        theme: 'grid',
+        styles: pdfTableStyles,
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 7 },
+        bodyStyles: { fontSize: 6 },
+        margin: { left: 14, right: 14 },
+      });
+    }
+    else if (report.type === 'all') {
+      if (report.data.enrollments?.length > 0) {
+        if (startY > 250) { doc.addPage(); startY = 20; }
+        doc.text('Enrollment Details', 14, startY);
+        autoTable(doc, {
+          startY: startY + 5,
+          head: [['Student Name', 'Grade', 'Section', 'Status']],
+          body: report.data.enrollments.slice(0, 20).map(e => [
+            `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.student_name || '—',
+            formatGradeLevel(e.grade_level),
+            e.section_name || '—',
+            e.status || '—'
+          ]),
+          theme: 'grid',
+          styles: pdfTableStyles,
+          headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14, right: 14 },
+        });
+        startY = doc.lastAutoTable.finalY + 15;
       }
-    });
+      
+      if (report.data.sections?.length > 0) {
+        if (startY > 250) { doc.addPage(); startY = 20; }
+        doc.text('Class Details', 14, startY);
+        autoTable(doc, {
+          startY: startY + 5,
+          head: [['Grade', 'Section', 'Students', 'Status']],
+          body: report.data.sections.map(s => [
+            formatGradeLevel(s.grade_level),
+            s.name || '—',
+            s.student_count || 0,
+            s.student_count > 0 ? 'ONGOING' : 'EXPIRED'
+          ]),
+          theme: 'grid',
+          styles: pdfTableStyles,
+          headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14, right: 14 },
+        });
+        startY = doc.lastAutoTable.finalY + 15;
+      }
+      
+      if (attendanceRecordsForExport?.length > 0) {
+        if (startY > 250) { doc.addPage(); startY = 20; }
+        doc.text('Attendance Records', 14, startY);
+        autoTable(doc, {
+          startY: startY + 5,
+          head: [['Student', 'Section', 'Subject', 'Status', 'Date']],
+          body: attendanceRecordsForExport.slice(0, 20).map(a => [
+            formatStudentName(a),
+            a.section_name || a.section?.name || '—',
+            a.subject_name || a.subject?.name || '—',
+            a.status || '—',
+            a.date || '—'
+          ]),
+          theme: 'grid',
+          styles: pdfTableStyles,
+          headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14, right: 14 },
+        });
+        startY = doc.lastAutoTable.finalY + 15;
+      }
+
+      if (historyRecordsForExport?.length > 0) {
+        if (startY > 250) { doc.addPage(); startY = 20; }
+        doc.text('Academic History Records', 14, startY);
+        autoTable(doc, {
+          startY: startY + 5,
+          head: [['Student', 'School Year', 'Subject', 'Final Grade', 'Remarks']],
+          body: historyRecordsForExport.slice(0, 20).map(h => [
+            formatStudentName(h),
+            h.school_year || '—',
+            h.subject_name || h.subject?.name || '—',
+            h.final_grade || '—',
+            h.remarks || '—'
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14, right: 14 },
+        });
+      }
+    }
     
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(8);
       doc.setTextColor(108, 117, 125);
-      doc.text(
-        `Page ${i} of ${pageCount}`,
-        doc.internal.pageSize.width - 20,
-        doc.internal.pageSize.height - 10
-      );
+      doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10);
     }
     
-    const filename = `${report.name.replace(/\s+/g, '_')}_${report.date}.pdf`;
-    doc.save(filename);
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    window.open(pdfUrl, '_blank');
+    // Keep the blob URL alive long enough for large reports to fully load in a new tab.
+    setTimeout(() => URL.revokeObjectURL(pdfUrl), 120000);
   };
 
-  // -----------------------------
-  // GET PERIOD LABEL
-  // -----------------------------
   const getPeriodLabel = () => {
-    if (dateRange === 'month') {
-      return `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
-    }
-    if (dateRange === 'quarter') {
-      const quarter = Math.floor(now.getMonth() / 3) + 1;
-      return `Q${quarter} ${now.getFullYear()}`;
-    }
-    if (dateRange === 'year') {
-      return `Year ${now.getFullYear()}`;
-    }
-    if (currentAcademicYear) {
-      return `AY ${currentAcademicYear}`;
-    }
+    if (dateRange === 'month') return `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
+    if (dateRange === 'quarter') return `Q${Math.floor(now.getMonth() / 3) + 1} ${now.getFullYear()}`;
+    if (dateRange === 'year') return `Year ${now.getFullYear()}`;
+    if (currentAcademicYear) return `AY ${currentAcademicYear}`;
     return 'All Time';
   };
 
-  // -----------------------------
-  // GENERATE REPORT
-  // -----------------------------
   const generateReport = () => {
     const today = new Date().toISOString().slice(0, 10);
     const period = getPeriodLabel();
-
+    
     let data = {};
     let reportName = '';
-
+    
+    setIsGenerating(true);
+    
     switch (reportType) {
       case "students":
-        data = enrollmentStats;
+        data = {
+          total: enrollmentStats.total,
+          active: enrollmentStats.active,
+          pending: enrollmentStats.pending,
+          dropped: enrollmentStats.dropped,
+          academicYear: currentAcademicYear,
+          enrollments: enrollments
+        };
         reportName = `Student Enrollment Report - ${period}`;
         break;
       case "financial":
-        data = transactionStats;
+        data = {
+          total_billed: transactionStats.total_billed,
+          total_collected: transactionStats.total_collected,
+          outstanding_balance: transactionStats.outstanding_balance,
+          transactions: transactions.slice(0, 100)
+        };
         reportName = `Financial Summary Report - ${period}`;
         break;
       case "classes":
-        data = classStats;
+        data = {
+          total_sections: classStats.total_sections,
+          total_students: classStats.total_students,
+          active_enrollments: enrollmentStats.active,
+          pending_enrollments: enrollmentStats.pending,
+          expired_classes: sections.filter(s => s.student_count === 0).length,
+          sections: sections.map(s => ({
+            ...s,
+            pending_count: enrollments.filter(e => e.section === s.id && e.status === 'PENDING').length
+          }))
+        };
         reportName = `Class Statistics Report - ${period}`;
         break;
       case "teachers":
-        data = teacherStats;
+        data = {
+          total_teachers: teacherStats.total_teachers,
+          active_teachers: teacherStats.active_teachers,
+          teachers: teachers
+        };
         reportName = `Teacher Performance Report - ${period}`;
         break;
       case "attendance":
-        data = attendanceStats;
+        data = {
+          total_records: attendanceStats.total_records,
+          present: attendanceStats.present,
+          absent: attendanceStats.absent,
+          late: attendanceStats.late,
+          excused: attendanceStats.excused,
+          attendanceRecords: attendanceRecords
+        };
         reportName = `Attendance Summary Report - ${period}`;
         break;
-      case "grades":
-        data = gradeStats;
-        reportName = `Grade Monitoring Report - ${period}`;
-        break;
       case "history":
-        data = historyStats;
+        data = {
+          totalRecords: historyStats.totalRecords,
+          uniqueStudents: historyStats.uniqueStudents,
+          schoolYears: historyStats.schoolYears,
+          averageFinal: historyStats.averageFinal,
+          historyRecords: historyRecords
+        };
         reportName = `Academic History Report - ${period}`;
         break;
       default:
@@ -504,13 +965,17 @@ const Reports = () => {
           financial: transactionStats,
           classes: classStats,
           teachers: teacherStats,
-          attendance: attendanceStats,
-          grades: gradeStats,
-          history: historyStats
+          attendanceStats: attendanceStats,
+          history: historyStats,
+          enrollments: enrollments.slice(0, 50),
+          sections: sections,
+          attendanceRecords: attendanceRecords.slice(0, 50),
+          historyRecords: historyRecords.slice(0, 50)
         };
         reportName = `Comprehensive System Report - ${period}`;
+        break;
     }
-
+    
     const newReport = {
       id: Date.now(),
       name: reportName,
@@ -520,76 +985,25 @@ const Reports = () => {
       format: "PDF",
       data: data
     };
-
-    setGeneratedReports((prev) => [newReport, ...prev]);
-    alert("Report generated successfully! Click Download to view PDF.");
+    
+    setGeneratedReports(prev => [newReport, ...prev]);
+    setIsGenerating(false);
+    addToast('Success', 'Report generated successfully!', 'success');
   };
-
-  // -----------------------------
-  // MONTHLY AUTO REPORT
-  // -----------------------------
-  useEffect(() => {
-    const now = new Date();
-    const lastGenerated = localStorage.getItem("lastMonthlyReport");
-
-    if (!lastGenerated) {
-      generateMonthlyReport();
-      localStorage.setItem("lastMonthlyReport", now.toISOString());
-    } else {
-      const lastDate = new Date(lastGenerated);
-
-      if (
-        lastDate.getMonth() !== now.getMonth() ||
-        lastDate.getFullYear() !== now.getFullYear()
-      ) {
-        generateMonthlyReport();
-        localStorage.setItem("lastMonthlyReport", now.toISOString());
-      }
-    }
-  }, [enrollmentStats, transactionStats, classStats, teacherStats, attendanceStats, gradeStats, historyStats, currentAcademicYear]);
-
-  const generateMonthlyReport = () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const monthName = now.toLocaleString('default', { month: 'long' });
-
-    const monthlyReport = {
-      id: Date.now(),
-      name: `Monthly System Report - ${monthName} ${now.getFullYear()} (AY ${currentAcademicYear})`,
-      type: "all",
-      date: today,
-      period: `${monthName} ${now.getFullYear()} - AY ${currentAcademicYear}`,
-      format: "PDF",
-      data: {
-        enrollment: enrollmentStats,
-        financial: transactionStats,
-        classes: classStats,
-        teachers: teacherStats,
-        attendance: attendanceStats,
-        grades: gradeStats,
-        history: historyStats
-      }
-    };
-
-    setGeneratedReports((prev) => [monthlyReport, ...prev]);
-  };
-
-  // -----------------------------
-  // DOWNLOAD FUNCTION
-  // -----------------------------
+  
   const handleDownload = (report) => {
-    exportReportToPDF(report);
+    openPrintView(report).catch((error) => {
+      console.error('Failed to generate PDF report:', error);
+      addToast('Error', 'Failed to generate PDF report.', 'error');
+    });
   };
-
-  // -----------------------------
-  // FILTER REPORTS BY DATE RANGE
-  // -----------------------------
+  
   const getFilteredReports = () => {
     let reports = [...generatedReports];
     
     if (dateRange !== 'all') {
       reports = reports.filter(r => {
         const d = new Date(r.date);
-        
         if (dateRange === 'month') {
           return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
         } else if (dateRange === 'quarter') {
@@ -609,64 +1023,154 @@ const Reports = () => {
     
     return reports;
   };
-
+  
   const filteredReports = getFilteredReports();
-
-  // -----------------------------
-  // UI STATS
-  // -----------------------------
   const thisMonthReports = filteredReports.filter(r => {
     const d = new Date(r.date);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
-
+  
   const totalReports = filteredReports.length;
+  const totalPages = Math.max(1, Math.ceil(filteredReports.length / itemsPerPage));
+  const paginatedReports = filteredReports.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
+  // Reset to page 1 when filters change
+  const handleReportTypeChange = (val) => {
+    setReportType(val);
+    setCurrentPage(1);
+  };
+  const handleDateRangeChange = (val) => {
+    setDateRange(val);
+    setCurrentPage(1);
+  };
+  const handlePageSizeChange = (size) => {
+    setItemsPerPage(size);
+    setCurrentPage(1);
+  };
+
+  const renderSkeletonRows = (columnCount) =>
+    Array.from({ length: REPORT_SKELETON_ROWS }).map((_, rowIdx) => (
+      <tr key={`report-skeleton-row-${rowIdx}`}>
+        {Array.from({ length: columnCount }).map((__, colIdx) => (
+          <td key={`report-skeleton-cell-${rowIdx}-${colIdx}`}>
+            <div
+              className={`report-skeleton-line ${
+                colIdx === 0 ? 'w-lg' : colIdx === columnCount - 1 ? 'w-sm' : 'w-md'
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ));
+  
   if (loading) {
     return (
       <div className="class-management">
-        <div style={{ textAlign: 'center', padding: '50px' }}>
-          <div className="spinner"></div>
-          <p>Loading reports data...</p>
+        <div className="reports-skeleton-page">
+          <div className="reports-skeleton-controls">
+            <div className="report-skeleton-line report-skeleton-control" />
+            <div className="report-skeleton-line report-skeleton-control" />
+            <div className="report-skeleton-line report-skeleton-button" />
+            <div className="report-skeleton-line report-skeleton-button report-skeleton-icon-button" />
+          </div>
+
+          <StatsGrid>
+            <div className="unified-stat-card blue report-skeleton-stat-card">
+              <div className="unified-stat-header">
+                <div className="report-skeleton-line report-skeleton-stat-label" />
+                <div className="report-skeleton-icon-circle" />
+              </div>
+              <div className="report-skeleton-line report-skeleton-stat-value" />
+              <div className="report-skeleton-line report-skeleton-stat-subtitle" />
+            </div>
+
+            <div className="unified-stat-card green report-skeleton-stat-card">
+              <div className="unified-stat-header">
+                <div className="report-skeleton-line report-skeleton-stat-label" />
+                <div className="report-skeleton-icon-circle" />
+              </div>
+              <div className="report-skeleton-line report-skeleton-stat-value" />
+              <div className="report-skeleton-line report-skeleton-stat-subtitle" />
+            </div>
+
+            <div className="unified-stat-card purple report-skeleton-stat-card">
+              <div className="unified-stat-header">
+                <div className="report-skeleton-line report-skeleton-stat-label" />
+                <div className="report-skeleton-icon-circle" />
+              </div>
+              <div className="report-skeleton-line report-skeleton-stat-value" />
+              <div className="report-skeleton-line report-skeleton-stat-subtitle" />
+            </div>
+
+            <div className="unified-stat-card teal report-skeleton-stat-card">
+              <div className="unified-stat-header">
+                <div className="report-skeleton-line report-skeleton-stat-label" />
+                <div className="report-skeleton-icon-circle" />
+              </div>
+              <div className="report-skeleton-line report-skeleton-stat-value" />
+              <div className="report-skeleton-line report-skeleton-stat-subtitle" />
+            </div>
+          </StatsGrid>
+
+          <AdminTable
+            columns={[
+              { key: "name", label: "Report Name" },
+              { key: "period", label: "Period" },
+              { key: "date", label: "Date Generated" },
+              { key: "format", label: "Format" },
+            ]}
+            data={[]}
+            loading={true}
+          />
+
+          <Toast toasts={toasts} dismissToast={dismissToast} />
         </div>
       </div>
     );
   }
-
+  
   return (
     <div className="class-management">
-
-      {/* FILTERS */}
       <div className="class-controls">
         <div className="filter-box">
           <Filter size={20} />
-          <select value={reportType} onChange={(e) => setReportType(e.target.value)}>
+          <select value={reportType} onChange={(e) => handleReportTypeChange(e.target.value)}>
             <option value="all">All Reports</option>
-            <option value="students">Student Reports</option>
+            <option value="students">Student Enrollment Reports</option>
             <option value="financial">Financial Reports</option>
             <option value="classes">Class Reports</option>
             <option value="teachers">Teacher Reports</option>
             <option value="attendance">Attendance Reports</option>
-            <option value="grades">Grade Reports</option>
             <option value="history">Academic History Reports</option>
           </select>
         </div>
-
+        
         <div className="filter-box">
-          <select value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
+          <Clock size={20} />
+          <select value={dateRange} onChange={(e) => handleDateRangeChange(e.target.value)}>
             <option value="all">All Time</option>
             <option value="month">This Month</option>
             <option value="quarter">This Quarter</option>
             <option value="year">This Year</option>
           </select>
         </div>
+        
+        <button className="btn-primary" onClick={generateReport} disabled={isGenerating}>
+          <FileText size={18} />
+          {isGenerating ? 'Generating...' : 'Generate Report'}
+        </button>
 
-        <button className="btn-primary btn-generate-sm" onClick={generateReport}>
-          Generate Report
+        <button className="btn-icon" onClick={() => {
+          refreshAllData();
+          addToast('Success', 'Data refreshed successfully', 'success');
+        }} title="Refresh Data" disabled={refreshing}>
+              <RefreshCw size={16} className={refreshing ? 'spin' : ''} />
         </button>
       </div>
-
-      {/* STATS CARDS - Only report generation stats */}
+      
       <StatsGrid>
         <StatCard 
           label="Total Reports" 
@@ -697,63 +1201,45 @@ const Reports = () => {
           subtitle="All in PDF format"
         />
       </StatsGrid>
-
-      {/* TABLE */}
+      
       <div className="classes-container">
-        <div className="teacher-assignment-table">
-          <table className="assignments-table">
-            <thead>
-              <tr>
-                <th>Report Name</th>
-                <th>Period</th>
-                <th>Date Generated</th>
-                <th>Format</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredReports.length === 0 ? (
-                <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                    No reports generated yet. Click "Generate Report" to create one.
-                  </td>
-                </tr>
-              ) : (
-                filteredReports.map(report => (
-                  <tr key={report.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FileDown size={18} />
-                        <strong>{report.name}</strong>
-                      </div>
-                    </td>
-                    <td>{report.period}</td>
-                    <td>{report.date}</td>
-                    <td>
-                      <span className="badge-pdf">
-                        {report.format}
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        className="btn-edit"
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                        onClick={() => handleDownload(report)}
-                      >
-                        <Download size={14} />
-                        Download PDF
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-
-          </table>
-        </div>
+        <AdminTable
+          columns={[
+            { key: "name", label: "Report Name", render: (v) => <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><FileDown size={18} style={{ color: '#4f6ef7' }} /><strong>{v}</strong></div> },
+            { key: "period", label: "Period" },
+            { key: "date", label: "Date Generated" },
+            { key: "format", label: "Format", render: (v) => <span className="badge-pdf">{v}</span> },
+          ]}
+          data={paginatedReports}
+          loading={false}
+          pagination={{
+            currentPage,
+            totalPages,
+            totalItems: filteredReports.length,
+            itemsPerPage,
+            onPageChange: setCurrentPage,
+            onPageSizeChange: handlePageSizeChange,
+          }}
+          emptyState={
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', color: '#94a3b8' }}>
+              <FileText size={48} style={{ opacity: 0.5 }} />
+              <p>No reports generated yet. Click "Generate Report" to create one.</p>
+            </div>
+          }
+          rowActions={(report) => (
+            <button className="btn-edit" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => handleDownload(report)}>
+              <Download size={14} />
+              Download PDF
+            </button>
+          )}
+          zebra={true}
+          stickyHeader={true}
+          rowKey="id"
+        />
       </div>
-
+      
+      <Toast toasts={toasts} dismissToast={dismissToast} />
+      
       <style>{`
         .badge-pdf {
           display: inline-flex;
@@ -775,14 +1261,202 @@ const Reports = () => {
           animation: spin 1s linear infinite;
           margin: 0 auto 20px;
         }
-        .btn-generate-sm {
-          width: 160px;}
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-      `}</style>
 
+        @keyframes reportSkeletonShimmer {
+          0% {
+            background-position: 200% 0;
+          }
+          100% {
+            background-position: -200% 0;
+          }
+        }
+
+        .reports-skeleton-page {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        .reports-skeleton-controls {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+          align-items: center;
+        }
+
+        .report-skeleton-line {
+          display: block;
+          border-radius: 10px;
+          background: linear-gradient(90deg, #e2e8f0 20%, #f8fafc 50%, #e2e8f0 80%);
+          background-size: 200% 100%;
+          animation: reportSkeletonShimmer 1.4s ease-in-out infinite;
+        }
+
+        .report-skeleton-line.w-sm {
+          width: 36%;
+        }
+
+        .report-skeleton-line.w-md {
+          width: 58%;
+        }
+
+        .report-skeleton-line.w-lg {
+          width: 84%;
+        }
+
+        .report-skeleton-control {
+          width: 180px;
+          height: 42px;
+        }
+
+        .report-skeleton-button {
+          width: 160px;
+          height: 42px;
+        }
+
+        .report-skeleton-icon-button {
+          width: 44px;
+        }
+
+        .report-skeleton-stat-label {
+          width: 68%;
+          height: 12px;
+        }
+
+        .report-skeleton-stat-value {
+          width: 52%;
+          height: 18px;
+          margin: 8px 0 6px;
+        }
+
+        .report-skeleton-stat-subtitle {
+          width: 78%;
+          height: 12px;
+        }
+
+        .report-skeleton-icon-circle {
+          width: 24px;
+          height: 24px;
+          border-radius: 999px;
+          background: linear-gradient(90deg, #e2e8f0 20%, #f8fafc 50%, #e2e8f0 80%);
+          background-size: 200% 100%;
+          animation: reportSkeletonShimmer 1.4s ease-in-out infinite;
+        }
+
+        .report-skeleton-table th,
+        .report-skeleton-table td {
+          vertical-align: middle;
+        }
+
+        .report-skeleton-head {
+          width: 78%;
+          height: 10px;
+          margin: 0 auto;
+        }
+
+        .report-skeleton-table td {
+          padding-top: 1rem;
+          padding-bottom: 1rem;
+        }
+
+        @media (max-width: 768px) {
+          .report-skeleton-control,
+          .report-skeleton-button {
+            width: 150px;
+            height: 38px;
+          }
+
+          .report-skeleton-icon-button {
+            width: 40px;
+          }
+        }
+        
+        .toast-notification {
+          position: fixed;
+          top: 80px;
+          right: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 12px 20px;
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          z-index: 1000;
+          min-width: 280px;
+          max-width: 400px;
+          animation: slideInRight 0.3s ease-out;
+        }
+        
+        .toast-success {
+          border-left: 4px solid #10b981;
+          background: #f0fdf4;
+        }
+        
+        .toast-success .toast-content {
+          color: #065f46;
+        }
+        
+        .toast-error {
+          border-left: 4px solid #ef4444;
+          background: #fef2f2;
+        }
+        
+        .toast-error .toast-content {
+          color: #991b1b;
+        }
+        
+        .toast-content {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 14px;
+          font-weight: 500;
+        }
+        
+        .toast-close {
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 6px;
+          opacity: 0.6;
+          transition: opacity 0.2s;
+        }
+        
+        .toast-close:hover {
+          opacity: 1;
+        }
+        
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        @media print {
+          .class-controls,
+          .stats-grid,
+          .btn-edit,
+          .toast-notification,
+          .header-actions {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };

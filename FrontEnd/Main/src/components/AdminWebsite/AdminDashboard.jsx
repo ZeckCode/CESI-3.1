@@ -12,77 +12,43 @@ import ClassManagement from "./ClassManagement";
 import Subjects from "./Subjects";
 import AssignTeachers from "./AssignTeachers";
 import GradesRecords from "./GradesRecords";
-import FloatingMessages from "./FloatingMessages";
 import CMSModule from "./CMSModule";
 import TuitionManagement from "./TuitionManagement";
 import AdminPasswordResetRequests from "./AdminPasswordResetRequests";
 import Messages from "./Messages";
 import OrganizationalChart from "./OrganizationalChart";
-import NotificationList from "./NotificationList";
-import { getToken } from "../Auth/auth";
+import AdminProfile from "./AdminProfile";
 import "../AdminWebsiteCSS/AdminDashboard.css";
-
-const API_BASE = "";
-
-const authHeaders = (extra = {}) => {
-  const token = getToken();
-  return {
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...extra,
-  };
-};
+import "../AdminWebsiteCSS/ResponsiveUtils.css";
 
 function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [unreadReminders, setUnreadReminders] = useState(0);
-  const [showNotificationList, setShowNotificationList] = useState(false);
+  const [sidebarHoverExpanded, setSidebarHoverExpanded] = useState(false);
+
+  useEffect(() => {
+    if (window.botpressWebChat && typeof window.botpressWebChat.destroy === "function") {
+      window.botpressWebChat.destroy();
+    }
+
+    [
+      "#bp-web-widget-container",
+      "#bp-web-widget",
+      ".bpWebchat",
+      "iframe[src*=\"botpress\"]",
+      "[id^=\"bp-web-widget\"]",
+      "script[src*=\"cdn.botpress.cloud/webchat\"]",
+      "script[src*=\"files.bpcontent.cloud/2026/03/26/09/20260326092557-6ZV5HUUY.js\"]",
+    ].forEach((selector) => {
+      document.querySelectorAll(selector).forEach((node) => node.remove());
+    });
+  }, []);
 
   const handleMenuClick = (menuId) => setActiveMenu(menuId);
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
-
-  useEffect(() => {
-    let isMounted = true;
-    let pollInterval = null;
-
-    const loadUnreadReminders = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/reminders/?type=PAYMENT`, {
-          credentials: "include",
-          headers: authHeaders(),
-        });
-
-        if (!res.ok) throw new Error("Failed to load reminders");
-
-        const data = await res.json();
-        const reminders = Array.isArray(data) ? data : [];
-        
-        // Only update state if component is still mounted to prevent duplication
-        if (isMounted) {
-          setUnreadReminders(reminders.filter((r) => !r.is_read).length);
-        }
-      } catch (err) {
-        console.error("Error loading unread payment reminders:", err);
-        if (isMounted) {
-          setUnreadReminders(0);
-        }
-      }
-    };
-
-    // Load reminders immediately on mount
-    loadUnreadReminders();
-
-    // Then poll for updates every 30 seconds
-    pollInterval = setInterval(loadUnreadReminders, 30000);
-
-    // Cleanup function to prevent memory leaks and duplicate listeners
-    return () => {
-      isMounted = false;
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-    };
-  }, []);
+  const handleSidebarHoverChange = (isHoverExpanded) => setSidebarHoverExpanded(isHoverExpanded);
+  const isSidebarExpandedByHover = sidebarCollapsed && sidebarHoverExpanded;
+  const isSidebarVisuallyCollapsed = sidebarCollapsed && !sidebarHoverExpanded;
 
   const renderContent = () => {
     switch (activeMenu) {
@@ -120,6 +86,8 @@ function AdminDashboard() {
         return <AdminPasswordResetRequests />;
       case "messages":
         return <Messages />;
+      case "admin-profile":
+        return <AdminProfile />;
       default:
         return <Dashboard />;
     }
@@ -146,6 +114,7 @@ function AdminDashboard() {
       notifications: "SMS & Email",
       "password-reset-requests": "Password Reset Requests",
       messages: "Message Moderation",
+      "admin-profile": "Admin Profile",
     };
     return titles[activeMenu] || "Dashboard";
   };
@@ -168,6 +137,7 @@ function AdminDashboard() {
       reports: "Generate and view system reports.",
       "password-reset-requests": "Review password reset requests and send reset links.",
       messages: "Manage profanity filters, flagged messages, chat requests, and message reports.",
+      "admin-profile": "Update your admin account details and permissions label.",
     };
     return subtitles[activeMenu] || "Welcome back! Here's what's happening today.";
   };
@@ -179,36 +149,24 @@ function AdminDashboard() {
         onMenuClick={handleMenuClick}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
+        isHoverExpanded={sidebarHoverExpanded}
+        onHoverChange={handleSidebarHoverChange}
       />
 
-      <main className={`admin-main ${sidebarCollapsed ? "collapsed" : ""}`}>
+      <main className={`admin-main ${isSidebarVisuallyCollapsed ? "collapsed" : ""}`}>
         <Header
           title={getPageTitle()}
           subtitle={getPageSubtitle()}
           onToggleCollapse={handleToggleSidebar}
-          sidebarCollapsed={sidebarCollapsed}
-          showRemindersBell={true}
-          onOpenReminders={() => setShowNotificationList(true)}
-          unreadReminders={unreadReminders}
+          sidebarCollapsed={isSidebarExpandedByHover ? false : sidebarCollapsed}
+          showRemindersBell={false}
+          unreadReminders={0}
         />
 
         {renderContent()}
       </main>
-
-      <FloatingMessages />
-
-      {showNotificationList && (
-        <NotificationList
-          onClose={() => setShowNotificationList(false)}
-          unreadCount={unreadReminders}
-          onNavigate={(menu, reminder) => {
-            setActiveMenu(menu);
-            setShowNotificationList(false);
-          }}
-        />
-      )}
     </div>
   );
 }
-
-export default AdminDashboard;
+// AdminDashboard.jsx
+export default AdminDashboard; 

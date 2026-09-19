@@ -1,9 +1,17 @@
 import os
+from io import BytesIO
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from CESI.storage_backends import get_public_storage
+
+try:
+    from PIL import Image
+except Exception:
+    Image = None
 
 User = get_user_model()
+PUBLIC_MEDIA_STORAGE = get_public_storage()
 
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 ALLOWED_VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov"}  # browser-friendly
@@ -18,7 +26,7 @@ def validate_media_file_extension(value):
         )
 
 def validate_file_size(value):
-    max_mb = 25  # change as you want
+    max_mb = 2  # enforce 2MB upload limit
     if value.size > max_mb * 1024 * 1024:
         raise ValidationError(f"File too large. Max size is {max_mb}MB.")
 
@@ -60,10 +68,19 @@ class AnnouncementMedia(models.Model):
     )
     file = models.FileField(
         upload_to="announcements/",
+        storage=PUBLIC_MEDIA_STORAGE,
         validators=[validate_media_file_extension, validate_file_size]
     )
+    # Optional binary fallback storage (compressed image bytes)
+    data = models.BinaryField(null=True, blank=True, editable=False)
+    data_mime = models.CharField(max_length=50, null=True, blank=True, editable=False)
+    original_filename = models.CharField(max_length=255, blank=True, null=True, editable=False)
     caption = models.CharField(max_length=255, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Media for {self.announcement_id}"
+
+    def save(self, *args, **kwargs):
+        # No compression or DB binary fallback: keep uploaded file as-is.
+        return super().save(*args, **kwargs)

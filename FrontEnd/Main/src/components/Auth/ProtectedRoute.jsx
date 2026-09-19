@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./useAuth";
+import { getToken } from "./auth";
 
 /**
  * @param {string|string[]} role  Optional role or roles allowed
@@ -7,6 +8,7 @@ import { useAuth } from "./useAuth";
 export default function ProtectedRoute({ role, children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const token = getToken();
 
   // Do NOT redirect while auth state is resolving
   if (loading) {
@@ -14,7 +16,7 @@ export default function ProtectedRoute({ role, children }) {
   }
 
   // Not logged in → go to login and remember where user came from
-  if (!user) {
+  if (!user || !token) {
     return (
       <Navigate
         to="/login"

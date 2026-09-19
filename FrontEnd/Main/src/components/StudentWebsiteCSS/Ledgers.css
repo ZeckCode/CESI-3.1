@@ -63,6 +63,62 @@
   gap: 0.5rem;
 }
 
+/* Ledger Section Header */
+.ledger-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.ledger-section-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
+  text-transform: capitalize;
+}
+
+.ledger-section-subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.ledger-header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.ledger-btn-print {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #3b82f6, #1976d2);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+}
+
+.ledger-btn-print:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(25, 118, 210, 0.4);
+}
+
+.ledger-btn-print:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.3);
+}
+
 .btn-action {
   padding: 0.6rem 1.2rem;
   border-radius: 0.8rem;
@@ -78,30 +134,51 @@
 .btn-download { background: transparent; color: #000000; }
 
 /* ── Ledger Summary Cards ─────────────────────── */
+
 .ledger-summary-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.2rem;
   margin-bottom: 2rem;
 }
 
-@media (max-width: 1100px) {
-  .ledger-summary-row { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+@media (max-width: 900px) {
+  .ledger-summary-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
 }
 
 @media (max-width: 700px) {
-  .ledger-summary-row { grid-template-columns: 1fr; }
+  .ledger-summary-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .ledger-summary-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .ledger-summary-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
 }
 
 .ledger-sumCard {
   background: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-radius: 0.6rem;
+  padding: 0.7rem 0.6rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.07);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  border-left: 4px solid #e5e7eb;
+  gap: 0.3rem;
+  border-left: 3px solid #e5e7eb;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -125,28 +202,28 @@
 .ledger-sumCard--balanceClear { border-left-color: #10b981; background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%); }
 
 .ledger-sumCard__label {
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: capitalize;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
   color: #64748b;
 }
 
 .ledger-sumCard__value {
-  font-size: 1.875rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #1e293b;
   line-height: 1.1;
 }
 
 .ledger-sumCard__value--lg {
-  font-size: 2rem;
+  font-size: 1.2rem;
 }
 
 .ledger-sumCard__sub {
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   font-weight: 500;
-  margin-top: 0.5rem;
+  margin-top: 0.2rem;
   color: #64748b;
 }
 
@@ -175,6 +252,12 @@
 .ledger-table {
   width: 100%;
   border-collapse: collapse;
+}
+
+.ledger-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ledger-table thead th {
@@ -291,16 +374,26 @@
 
 /* Balance Column Highlight */
 .ledger-table tbody td[data-label="Balance"] {
+  background-color: #f8fafc;
+  font-weight: 700 !important;
+  border-left: 2px solid #cbd5e1;
+}
+
+.ledger-table tbody td[data-label="Balance"].installment-balance-cell.is-owed {
   background-color: #fff5f5;
   color: #dc2626 !important;
-  font-weight: 700 !important;
-  border-left: 2px solid #dc2626;
+  border-left-color: #dc2626;
+}
+
+.ledger-table tbody td[data-label="Balance"].installment-balance-cell.is-clear {
+  background-color: #f0fdf4;
+  color: #16a34a !important;
+  border-left-color: #16a34a;
 }
 
 .ledger-table tfoot td[data-label="Balance"] {
-  background-color: #fff5f5;
-  color: #dc2626 !important;
-  border-left: 2px solid #dc2626;
+  background-color: #f8fafc;
+  border-left: 2px solid #cbd5e1;
 }
 
 /* Ledger Info Box */
@@ -308,28 +401,236 @@
   font-size: 0.875rem;
 }
 
+/* Desktop footer styles - default layout */
+.ledger-table tfoot tr {
+  display: table-row;
+  background: #f8fafc;
+  border-top: 2px solid #dbeafe;
+  font-weight: 700;
+}
+
+.ledger-table tfoot td {
+  display: table-cell;
+  padding: 1rem !important;
+  border: 1px solid #dee2e6;
+  text-align: right;
+  background: transparent;
+  border-radius: 0;
+  font-size: 0.95rem;
+}
+
+.ledger-table tfoot td:first-child,
+.ledger-table tfoot td:nth-child(2) {
+  border-right: 1px solid #dee2e6;
+}
+
+.ledger-table tfoot td::before {
+  display: none;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .ledger-wrapper { flex-direction: column; }
-  .ledger-table thead { display: none; }
-  .ledger-table td {
-    display: flex;
-    justify-content: space-between;
-    border-right: none !important;
-    padding: 0.8rem 1.5rem;
-  }
-  .ledger-table td::before {
-    content: attr(data-label);
-    font-weight: 800;
-    color: #000000;
-    font-size: 0.7rem;
+  .ledger-content { padding: 1rem; }
+
+  .ledger-table-scroll--accounting .ledger-table {
+    min-width: 760px;
   }
 
-  .ledger-accounting td[data-label="Charge (₱)"]::before,
-  .ledger-accounting td[data-label="Payment (₱)"]::before,
-  .ledger-accounting td[data-label="Balance"]::before {
-    content: attr(data-label) ": ";
+  .ledger-table-scroll--installments .ledger-table {
+    min-width: 980px;
   }
+
+  .ledger-table-scroll .ledger-table th,
+  .ledger-table-scroll .ledger-table td {
+    white-space: nowrap;
+  }
+
+  /* Summary cards - better spacing on mobile */
+  .ledger-summary-row {
+    gap: 1rem;
+  }
+
+  .ledger-sumCard {
+    padding: 1.25rem;
+    border-radius: 0.5rem;
+  }
+
+  .ledger-sumCard__value {
+    font-size: 1.5rem;
+  }
+
+  .ledger-sumCard__label {
+    font-size: 0.8rem;
+  }
+
+  /* Tuition installment student header - stack vertically */
+  .ledger-section {
+    border-radius: 0.5rem;
+  }
+
+  .section-header {
+    padding: 1rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  /* Summary cards for tuition installments */
+  .tabbed-summary-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem;
+  }
+
+  /* Ledger group header - improve mobile layout */
+  .ledger-group-header {
+    padding: 1rem !important;
+  }
+
+  .ledger-group-info {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .ledger-group-info > div {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Account Ledger group card styling - mobile */
+  .ledger-group-card {
+    margin-bottom: 1rem !important;
+  }
+
+  .ledger-group-header {
+    padding: 1rem 1.25rem !important;
+  }
+}
+
+/* ─────── Medium Screens (480px - 768px) ─────── */
+@media (min-width: 480px) and (max-width: 768px) {
+  .ledger-content { padding: 1.25rem; }
+  
+  .ledger-tab {
+    padding: 0.7rem 1.2rem;
+    font-size: 0.9rem;
+  }
+
+  .tabbed-summary-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem;
+  }
+}
+
+/* Ledger Print Area Styles */
+.ledger-print-area {
+  display: block;
+  width: 100%;
+  background: white;
+  padding: 2rem;
+}
+
+.ledger-print-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #1e293b;
+}
+
+.ledger-print-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ledger-print-subtitle {
+  font-size: 0.95rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.ledger-print-content {
+  margin-top: 2rem;
+}
+
+.ledger-print-section {
+  margin-bottom: 2rem;
+}
+
+.ledger-print-section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 1rem 0 1.5rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ledger-print-group {
+  margin-bottom: 2.5rem;
+  page-break-inside: avoid;
+}
+
+.ledger-print-group-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  margin: 0 0 1rem 0;
+}
+
+.ledger-print-group-info {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.ledger-print-group-info div {
+  color: #1e293b;
+}
+
+.ledger-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+.ledger-print-table thead {
+  background-color: #f1f5f9;
+}
+
+.ledger-print-table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 700;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+}
+
+.ledger-print-table td {
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+.ledger-print-table tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.ledger-print-footer {
+  text-align: center;
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
 }
 
 /* Print Styles */
@@ -343,13 +644,25 @@
     color: #000000 !important;
   }
 
+  .ledger-wrapper {
+    display: flex;
+    min-height: auto;
+    background: white;
+  }
+
   .ledger-content {
-    padding: 1rem;
+    padding: 0 !important;
     background: white;
     color: #000000 !important;
   }
 
-  .ledger-header-flex {
+  .ledger-header-flex,
+  .ledger-section-header {
+    display: none !important;
+  }
+
+  .ledger-header-actions,
+  .ledger-btn-print {
     display: none !important;
   }
 
@@ -358,12 +671,12 @@
     display: none !important;
   }
 
-  /* Hide tabs */
+  /* Hide tabs and navigation */
   .ledger-tabs {
     display: none !important;
   }
 
-  /* Hide summary cards */
+  /* Hide summary cards during print */
   .ledger-summary-row {
     display: none !important;
   }
@@ -374,35 +687,23 @@
     display: none !important;
   }
 
+  /* Hide non-print sections */
   .ledger-section {
-    box-shadow: none;
-    border: 1px solid #ccc;
-    page-break-inside: avoid;
+    display: none !important;
   }
 
-  .ledger-table {
-    font-size: 0.85rem;
+  /* Show print area */
+  .ledger-print-area {
+    display: block !important;
+    margin: 0 !important;
+    padding: 1.5rem !important;
+    width: 100% !important;
   }
 
-  .ledger-table thead th {
-    background: transparent;
-    border: 1px solid #999;
-    color: #000000 !important;
-    font-weight: 700;
-  }
-
-  .ledger-table tbody td,
-  .ledger-table tfoot td {
-    border: 1px solid #ddd;
-    color: #000000 !important;
-  }
-
-  /* Print important details only */
   .ledger-info {
     display: none !important;
   }
 
-  /* Hide summary cards entirely or remove colors */
   .ledger-sumCard {
     background: #fff !important;
     border: 1px solid #ccc !important;
@@ -430,27 +731,57 @@
     color: #000000 !important;
   }
 
-  /* Compact spacing for print */
-  .ledger-section {
-    margin-bottom: 1.5rem;
+  /* Print area table styling */
+  .ledger-print-table {
+    width: 100% !important;
+    border: 1px solid #000 !important;
+    border-collapse: collapse !important;
+    margin: 1rem 0 !important;
+    font-size: 0.85rem !important;
   }
 
-  /* Print friendly table */
-  .ledger-accounting th,
-  .ledger-accounting td {
-    text-align: center;
+  .ledger-print-table thead {
+    display: table-header-group !important;
+    background-color: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .ledger-print-table th {
+    padding: 0.75rem !important;
+    text-align: left !important;
+    font-weight: 700 !important;
+    color: #000000 !important;
+    border: 1px solid #000 !important;
+    background-color: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .ledger-print-table tbody {
+    display: table-row-group !important;
+  }
+
+  .ledger-print-table tbody tr {
+    display: table-row !important;
+    page-break-inside: avoid !important;
+    border: 1px solid #ccc !important;
+  }
+
+  .ledger-print-table td {
+    padding: 0.75rem !important;
+    border: 1px solid #ccc !important;
     color: #000000 !important;
   }
 
-  .ledger-accounting th:first-child,
-  .ledger-accounting td:first-child {
-    text-align: left;
+  .ledger-print-group {
+    page-break-inside: avoid !important;
+    margin-bottom: 1.5rem !important;
   }
 
-  .ledger-table tfoot tr {
-    border-top: 2px solid #000 !important;
-    font-weight: 700;
-    color: #000000 !important;
+  .ledger-print-header {
+    border-bottom: 2px solid #000 !important;
+    margin-bottom: 1.5rem !important;
   }
 
   .status-pill,
@@ -474,6 +805,7 @@
   display: flex;
   gap: 0.5rem;
   border-bottom: 2px solid var(--border-color);
+  overflow-x: auto;
 }
 
 .ledger-tab {
@@ -486,6 +818,7 @@
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 0.95rem;
+  white-space: nowrap;
 }
 
 .ledger-tab:hover {
@@ -498,24 +831,52 @@
   border-bottom-color: #000000;
 }
 
+/* ─────── Extra-Small Screens (< 480px) ─────── */
+@media (max-width: 480px) {
+  .ledger-content { padding: 0.75rem; }
+  
+  .ledger-tab {
+    padding: 0.65rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .ledger-sumCard {
+    padding: 1rem;
+  }
+
+  .ledger-sumCard__value {
+    font-size: 1.25rem;
+  }
+
+  .ledger-sumCard__label {
+    font-size: 0.75rem;
+  }
+
+  .section-header {
+    font-size: 0.85rem;
+    padding: 0.8rem;
+  }
+
+  .status-pill {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.65rem;
+  }
+
+  .tabbed-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+
 .ledger-tab i {
   margin-right: 0.25rem;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .ledger-wrapper { flex-direction: column; }
-  .ledger-table thead { display: none; }
-  .ledger-table td {
-    display: flex;
-    justify-content: space-between;
-    border-right: none !important;
-    padding: 0.8rem 1.5rem;
-  }
-  .ledger-table td::before {
-    content: attr(data-label);
-    font-weight: 800;
-    color: #000000;
-    font-size: 0.7rem;
-  }
+.ledger-sumCard--info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.ledger-sumCard--info .ledger-sumCard__value {
+  color: #1d4ed8;
 }
