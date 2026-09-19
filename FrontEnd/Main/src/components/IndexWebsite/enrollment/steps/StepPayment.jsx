@@ -44,6 +44,12 @@ const StepPayment = ({
           <li>Submitted payment information is subject to school verification.</li>
           <li>Enrollment processing may be delayed if payment details are incomplete.</li>
         </ul>
+        <p className="info-text">
+          Once your payment and enrollment information have been validated and approved
+          by the school, an enrollment approval confirmation will be sent to the email
+          address you provided. Please make sure that your email address is correct and
+          check your inbox and spam folder for the confirmation.
+        </p>
       </div>
 
       <div className="form-grid">
@@ -167,23 +173,31 @@ const StepPayment = ({
             {/* Show relevant payment details */}
             {form.paymentChannel === "bank" && (
               <div className="form-group form-group--full">
-                <label>Bank Account Details</label>
+                <label>Bank Payment Details</label>
                 <div style={{ fontSize: "14px", color: "#0369a1", marginBottom: 4 }}>
-                  <b>PNB Bank Account:</b> 1003-10040-500
+                  <b>Bank:</b> Philippine National Bank (PNB)
                 </div>
                 <div style={{ fontSize: "12px", color: "#666" }}>
-                  Please send your payment to the above bank account and upload your proof of payment below.
+                  <div><b>Account name:</b> CESI Admin</div>
+                  <div><b>Account number:</b> 1003-10040-500</div>
+                  <div style={{ marginTop: 6 }}>
+                    Please send your payment to the bank account above and upload your proof of payment below.
+                  </div>
                 </div>
               </div>
             )}
             {form.paymentChannel === "ewallet" && (
               <div className="form-group form-group--full">
-                <label>E-Wallet Details</label>
+                <label>E-Wallet Payment Details</label>
                 <div style={{ fontSize: "14px", color: "#0369a1", marginBottom: 4 }}>
-                  <b>Gcash/Maya:</b> 0912345678 Cesi Admin
+                  <b>Gcash/Maya:</b> 0912345678
                 </div>
                 <div style={{ fontSize: "12px", color: "#666" }}>
-                  Please send your payment to the above E-Wallet and upload your proof of payment below.
+                  <div><b>Account name:</b> CESI Admin</div>
+                  <div><b>Reference:</b> Student name and enrollment year</div>
+                  <div style={{ marginTop: 6 }}>
+                    Please send your payment to the e-wallet above and upload your proof of payment below.
+                  </div>
                 </div>
               </div>
             )}

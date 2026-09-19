@@ -123,7 +123,7 @@ export const validateFamilyStep = ({
   guardianLast,
   guardianContact,
   guardianRelationship,
-}) => {
+}, sectionPriority = []) => {
   const errors = {};
 
   const isFilled = (value) => !!value?.trim();
@@ -165,42 +165,54 @@ export const validateFamilyStep = ({
 
   const hasAtLeastOneComplete = motherComplete || fatherComplete || guardianComplete;
 
+  const sectionValidators = {
+    mother: () => {
+      if (motherHasAny && !motherComplete) {
+        errors.motherFirst = !isFilled(motherFirst) ? "Mother's first name is required." : "";
+        errors.motherLast = !isFilled(motherLast) ? "Mother's last name is required." : "";
+        errors.motherContact = !isFilled(motherContact)
+          ? "Mother's contact number is required."
+          : "";
+      }
+      if (motherHasAny && !isFilled(motherOccupation)) {
+        errors.motherOccupation = "Mother's occupation is required.";
+      }
+    },
+    father: () => {
+      if (fatherHasAny && !fatherComplete) {
+        errors.fatherFirst = !isFilled(fatherFirst) ? "Father's first name is required." : "";
+        errors.fatherLast = !isFilled(fatherLast) ? "Father's last name is required." : "";
+        errors.fatherContact = !isFilled(fatherContact)
+          ? "Father's contact number is required."
+          : "";
+      }
+      if (fatherHasAny && !isFilled(fatherOccupation)) {
+        errors.fatherOccupation = "Father's occupation is required.";
+      }
+    },
+    guardian: () => {
+      if (guardianHasAny && !guardianComplete) {
+        errors.guardianFirst = !isFilled(guardianFirst) ? "Guardian's first name is required." : "";
+        errors.guardianLast = !isFilled(guardianLast) ? "Guardian's last name is required." : "";
+        errors.guardianContact = !isFilled(guardianContact)
+          ? "Guardian's contact number is required."
+          : "";
+        errors.guardianRelationship = !isFilled(guardianRelationship)
+          ? "Guardian relationship is required."
+          : "";
+      }
+    },
+  };
+
+  const sectionOrder = [
+    ...sectionPriority.filter((section) => sectionValidators[section]),
+    ...["mother", "father", "guardian"].filter((section) => !sectionPriority.includes(section)),
+  ];
+  sectionOrder.forEach((section) => sectionValidators[section]());
+
   if (!hasAtLeastOneComplete) {
     errors.familyRequired =
       "Please complete at least one parent or guardian information block.";
-  }
-
-  if (motherHasAny && !motherComplete) {
-    errors.motherFirst = !isFilled(motherFirst) ? "Mother's first name is required." : "";
-    errors.motherLast = !isFilled(motherLast) ? "Mother's last name is required." : "";
-    errors.motherContact = !isFilled(motherContact)
-      ? "Mother's contact number is required."
-      : "";
-  }
-  if (motherHasAny && (!isFilled(motherOccupation) || motherOccupation === undefined)) {
-    errors.motherOccupation = "Mother's occupation is required.";
-  }
-
-  if (fatherHasAny && !fatherComplete) {
-    errors.fatherFirst = !isFilled(fatherFirst) ? "Father's first name is required." : "";
-    errors.fatherLast = !isFilled(fatherLast) ? "Father's last name is required." : "";
-    errors.fatherContact = !isFilled(fatherContact)
-      ? "Father's contact number is required."
-      : "";
-  }
-  if (fatherHasAny && (!isFilled(fatherOccupation) || fatherOccupation === undefined)) {
-    errors.fatherOccupation = "Father's occupation is required.";
-  }
-
-  if (guardianHasAny && !guardianComplete) {
-    errors.guardianFirst = !isFilled(guardianFirst) ? "Guardian's first name is required." : "";
-    errors.guardianLast = !isFilled(guardianLast) ? "Guardian's last name is required." : "";
-    errors.guardianContact = !isFilled(guardianContact)
-      ? "Guardian's contact number is required."
-      : "";
-    errors.guardianRelationship = !isFilled(guardianRelationship)
-      ? "Guardian relationship is required."
-      : "";
   }
 
   if (isFilled(motherContact) && !normalizePHMobile(motherContact)) {
@@ -221,18 +233,29 @@ export const validateFamilyStep = ({
   return errors;
 };
 
-export const validateDocumentsStep = ({ studentPhotoFile }) => {
+const MAX_ENROLLMENT_FILE_SIZE = 5 * 1024 * 1024;
+
+const addFileSizeError = (errors, fieldName, file) => {
+  if (file?.size > MAX_ENROLLMENT_FILE_SIZE) {
+    errors[fieldName] = "File size must not exceed 5 MB.";
+  }
+};
+
+export const validateDocumentsStep = (files) => {
   const errors = {};
+  const { studentPhotoFile } = files;
 
   if (!studentPhotoFile) {
-    errors.studentPhotoFile = "Please upload a 2x2 picture (JPG, JPEG, or PNG).";
+    errors.studentPhotoFile = "Please upload a 1x1 picture (JPG, JPEG, or PNG).";
   } else {
     if (studentPhotoFile.type && !["image/jpeg", "image/png"].includes(studentPhotoFile.type)) {
       errors.studentPhotoFile = "Photo must be in JPG or PNG format.";
-    } else if (studentPhotoFile.size && studentPhotoFile.size > 5 * 1024 * 1024) {
-      errors.studentPhotoFile = "Photo size must be less than 5MB.";
     }
   }
+
+  Object.entries(files).forEach(([fieldName, file]) => {
+    addFileSizeError(errors, fieldName, file);
+  });
 
   return errors;
 };
@@ -281,6 +304,7 @@ export const validatePaymentStep = ({
     if (!paymentProofFile) {
       errors.paymentProofFile = "Please upload proof of payment.";
     }
+    addFileSizeError(errors, "paymentProofFile", paymentProofFile);
   }
 
   return errors;

@@ -10,7 +10,7 @@ const StepInstructions = ({ onNext, onBack }) => {
         <ul>
           <li>Complete student information</li>
           <li>Parent / guardian contact details</li>
-          <li>2x2 student picture</li>
+          <li>1x1 student picture. Must be with white background</li>
           <li>Payment details</li>
           <li>Proof of payment if using online payment</li>
         </ul>

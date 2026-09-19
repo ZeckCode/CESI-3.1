@@ -13,7 +13,20 @@ function insertAtCursor(input, char) {
 import FieldError from "../FieldError";
 import { onlyDigits } from "../helpers";
 
-const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack }) => {
+const StepFamily = ({
+  form,
+  setForm,
+  errors,
+  registerFieldRef,
+  registerFamilySection = () => {},
+  onNext,
+  onBack,
+}) => {
+  const familyRequiredFieldError =
+    errors.familyRequired && Object.keys(errors).length === 1
+      ? errors.familyRequired
+      : "";
+
   // Refs for name fields
   const motherFirstRef = useRef();
   const motherMiddleRef = useRef();
@@ -21,50 +34,14 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
   const fatherFirstRef = useRef();
   const fatherMiddleRef = useRef();
   const fatherLastRef = useRef();
-  const motherOccupationRef = useRef();
-  const fatherOccupationRef = useRef();
-  const motherContactRef = useRef();
-  const fatherContactRef = useRef();
-  const guardianFirstRef = useRef();
-  const guardianMiddleRef = useRef();
-  const guardianLastRef = useRef();
-  const guardianContactRef = useRef();
-  const guardianRelationshipRef = useRef();
-
-  // Scroll to first error field
-  const scrollToFirstError = () => {
-    const errorOrder = [
-      [errors.motherFirst, motherFirstRef],
-      [errors.motherMiddle, motherMiddleRef],
-      [errors.motherLast, motherLastRef],
-      [errors.motherContact, motherContactRef],
-      [errors.motherOccupation, motherOccupationRef],
-      [errors.fatherFirst, fatherFirstRef],
-      [errors.fatherMiddle, fatherMiddleRef],
-      [errors.fatherLast, fatherLastRef],
-      [errors.fatherContact, fatherContactRef],
-      [errors.fatherOccupation, fatherOccupationRef],
-      [errors.guardianFirst, guardianFirstRef],
-      [errors.guardianMiddle, guardianMiddleRef],
-      [errors.guardianLast, guardianLastRef],
-      [errors.guardianContact, guardianContactRef],
-      [errors.guardianRelationship, guardianRelationshipRef],
-    ];
-    for (const [err, ref] of errorOrder) {
-      if (err && ref.current) {
-        ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
-        setTimeout(() => ref.current.focus?.(), 200);
-        break;
-      }
-    }
-  };
 
   const handleNext = () => {
-    if (Object.values(errors).some(Boolean)) {
-      scrollToFirstError();
-      return;
-    }
     onNext();
+  };
+
+  const updateFamilyField = (section, field) => (event) => {
+    if (event.target.value.trim()) registerFamilySection(section);
+    setForm((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
   return (
@@ -85,12 +62,12 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
             <input
               ref={el => { registerFieldRef("motherFirst")(el); motherFirstRef.current = el; }}
               value={form.motherFirst}
-              onChange={(e) => setForm((prev) => ({ ...prev, motherFirst: e.target.value }))}
+              onChange={updateFamilyField("mother", "motherFirst")}
             />
             <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(motherFirstRef.current, 'Ñ')}>Ñ</button>
             <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(motherFirstRef.current, 'ñ')}>ñ</button>
           </div>
-          <FieldError error={errors.motherFirst} />
+          <FieldError error={errors.motherFirst || familyRequiredFieldError} />
         </div>
         <div className="form-group">
           <label>Middle Name (Optional)</label>
@@ -98,7 +75,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
             <input
               ref={el => { registerFieldRef("motherMiddle")(el); motherMiddleRef.current = el; }}
               value={form.motherMiddle}
-              onChange={(e) => setForm((prev) => ({ ...prev, motherMiddle: e.target.value }))}
+              onChange={updateFamilyField("mother", "motherMiddle")}
             />
             <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(motherMiddleRef.current, 'Ñ')}>Ñ</button>
             <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(motherMiddleRef.current, 'ñ')}>ñ</button>
@@ -111,7 +88,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
             <input
               ref={el => { registerFieldRef("motherLast")(el); motherLastRef.current = el; }}
               value={form.motherLast}
-              onChange={(e) => setForm((prev) => ({ ...prev, motherLast: e.target.value }))}
+              onChange={updateFamilyField("mother", "motherLast")}
             />
             <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(motherLastRef.current, 'Ñ')}>Ñ</button>
             <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(motherLastRef.current, 'ñ')}>ñ</button>
@@ -121,14 +98,15 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Mobile Number {form.motherContact.length}/11</label>
           <input
-            ref={el => { registerFieldRef("motherContact")(el); motherContactRef.current = el; }}
+              ref={registerFieldRef("motherContact")}
             value={form.motherContact}
-            onChange={(e) =>
+            onChange={(e) => {
+              if (e.target.value.trim()) registerFamilySection("mother");
               setForm((prev) => ({
                 ...prev,
                 motherContact: onlyDigits(e.target.value, 11),
-              }))
-            }
+              }));
+            }}
             placeholder="09XXXXXXXXX"
             inputMode="numeric"
           />
@@ -138,9 +116,9 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Occupation <span className="required">*</span></label>
           <input
-            ref={motherOccupationRef}
+            ref={registerFieldRef("motherOccupation")}
             value={form.motherOccupation}
-            onChange={(e) => setForm((prev) => ({ ...prev, motherOccupation: e.target.value }))}
+            onChange={updateFamilyField("mother", "motherOccupation")}
           />
           <FieldError error={errors.motherOccupation} />
         </div>
@@ -154,12 +132,12 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
             <input
               ref={el => { registerFieldRef("fatherFirst")(el); fatherFirstRef.current = el; }}
               value={form.fatherFirst}
-              onChange={(e) => setForm((prev) => ({ ...prev, fatherFirst: e.target.value }))}
+              onChange={updateFamilyField("father", "fatherFirst")}
             />
             <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(fatherFirstRef.current, 'Ñ')}>Ñ</button>
             <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(fatherFirstRef.current, 'ñ')}>ñ</button>
           </div>
-          <FieldError error={errors.fatherFirst} />
+          <FieldError error={errors.fatherFirst || familyRequiredFieldError} />
         </div>
         <div className="form-group">
           <label>Middle Name (Optional)</label>
@@ -167,7 +145,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
             <input
               ref={el => { registerFieldRef("fatherMiddle")(el); fatherMiddleRef.current = el; }}
               value={form.fatherMiddle}
-              onChange={(e) => setForm((prev) => ({ ...prev, fatherMiddle: e.target.value }))}
+              onChange={updateFamilyField("father", "fatherMiddle")}
             />
             <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(fatherMiddleRef.current, 'Ñ')}>Ñ</button>
             <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(fatherMiddleRef.current, 'ñ')}>ñ</button>
@@ -180,7 +158,7 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
             <input
               ref={el => { registerFieldRef("fatherLast")(el); fatherLastRef.current = el; }}
               value={form.fatherLast}
-              onChange={(e) => setForm((prev) => ({ ...prev, fatherLast: e.target.value }))}
+              onChange={updateFamilyField("father", "fatherLast")}
             />
             <button type="button" className="enye-insert-btn" title="Insert Ñ" onClick={() => insertAtCursor(fatherLastRef.current, 'Ñ')}>Ñ</button>
             <button type="button" className="enye-insert-btn" title="Insert ñ" onClick={() => insertAtCursor(fatherLastRef.current, 'ñ')}>ñ</button>
@@ -190,14 +168,15 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Mobile Number {form.fatherContact.length}/11</label>
           <input
-            ref={el => { registerFieldRef("fatherContact")(el); fatherContactRef.current = el; }}
+            ref={registerFieldRef("fatherContact")}
             value={form.fatherContact}
-            onChange={(e) =>
+            onChange={(e) => {
+              if (e.target.value.trim()) registerFamilySection("father");
               setForm((prev) => ({
                 ...prev,
                 fatherContact: onlyDigits(e.target.value, 11),
-              }))
-            }
+              }));
+            }}
             placeholder="09XXXXXXXXX"
             inputMode="numeric"
           />
@@ -207,9 +186,9 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Occupation <span className="required">*</span></label>
           <input
-            ref={fatherOccupationRef}
+            ref={registerFieldRef("fatherOccupation")}
             value={form.fatherOccupation}
-            onChange={(e) => setForm((prev) => ({ ...prev, fatherOccupation: e.target.value }))}
+            onChange={updateFamilyField("father", "fatherOccupation")}
           />
           <FieldError error={errors.fatherOccupation} />
         </div>
@@ -220,41 +199,42 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>First Name</label>
           <input
-            ref={el => { registerFieldRef("guardianFirst")(el); guardianFirstRef.current = el; }}
+            ref={registerFieldRef("guardianFirst")}
             value={form.guardianFirst}
-            onChange={(e) => setForm((prev) => ({ ...prev, guardianFirst: e.target.value }))}
+            onChange={updateFamilyField("guardian", "guardianFirst")}
           />
-          <FieldError error={errors.guardianFirst} />
+          <FieldError error={errors.guardianFirst || familyRequiredFieldError} />
         </div>
         <div className="form-group">
           <label>Middle Name (Optional)</label>
           <input
-            ref={el => { registerFieldRef("guardianMiddle")(el); guardianMiddleRef.current = el; }}
+            ref={registerFieldRef("guardianMiddle")}
             value={form.guardianMiddle}
-            onChange={(e) => setForm((prev) => ({ ...prev, guardianMiddle: e.target.value }))}
+            onChange={updateFamilyField("guardian", "guardianMiddle")}
           />
           <FieldError error={errors.guardianMiddle} />
         </div>
         <div className="form-group">
           <label>Last Name</label>
           <input
-            ref={el => { registerFieldRef("guardianLast")(el); guardianLastRef.current = el; }}
+            ref={registerFieldRef("guardianLast")}
             value={form.guardianLast}
-            onChange={(e) => setForm((prev) => ({ ...prev, guardianLast: e.target.value }))}
+            onChange={updateFamilyField("guardian", "guardianLast")}
           />
           <FieldError error={errors.guardianLast} />
         </div>
         <div className="form-group">
           <label>Mobile Number {form.guardianContact.length}/11</label>
           <input
-            ref={el => { registerFieldRef("guardianContact")(el); guardianContactRef.current = el; }}
+            ref={registerFieldRef("guardianContact")}
             value={form.guardianContact}
-            onChange={(e) =>
+            onChange={(e) => {
+              if (e.target.value.trim()) registerFamilySection("guardian");
               setForm((prev) => ({
                 ...prev,
                 guardianContact: onlyDigits(e.target.value, 11),
-              }))
-            }
+              }));
+            }}
             placeholder="09XXXXXXXXX"
             inputMode="numeric"
           />
@@ -264,14 +244,9 @@ const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack })
         <div className="form-group">
           <label>Relationship to Student</label>
           <input
-            ref={el => { registerFieldRef("guardianRelationship")(el); guardianRelationshipRef.current = el; }}
+            ref={registerFieldRef("guardianRelationship")}
             value={form.guardianRelationship}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                guardianRelationship: e.target.value,
-              }))
-            }
+            onChange={updateFamilyField("guardian", "guardianRelationship")}
           />
           <FieldError error={errors.guardianRelationship} />
         </div>

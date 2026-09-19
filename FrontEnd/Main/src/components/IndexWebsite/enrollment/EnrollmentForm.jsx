@@ -55,6 +55,7 @@ import "../../IndexWebsiteCSS/enrollment/EnrollmentForm.css";
 const EnrollmentForm = ({ onClose }) => {
   const navigate = useNavigate();
   const fieldRefs = useRef({});
+  const familySectionOrderRef = useRef([]);
 
   const [currentStep, setCurrentStep] = useState(STEP_KEYS.PRIVACY);
   const [maxReachedStep, setMaxReachedStep] = useState(STEP_KEYS.PRIVACY);
@@ -161,6 +162,12 @@ const EnrollmentForm = ({ onClose }) => {
 
   const registerFieldRef = (name) => (node) => {
     if (node) fieldRefs.current[name] = node;
+  };
+
+  const registerFamilySection = (section) => {
+    if (!familySectionOrderRef.current.includes(section)) {
+      familySectionOrderRef.current.push(section);
+    }
   };
 
   const focusFieldError = (fieldName) => {
@@ -270,7 +277,7 @@ const EnrollmentForm = ({ onClose }) => {
     } else if (currentStep === STEP_KEYS.STUDENT) {
       stepErrors = validateStudentStep(form);
     } else if (currentStep === STEP_KEYS.FAMILY) {
-      stepErrors = validateFamilyStep(form);
+      stepErrors = validateFamilyStep(form, familySectionOrderRef.current);
     } else if (currentStep === STEP_KEYS.DOCUMENTS) {
       stepErrors = validateDocumentsStep(files);
     } else if (currentStep === STEP_KEYS.PAYMENT) {
@@ -618,6 +625,7 @@ const EnrollmentForm = ({ onClose }) => {
             setForm={setForm}
             errors={errors}
             registerFieldRef={registerFieldRef}
+            registerFamilySection={registerFamilySection}
             onNext={nextStep}
             onBack={prevStep}
           />

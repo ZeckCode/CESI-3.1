@@ -292,7 +292,7 @@ const StepStudent = ({
           >
             <option value="">Select Region</option>
             <option value="NCR">NCR – National Capital Region</option>
-            <option value="Region I">Region I – Ilocos Region</option>
+            {/* <option value="Region I">Region I – Ilocos Region</option>
             <option value="Region II">Region II – Cagayan Valley</option>
             <option value="Region III">Region III – Central Luzon</option>
             <option value="Region IV-A">Region IV-A – CALABARZON</option>
@@ -307,7 +307,7 @@ const StepStudent = ({
             <option value="Region XII">Region XII – SOCCSKSARGEN</option>
             <option value="Region XIII">Region XIII – Caraga</option>
             <option value="CAR">CAR – Cordillera Administrative Region</option>
-            <option value="BARMM">BARMM – Bangsamoro</option>
+            <option value="BARMM">BARMM – Bangsamoro</option> */}
           </select>
           <FieldError error={errors.region} />
         </div>
