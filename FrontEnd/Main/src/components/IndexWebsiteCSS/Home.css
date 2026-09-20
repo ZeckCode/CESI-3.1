@@ -526,12 +526,21 @@ body {
 
 /* Mobile/Tablet */
 @media (max-width: 768px) {
+  body,
+  #root {
+    min-height: auto;
+  }
+
   .index-home-app {
     min-height: auto;
   }
 
+  .index-home-main-content {
+    flex: 0 0 auto;
+  }
+
   .index-home-footer.index-home-footer--overlay-open {
-    display: none;
+    display: block;
   }
 
   .index-home-header-container {
@@ -592,56 +601,66 @@ body {
   }
 
   .index-home-book-cover {
-    width: 280px;
-    height: 390px;
+    width: 400px;
+    height: 540px;
   }
 
   .index-home-book-spine {
-    width: 28px;
+    width: 36px;
   }
 
   .index-home-book-main-title {
-    font-size: 2rem;
-    margin-bottom: 10px;
-  }
-
-  .index-home-book-subtitle {
-    font-size: 1.05rem;
-    margin-bottom: 16px;
-  }
-
-  .index-home-tap-instruction {
-    font-size: 0.85rem;
-    padding: 5px 8px;
-  }
-
-  .index-home-tap-arrow {
-    font-size: 1.6rem;
+    font-size: 2.8rem;
     margin-bottom: 12px;
   }
 
+  .index-home-book-subtitle {
+    font-size: 1.4rem;
+    margin-bottom: 18px;
+  }
+
+  .index-home-tap-instruction {
+    font-size: 1rem;
+    padding: 6px 9px;
+  }
+
+  .index-home-tap-arrow {
+    font-size: 2rem;
+    margin-bottom: 14px;
+  }
+
   .index-home-design-star {
-    font-size: 2.2rem;
-    right: 16px;
-    bottom: 16px;
+    font-size: 2.6rem;
+    right: 18px;
+    bottom: 18px;
   }
 
   .index-home-footer-container {
-    padding: 18px 14px;
+    padding: 16px 14px;
+  }
+
+  .index-home-footer-logo {
+    margin-bottom: 12px;
   }
 
   .index-home-footer-logo-circle {
-    width: 64px;
-    height: 64px;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 10px;
   }
 
   .index-home-footer-logo h3 {
-    font-size: 1.05rem;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+  }
+
+  .index-home-footer-info {
+    margin-bottom: 10px;
   }
 
   .index-home-footer-info,
   .index-home-footer-copyright {
-    font-size: 0.86rem;
+    font-size: 0.78rem;
     line-height: 1.5;
   }
 }
@@ -685,31 +704,31 @@ body {
   }
 
   .index-home-book-cover {
-    width: 220px;
-    height: 320px;
+    width: 330px;
+    height: 470px;
   }
 
   .index-home-book-spine {
-    width: 22px;
+    width: 30px;
   }
 
   .index-home-book-main-title {
-    font-size: 1.5rem;
+    font-size: 2.2rem;
   }
 
   .index-home-book-subtitle {
-    font-size: 0.92rem;
-    margin-bottom: 12px;
+    font-size: 1.15rem;
+    margin-bottom: 14px;
   }
 
   .index-home-tap-instruction {
-    font-size: 0.74rem;
-    padding: 4px 7px;
+    font-size: 0.85rem;
+    padding: 5px 8px;
   }
 
   .index-home-tap-arrow {
-    font-size: 1.3rem;
-    margin: 4px 0 10px;
+    font-size: 1.7rem;
+    margin: 4px 0 12px;
   }
 
   .index-home-footer {
@@ -717,29 +736,37 @@ body {
   }
 
   .index-home-footer-container {
-    padding: 8px 8px;
+    padding: 12px 10px;
+  }
+
+  .index-home-footer-logo {
+    margin-bottom: 8px;
   }
 
   .index-home-footer-logo-circle {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     margin-bottom: 8px;
   }
 
   .index-home-footer-logo h3 {
     font-size: 0.78rem;
-    margin: 0 0 8px;
+    margin: 0 0 6px;
+  }
+
+  .index-home-footer-info {
+    margin-bottom: 6px;
   }
 
   .index-home-footer-info,
   .index-home-footer-copyright {
-    font-size: 0.67rem;
-    line-height: 1.3;
+    font-size: 0.65rem;
+    line-height: 1.4;
   }
 
   .index-home-school-mission {
     margin-top: 4px;
-    font-size: 0.66rem;
+    font-size: 0.62rem;
   }
 }
 
@@ -762,8 +789,8 @@ body {
   }
 
   .index-home-book-cover {
-    width: 200px;
-    height: 290px;
+    width: 280px;
+    height: 400px;
   }
 
   .index-home-footer-logo-circle {
@@ -772,5 +799,12 @@ body {
 
   .index-home-footer-logo h3 {
     margin-top: 0;
+    font-size: 0.62rem;
+  }
+
+  .index-home-footer-info,
+  .index-home-footer-copyright {
+    font-size: 0.52rem;
+    line-height: 1.15;
   }
 }
