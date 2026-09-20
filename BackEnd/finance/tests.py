@@ -2,10 +2,12 @@ from datetime import date
 from decimal import Decimal
 
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from accounts.models import User
+from accounts.models import UserProfile
 from enrollment.models import Enrollment
-from finance.models import Transaction
+from finance.models import Transaction, TuitionConfig
 
 
 class TransactionStatusAutoRefreshTests(TestCase):
@@ -32,6 +34,30 @@ class TransactionStatusAutoRefreshTests(TestCase):
             student_number="S-1003",
             first_name="Target",
             last_name="Student",
+        )
+        UserProfile.objects.create(
+            user=parent,
+            student_first_name="Target",
+            student_last_name="Student",
+            grade_level="grade1",
+            student_number="S-1003",
+            payment_mode="installment",
+            parent_first_name="Target",
+            parent_last_name="Parent",
+            contact_number="0000000000",
+            address="Test address",
+        )
+        TuitionConfig.objects.create(
+            grade_key="grade1",
+            grade_label="Grade 1",
+            installment=35000,
+            initial=3000,
+            monthly=3000,
+            misc_aug=1000,
+            misc_nov=1000,
+            assessment=500,
+            is_active=True,
+            status="active",
         )
 
         monthly = Transaction.objects.create(
@@ -73,6 +99,22 @@ class TransactionStatusAutoRefreshTests(TestCase):
         misc.refresh_from_db()
         self.assertNotEqual(monthly.status, "PAID")
         self.assertEqual(misc.status, "PAID")
+
+        client = APIClient()
+        client.force_authenticate(user=parent)
+        billing_response = client.get('/api/finance/my-billing-items/')
+        self.assertEqual(billing_response.status_code, 200)
+        self.assertEqual(
+            [item['id'] for item in billing_response.json()],
+            [monthly.id],
+        )
+
+        registration_response = client.get('/api/finance/my-tuition-installments/')
+        self.assertEqual(registration_response.status_code, 200)
+        registration_rows = registration_response.json()[0]['installments']
+        row_by_id = {row['id']: row for row in registration_rows if row.get('id')}
+        self.assertEqual(row_by_id[misc.id]['status'], 'PAID')
+        self.assertNotEqual(row_by_id[monthly.id]['status'], 'PAID')
 
     def test_payment_allocation_prefers_monthly_before_misc(self):
         parent = User.objects.create_user(

@@ -609,6 +609,10 @@ def my_billing_items(request):
     if not enrollment:
         return Response([])
 
+    # Normalize statuses before exposing bill choices so an approved targeted
+    # payment cannot remain selectable because of stale row state.
+    recompute_transaction_statuses_for_enrollment(enrollment)
+
     rows = Transaction.objects.filter(
         enrollment=enrollment,
         entry_type='DEBIT',
@@ -1078,7 +1082,10 @@ def my_tuition_installments(request):
             transaction_rows = build_transaction_rows(enrollment, payment_rows) if enrollment else []
             installments = transaction_rows or build_allocation_rows(schedule, payment_rows)
 
-            total_due = sum((item['amount'] for item in (transaction_rows or schedule)), Decimal('0.00'))
+            total_due = sum(
+                (Decimal(str(item['amount'])) for item in (transaction_rows or schedule)),
+                Decimal('0.00'),
+            )
             overall_status = compute_installment_status(
                 total_due,
                 total_paid,
@@ -1534,6 +1541,9 @@ def my_advance_requests(request):
             id=enrollment_id,
             parent_user=request.user
         ).first()
+
+        if enrollment:
+            recompute_transaction_statuses_for_enrollment(enrollment)
 
     if not enrollment:
         return Response({'detail': 'Valid enrollment is required.'}, status=400)
