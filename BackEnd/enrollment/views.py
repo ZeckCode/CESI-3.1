@@ -1353,6 +1353,70 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.exception("Failed to send declined email for enrollment %s", enrollment.pk)
             return False, str(e)
+
+    def _send_payment_confirmation_email(
+        self,
+        enrollment,
+        recipient_email,
+        approved_amount,
+        payment_method,
+        payment_mode,
+        proof_reference="",
+    ):
+        grade_labels = {
+            "prek": "Pre-Kinder",
+            "kinder": "Kinder",
+            "grade1": "Grade 1",
+            "grade2": "Grade 2",
+            "grade3": "Grade 3",
+            "grade4": "Grade 4",
+            "grade5": "Grade 5",
+            "grade6": "Grade 6",
+        }
+        pretty_grade = grade_labels.get(
+            (enrollment.grade_level or "").lower(), enrollment.grade_level
+        )
+        payment_method_label = {
+            "CASH": "Onsite Payment",
+            "ONLINE": "Online Payment",
+        }.get(payment_method, payment_method.title())
+        payment_mode_label = {
+            "cash": "Cash",
+            "installment": "Installment",
+        }.get(payment_mode, payment_mode.title())
+        proof_line = f"Proof Reference: {proof_reference}\n" if proof_reference else ""
+
+        try:
+            send_mail(
+                subject="Payment Confirmation - Enrollment Submitted Successfully",
+                message=(
+                    f"Dear Parent/Guardian,\n\n"
+                    f"Thank you, {enrollment.first_name} {enrollment.last_name}!\n\n"
+                    f"Your enrollment application and payment have been successfully reviewed and approved by Caloocan Evangelical School Inc. (CESI).\n\n"
+                    f"Enrollment Details:\n\n"
+                    f"Student Name : {enrollment.first_name} {enrollment.last_name}\n"
+                    f"Grade Level  : {pretty_grade}\n"
+                    f"Academic Year: {enrollment.academic_year}\n\n"
+                    f"Payment Details:\n\n"
+                    f"Payment Mode  : {payment_mode_label}\n"
+                    f"Payment Method: {payment_method_label}\n"
+                    f"Amount Paid   : Php {approved_amount:,.2f}\n"
+                    f"{proof_line}\n"
+                    f"Please keep this email for your records. You may continue checking your email for other enrollment updates and instructions.\n\n"
+                    f"If you have any questions, please contact the Admissions Office.\n\n"
+                    f"Sincerely,\n"
+                    f"Caloocan Evangelical School Inc.\n"
+                    f"Admissions Office"
+                ),
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost"),
+                recipient_list=[recipient_email],
+                fail_silently=False,
+            )
+            return True, None
+        except Exception as e:
+            logger.exception("Failed to send payment confirmation email for enrollment %s", enrollment.pk)
+            return False, str(e)
+
     def perform_update(self, serializer):
         enrollment = serializer.save()
         uploaded_id_image = self.request.FILES.get("id_image")
@@ -1835,6 +1899,20 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 )
 
                 self._recompute_parent_ledger_balances(enrollment.parent_user)
+
+        if recipient_email:
+            payment_email_sent, payment_email_error = self._send_payment_confirmation_email(
+                enrollment,
+                recipient_email,
+                approved_amount,
+                payment_method,
+                payment_mode,
+                proof_reference,
+            )
+            if payment_email_sent:
+                email_sent = True
+            elif payment_email_error:
+                email_error = payment_email_error
 
         serializer = self.get_serializer(enrollment)
         data = serializer.data

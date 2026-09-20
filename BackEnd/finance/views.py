@@ -1636,24 +1636,40 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if not proof.enrollment:
-            return Response(
-                {'detail': 'No active enrollment is linked to this proof of payment.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if not proof.enrollment.parent_user:
-            return Response(
-                {'detail': 'The linked enrollment has no parent account.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         amount = Decimal(str(proof.amount or 0))
         if amount <= 0:
             return Response(
                 {'detail': 'Proof amount must be greater than 0 before approval.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        if not proof.enrollment or not proof.enrollment.parent_user:
+            proof.status = 'approved'
+            proof.admin_remarks = request.data.get('remarks', '')
+            proof.save(update_fields=['status', 'admin_remarks', 'updated_at'])
+
+            create_reminder_once(
+                recipient=proof.user,
+                sender=request.user,
+                title="Proof of Payment Approved",
+                message=(
+                    f"Your proof of payment has been approved.\n"
+                    f"Reference Number: {proof.reference_number}\n"
+                    f"Amount Paid: ₱{amount}\n"
+                    "The payment could not be posted to the student ledger because "
+                    "the proof is missing enrollment account details."
+                ),
+                reminder_type="PAYMENT",
+                event_type="PROOF_APPROVED",
+                transaction=None,
+                proof_of_payment=proof,
+                reference_date=timezone.localdate(),
+            )
+
+            return Response({
+                'status': 'approved',
+                'message': 'Payment proof approved. Payment was not posted because enrollment account details are missing.',
+            })
 
         proof.enrollment.refresh_from_db()
         student_name = (

@@ -3,7 +3,7 @@ import { Download, X, Settings } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { getGradeLevelDisplay } from "./idGeneratorUtils";
-import CESI_background from "./CESI-id-background.jpg";
+import CESI_background from "./CESI-id-background.png";
 import Toast from "../../Global/Toast";
 
 export default function IdCardGenerator({
@@ -249,7 +249,7 @@ export default function IdCardGenerator({
       console.log("Adding image to PDF at position:", { x, y, imgWidth, imgHeight });
       pdf.addImage(imgData, "PNG", x, y, imgWidth, imgHeight);
       
-      const fileName = `${studentData.first_name}_${studentData.last_name}_ID_front_back_landscape.pdf`;
+      const fileName = `${studentData.first_name}_${studentData.last_name}_ID.pdf`;
       console.log("Saving PDF as:", fileName);
       pdf.save(fileName);
       console.log("=== PDF Download Complete ===");
