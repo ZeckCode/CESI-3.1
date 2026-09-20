@@ -538,6 +538,8 @@ class ProofOfPaymentSerializer(SafeModelSerializer):
             "amount",
             "billed_item",
             "billed_due_date",
+            "bill_transaction",
+            "payment_channel",
             "proof_image",
             "proof_image_url",
             "status",

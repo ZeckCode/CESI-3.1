@@ -48,12 +48,17 @@ export default function ProofOfPayment() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [studentData, setStudentData] = useState(null);
+  const [billingItems, setBillingItems] = useState([]);
+  const [tuition, setTuition] = useState(null);
+  const [tuitionLoading, setTuitionLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [formData, setFormData] = useState({
     reference_number: "",
     description: "",
     amount: "",
     billed_item: "PAYMENT",
+    bill_transaction: "",
+    payment_channel: "",
     proof_image: null,
   });
 
@@ -108,10 +113,42 @@ export default function ProofOfPayment() {
     }
   }, [addToast]);
 
+  const fetchBillingItems = useCallback(async () => {
+    try {
+      const response = await apiFetch("/api/finance/my-billing-items/");
+      if (!response.ok) throw new Error("Failed to fetch billing items");
+      const data = await response.json();
+      setBillingItems(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error fetching billing items:", err);
+      addToast("Billing Warning", "Could not load your unpaid bills.", "warning");
+    }
+  }, [addToast]);
+
   useEffect(() => {
     fetchPayments();
     fetchStudentProfile();
-  }, [fetchPayments, fetchStudentProfile]);
+    fetchBillingItems();
+  }, [fetchPayments, fetchStudentProfile, fetchBillingItems]);
+
+  useEffect(() => {
+    const gradeKey = studentData?.enrollment?.grade_level || studentData?.profile?.grade_level;
+    if (!gradeKey) return;
+
+    const loadTuition = async () => {
+      setTuitionLoading(true);
+      try {
+        const response = await apiFetch(`/api/finance/tuition-configs/by-grade/${encodeURIComponent(gradeKey)}/`);
+        if (response.ok) setTuition(await response.json());
+      } catch (err) {
+        console.error("Error fetching tuition configuration:", err);
+      } finally {
+        setTuitionLoading(false);
+      }
+    };
+
+    loadTuition();
+  }, [studentData]);
 
   const getStudentName = () => {
     if (!studentData) return "Loading...";
@@ -174,6 +211,16 @@ export default function ProofOfPayment() {
       return;
     }
 
+    if (billingItems.length > 0 && !formData.bill_transaction) {
+      addToast("Select a Bill", "Please choose the bill this payment is for.", "warning");
+      return;
+    }
+
+    if (!formData.payment_channel) {
+      addToast("Select Payment Channel", "Please choose bank or e-wallet.", "warning");
+      return;
+    }
+
     if (!formData.description.trim()) {
       addToast("Missing Field", "Description is required", "warning");
       return;
@@ -192,6 +239,8 @@ export default function ProofOfPayment() {
       formDataToSend.append("description", formData.description);
       formDataToSend.append("amount", formData.amount);
       formDataToSend.append("billed_item", formData.billed_item);
+      formDataToSend.append("bill_transaction", formData.bill_transaction || "");
+      formDataToSend.append("payment_channel", formData.payment_channel || "");
       formDataToSend.append("proof_image", formData.proof_image);
 
       const response = await apiFetch("/api/finance/proof-of-payments/", {
@@ -218,6 +267,8 @@ export default function ProofOfPayment() {
         description: "",
         amount: "",
         billed_item: "PAYMENT",
+        bill_transaction: "",
+        payment_channel: "",
         proof_image: null,
       });
 
@@ -225,6 +276,7 @@ export default function ProofOfPayment() {
       if (fileInput) fileInput.value = "";
 
       fetchPayments();
+      fetchBillingItems();
     } catch (err) {
       console.error("Error submitting payment:", err);
       addToast("Submission Failed", err.message || "Failed to submit payment proof", "error");
@@ -370,25 +422,63 @@ export default function ProofOfPayment() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="billed_item" className="form-label">
-                Bill Type
+              <label htmlFor="bill_transaction" className="form-label">
+                Bill to Pay <span className="required">*</span>
               </label>
               <select
-                id="billed_item"
-                name="billed_item"
-                value={formData.billed_item}
+                id="bill_transaction"
+                name="bill_transaction"
+                value={formData.bill_transaction}
+                onChange={(e) => {
+                  const selected = billingItems.find((item) => String(item.id) === e.target.value);
+                  setFormData((prev) => ({
+                    ...prev,
+                    bill_transaction: e.target.value,
+                    billed_item: selected?.item || prev.billed_item,
+                    amount: selected?.amount ? String(selected.amount) : prev.amount,
+                  }));
+                }}
+                className="form-input"
+                disabled={submitting || billingItems.length === 0}
+                required={billingItems.length > 0}
+              >
+                <option value="">
+                  {billingItems.length ? "Select the bill you are paying" : "No unpaid bills available"}
+                </option>
+                {billingItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.item} {item.due_date ? `due ${item.due_date}` : ""} - {formatCurrency(item.amount)}
+                  </option>
+                ))}
+              </select>
+              <small className="form-help-text">
+                Selecting a bill links this proof directly to that ledger charge for admin approval.
+              </small>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="payment_channel" className="form-label">
+                Payment Channel <span className="required">*</span>
+              </label>
+              <select
+                id="payment_channel"
+                name="payment_channel"
+                value={formData.payment_channel}
                 onChange={handleInputChange}
                 className="form-input"
                 disabled={submitting}
+                required
               >
-                <option value="PAYMENT">General Payment</option>
-                <option value="INITIAL">Initial Payment</option>
-                <option value="MONTHLY">Monthly Installment</option>
-                <option value="MISC">Miscellaneous</option>
-                <option value="REGISTRATION">Registration</option>
-                <option value="ASSESSMENT">Assessment</option>
-                <option value="OTHER">Other</option>
+                <option value="">Select channel</option>
+                <option value="bank">Bank (PNB)</option>
+                <option value="ewallet">E-Wallet (GCash/Maya)</option>
               </select>
+              {formData.payment_channel === "bank" && (
+                <small className="form-help-text">PNB account: CESI Admin, 1003-10040-500</small>
+              )}
+              {formData.payment_channel === "ewallet" && (
+                <small className="form-help-text">GCash/Maya: 0912345678, account name CESI Admin</small>
+              )}
             </div>
 
             <div className="form-group">
@@ -487,6 +577,25 @@ export default function ProofOfPayment() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+
+        <div className="proof-history" style={{ marginTop: "1rem" }}>
+          <h3 className="history-title">Billing Information</h3>
+          {tuitionLoading ? (
+            <div className="proof-empty"><p>Loading tuition information...</p></div>
+          ) : tuition ? (
+            <div className="proof-item-details">
+              <div className="proof-detail"><strong>Cash Tuition:</strong> {formatCurrency(tuition.cash)}</div>
+              <div className="proof-detail"><strong>Installment Tuition:</strong> {formatCurrency(tuition.installment)}</div>
+              <div className="proof-detail"><strong>Initial Payment:</strong> {formatCurrency(tuition.initial)}</div>
+              <div className="proof-detail"><strong>Monthly Installment:</strong> {formatCurrency(tuition.monthly)}</div>
+              <div className="proof-detail"><strong>Miscellaneous (August):</strong> {formatCurrency(tuition.misc_aug)}</div>
+              <div className="proof-detail"><strong>Miscellaneous (November):</strong> {formatCurrency(tuition.misc_nov)}</div>
+              <div className="proof-detail"><strong>Assessment Fee:</strong> {formatCurrency(tuition.assessment)}</div>
+            </div>
+          ) : (
+            <div className="proof-empty"><p>Tuition information is not available yet.</p></div>
           )}
         </div>
       </div>

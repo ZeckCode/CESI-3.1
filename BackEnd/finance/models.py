@@ -72,6 +72,14 @@ class Transaction(models.Model):
         related_name='finance_transactions',
     )
 
+    allocation_target = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='allocated_payments',
+    )
+
     student_number_snapshot = models.CharField(max_length=20, blank=True, null=True)
     grade_level_snapshot = models.CharField(max_length=20, blank=True, null=True)
     payment_mode_snapshot = models.CharField(max_length=20, blank=True, null=True)
@@ -278,6 +286,16 @@ class ProofOfPayment(models.Model):
         default='PAYMENT'
     )
     billed_due_date = models.DateField(null=True, blank=True)
+
+    bill_transaction = models.ForeignKey(
+        'finance.Transaction',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payment_proofs_for_bill',
+    )
+
+    payment_channel = models.CharField(max_length=20, blank=True, null=True)
 
     proof_image = models.ImageField(
         upload_to='proofs/%Y/%m/%d/',

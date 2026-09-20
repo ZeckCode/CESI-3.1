@@ -17,8 +17,30 @@ import "../AdminWebsiteCSS/PaymentReminders.css";
 
 const REMINDER_SKELETON_ROWS = 6;
 
-const canSendReminderForTransaction = (row) =>
-  Boolean(row?.transaction_id) && row?.can_send_payment_reminder === true;
+const canSendReminderForTransaction = (row) => {
+  if (!row?.transaction_id) return false;
+  if (row?.is_paid_already) return false;
+
+  const remainingBalance = Number(row?.remaining_balance ?? row?.outstanding_balance ?? 0);
+  if (remainingBalance <= 0) return false;
+
+  const dueState = String(row?.due_state || "upcoming").toLowerCase();
+  if (dueState === "paid") return false;
+  if (dueState === "overdue" || dueState === "due_today") return true;
+
+  if (dueState !== "upcoming" || !row?.due_date) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dueDate = new Date(`${row.due_date}T00:00:00`);
+
+  if (Number.isNaN(dueDate.getTime())) return false;
+
+  const eligibleDate = new Date(dueDate);
+  eligibleDate.setDate(dueDate.getDate() - 7);
+
+  return today >= eligibleDate && dueDate >= today;
+};
 
 const dueStateLabel = (state) => {
   if (state === "paid") return "Paid";
@@ -58,7 +80,7 @@ const PaymentReminders = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const loadReminders = async () => {
+  const loadReminders = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiFetch("/api/reminders/payments/ledger/nearest-due/");
@@ -80,11 +102,11 @@ const PaymentReminders = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadReminders();
-  }, []);
+  }, [loadReminders]);
 
   useEffect(() => {
     setCurrentPage(1);

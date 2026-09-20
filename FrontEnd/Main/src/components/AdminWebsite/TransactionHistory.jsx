@@ -90,6 +90,71 @@ const BILLING_DEBIT_ITEMS = new Set(['REGISTRATION', 'INITIAL', 'MONTHLY', 'MISC
 
 const formatCurrency = (value) => `₱${Number(value || 0).toLocaleString()}`;
 
+const PAYMENT_ALLOCATION_PRIORITY = {
+  INITIAL: 0,
+  ASSESSMENT: 1,
+  REGISTRATION: 2,
+  RESERVATION: 3,
+  MONTHLY: 4,
+  MISC: 5,
+};
+
+const getPaymentAllocationPreview = (group, amount) => {
+  if (!group || !Number(amount) || Number(amount) <= 0) return [];
+
+  const rows = (group.rows || [])
+    .filter((tx) => String(tx.entry_type || '').toUpperCase() === 'DEBIT' && BILLING_DEBIT_ITEMS.has(String(tx.item || '').toUpperCase()))
+    .filter((tx) => Number(tx.debit || 0) > 0)
+    .slice()
+    .sort((a, b) => {
+      const itemA = String(a.item || '').toUpperCase();
+      const itemB = String(b.item || '').toUpperCase();
+      const rankA = PAYMENT_ALLOCATION_PRIORITY[itemA] ?? 99;
+      const rankB = PAYMENT_ALLOCATION_PRIORITY[itemB] ?? 99;
+      if (rankA !== rankB) return rankA - rankB;
+
+      const dateA = String(a.due_date || a.date_posted || a.transaction_date || '');
+      const dateB = String(b.due_date || b.date_posted || b.transaction_date || '');
+      const dateCompare = dateA.localeCompare(dateB);
+      if (dateCompare !== 0) return dateCompare;
+
+      return Number(a.id || 0) - Number(b.id || 0);
+    });
+
+  const preview = [];
+  let existingCredit = (group.rows || []).reduce(
+    (sum, tx) => sum + Number(tx.credit || 0),
+    0
+  );
+  let remaining = Number(amount);
+
+  rows.forEach((tx) => {
+    const debitAmount = Number(tx.debit || 0);
+    if (existingCredit >= debitAmount) {
+      existingCredit = Number((existingCredit - debitAmount).toFixed(2));
+      return;
+    }
+
+    const outstanding = Number((debitAmount - existingCredit).toFixed(2));
+    existingCredit = 0;
+    if (remaining <= 0 || outstanding <= 0) return;
+
+    const applied = Math.min(outstanding, remaining);
+    remaining = Number((remaining - applied).toFixed(2));
+
+    preview.push({
+      id: tx.id,
+      item: String(tx.item || '').toUpperCase(),
+      label: tx.item || 'BILL',
+      amount: applied,
+      due_date: tx.due_date || tx.transaction_date || null,
+      outstanding,
+    });
+  });
+
+  return preview;
+};
+
 const formatStudentType = (value) => {
   const v = String(value || '').trim().toLowerCase();
   if (!v) return '—';
@@ -207,6 +272,7 @@ const TransactionHistory = () => {
   const [payForm, setPayForm] = useState({
     student_number: '',
     amount: '',
+    allocation_target_id: '',
     payment_method: 'CASH',
     description: '',
     transaction_date: new Date().toISOString().slice(0, 10),
@@ -1207,6 +1273,7 @@ const TransactionHistory = () => {
     setPayForm({
       student_number: group.student_number || '',
       amount: balance > 0 ? String(balance) : '',
+      allocation_target_id: '',
       payment_method: 'CASH',
       description: '',
       transaction_date: new Date().toISOString().slice(0, 10),
@@ -1228,7 +1295,11 @@ const TransactionHistory = () => {
 
   const handlePayFormChange = (e) => {
     const { name, value } = e.target;
-    setPayForm((prev) => ({ ...prev, [name]: value }));
+    setPayForm((prev) => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'amount' ? { allocation_target_id: '' } : {}),
+    }));
   };
 
   const handleRefundFormChange = (e) => {
@@ -1241,6 +1312,22 @@ const TransactionHistory = () => {
     setPayForm((prev) => ({
       ...prev,
       amount: String(Number(selectedLedger.balance || 0)),
+    }));
+  };
+
+  const payAllocationPreview = useMemo(() => {
+    if (!selectedLedger) return [];
+    return getPaymentAllocationPreview(selectedLedger, Number(payForm.amount || 0));
+  }, [selectedLedger, payForm.amount]);
+
+  const selectSuggestedPayment = (allocation) => {
+    if (!allocation) return;
+
+    setPayForm((prev) => ({
+      ...prev,
+      amount: String(allocation.outstanding),
+      allocation_target_id: String(allocation.id),
+      description: prev.description || `Payment for ${allocation.label}${allocation.due_date ? ` due ${allocation.due_date}` : ''}.`,
     }));
   };
 
@@ -1269,6 +1356,7 @@ const TransactionHistory = () => {
         body: JSON.stringify({
           student_number: payForm.student_number,
           amount: Number(payForm.amount),
+          allocation_target_id: payForm.allocation_target_id || null,
           payment_method: payForm.payment_method,
           description: payForm.description,
           transaction_date: payForm.transaction_date || null,
@@ -2516,6 +2604,27 @@ const TransactionHistory = () => {
                   </select>
                 </div>
               </div>
+
+              {payAllocationPreview.length > 0 && (
+                <div className="th-form-group">
+                  <label>Suggested allocation</label>
+                  <div style={{ display: 'grid', gap: '0.4rem' }}>
+                    {payAllocationPreview.map((alloc) => (
+                      <button
+                        key={alloc.id}
+                        type="button"
+                        className="th-form-input"
+                        onClick={() => selectSuggestedPayment(alloc)}
+                        style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center', minHeight: 'auto', cursor: 'pointer', textAlign: 'left' }}
+                        title={`Select ${alloc.label} payment amount`}
+                      >
+                        <span>{alloc.label}{alloc.due_date ? ` - due ${alloc.due_date}` : ''}</span>
+                        <strong>{formatCurrency(alloc.outstanding)}</strong>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="th-form-group">
                 <button

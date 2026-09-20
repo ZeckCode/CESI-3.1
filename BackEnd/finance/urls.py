@@ -8,6 +8,7 @@ from .views import (
     parent_students,
     my_transactions,
     my_ledger_summary,
+    my_billing_items,
     my_tuition_installments,
     student_tuition_overview,
     TuitionConfigListCreate,
@@ -35,6 +36,7 @@ urlpatterns = [
     # Parent endpoint — own ledger
     path('my-transactions/', my_transactions, name='my-transactions'),
     path('my-ledger-summary/', my_ledger_summary, name='my-ledger-summary'),
+    path('my-billing-items/', my_billing_items, name='my-billing-items'),
     path('my-tuition-installments/', my_tuition_installments, name='my-tuition-installments'),
     path('my-advance-requests/', my_advance_requests, name='my-advance-requests'),
     path('advance-requests/', advance_requests_admin, name='advance-requests-admin'),

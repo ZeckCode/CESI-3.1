@@ -7,6 +7,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from rest_framework import status
 from django.db.models import Q, Sum
 from rest_framework import generics, status
@@ -22,6 +23,7 @@ from .utils import (
     normalize_money,
     recompute_running_balances_for_enrollment,
     recompute_transaction_statuses_for_enrollment,
+    get_payment_allocation_plan_for_enrollment,
 )
 from .serializers import (
     TransactionSerializer,
@@ -593,6 +595,40 @@ def my_ledger_summary(request):
         'advance_available': float(advance_available),
     })
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_billing_items(request):
+    if getattr(request.user, 'role', None) != 'PARENT_STUDENT':
+        return Response({'detail': 'Forbidden'}, status=403)
+
+    enrollment = Enrollment.objects.filter(
+        parent_user=request.user,
+        status='ACTIVE',
+    ).order_by('-created_at').first()
+    if not enrollment:
+        return Response([])
+
+    rows = Transaction.objects.filter(
+        enrollment=enrollment,
+        entry_type='DEBIT',
+        item__in=['REGISTRATION', 'INITIAL', 'MONTHLY', 'MISC', 'RESERVATION', 'ASSESSMENT'],
+    ).exclude(status__iexact='PAID').order_by('due_date', 'transaction_date', 'id')
+
+    data = []
+    for row in rows:
+        data.append({
+            'id': row.id,
+            'item': row.item,
+            'description': row.description,
+            'amount': float(row.debit or row.amount or 0),
+            'due_date': row.due_date.isoformat() if row.due_date else None,
+            'status': row.status,
+            'enrollment_id': enrollment.id,
+        })
+
+    return Response(data)
+
 class TuitionConfigListCreate(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
@@ -1043,6 +1079,7 @@ def pay_student_balance(request):
     payment_method = str(request.data.get('payment_method', 'CASH')).strip().upper() or 'CASH'
     description = str(request.data.get('description', '')).strip()
     transaction_date = request.data.get('transaction_date')
+    allocation_target_id = request.data.get('allocation_target_id')
 
     if not student_number:
         return Response({'detail': 'Student number is required.'}, status=400)
@@ -1079,6 +1116,25 @@ def pay_student_balance(request):
 
     student_name = f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() or enrollment.student.username
 
+    allocation_target = None
+    if allocation_target_id not in (None, ''):
+        try:
+            allocation_target = Transaction.objects.get(
+                id=int(allocation_target_id),
+                enrollment=enrollment,
+                entry_type='DEBIT',
+            )
+        except (TypeError, ValueError, Transaction.DoesNotExist):
+            return Response({'detail': 'The selected billing row is invalid.'}, status=400)
+
+        if allocation_target.item not in {'REGISTRATION', 'INITIAL', 'MONTHLY', 'MISC', 'RESERVATION', 'ASSESSMENT'}:
+            return Response({'detail': 'The selected row cannot receive a payment.'}, status=400)
+        if allocation_target.status == 'PAID':
+            return Response({'detail': 'The selected billing row is already paid.'}, status=400)
+
+    allocation_plan = get_payment_allocation_plan_for_enrollment(enrollment, applied_amount)
+    recommended_target = allocation_plan[0] if allocation_plan else None
+
     with db_transaction.atomic():
         payment_tx = Transaction.objects.create(
             parent=enrollment.parent_user,
@@ -1093,6 +1149,7 @@ def pay_student_balance(request):
             description=description or 'Payment posted via admin ledger payment.',
             payment_method=payment_method,
             transaction_date=transaction_date or timezone.localdate(),
+            allocation_target=allocation_target,
             status='PAID' if applied_amount == current_balance else 'PARTIAL',
             student_number_snapshot=enrollment.student_number,
             grade_level_snapshot=enrollment.grade_level,
@@ -1140,6 +1197,9 @@ def pay_student_balance(request):
         'excess_amount': float(excess_amount),
         'new_balance': float(max(new_balance, Decimal('0.00'))),
         'status': compute_simple_ledger_status(new_balance),
+        'allocation': allocation_plan,
+        'recommended_item': recommended_target['item'] if recommended_target else None,
+        'recommended_due_date': recommended_target['due_date'] if recommended_target else None,
         'payment_transaction_id': payment_tx.id,
         'has_overpayment': excess_amount > 0,
     }, status=201)
@@ -1612,12 +1672,22 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
             status='ACTIVE'
         ).order_by('-created_at').first()
 
+        bill_transaction = serializer.validated_data.get('bill_transaction')
+        if bill_transaction and (
+            not enrollment
+            or bill_transaction.enrollment_id != enrollment.id
+            or bill_transaction.entry_type != 'DEBIT'
+            or bill_transaction.status == 'PAID'
+        ):
+            raise ValidationError({'bill_transaction': 'Select an unpaid bill from your active enrollment.'})
+
         serializer.save(
             user=self.request.user,
             payment_type='installment',
             source='student_portal',
             status='pending',
             enrollment=enrollment,
+            billed_due_date=bill_transaction.due_date if bill_transaction else None,
         )
     
     @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAdminUser])
@@ -1672,6 +1742,13 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
             })
 
         proof.enrollment.refresh_from_db()
+        if proof.bill_transaction_id:
+            proof.bill_transaction.refresh_from_db()
+            if proof.bill_transaction.status == 'PAID':
+                return Response(
+                    {'detail': 'The selected bill was already paid. Please submit a new proof for another unpaid bill.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         student_name = (
             f"{proof.enrollment.first_name or ''} {proof.enrollment.last_name or ''}".strip()
             or proof.enrollment.student.username
@@ -1691,6 +1768,7 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
                 description=proof.description or f'Payment posted from approved proof #{proof.id}.',
                 payment_method='OTHER',
                 transaction_date=timezone.localdate(),
+                allocation_target=proof.bill_transaction,
                 status='PAID',
                 student_number_snapshot=proof.enrollment.student_number,
                 grade_level_snapshot=proof.enrollment.grade_level,
