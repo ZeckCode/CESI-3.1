@@ -24,7 +24,7 @@ class TransactionSerializer(SafeModelSerializer):
     grade_level = serializers.SerializerMethodField()
     student_type = serializers.CharField(source='student_type_snapshot', read_only=True)
     enrollment_id = serializers.IntegerField(read_only=True)
-    allocation_target_id = serializers.IntegerField(source='allocation_target_id', read_only=True)
+    allocation_target_id = serializers.IntegerField(read_only=True)
     allocation_target_item = serializers.CharField(source='allocation_target.item', read_only=True)
 
     def get_student_number(self, obj):
