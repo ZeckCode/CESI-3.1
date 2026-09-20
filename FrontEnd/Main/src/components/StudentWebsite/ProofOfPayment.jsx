@@ -53,11 +53,10 @@ export default function ProofOfPayment() {
   const [tuitionLoading, setTuitionLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [formData, setFormData] = useState({
-    reference_number: "",
-    description: "",
     amount: "",
     billed_item: "PAYMENT",
     bill_transaction: "",
+    other_bill_description: "",
     payment_channel: "",
     proof_image: null,
   });
@@ -166,13 +165,7 @@ export default function ProofOfPayment() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-
-    if (name === "reference_number") {
-      const numbersOnly = value.replace(/[^0-9]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: numbersOnly }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleFileChange = (e) => {
@@ -196,33 +189,25 @@ export default function ProofOfPayment() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.reference_number.trim()) {
-      addToast("Missing Field", "Reference number is required", "warning");
-      return;
-    }
-
-    if (!/^\d+$/.test(formData.reference_number)) {
-      addToast("Invalid Reference", "Reference number must contain only numbers", "warning");
-      return;
-    }
-
     if (!formData.amount || Number(formData.amount) <= 0) {
       addToast("Invalid Amount", "Amount is required and must be greater than 0", "warning");
       return;
     }
+
+    const isOtherBill = formData.bill_transaction === "OTHER";
 
     if (billingItems.length > 0 && !formData.bill_transaction) {
       addToast("Select a Bill", "Please choose the bill this payment is for.", "warning");
       return;
     }
 
-    if (!formData.payment_channel) {
-      addToast("Select Payment Channel", "Please choose bank or e-wallet.", "warning");
+    if (isOtherBill && !formData.other_bill_description.trim()) {
+      addToast("Describe Other Bill", "Please enter the bill type or payment purpose.", "warning");
       return;
     }
 
-    if (!formData.description.trim()) {
-      addToast("Missing Field", "Description is required", "warning");
+    if (!formData.payment_channel) {
+      addToast("Select Payment Channel", "Please choose bank or e-wallet.", "warning");
       return;
     }
 
@@ -235,11 +220,12 @@ export default function ProofOfPayment() {
       setSubmitting(true);
 
       const formDataToSend = new FormData();
-      formDataToSend.append("reference_number", formData.reference_number);
-      formDataToSend.append("description", formData.description);
       formDataToSend.append("amount", formData.amount);
-      formDataToSend.append("billed_item", formData.billed_item);
-      formDataToSend.append("bill_transaction", formData.bill_transaction || "");
+      formDataToSend.append("billed_item", isOtherBill ? "OTHER" : formData.billed_item);
+      formDataToSend.append("bill_transaction", isOtherBill ? "" : formData.bill_transaction || "");
+      if (isOtherBill) {
+        formDataToSend.append("description", formData.other_bill_description.trim());
+      }
       formDataToSend.append("payment_channel", formData.payment_channel || "");
       formDataToSend.append("proof_image", formData.proof_image);
 
@@ -263,11 +249,10 @@ export default function ProofOfPayment() {
         "success"
       );
       setFormData({
-        reference_number: "",
-        description: "",
         amount: "",
         billed_item: "PAYMENT",
         bill_transaction: "",
+        other_bill_description: "",
         payment_channel: "",
         proof_image: null,
       });
@@ -371,38 +356,6 @@ export default function ProofOfPayment() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="reference_number" className="form-label">
-                Reference Number <span className="required">*</span>
-              </label>
-              <input
-                type="text"
-                id="reference_number"
-                name="reference_number"
-                value={formData.reference_number}
-                onChange={handleInputChange}
-                className="form-input"
-                placeholder="Enter reference number"
-                disabled={submitting}
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="description" className="form-label">
-                Description <span className="required">*</span>
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                className="form-textarea"
-                rows="3"
-                placeholder="Describe the payment"
-                disabled={submitting}
-              />
-            </div>
-
-            <div className="form-group">
               <label htmlFor="amount" className="form-label">
                 Amount Paid <span className="required">*</span>
               </label>
@@ -434,27 +387,46 @@ export default function ProofOfPayment() {
                   setFormData((prev) => ({
                     ...prev,
                     bill_transaction: e.target.value,
-                    billed_item: selected?.item || prev.billed_item,
+                    billed_item: selected?.item || (e.target.value === "OTHER" ? "OTHER" : prev.billed_item),
                     amount: selected?.amount ? String(selected.amount) : prev.amount,
                   }));
                 }}
                 className="form-input"
-                disabled={submitting || billingItems.length === 0}
-                required={billingItems.length > 0}
+                disabled={submitting}
+                required
               >
                 <option value="">
-                  {billingItems.length ? "Select the bill you are paying" : "No unpaid bills available"}
+                  {billingItems.length ? "Select the bill you are paying" : "Select a bill type"}
                 </option>
                 {billingItems.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.item} {item.due_date ? `due ${item.due_date}` : ""} - {formatCurrency(item.amount)}
                   </option>
                 ))}
+                <option value="OTHER">Other bill or payment purpose</option>
               </select>
               <small className="form-help-text">
                 Selecting a bill links this proof directly to that ledger charge for admin approval.
               </small>
             </div>
+
+            {formData.bill_transaction === "OTHER" && (
+              <div className="form-group">
+                <label htmlFor="other_bill_description" className="form-label">
+                  Other Bill Type <span className="required">*</span>
+                </label>
+                <textarea
+                  id="other_bill_description"
+                  name="other_bill_description"
+                  value={formData.other_bill_description}
+                  onChange={handleInputChange}
+                  className="form-textarea"
+                  rows="2"
+                  placeholder="Example: Books, uniform, or other school charge"
+                  disabled={submitting}
+                />
+              </div>
+            )}
 
             <div className="form-group">
               <label htmlFor="payment_channel" className="form-label">

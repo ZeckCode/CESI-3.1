@@ -946,6 +946,76 @@ def my_tuition_installments(request):
 
         return rows
 
+    def build_transaction_rows(enrollment, payment_rows):
+        debit_rows = list(
+            Transaction.objects.filter(
+                parent=request.user,
+                enrollment=enrollment,
+                transaction_type='TUITION',
+                entry_type='DEBIT',
+            ).order_by('due_date', 'transaction_date', 'date_posted', 'id')
+        )
+        targeted_payments = {}
+        generic_payments = []
+        for payment in payment_rows:
+            amount_left = Decimal(str(payment.credit or 0))
+            if amount_left <= 0:
+                continue
+            if payment.allocation_target_id:
+                targeted_payments[payment.allocation_target_id] = targeted_payments.get(
+                    payment.allocation_target_id, Decimal('0.00')
+                ) + amount_left
+            else:
+                generic_payments.append({
+                    'amount_left': amount_left,
+                    'reference_number': payment.reference_number,
+                })
+
+        rows = []
+        for debit in debit_rows:
+            amount_due = Decimal(str(debit.debit or debit.amount or 0))
+            targeted_amount = min(targeted_payments.get(debit.id, Decimal('0.00')), amount_due)
+            targeted_payments[debit.id] = max(
+                targeted_payments.get(debit.id, Decimal('0.00')) - targeted_amount,
+                Decimal('0.00'),
+            )
+            remaining_due = amount_due - targeted_amount
+            refs_used = []
+            if targeted_amount > 0:
+                refs_used.extend([
+                    payment.reference_number
+                    for payment in payment_rows
+                    if payment.allocation_target_id == debit.id and payment.reference_number
+                ])
+
+            for payment in generic_payments:
+                if remaining_due <= 0:
+                    break
+                applied = min(payment['amount_left'], remaining_due)
+                payment['amount_left'] -= applied
+                remaining_due -= applied
+                if applied > 0 and payment['reference_number']:
+                    refs_used.append(payment['reference_number'])
+
+            paid_amount = amount_due - remaining_due
+            is_overdue = remaining_due > 0 and debit.due_date and debit.due_date < today
+            rows.append({
+                'id': debit.id,
+                'type': debit.description or debit.item or 'Charge',
+                'item': debit.item,
+                'amount': float(amount_due),
+                'amount_paid': float(paid_amount),
+                'balance': float(max(remaining_due, Decimal('0.00'))),
+                'month': '',
+                'due_date': debit.due_date.isoformat() if debit.due_date else None,
+                'is_paid': remaining_due <= 0,
+                'status': 'PAID' if remaining_due <= 0 else ('OVERDUE' if is_overdue else ('PARTIAL' if paid_amount > 0 else 'PENDING')),
+                'reference_number': refs_used[0] if len(refs_used) == 1 else None,
+                'reference_numbers': list(dict.fromkeys(refs_used)),
+            })
+
+        return rows
+
     for profile in profiles:
         student_name = " ".join(
             p for p in [
@@ -1005,9 +1075,10 @@ def my_tuition_installments(request):
 
         if payment_mode == 'installment':
             schedule = build_installment_schedule(tuition, include_assessment=is_new_student)
-            installments = build_allocation_rows(schedule, payment_rows)
+            transaction_rows = build_transaction_rows(enrollment, payment_rows) if enrollment else []
+            installments = transaction_rows or build_allocation_rows(schedule, payment_rows)
 
-            total_due = sum((item['amount'] for item in schedule), Decimal('0.00'))
+            total_due = sum((item['amount'] for item in (transaction_rows or schedule)), Decimal('0.00'))
             overall_status = compute_installment_status(
                 total_due,
                 total_paid,
@@ -1681,6 +1752,14 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
         ):
             raise ValidationError({'bill_transaction': 'Select an unpaid bill from your active enrollment.'})
 
+        amount = serializer.validated_data.get('amount')
+        billed_item = serializer.validated_data.get('billed_item', 'PAYMENT')
+        payment_channel = serializer.validated_data.get('payment_channel') or 'online'
+        reference_number = serializer.validated_data.get('reference_number') or generate_transaction_reference()
+        description = serializer.validated_data.get('description') or (
+            f'Online payment for {billed_item} bill, amount ₱{amount}, via {payment_channel}.'
+        )
+
         serializer.save(
             user=self.request.user,
             payment_type='installment',
@@ -1688,6 +1767,8 @@ class ProofOfPaymentViewSet(viewsets.ModelViewSet):
             status='pending',
             enrollment=enrollment,
             billed_due_date=bill_transaction.due_date if bill_transaction else None,
+            reference_number=reference_number,
+            description=description,
         )
     
     @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAdminUser])

@@ -24,6 +24,8 @@ class TransactionSerializer(SafeModelSerializer):
     grade_level = serializers.SerializerMethodField()
     student_type = serializers.CharField(source='student_type_snapshot', read_only=True)
     enrollment_id = serializers.IntegerField(read_only=True)
+    allocation_target_id = serializers.IntegerField(source='allocation_target_id', read_only=True)
+    allocation_target_item = serializers.CharField(source='allocation_target.item', read_only=True)
 
     def get_student_number(self, obj):
         if obj.student_number_snapshot:
@@ -67,6 +69,8 @@ class TransactionSerializer(SafeModelSerializer):
             'payment_mode',
             'student_type',
             'enrollment_id',
+            'allocation_target_id',
+            'allocation_target_item',
             'transaction_type',
             'entry_type',
             'item',
@@ -570,6 +574,10 @@ class ProofOfPaymentSerializer(SafeModelSerializer):
             "source",
             "approved_transaction",
         ]
+        extra_kwargs = {
+            "reference_number": {"required": False, "allow_blank": True},
+            "description": {"required": False, "allow_blank": True},
+        }
 
     def get_student_name(self, obj):
         if obj.enrollment:

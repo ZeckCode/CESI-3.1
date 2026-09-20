@@ -395,60 +395,19 @@
             totalCredit += Number(tx.credit || 0);
           });
 
-          // Determine earliest posted date (fallback to transaction_date) and its reference
-          let earliestPost = null;
-          let earliestTx = null;
-          sortedRows.forEach((tx) => {
-            const post = tx.date_post || tx.date_posted || tx.transaction_date || null;
-            if (!post) return;
-            const d = new Date(`${post}T00:00:00`);
-            if (Number.isNaN(d.getTime())) return;
-            if (earliestPost === null || d < earliestPost) {
-              earliestPost = d;
-              earliestTx = tx;
-            }
-          });
-
-          const aggregatedRows = [];
-
-          if (totalDebit > 0) {
-            runningBalance += totalDebit;
-            aggregatedRows.push({
-              id: `agg-debit-${group.key}`,
-              // use earliest posted date if available, otherwise use latest_date
-              transaction_date: earliestPost ? earliestPost.toISOString().slice(0, 10) : (group.latest_date || "-"),
-              reference_number: earliestTx ? (earliestTx.reference_number || "-") : "-",
-              item: "Charges",
-              transaction_type: "TUITION",
-              entry_type: "DEBIT",
-              debit: totalDebit,
-              credit: 0,
-              description: "Consolidated tuition charges",
-              due_date: earliestPost ? earliestPost.toISOString().slice(0, 10) : undefined,
-              _runningBalance: runningBalance,
-            });
-          }
-
-          // Keep credits as separate rows so each payment is visible.
-          const creditRows = sortedRows.filter((tx) => Number(tx.credit || 0) > 0);
-
-          creditRows.forEach((tx, index) => {
+          const ledgerRows = sortedRows.map((tx) => {
+            const debit = Number(tx.debit || 0);
             const credit = Number(tx.credit || 0);
-            runningBalance -= credit;
-            aggregatedRows.push({
-              id: tx.id || `agg-credit-${group.key}-${index}`,
-              transaction_date: tx.transaction_date || "-",
-              reference_number: tx.reference_number || "-",
-              item: tx.item || "PAYMENT",
-              transaction_type: tx.transaction_type || "PAYMENT",
-              entry_type: tx.entry_type || "CREDIT",
-              debit: 0,
-              credit,
-              description: tx.description || "Payment",
-              due_date: tx.due_date,
-              status: tx.status,
+            runningBalance += debit - credit;
+
+            return {
+              ...tx,
               _runningBalance: runningBalance,
-            });
+              description:
+                credit > 0 && tx.allocation_target_item
+                  ? `${tx.description || "Payment"} for ${ITEM_LABELS[tx.allocation_target_item] || tx.allocation_target_item}`
+                  : tx.description,
+            };
           });
 
           const rawBalance = runningBalance;
@@ -459,7 +418,7 @@
 
           return {
             ...group,
-            rows: aggregatedRows,
+            rows: ledgerRows,
             totalDebit,
             totalCredit,
             balance: payableBalance,
@@ -1373,17 +1332,6 @@
                 </div>
               </div>
 
-              <div className="ledger-sumCard ledger-sumCard--info">
-                <div className="ledger-sumCard__label">Advance Available</div>
-                <div className="ledger-sumCard__value">
-                  {formatCurrency(summary?.advance_available || 0)}
-                </div>
-                <div className="ledger-sumCard__sub">
-                  {Number(summary?.advance_available || 0) > 0
-                    ? "Available for refund or future use"
-                    : "No available advance"}
-                </div>
-              </div>
             </div>
           )}
 
@@ -1490,10 +1438,6 @@
                               <div style={{ fontWeight: 700, color: group.payableBalance > 0 ? "#dc2626" : "#16a34a" }}>{formatCurrency(group.payableBalance)}</div>
                             </div>
                             <div>
-                              <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Advance Available</div>
-                              <div style={{ fontWeight: 700, color: group.advanceAvailable > 0 ? "#1d4ed8" : "#1e293b" }}>{formatCurrency(group.advanceAvailable)}</div>
-                            </div>
-                            <div>
                               <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: "0.25rem", textTransform: "uppercase", fontWeight: 600 }}>Status</div>
                               <div>
                                 <span
@@ -1502,48 +1446,9 @@
                                 >
                                   {getGroupStatus(group)}
                                 </span>
-                                {group.advanceAvailable > 0 ? (
-                                  <span
-                                    className="status-pill"
-                                    style={{
-                                      background: "#dbeafe",
-                                      color: "#1d4ed8",
-                                      marginLeft: "0.5rem",
-                                    }}
-                                  >
-                                    ADVANCE {formatCurrency(group.advanceAvailable)}
-                                  </span>
-                                ) : null}
                               </div>
                             </div>
                           </div>
-
-                          {group.advanceAvailable > 0 && (
-                            <div
-                              style={{
-                                marginTop: "1rem",
-                                display: "flex",
-                                gap: "0.75rem",
-                                flexWrap: "wrap",
-                              }}
-                            >
-                              <button
-                                type="button"
-                                className="ledger-btn-print"
-                                onClick={() => openRequestModal(group, "APPLY_ADVANCE")}
-                              >
-                                Request Apply Advance
-                              </button>
-
-                              <button
-                                type="button"
-                                className="ledger-btn-print"
-                                onClick={() => openRequestModal(group, "REFUND")}
-                              >
-                                Request Refund
-                              </button>
-                            </div>
-                          )}
                         </div>
 
                         <div className="table-responsive ledger-table-scroll ledger-table-scroll--accounting">
@@ -2088,7 +1993,6 @@
                             <div><strong>Total Billed:</strong> {formatCurrency(group.totalDebit)}</div>
                             <div><strong>Total Paid:</strong> {formatCurrency(group.totalCredit)}</div>
                             <div><strong>Payable Balance:</strong> {formatCurrency(group.payableBalance)}</div>
-                            <div><strong>Advance Available:</strong> {formatCurrency(group.advanceAvailable)}</div>
                           </div>
                           <table className="ledger-print-table">
                             <thead>
@@ -2327,7 +2231,6 @@
                           <div><strong>Total Billed:</strong> {formatCurrency(group.totalDebit)}</div>
                           <div><strong>Total Paid:</strong> {formatCurrency(group.totalCredit)}</div>
                           <div><strong>Payable Balance:</strong> {formatCurrency(group.payableBalance)}</div>
-                          <div><strong>Advance Available:</strong> {formatCurrency(group.advanceAvailable)}</div>
                         </div>
                         <table
                           style={{
