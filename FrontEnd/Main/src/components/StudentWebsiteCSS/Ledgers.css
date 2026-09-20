@@ -880,3 +880,164 @@
 .ledger-sumCard--info .ledger-sumCard__value {
   color: #1d4ed8;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   TUITION BREAKDOWN
+   ═══════════════════════════════════════════════════════════ */
+
+.tuition-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.tuition-breakdown-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.tuition-breakdown-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+}
+
+.tuition-breakdown-table thead th {
+  background: #f0f9ff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #1e293b;
+}
+
+.tuition-breakdown-table tbody td {
+  font-size: 0.9rem;
+  padding: 0.85rem 1rem;
+}
+
+.tuition-breakdown-table tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.tuition-breakdown-table tfoot tr {
+  background: #eff6ff;
+  border-top: 2px solid #bfdbfe;
+}
+
+.tuition-breakdown-table tfoot td {
+  padding: 0.85rem 1rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.tuition-breakdown-progress {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+/* ─────── Tablet (≤ 768px) ─────── */
+@media (max-width: 768px) {
+  .tuition-breakdown-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .tuition-breakdown-table thead {
+    display: none;
+  }
+
+  .tuition-breakdown-table tbody tr {
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .tuition-breakdown-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0;
+    border: none;
+    font-size: 0.85rem;
+    text-align: right;
+  }
+
+  .tuition-breakdown-table tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    margin-right: 1rem;
+    white-space: nowrap;
+  }
+
+  .tuition-breakdown-table tfoot tr {
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem 1rem;
+  }
+
+  .tuition-breakdown-table tfoot td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0;
+    border: none;
+    font-size: 0.9rem;
+    text-align: right;
+  }
+
+  .tuition-breakdown-table tfoot td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    margin-right: 1rem;
+  }
+
+  .tuition-breakdown-progress {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+/* ─────── Small Mobile (≤ 480px) ─────── */
+@media (max-width: 480px) {
+  .tuition-breakdown-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .tuition-breakdown-card {
+    border-radius: 12px;
+  }
+
+  .tuition-breakdown-table tbody td {
+    font-size: 0.8rem;
+    padding: 0.35rem 0;
+  }
+
+  .tuition-breakdown-table tbody td::before {
+    font-size: 0.7rem;
+  }
+
+  .tuition-breakdown-progress {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .tuition-breakdown-progress > div {
+    padding: 0.5rem;
+  }
+}
+
+/* ─────── Extra Small (≤ 360px) ─────── */
+@media (max-width: 360px) {
+  .tuition-breakdown-progress {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+  }
+}

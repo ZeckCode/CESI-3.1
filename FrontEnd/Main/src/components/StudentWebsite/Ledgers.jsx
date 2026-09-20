@@ -8,6 +8,7 @@
   import jsPDF from 'jspdf';
   import 'jspdf-autotable';
   import { getDisplayName } from "../../utils/userDisplayName";
+  import { TUITION_FEES } from "../../config/tuitionConfig";
 
   const API_BASE = "";
   const ITEMS_PER_PAGE = 5;
@@ -90,7 +91,7 @@
 
     return map[lower] || v;
   };
-
+  
   const schoolYearLabel = (student) =>
     student?.school_year || student?.current_school_year || student?.academic_year || "";
 
@@ -157,6 +158,16 @@
     return raw.replace(/\s+/g, "");
   };
 
+  const toTuitionConfigKey = (gradeKey) => {
+    const gk = String(gradeKey || "").trim().toLowerCase();
+    if (["prek", "kinder"].includes(gk)) return gk;
+    const num = parseInt(gk.replace(/\D/g, ""), 10);
+    if (num >= 1 && num <= 3) return "grade1-3";
+    if (num >= 4 && num <= 5) return "grade4-5";
+    if (num === 6) return "grade6";
+    return gk;
+  };
+
   const parseResponseJson = async (response) => {
     if (!response) return null;
     const contentType = response.headers?.get("content-type") || "";
@@ -204,6 +215,7 @@
     const [toasts, setToasts] = useState([]);
     const [selectedRequestGroup, setSelectedRequestGroup] = useState(null);
     const [assessmentByGrade, setAssessmentByGrade] = useState({});
+    const [tuitionConfigByGrade, setTuitionConfigByGrade] = useState({});
     const [requestForm, setRequestForm] = useState({
       request_type: "APPLY_ADVANCE",
       amount: "",
@@ -301,6 +313,7 @@
 
       if (gradeKeys.length === 0) {
         setAssessmentByGrade({});
+        setTuitionConfigByGrade({});
         return;
       }
 
@@ -315,7 +328,7 @@
               );
               if (!res.ok) return [gradeKey, null];
               const data = await res.json();
-              return [gradeKey, Number(data?.assessment || 0)];
+              return [gradeKey, data];
             } catch {
               return [gradeKey, null];
             }
@@ -323,13 +336,16 @@
         );
 
         if (cancelled) return;
-        const map = {};
-        entries.forEach(([gradeKey, assessment]) => {
-          if (assessment != null && assessment >= 0) {
-            map[gradeKey] = assessment;
+        const assessmentMap = {};
+        const configMap = {};
+        entries.forEach(([gradeKey, data]) => {
+          if (data) {
+            assessmentMap[gradeKey] = Number(data?.assessment || 0);
+            configMap[gradeKey] = data;
           }
         });
-        setAssessmentByGrade(map);
+        setAssessmentByGrade(assessmentMap);
+        setTuitionConfigByGrade(configMap);
       })();
 
       return () => {
@@ -1294,6 +1310,15 @@
                 >
                   Current Registration 
                 </button>
+                <button
+                  type="button"
+                  className={`ledger-tab ${
+                    viewMode === "breakdown" ? "active" : ""
+                  }`}
+                  onClick={() => setViewMode("breakdown")}
+                >
+                  Tuition Breakdown
+                </button>
               </div>
             </>
           )}
@@ -1967,6 +1992,455 @@
                   />
                 </>
               )}
+            </section>
+          )}
+
+          {!loading && !error && viewMode === "breakdown" && !isPrinting && (
+            <section className="ledger-section">
+              <div className="section-header blue-header">
+                <i className="bi bi-calculator me-2"></i>Tuition Fee Breakdown
+              </div>
+
+              <div style={{ padding: "1.5rem" }}>
+                <div
+                  className="tuition-breakdown-grid"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                    gap: "1.5rem",
+                  }}
+                >
+                  {normalizedTuitionInstallments.length === 0 ? (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "2rem",
+                        color: "#94a3b8",
+                        gridColumn: "1 / -1",
+                      }}
+                    >
+                      No tuition breakdown information available.
+                    </div>
+                  ) : (
+                    normalizedTuitionInstallments.map((student, idx) => {
+                      const gradeKey = toGradeKey(student?.grade_level);
+                      const configKey = toTuitionConfigKey(gradeKey);
+
+                      // Prefer API config, fall back to static TUITION_FEES
+                      const apiConfig = tuitionConfigByGrade[gradeKey];
+                      const staticFees = TUITION_FEES[configKey];
+
+                      const fees = apiConfig
+                        ? {
+                            cash: Number(apiConfig.cash || 0),
+                            installment: Number(apiConfig.installment || 0),
+                            initial: Number(apiConfig.initial || 0),
+                            monthly: Number(apiConfig.monthly || 0),
+                            misc_aug: Number(apiConfig.misc_aug || 0),
+                            misc_nov: Number(apiConfig.misc_nov || 0),
+                            assessment: Number(apiConfig.assessment || 0),
+                            total_cash: Number(apiConfig.total_cash || 0),
+                            total_installment: Number(apiConfig.total_installment || 0),
+                          }
+                        : staticFees
+                          ? {
+                              cash: staticFees.cash || 0,
+                              installment: staticFees.installment || 0,
+                              initial: staticFees.initial || 0,
+                              monthly: staticFees.monthly || 0,
+                              misc_aug: staticFees.misc_aug || 0,
+                              misc_nov: staticFees.misc_nov || 0,
+                              assessment: staticFees.assessment || 0,
+                              total_cash: staticFees.total_cash || 0,
+                              total_installment: staticFees.total_installment || 0,
+                            }
+                          : null;
+
+                      const isInstallment =
+                        String(student?.payment_mode || "")
+                          .trim()
+                          .toLowerCase() === "installment";
+                      const isNewStudent = [
+                        "new",
+                        "new_student",
+                        "new enrollee",
+                        "new_enrollee",
+                      ].includes(
+                        String(student?.student_type || "").trim().toLowerCase()
+                      );
+
+                      const cashTotal = fees ? fees.total_cash : 0;
+                      const installmentTotal = fees ? fees.total_installment : 0;
+                      const assessmentFee = isNewStudent
+                        ? fees?.assessment || 0
+                        : 0;
+
+                      const effectiveTotal = isInstallment
+                        ? installmentTotal + assessmentFee
+                        : cashTotal + assessmentFee;
+
+                      return (
+                        <div
+                          key={student.student_id || `${student.student_name}-${idx}`}
+                          className="tuition-breakdown-card"
+                          style={{
+                            background: "#ffffff",
+                            border: "1px solid #dbeafe",
+                            borderRadius: "16px",
+                            overflow: "hidden",
+                            boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
+                          }}
+                        >
+                          {/* Card Header */}
+                          <div
+                            style={{
+                              background:
+                                "linear-gradient(135deg, #eff6ff 0%, #f8fbff 100%)",
+                              borderBottom: "1px solid #dbeafe",
+                              padding: "1.25rem",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontWeight: 800,
+                                color: "#1d4ed8",
+                                fontSize: "1rem",
+                                marginBottom: "0.5rem",
+                              }}
+                            >
+                              📚 {student.student_name || "Student"}
+                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "1rem",
+                                flexWrap: "wrap",
+                                fontSize: "0.8rem",
+                                color: "#64748b",
+                              }}
+                            >
+                              <span>
+                                <strong>Grade:</strong>{" "}
+                                {gradeLevelLabel(student.grade_level) || "—"}
+                              </span>
+                              <span>
+                                <strong>Mode:</strong>{" "}
+                                {paymentModeLabel(student.payment_mode) || "—"}
+                              </span>
+                              <span>
+                                <strong>Type:</strong>{" "}
+                                {studentTypeLabel(student.student_type) || "—"}
+                              </span>
+                              <span>
+                                <strong>SY:</strong>{" "}
+                                {schoolYearLabel(student) || "—"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Breakdown Table */}
+                          <div
+                            className="table-responsive ledger-table-scroll"
+                            style={{ padding: "0" }}
+                          >
+                            <table
+                              className="ledger-table tuition-breakdown-table"
+                              style={{ marginBottom: 0 }}
+                            >
+                              <thead>
+                                <tr>
+                                  <th>Fee Item</th>
+                                  <th>Details</th>
+                                  <th>Amount</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {/* Tuition Fee */}
+                                <tr>
+                                  <td data-label="Fee Item">
+                                    <strong>Tuition Fee</strong>
+                                  </td>
+                                  <td data-label="Details">
+                                    {isInstallment
+                                      ? `${fees?.monthly?.toLocaleString("en-PH") || "—"} × 10 months`
+                                      : "One-time cash payment"}
+                                  </td>
+                                  <td
+                                    data-label="Amount"
+                                    style={{ fontWeight: 700 }}
+                                  >
+                                    {formatCurrency(
+                                      isInstallment
+                                        ? fees?.installment || 0
+                                        : fees?.cash || 0
+                                    )}
+                                  </td>
+                                </tr>
+
+                                {/* Initial Payment (Installment only) */}
+                                {isInstallment && fees && (
+                                  <tr>
+                                    <td data-label="Fee Item">
+                                      <strong>Initial Payment</strong>
+                                    </td>
+                                    <td data-label="Details">
+                                      Upon enrollment (included in tuition)
+                                    </td>
+                                    <td
+                                      data-label="Amount"
+                                      style={{ fontWeight: 700 }}
+                                    >
+                                      {formatCurrency(fees.initial)}
+                                    </td>
+                                  </tr>
+                                )}
+
+                                {/* Monthly Breakdown (Installment only) */}
+                                {isInstallment && fees && (
+                                  <tr>
+                                    <td data-label="Fee Item">
+                                      <strong>Monthly Installment</strong>
+                                    </td>
+                                    <td data-label="Details">
+                                      {formatCurrency(fees.monthly)} × 10 months
+                                      (Sep–Jun)
+                                    </td>
+                                    <td
+                                      data-label="Amount"
+                                      style={{ fontWeight: 700 }}
+                                    >
+                                      {formatCurrency(fees.monthly * 10)}
+                                    </td>
+                                  </tr>
+                                )}
+
+                                {/* Miscellaneous - August */}
+                                {fees && (
+                                  <tr>
+                                    <td data-label="Fee Item">
+                                      <strong>Miscellaneous (Aug)</strong>
+                                    </td>
+                                    <td data-label="Details">
+                                      Books, materials & other fees
+                                    </td>
+                                    <td
+                                      data-label="Amount"
+                                      style={{ fontWeight: 700 }}
+                                    >
+                                      {formatCurrency(fees.misc_aug)}
+                                    </td>
+                                  </tr>
+                                )}
+
+                                {/* Miscellaneous - November */}
+                                {fees && (
+                                  <tr>
+                                    <td data-label="Fee Item">
+                                      <strong>Miscellaneous (Nov)</strong>
+                                    </td>
+                                    <td data-label="Details">
+                                      Books, materials & other fees
+                                    </td>
+                                    <td
+                                      data-label="Amount"
+                                      style={{ fontWeight: 700 }}
+                                    >
+                                      {formatCurrency(fees.misc_nov)}
+                                    </td>
+                                  </tr>
+                                )}
+
+                                {/* Assessment Fee */}
+                                {isNewStudent && assessmentFee > 0 && (
+                                  <tr>
+                                    <td data-label="Fee Item">
+                                      <strong>Assessment Fee</strong>
+                                    </td>
+                                    <td data-label="Details">
+                                      For new students / transferees
+                                    </td>
+                                    <td
+                                      data-label="Amount"
+                                      style={{ fontWeight: 700 }}
+                                    >
+                                      {formatCurrency(assessmentFee)}
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+
+                              <tfoot>
+                                <tr>
+                                  <td colSpan="2">
+                                    <strong>TOTAL {isInstallment ? "(Installment Plan)" : "(Cash Plan)"}</strong>
+                                  </td>
+                                  <td
+                                    style={{
+                                      fontWeight: 800,
+                                      fontSize: "1.1rem",
+                                      color: "#1d4ed8",
+                                    }}
+                                  >
+                                    {formatCurrency(effectiveTotal)}
+                                  </td>
+                                </tr>
+                                {isInstallment && fees && (
+                                  <tr>
+                                    <td colSpan="2">
+                                      <strong>Cash Plan Total (for reference)</strong>
+                                    </td>
+                                    <td
+                                      style={{
+                                        fontWeight: 700,
+                                        color: "#16a34a",
+                                      }}
+                                    >
+                                      {formatCurrency(
+                                        fees.total_cash +
+                                          (isNewStudent ? assessmentFee : 0)
+                                      )}
+                                    </td>
+                                  </tr>
+                                )}
+                              </tfoot>
+                            </table>
+                          </div>
+
+                          {/* Payment Progress */}
+                          <div
+                            style={{
+                              padding: "1.25rem",
+                              borderTop: "1px solid #e2e8f0",
+                              background: "#f8fafc",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns:
+                                  "repeat(auto-fit, minmax(120px, 1fr))",
+                                gap: "0.75rem",
+                              }}
+                              className="tuition-breakdown-progress"
+                            >
+                              <div style={{ textAlign: "center" }}>
+                                <div
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    color: "#64748b",
+                                    textTransform: "uppercase",
+                                    fontWeight: 600,
+                                    marginBottom: "0.25rem",
+                                  }}
+                                >
+                                  Total Due
+                                </div>
+                                <div
+                                  style={{
+                                    fontWeight: 700,
+                                    color: "#0284c7",
+                                    fontSize: "1rem",
+                                  }}
+                                >
+                                  {formatCurrency(student.total_due)}
+                                </div>
+                              </div>
+                              <div style={{ textAlign: "center" }}>
+                                <div
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    color: "#64748b",
+                                    textTransform: "uppercase",
+                                    fontWeight: 600,
+                                    marginBottom: "0.25rem",
+                                  }}
+                                >
+                                  Total Paid
+                                </div>
+                                <div
+                                  style={{
+                                    fontWeight: 700,
+                                    color: "#16a34a",
+                                    fontSize: "1rem",
+                                  }}
+                                >
+                                  {formatCurrency(student.total_paid)}
+                                </div>
+                              </div>
+                              <div style={{ textAlign: "center" }}>
+                                <div
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    color: "#64748b",
+                                    textTransform: "uppercase",
+                                    fontWeight: 600,
+                                    marginBottom: "0.25rem",
+                                  }}
+                                >
+                                  Balance
+                                </div>
+                                <div
+                                  style={{
+                                    fontWeight: 700,
+                                    color:
+                                      Number(student.remaining_balance || 0) > 0
+                                        ? "#dc2626"
+                                        : "#16a34a",
+                                    fontSize: "1rem",
+                                  }}
+                                >
+                                  {formatCurrency(student.remaining_balance)}
+                                </div>
+                              </div>
+                              <div style={{ textAlign: "center" }}>
+                                <div
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    color: "#64748b",
+                                    textTransform: "uppercase",
+                                    fontWeight: 600,
+                                    marginBottom: "0.25rem",
+                                  }}
+                                >
+                                  Status
+                                </div>
+                                <span
+                                  className="status-pill"
+                                  style={statusPillStyle(
+                                    student.overall_status || "PENDING"
+                                  )}
+                                >
+                                  {student.overall_status || "PENDING"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {normalizedTuitionInstallments.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "1.5rem",
+                      padding: "1rem",
+                      background: "#f0f9ff",
+                      borderRadius: "0.5rem",
+                      fontSize: "0.8rem",
+                      color: "#64748b",
+                    }}
+                  >
+                    <strong style={{ color: "#1e293b" }}>Note:</strong> The
+                    tuition breakdown above shows the standard fee structure for
+                    your grade level. Actual charges may vary based on
+                    enrollment status, discounts, or additional fees. Please
+                    refer to the <strong>Account Ledger</strong> tab for your
+                    complete transaction history.
+                  </div>
+                )}
+              </div>
             </section>
           )}
 
