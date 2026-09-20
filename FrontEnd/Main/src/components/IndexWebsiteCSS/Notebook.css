@@ -308,6 +308,21 @@
   line-height: 1.28;
 }
 
+.mission-vision-content,
+.mission-vision-content * {
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+}
+
+.mission-vision-content > div {
+  margin-bottom: 14px;
+}
+
+.mission-vision-content p {
+  line-height: 1.5;
+}
+
 .index-book-page-content ul {
   margin-left: 20px;
   margin-bottom: 20px;
@@ -1017,6 +1032,10 @@
   .index-book-page-content div {
     font-size: 0.86rem;
     line-height: 1.35;
+  }
+
+  .mission-vision-content p {
+    line-height: 1.5;
   }
 
   .index-book-page-footer {

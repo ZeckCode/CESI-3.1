@@ -324,13 +324,13 @@ const Notebook = ({ onClose, openEnrollment }) => {
     "mission-vision": {
       title: "Mission & Vision",
       content: (
-        <>
+        <div className="mission-vision-content">
           <h3>Our Mission</h3>
           <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((cmsData.mission && cmsData.mission.mission_text) ? cmsData.mission.mission_text : `<p>The mission of the School...</p>`) }} />
 
           <h3>Our Vision</h3>
           <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((cmsData.mission && cmsData.mission.vision_text) ? cmsData.mission.vision_text : `<p>The vision of the School...</p>`) }} />
-        </>
+        </div>
       ),
     },
 
