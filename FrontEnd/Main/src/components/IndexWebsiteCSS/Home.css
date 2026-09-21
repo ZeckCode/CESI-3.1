@@ -332,7 +332,7 @@ body {
 .index-home-book-cover {
   display: flex;
   width: 450px;
-  height: 800px;
+  height: 600px;
   cursor: pointer;
   transition: transform 0.5s;
   position: relative;
