@@ -760,7 +760,7 @@ const Reports = () => {
     // Table of Contents tracking — records section titles with their page numbers
     const toc = [];
     const addToc = (title) => {
-      toc.push({ title, page: doc.internal.getNumberOfPages() });
+      toc.push({ title, page: doc.getCurrentPageInfo().pageNumber });
     };
 
     // SUMMARY STATISTICS
@@ -1129,50 +1129,80 @@ const Reports = () => {
       }
     }
     
-    // ── TABLE OF CONTENTS (cover page) ─────────────────────────────
-    // Insert a TOC page at the front. Existing page numbers shift by +1.
-    const tocCount = toc.length;
-    if (tocCount > 0) {
-      doc.insertPage(1);
-      doc.setPage(1);
-
-      // Letterhead on the cover — resume content below it to avoid overlap.
-      const headerEndY = await drawReportHeader(doc, { ...report, name: report.name }, schoolInfo, pageWidth);
-      let tocY = headerEndY + 4;
-
-      doc.setFontSize(13);
-      doc.setTextColor(33, 37, 41);
-      doc.text('Table of Contents', 14, tocY);
-      tocY += 10;
-
+    // ── TABLE OF CONTENTS (prepended cover pages) ─────────────────
+    // Build the body first, then prepend TOC pages with `insertPage`
+    // (which inserts *before* a page). We never use `addPage` here so the
+    // continuation page can't land at the very end and show up as a blank
+    // "hanging" page.
+    if (toc.length > 0) {
       const pageHeight = doc.internal.pageSize.height;
-      const labelMaxWidth = pageWidth - 60; // leave room for right-aligned page number
+      const labelMaxWidth = pageWidth - 60; // leave room for the page number
+      const lineStep = 7;
 
-      toc.forEach((entry) => {
-        doc.setFontSize(10);
-        doc.setTextColor(60, 60, 60);
+      const entries = toc.map((entry) => ({
+        title: entry.title,
+        bodyPage: entry.page, // page number before any TOC page is inserted
+        lines: doc.splitTextToSize(entry.title, labelMaxWidth),
+      }));
 
-        if (tocY > pageHeight - 25) {
-          doc.addPage();
-          tocY = 20;
+      const totalLines = entries.reduce((sum, e) => sum + e.lines.length, 0);
+      // First TOC page holds a letterhead + heading; later pages start higher.
+      const firstPageLines = Math.max(1, Math.floor((pageHeight - 90) / lineStep));
+      const contPageLines = Math.max(1, Math.floor((pageHeight - 40) / lineStep));
+      let neededPages = 1;
+      let remaining = totalLines - firstPageLines;
+      while (remaining > 0) {
+        remaining -= contPageLines;
+        neededPages += 1;
+      }
+
+      // Insert the blank TOC pages at the front (in order).
+      for (let i = 0; i < neededPages; i++) {
+        doc.insertPage(1);
+      }
+
+      // All body pages shifted by `neededPages`.
+      const pageOffset = neededPages;
+
+      let entryIndex = 0;
+      for (let p = 1; p <= neededPages; p++) {
+        doc.setPage(p);
+        let y;
+
+        if (p === 1) {
+          y = (await drawReportHeader(doc, { ...report, name: report.name }, schoolInfo, pageWidth)) + 4;
+          doc.setFontSize(13);
+          doc.setTextColor(33, 37, 41);
+          doc.text('Table of Contents', 14, y);
+          y += 10;
+        } else {
+          y = 20;
+          doc.setFontSize(12);
+          doc.setTextColor(33, 37, 41);
+          doc.text('Table of Contents (continued)', 14, y);
+          y += 10;
         }
 
-        // Wrap long titles so they never collide with the page number.
-        const titleLines = doc.splitTextToSize(entry.title, labelMaxWidth);
-        const firstLine = titleLines[0];
+        const maxY = pageHeight - 25;
+        while (entryIndex < entries.length && y <= maxY - lineStep) {
+          const entry = entries[entryIndex];
+          doc.setFontSize(10);
+          doc.setTextColor(60, 60, 60);
 
-        doc.text(firstLine, 20, tocY);
-        doc.text(`${entry.page + 1}`, pageWidth - 20, tocY, { align: 'right' });
+          doc.text(entry.lines[0], 20, y);
+          doc.text(`${entry.bodyPage + pageOffset}`, pageWidth - 20, y, { align: 'right' });
 
-        // Dot leader between title and page number
-        let lineY = tocY;
-        for (let li = 1; li < titleLines.length; li++) {
-          lineY += 5;
-          doc.text(titleLines[li], 20, lineY);
+          let lineY = y;
+          for (let li = 1; li < entry.lines.length; li++) {
+            lineY += 5;
+            if (lineY > maxY) break;
+            doc.text(entry.lines[li], 20, lineY);
+          }
+
+          y = lineY + lineStep;
+          entryIndex += 1;
         }
-
-        tocY = lineY + 11;
-      });
+      }
     }
 
     const pageCount = doc.internal.getNumberOfPages();

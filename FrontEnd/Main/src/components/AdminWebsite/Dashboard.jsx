@@ -35,6 +35,8 @@ import {
   Key,
   Send,
   Crown,
+  Trophy,
+  Medal,
 } from "lucide-react";
 import { apiFetch } from "../api/apiFetch";
 import { generateRevenueInsight, detectRevenueDips, generateEnrollmentInsight, generateAttendanceInsight, generatePaymentInsight, getChartInsightColor } from "../../utils/chartInsights";
@@ -289,7 +291,7 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
             .then((r) => (r.ok ? r.json() : []))
             .catch(() => []),
 
-          apiFetch("/api/grades/")
+          apiFetch("/api/grades/academic-history/")
             .then((r) => (r.ok ? r.json() : []))
             .catch(() => []),
         ]);
@@ -558,48 +560,51 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
       const studentsWithScores = studentsForPerf.map((e, i) => {
         const studentName = e.student_name || `${e.first_name || ""} ${e.last_name || ""}`.trim() || `Student ${i + 1}`;
         const gradeLevel = getEnrollmentGrade(e);
-        
-        // Try to get grades for this student
+
+        // Published academic history records for this student
         const studentGrades = grades.filter(
-          (g) => g.student_id === e.id || g.student_name === studentName || g.student === studentName
+          (g) => g.student === e.id || g.student_id === e.id || g.student_name === studentName || g.student === studentName
         );
-        
+
+        const subjectBreakdown = studentGrades
+          .map((g) => ({
+            subject: g.subject_name || g.subject_code || "Subject",
+            grade: parseFloat(g.final_grade),
+          }))
+          .filter((g) => !Number.isNaN(g.grade));
+
+        const gradeValues = subjectBreakdown.map((g) => g.grade);
+
+        // Attendance rate (tie-breaker)
+        const studentAttend = attendRecords.filter(
+          (a) => a.student_id === e.id || a.student_name === studentName
+        );
+        const presentCount = studentAttend.filter(a => normalizeStatusLower(a.status) === "present").length;
+        const attendanceRate = studentAttend.length > 0
+          ? Math.round((presentCount / studentAttend.length) * 100)
+          : 0;
+
         let performanceScore;
-        if (studentGrades.length > 0) {
-          // Use actual grades from database
-          const gradeValues = studentGrades.map(g => parseFloat(g.grade || g.score || 0)).filter(v => v > 0);
-          if (gradeValues.length > 0) {
-            performanceScore = Math.round(gradeValues.reduce((a, b) => a + b, 0) / gradeValues.length);
-          } else {
-            // Fallback to attendance if no valid grades
-            const studentAttend = attendRecords.filter(
-              (a) => a.student_id === e.id || a.student_name === studentName
-            );
-            if (studentAttend.length > 0) {
-              const presentCount = studentAttend.filter(a => normalizeStatusLower(a.status) === "present").length;
-              performanceScore = Math.round((presentCount / studentAttend.length) * 100);
-            } else {
-              performanceScore = [85, 92, 78, 88, 95, 72, 81, 89, 76, 84][i % 10];
-            }
-          }
+        let scoreSource = "score"; // "grades" | "attendance" | "score"
+        if (gradeValues.length > 0) {
+          performanceScore = Math.round(gradeValues.reduce((a, b) => a + b, 0) / gradeValues.length);
+          scoreSource = "grades";
+        } else if (attendanceRate > 0) {
+          performanceScore = attendanceRate;
+          scoreSource = "attendance";
         } else {
-          // If no grades, calculate from attendance
-          const studentAttend = attendRecords.filter(
-            (a) => a.student_id === e.id || a.student_name === studentName
-          );
-          if (studentAttend.length > 0) {
-            const presentCount = studentAttend.filter(a => normalizeStatusLower(a.status) === "present").length;
-            performanceScore = Math.round((presentCount / studentAttend.length) * 100);
-          } else {
-            performanceScore = [85, 92, 78, 88, 95, 72, 81, 89, 76, 84][i % 10] || Math.round(Math.random() * 40 + 60);
-          }
+          performanceScore = [85, 92, 78, 88, 95, 72, 81, 89, 76, 84][i % 10];
         }
-        
+
         return {
           id: e.id,
           studentName,
           gradeLevel: normalizeGradeLabel(gradeLevel),
           performanceScore,
+          attendanceRate,
+          subjectBreakdown,
+          scoreSource,
+          photoUrl: e.id_image_url || e.photo || e.student_photo || e.avatar || null,
           status: performanceScore >= 80 ? "Excellent" : performanceScore >= 70 ? "Good" : performanceScore >= 60 ? "Fair" : "Needs Improvement",
         };
       });
@@ -609,7 +614,11 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
         const aGradeIdx = gradeOrder.indexOf(a.gradeLevel);
         const bGradeIdx = gradeOrder.indexOf(b.gradeLevel);
         if (aGradeIdx !== bGradeIdx) return (aGradeIdx === -1 ? 999 : aGradeIdx) - (bGradeIdx === -1 ? 999 : bGradeIdx);
-        return b.performanceScore - a.performanceScore; // Descending score
+        return (
+          Number(b.performanceScore) - Number(a.performanceScore) ||
+          Number(b.attendanceRate) - Number(a.attendanceRate) ||
+          a.studentName.localeCompare(b.studentName)
+        ); // Descending score, tie-break on attendance rate then name
       });
 
       setPerformanceMetrics(topStudents.length > 0 ? topStudents : [
@@ -684,7 +693,10 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
     () => {
       // Sort by performance score descending
       const sorted = [...performanceMetrics].sort(
-        (a, b) => Number(b.performanceScore) - Number(a.performanceScore)
+        (a, b) =>
+          Number(b.performanceScore) - Number(a.performanceScore) ||
+          Number(b.attendanceRate) - Number(a.attendanceRate) ||
+          a.studentName.localeCompare(b.studentName)
       );
 
       // If "All Grades" selected or not set yet, limit to 2 per grade level
@@ -711,6 +723,15 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
     },
     [performanceMetrics, selectedGradeLevel]
   );
+
+  const performanceEntries = useMemo(() => {
+    const sliced = filteredPerformanceMetrics.slice(0, 10);
+    return sliced.map((student) => {
+      const score = Number(student.performanceScore) || 0;
+      const rank = sliced.filter((s) => (Number(s.performanceScore) || 0) > score).length + 1;
+      return { ...student, rank };
+    });
+  }, [filteredPerformanceMetrics]);
 
   const analysisSections = useMemo(() => {
     const latestRevenue = revenueMonthly[revenueMonthly.length - 1];
@@ -1139,18 +1160,36 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
           )}
           {filteredPerformanceMetrics.length > 0 && (
               <div className="dash-performance-list">
-                {filteredPerformanceMetrics.slice(0, 10).map((student, idx) => {
-                  const rank = idx + 1;
+                {performanceEntries.map((student, idx) => {
+                  const rank = student.rank;
                   const colorSet = getPerformanceColorSet(student.id, idx);
                   const scorePercent = Number(student.performanceScore) || 0;
                   const isTopOne = rank === 1;
+                  const isTopThree = rank <= 3;
+                  const initials = (student.studentName || "?")
+                    .split(" ")
+                    .map((w) => w[0])
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase();
 
                   return (
                     <div
                       key={student.id || idx}
-                      className={`dash-performance-item ${isTopOne ? "is-top" : ""}`}
+                      className={`dash-performance-item ${isTopOne ? "is-top" : ""} ${isTopThree ? "is-podium" : ""}`}
                       title={`${student.studentName} - ${student.gradeLevel}`}
                     >
+                      {/* Rank medal */}
+                      <div className={`dash-performance-medal rank-${rank}`}>
+                        {rank === 1 ? (
+                          <Trophy size={15} />
+                        ) : rank <= 3 ? (
+                          <Medal size={14} />
+                        ) : (
+                          <span>{rank}</span>
+                        )}
+                      </div>
+
                       <div
                         className="dash-performance-track"
                         style={{
@@ -1164,28 +1203,51 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
 
                         <div className="dash-performance-content">
                           <div className="dash-performance-left">
-                            <div className="dash-performance-rank-wrap">
-                              {isTopOne && (
-                                <span className="dash-performance-crown">
-                                  <Crown size={13} />
-                                </span>
-                              )}
-                              <span className="dash-performance-rank">{rank}</span>
-                            </div>
+                            {student.photoUrl ? (
+                              <div className="dash-performance-avatar dash-performance-photo">
+                                <img src={student.photoUrl} alt={student.studentName} />
+                              </div>
+                            ) : (
+                              <div
+                                className="dash-performance-avatar"
+                                style={{
+                                  background: "#ffffff",
+                                  color: colorSet.fill,
+                                  borderColor: colorSet.border,
+                                }}
+                              >
+                                {initials}
+                              </div>
+                            )}
 
                             <div className="dash-performance-text">
                               <span className="dash-performance-name">
                                 {student.studentName}
                               </span>
-                              <span className="dash-performance-grade">
-                                {student.gradeLevel}
+                              <span className="dash-performance-meta">
+                                <span className="dash-performance-grade">{student.gradeLevel}</span>
+                                {student.attendanceRate > 0 && (
+                                  <span className="dash-performance-attend">
+                                    {student.attendanceRate}% attendance
+                                  </span>
+                                )}
                               </span>
+                              {isTopThree && student.subjectBreakdown?.length > 0 && (
+                                <span className="dash-performance-breakdown">
+                                  {student.subjectBreakdown.slice(0, 4).map((subj, i) => (
+                                    <span key={i} className="dash-performance-subject">
+                                      <span className="dash-performance-subject-name">{subj.subject}</span>
+                                      <span className="dash-performance-subject-grade">{subj.grade}</span>
+                                    </span>
+                                  ))}
+                                </span>
+                              )}
                             </div>
                           </div>
 
                           <div className="dash-performance-right">
                             <span className="dash-performance-score">
-                              {scorePercent}%
+                              {scorePercent}<span className="dash-performance-pct">%</span>
                             </span>
                           </div>
                         </div>

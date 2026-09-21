@@ -916,7 +916,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 350px;
+  max-height: 400px;
   overflow-y: auto;
   padding-right: 6px;
 }
@@ -940,6 +940,7 @@
 }
 
 .dash-performance-item {
+  position: relative;
   animation: perfSlideIn 0.35s ease both;
 }
 
@@ -961,6 +962,7 @@
   background: #f8fafc;
   border: 1px solid var(--perf-border);
   min-height: 60px;
+  margin-left: 26px;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
   transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
 }
@@ -994,6 +996,42 @@
   pointer-events: none;
 }
 
+/* Rank medal on the left */
+.dash-performance-medal {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #fff;
+  background: #94a3b8;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18);
+  border: 2px solid #fff;
+}
+
+.dash-performance-medal.rank-1 {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  box-shadow: 0 6px 14px rgba(245, 158, 11, 0.45);
+}
+
+.dash-performance-medal.rank-2 {
+  background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+  box-shadow: 0 6px 14px rgba(100, 116, 139, 0.35);
+}
+
+.dash-performance-medal.rank-3 {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  box-shadow: 0 6px 14px rgba(180, 83, 9, 0.35);
+}
+
 .dash-performance-content {
   position: relative;
   z-index: 2;
@@ -1014,40 +1052,33 @@
   flex: 1;
 }
 
-.dash-performance-rank-wrap {
-  position: relative;
-  width: 28px;
-  min-width: 28px;
+.dash-performance-avatar {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-
-.dash-performance-rank {
-  font-size: 0.95rem;
+  font-size: 13px;
   font-weight: 800;
-  line-height: 1;
-  color: #0f172a;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
 }
 
-.dash-performance-crown {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #facc15, #f59e0b);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.28);
-  animation: crownFloat 1.9s ease-in-out infinite;
+.dash-performance-photo {
+  padding: 0;
+  overflow: hidden;
+  background: #e2e8f0;
 }
 
+.dash-performance-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 
 .dash-performance-text {
   min-width: 0;
@@ -1057,19 +1088,66 @@
 }
 
 .dash-performance-name {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: #0f172a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.dash-performance-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 
 .dash-performance-grade {
+  font-size: 11.5px;
+  color: #475569;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(100, 116, 139, 0.2);
+  border-radius: 6px;
+  padding: 1px 7px;
+}
+
+.dash-performance-attend {
   font-size: 11px;
+  color: #334155;
+  font-weight: 700;
+}
+
+.dash-performance-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.dash-performance-subject {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.dash-performance-subject-name {
   color: #64748b;
-  font-weight: 500;
+}
+
+.dash-performance-subject-grade {
+  color: #1e293b;
+  font-weight: 800;
 }
 
 .dash-performance-right {
@@ -1077,14 +1155,27 @@
 }
 
 .dash-performance-score {
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.dash-performance-pct {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  margin-left: 1px;
 }
 
 .dash-performance-item.is-top .dash-performance-track {
-  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.10);
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 8px 22px rgba(245, 158, 11, 0.18);
+}
+
+.dash-performance-item.is-podium .dash-performance-track {
+  border-left-width: 3px;
 }
 
 .dash-performance-item.is-top .dash-performance-track::before {
@@ -1215,10 +1306,6 @@
     min-height: 68px;
   }
 
-  .dash-performance-rank {
-    font-size: 1.55rem;
-  }
-
   .dash-performance-score {
     font-size: 1.35rem;
   }
@@ -1234,14 +1321,7 @@
     padding: 9px 12px;
     gap: 10px;
   }
- .dash-performance-rank-wrap {
-    width: 24px;
-    min-width: 24px;
-  }
 
-   .dash-performance-rank {
-    font-size: 0.9rem;
-  }
     .dash-performance-name {
     font-size: 12px;
   }
@@ -1253,16 +1333,21 @@
   .dash-performance-grade {
     font-size: 0.76rem;
   }
-    .dash-performance-grade,
-  .dash-performance-score {
-    font-size: 10px;
+
+  .dash-performance-medal {
+    width: 34px;
+    height: 34px;
   }
 
-  .dash-performance-crown {
-    width: 18px;
-    height: 18px;
-    top: -8px;
-    right: -3px;
+  .dash-performance-track {
+    margin-left: 22px;
+  }
+
+  .dash-performance-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 11px;
   }
 }
 
