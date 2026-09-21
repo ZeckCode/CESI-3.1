@@ -99,6 +99,7 @@ const toStorageSafeReports = (reports = []) =>
         enrollments: limitArrayField(data.enrollments),
         sections: limitArrayField(data.sections),
         teachers: limitArrayField(data.teachers),
+        teacherRecords: limitArrayField(data.teacherRecords),
         transactions: limitArrayField(data.transactions),
         attendanceRecords: limitArrayField(data.attendanceRecords),
         historyRecords: limitArrayField(data.historyRecords),
@@ -241,6 +242,36 @@ const formatStudentName = (record) => {
   if (fallbackName) return fallbackName;
 
   return record?.student_username || record?.username || '—';
+};
+
+const formatTeacherName = (t) => {
+  const direct = `${t?.first_name || ''} ${t?.last_name || ''}`.trim();
+  if (direct) return direct;
+  return t?.username || '—';
+};
+
+const getTeacherSubjects = (t) => {
+  const profile = t?.teacher_profile;
+  const subjects = [];
+  if (profile?.subject?.name) subjects.push(profile.subject.name);
+  for (const s of profile?.subjects || []) {
+    if (s?.name && !subjects.includes(s.name)) subjects.push(s.name);
+  }
+  return subjects.length ? subjects.join(', ') : 'Unassigned';
+};
+
+const getTeacherSection = (t) => {
+  const section = t?.teacher_profile?.section;
+  if (!section) return '—';
+  const grade = section.grade_level_display || section.grade_level || '';
+  const name = section.name || '';
+  return [grade, name].filter(Boolean).join(' - ') || '—';
+};
+
+const getTeacherGradeLevel = (t) => {
+  const section = t?.teacher_profile?.section;
+  const grade = section?.grade_level_display || section?.grade_level;
+  return grade ? formatGradeLevel(grade) : '—';
 };
 
 const pdfTableStyles = {
@@ -441,11 +472,23 @@ const Reports = () => {
       setTeachers(teachersList);
       
       const activeTeachers = teachersList.filter(t => t.status === 'ACTIVE').length;
+      const uniqueSubjects = new Set(
+        teachersList.flatMap(t => {
+          const subjects = [];
+          const subj = t.teacher_profile?.subject?.name;
+          if (subj) subjects.push(subj);
+          (t.teacher_profile?.subjects || []).forEach(s => s?.name && subjects.push(s.name));
+          return subjects;
+        })
+      );
+      const uniqueSections = new Set(
+        teachersList.map(t => t.teacher_profile?.section?.name).filter(Boolean)
+      );
       setTeacherStats({
         total_teachers: teachersList.length,
         active_teachers: activeTeachers,
-        total_subjects: 0,
-        total_classes: 0
+        total_subjects: uniqueSubjects.size,
+        total_classes: uniqueSections.size
       });
       
       const statsRes = await apiFetch('/api/finance/transactions/stats/');
@@ -597,6 +640,8 @@ const Reports = () => {
       summaryData = [
         ['Total Teachers', report.data.total_teachers || 0],
         ['Active Teachers', report.data.active_teachers || 0],
+        ['Total Subjects Assigned', report.data.total_subjects || 0],
+        ['Total Classes / Sections', report.data.total_classes || 0],
       ];
     }
     else if (report.type === 'attendance') {
@@ -623,6 +668,9 @@ const Reports = () => {
         ['Total Sections', report.data.classes?.total_sections || 0],
         ['Total Students', report.data.classes?.total_students || 0],
         ['Total Teachers', report.data.teachers?.total_teachers || 0],
+        ['Active Teachers', report.data.teachers?.active_teachers || 0],
+        ['Teacher Subjects', report.data.teachers?.total_subjects || 0],
+        ['Teacher Classes', report.data.teachers?.total_classes || 0],
         ['Total Collected', formatCurrency(report.data.financial?.total_collected || 0)],
         ['Outstanding Balance', formatCurrency(report.data.financial?.outstanding_balance || 0)],
         ['Attendance Records', report.data.attendanceStats?.total_records || 0],
@@ -714,20 +762,22 @@ const Reports = () => {
     else if (report.type === 'teachers' && report.data.teachers?.length > 0) {
       doc.text('Teacher Details', 14, startY);
       const tableData = report.data.teachers.map(t => [
-        t.username || '—',
+        formatTeacherName(t),
         t.email || '—',
         t.teacher_profile?.employee_id || '—',
-        t.teacher_profile?.subject?.name || 'Unassigned',
+        getTeacherSubjects(t),
+        getTeacherSection(t),
+        getTeacherGradeLevel(t),
         t.status || '—'
       ]);
       autoTable(doc, {
         startY: startY + 5,
-        head: [['Teacher Name', 'Email', 'Employee ID', 'Subject', 'Status']],
+        head: [['Teacher Name', 'Email', 'Employee ID', 'Subject(s)', 'Section', 'Grade Level', 'Status']],
         body: tableData,
         theme: 'grid',
         styles: pdfTableStyles,
-        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
-        bodyStyles: { fontSize: 7 },
+        headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 7 },
+        bodyStyles: { fontSize: 6 },
         margin: { left: 14, right: 14 },
       });
     }
@@ -860,6 +910,50 @@ const Reports = () => {
           bodyStyles: { fontSize: 7 },
           margin: { left: 14, right: 14 },
         });
+        startY = doc.lastAutoTable.finalY + 15;
+      }
+
+      if (report.data.teacherRecords?.length > 0) {
+        if (startY > 250) { doc.addPage(); startY = 20; }
+        doc.text('Teachers', 14, startY);
+        autoTable(doc, {
+          startY: startY + 5,
+          head: [['Teacher Name', 'Subject(s)', 'Section', 'Status']],
+          body: report.data.teacherRecords.slice(0, 20).map(t => [
+            formatTeacherName(t),
+            getTeacherSubjects(t),
+            getTeacherSection(t),
+            t.status || '—'
+          ]),
+          theme: 'grid',
+          styles: pdfTableStyles,
+          headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14, right: 14 },
+        });
+        startY = doc.lastAutoTable.finalY + 15;
+      }
+
+      if (report.data.transactions?.length > 0) {
+        if (startY > 250) { doc.addPage(); startY = 20; }
+        doc.text('Recent Transactions', 14, startY);
+        autoTable(doc, {
+          startY: startY + 5,
+          head: [['Student', 'Date', 'Type', 'Debit', 'Credit', 'Status']],
+          body: report.data.transactions.slice(0, 20).map(t => [
+            t.student_name || '—',
+            t.transaction_date || '—',
+            t.entry_type || '—',
+            formatCurrency(t.debit || 0),
+            formatCurrency(t.credit || 0),
+            t.status || '—'
+          ]),
+          theme: 'grid',
+          styles: pdfTableStyles,
+          headStyles: { fillColor: [79, 110, 247], textColor: 255, fontSize: 8 },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14, right: 14 },
+        });
       }
     }
     
@@ -934,6 +1028,8 @@ const Reports = () => {
         data = {
           total_teachers: teacherStats.total_teachers,
           active_teachers: teacherStats.active_teachers,
+          total_subjects: teacherStats.total_subjects,
+          total_classes: teacherStats.total_classes,
           teachers: teachers
         };
         reportName = `Teacher Performance Report - ${period}`;
@@ -970,7 +1066,9 @@ const Reports = () => {
           enrollments: enrollments.slice(0, 50),
           sections: sections,
           attendanceRecords: attendanceRecords.slice(0, 50),
-          historyRecords: historyRecords.slice(0, 50)
+          historyRecords: historyRecords.slice(0, 50),
+          teacherRecords: teachers,
+          transactions: transactions.slice(0, 50)
         };
         reportName = `Comprehensive System Report - ${period}`;
         break;
