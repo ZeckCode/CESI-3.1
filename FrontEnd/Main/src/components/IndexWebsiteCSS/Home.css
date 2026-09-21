@@ -332,7 +332,7 @@ body {
 .index-home-book-cover {
   display: flex;
   width: 450px;
-  height: 600px;
+  height: 800px;
   cursor: pointer;
   transition: transform 0.5s;
   position: relative;
@@ -528,15 +528,19 @@ body {
 @media (max-width: 768px) {
   body,
   #root {
-    min-height: auto;
+    min-height: 100vh;
   }
 
   .index-home-app {
-    min-height: auto;
+    min-height: 100vh;
   }
 
   .index-home-main-content {
     flex: 0 0 auto;
+  }
+
+  .index-home-footer {
+    margin-top: auto;
   }
 
   .index-home-footer.index-home-footer--overlay-open {
@@ -601,8 +605,8 @@ body {
   }
 
   .index-home-book-cover {
-    width: 400px;
-    height: 540px;
+    width: 320px;
+    height: 440px;
   }
 
   .index-home-book-spine {
@@ -704,8 +708,8 @@ body {
   }
 
   .index-home-book-cover {
-    width: 330px;
-    height: 470px;
+    width: 280px;
+    height: 380px;
   }
 
   .index-home-book-spine {
@@ -789,8 +793,8 @@ body {
   }
 
   .index-home-book-cover {
-    width: 280px;
-    height: 400px;
+    width: 240px;
+    height: 330px;
   }
 
   .index-home-footer-logo-circle {
