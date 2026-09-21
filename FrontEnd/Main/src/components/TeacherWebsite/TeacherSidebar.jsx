@@ -16,29 +16,55 @@ import {
 import "../AdminWebsiteCSS/Sidebar.css";
 import { useAuth } from "../Auth/useAuth";
 import { apiFetch } from "../api/apiFetch";
+import { getDisplayName } from "../../utils/userDisplayName";
 
-function getInitials(name = "User") {
-  const parts = String(name).trim().split(/\s+/);
-  const first = parts[0]?.[0] || "U";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (first + last).toUpperCase();
+function getAvatarLetter(username = "User") {
+  const value = String(username || "").trim();
+  return value ? value.charAt(0).toUpperCase() : "U";
 }
 
-function roleLabel(role) {
-  if (!role) return "Faculty Member";
-  const r = String(role).toLowerCase();
-  if (r.includes("admin")) return "Administrator";
-  if (r.includes("teacher")) return "Faculty Member";
-  return role;
-}
-
-export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, onToggleCollapse }) {
+export default function TeacherSidebar({
+  activeMenu,
+  onMenuClick,
+  isCollapsed,
+  onToggleCollapse,
+  isHoverExpanded = false,
+  onHoverChange,
+}) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [currentUser, setCurrentUser] = useState(user || null);
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const sidebarRef = useRef(null);
+
+  useEffect(() => {
+    if (user) setCurrentUser(user);
+  }, [user]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCurrentUser = async () => {
+      try {
+        const res = await apiFetch("/api/accounts/me/detail/");
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (mounted && data) {
+          setCurrentUser((prev) => ({ ...(prev || {}), ...data }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch current user:", error);
+      }
+    };
+
+    loadCurrentUser();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const menuSections = useMemo(
     () => [
@@ -102,11 +128,21 @@ export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, o
   }, [drawerOpen]);
 
   const handleMenuClick = (menuId) => {
-    if (isCollapsed && !isMobile) {
+    if (isCollapsed && !isMobile && !isHoverExpanded) {
       onToggleCollapse?.();
     }
     onMenuClick?.(menuId);
     if (isMobile) setDrawerOpen(false);
+  };
+
+  const handleSidebarMouseEnter = () => {
+    if (!isMobile && isCollapsed) {
+      onHoverChange?.(true);
+    }
+  };
+
+  const handleSidebarMouseLeave = () => {
+    onHoverChange?.(false);
   };
 
   const handleLogout = async () => {
@@ -119,7 +155,12 @@ export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, o
   };
 
   const visible = !isMobile || drawerOpen;
-  const showLabels = !isCollapsed || isMobile;
+  const showLabels = !isCollapsed || isMobile || isHoverExpanded;
+  const displayName = getDisplayName(currentUser);
+  const avatarLetter = getAvatarLetter(displayName);
+  const sidebarInlineStyle = !isMobile && isCollapsed
+    ? { width: isHoverExpanded ? "var(--as-wide)" : "var(--as-narrow)" }
+    : undefined;
 
   return (
     <>
@@ -142,31 +183,35 @@ export default function TeacherSidebar({ activeMenu, onMenuClick, isCollapsed, o
 
       <aside
         ref={sidebarRef}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
+        style={sidebarInlineStyle}
         className={[
           "as-sidebar",
           visible ? "as-visible" : "as-hidden",
           !isMobile && isCollapsed ? "as-collapsed" : "",
+          !isMobile && isCollapsed && isHoverExpanded ? "as-hover-expanded" : "",
           isMobile ? "as-mobile" : "as-desktop",
         ].join(" ")}
       >
         <div className="as-top-section">
-          {user && showLabels && (
+          {showLabels && (
             <div className="as-usercard">
-              <div className="as-avatar">{getInitials(user?.full_name || user?.username || user?.email)}</div>
+              <div className="as-avatar">{avatarLetter}</div>
               <div className="as-usermeta">
                 <div className="as-userrow">
-                  <div className="as-username">Teacher Portal</div>
+                  <div className="as-username">{displayName}</div>
                 </div>
                 <div className="as-usersub">
-                  <div className="as-role">{roleLabel(user?.role)}</div>
+                  <div className="as-userhandle">Teacher Portal</div>
                 </div>
               </div>
             </div>
           )}
 
-          {user && isCollapsed && !isMobile && (
+          {isCollapsed && !isMobile && !isHoverExpanded && (
             <div className="as-usercard-collapsed">
-              <div className="as-avatar">{getInitials(user?.full_name || user?.username || user?.email)}</div>
+              <div className="as-avatar">{avatarLetter}</div>
             </div>
           )}
         </div>

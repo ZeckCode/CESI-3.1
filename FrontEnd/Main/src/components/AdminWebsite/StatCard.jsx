@@ -1,5 +1,6 @@
 import React from 'react';
 import '../AdminWebsiteCSS/StatCard.css';
+import { generateStatInsight, getInsightColor } from '../../utils/statCardInsights';
 
 /**
  * Unified stat card component used across all admin pages.
@@ -10,6 +11,8 @@ import '../AdminWebsiteCSS/StatCard.css';
  * @param {'positive'|'negative'|''} [subtitleType] – Color hint for subtitle
  * @param {React.ReactNode} [icon] – Optional Lucide icon element
  * @param {'blue'|'green'|'yellow'|'purple'|'red'|'teal'} [color='blue'] – Left-border accent
+ * @param {string}  [insight] – Custom insight line (auto-generated if not provided)
+ * @param {boolean} [showInsight=true] – Whether to display the insight line
  */
 const StatCard = ({
   label,
@@ -18,18 +21,32 @@ const StatCard = ({
   subtitleType = '',
   icon,
   color = 'blue',
-}) => (
-  <div className={`unified-stat-card ${color}`}>
-    <div className="unified-stat-header">
-      <span className="unified-stat-label">{label}</span>
-      {icon && <span className="unified-stat-icon">{icon}</span>}
+  insight,
+  showInsight = true,
+}) => {
+  const displayInsight = showInsight
+    ? insight || generateStatInsight(label, value, subtitle)
+    : null;
+  const insightColor = displayInsight ? getInsightColor(displayInsight) : '#94a3b8';
+
+  return (
+    <div className={`unified-stat-card ${color}`}>
+      <div className="unified-stat-header">
+        <span className="unified-stat-label">{label}</span>
+        {icon && <span className="unified-stat-icon">{icon}</span>}
+      </div>
+      <div className="unified-stat-value">{value}</div>
+      {subtitle && (
+        <div className={`unified-stat-subtitle ${subtitleType}`}>{subtitle}</div>
+      )}
+      {displayInsight && (
+        <div className="unified-stat-insight" style={{ color: insightColor }}>
+          {displayInsight}
+        </div>
+      )}
     </div>
-    <div className="unified-stat-value">{value}</div>
-    {subtitle && (
-      <div className={`unified-stat-subtitle ${subtitleType}`}>{subtitle}</div>
-    )}
-  </div>
-);
+  );
+};
 
 /**
  * Wrapper grid that lays out StatCards in a responsive row.

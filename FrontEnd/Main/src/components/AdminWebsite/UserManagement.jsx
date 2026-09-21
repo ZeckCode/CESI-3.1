@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, Edit2, Search, Filter, Users,
-  BookOpen, GraduationCap, Save, X, UserCheck, UserX, RefreshCw,
+  BookOpen, GraduationCap, Save, X, UserCheck, UserX, RefreshCw, ArrowRightLeft, FileUp, Trash2,
 } from 'lucide-react';
 import { apiFetch } from '../api/apiFetch';
+import Toast from '../Global/Toast';
 import StatCard, { StatsGrid } from './StatCard';
 import Pagination from './Pagination';
 import '../AdminWebsiteCSS/UserManagement.css';
@@ -13,31 +14,9 @@ import '../AdminWebsiteCSS/UserManagement.css';
 ───────────────────────────────────────────── */
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
-const formatTeacherEmail = (firstName, lastName) => {
-  const first = (firstName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  const last = (lastName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  return first && last ? `${first}.${last}@cesi.edu.ph` : '';
-};
-
-const formatStudentEmail = (lastName, firstName) => {
-  const last = (lastName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  const first = (firstName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  return last && first ? `${last}.${first}@cesi.edu.ph` : '';
-};
-
 const isValidTeacherEmail = (email) => {
   const normalized = normalizeEmail(email);
   return /^[a-z0-9]+\.[a-z0-9]+@cesi\.edu\.ph$/.test(normalized);
-};
-
-const isValidStudentEmail = (email) => {
-  const normalized = normalizeEmail(email);
-  return /^[a-z0-9]+\.[a-z0-9]+@cesi\.edu\.ph$/.test(normalized);
-};
-
-const isValidAdminEmail = (email) => {
-  const normalized = normalizeEmail(email);
-  return normalized === 'cesi.admin@cesi.edu.ph' || /^admin|^cesi\.admin@cesi\.edu\.ph$/.test(normalized);
 };
 
 const UserManagement = () => {
@@ -55,15 +34,18 @@ const UserManagement = () => {
   const [activeTab, setActiveTab] = useState('students');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
+  const [transferDecisionFilter, setTransferDecisionFilter] = useState('All');
   const [studentPage, setStudentPage] = useState(1);
   const [teacherPage, setTeacherPage] = useState(1);
+  const [transferPage, setTransferPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  const SKELETON_ROW_COUNT = 6;
 
   // create teacher modal
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState({
     username: '', email: '', password: '',
-    subject: '', section_teacher: '', employee_id: '',
+    subjects: [''], section_teacher: '', employee_id: '',
   });
   const [createError, setCreateError] = useState('');
   const [emailHint, setEmailHint] = useState('');
@@ -71,7 +53,7 @@ const UserManagement = () => {
 
   // inline assignment editing (teachers)
   const [editingId, setEditingId] = useState(null);
-  const [assignForm, setAssignForm] = useState({ subject: '', section: '', employee_id: '' });
+  const [assignForm, setAssignForm] = useState({ subjects: [''], section: '', employee_id: '' });
   const [assignError, setAssignError] = useState('');
 
   // student edit modal
@@ -79,40 +61,115 @@ const UserManagement = () => {
   const [studentForm, setStudentForm] = useState({});
   const [studentEditError, setStudentEditError] = useState('');
   const [savingStudent, setSavingStudent] = useState(false);
+  const [showTransferForm, setShowTransferForm] = useState(false);
+  const [transferStudent, setTransferStudent] = useState(null);
+  const [transferForm, setTransferForm] = useState({
+    decision: 'PENDING',
+    transfer_date: '',
+    transfer_reason: '',
+    destination_school_name: '',
+    destination_school_address: '',
+    destination_school_contact: '',
+    transfer_reference_number: '',
+    transfer_notes: '',
+    allow_transfer_with_balance: false,
+    transfer_clearance: null,
+  });
+  const [transferError, setTransferError] = useState('');
+  const [savingTransfer, setSavingTransfer] = useState(false);
+  const [deleteTargetUser, setDeleteTargetUser] = useState(null);
+  const [deletingUser, setDeletingUser] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   // ── fetchers ──
+  // Helper to accept either raw array responses or paginated { results: [...] }
+  const parseListResponse = async (res) => {
+    try {
+      const contentType = (res.headers && res.headers.get ? res.headers.get('content-type') : '') || '';
+      let data = null;
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null);
+      } else {
+        data = await res.text().catch(() => null);
+      }
+
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.results)) return data.results;
+      if (data && Array.isArray(data.data)) return data.data;
+      if (data && Array.isArray(data.items)) return data.items;
+      // Unexpected shape: log for debugging and return empty list
+      console.warn('parseListResponse: unexpected response shape', data);
+      return [];
+    } catch (err) {
+      console.error('parseListResponse error', err);
+      return [];
+    }
+  };
+
   const fetchStudents = useCallback(async () => {
     try {
       const res = await apiFetch('/api/accounts/users/?role=PARENT_STUDENT');
-      if (res.ok) setStudents(await res.json());
+      if (res.ok) setStudents(await parseListResponse(res));
+      else {
+        const err = await res.json().catch(() => null);
+        console.error('fetchStudents failed', res.status, err);
+      }
     } catch (e) { console.error(e); }
   }, []);
 
   const fetchTeachers = useCallback(async () => {
     try {
       const res = await apiFetch('/api/accounts/users/?role=TEACHER');
-      if (res.ok) setTeachers(await res.json());
+      if (res.ok) setTeachers(await parseListResponse(res));
+      else {
+        const err = await res.json().catch(() => null);
+        console.error('fetchTeachers failed', res.status, err);
+      }
     } catch (e) { console.error(e); }
   }, []);
 
   const fetchActiveEnrollments = useCallback(async () => {
     try {
       const res = await apiFetch('/api/enrollments/?status=ACTIVE');
-      if (res.ok) setActiveEnrollments(await res.json());
+      if (res.ok) setActiveEnrollments(await parseListResponse(res));
+      else {
+        const err = await res.json().catch(() => null);
+        console.error('fetchActiveEnrollments failed', res.status, err);
+      }
     } catch (e) { console.error(e); }
   }, []);
 
   const fetchSubjects = useCallback(async () => {
     try {
       const res = await apiFetch('/api/accounts/subjects/');
-      if (res.ok) setSubjects(await res.json());
+      if (res.ok) setSubjects(await parseListResponse(res));
+      else {
+        const err = await res.json().catch(() => null);
+        console.error('fetchSubjects failed', res.status, err);
+      }
     } catch (e) { console.error(e); }
   }, []);
 
   const fetchSections = useCallback(async () => {
     try {
       const res = await apiFetch('/api/accounts/sections/');
-      if (res.ok) setSections(await res.json());
+      if (res.ok) setSections(await parseListResponse(res));
+      else {
+        const err = await res.json().catch(() => null);
+        console.error('fetchSections failed', res.status, err);
+      }
     } catch (e) { console.error(e); }
   }, []);
 
@@ -199,23 +256,16 @@ const UserManagement = () => {
 
   const activeEnrollmentMaps = useMemo(() => {
     const byParentUser = new Map();
-    const byEmail = new Map();
 
     activeEnrollments.forEach((e) => {
       if (e.parent_user) byParentUser.set(e.parent_user, e);
-      const email = String(e.email || '').trim().toLowerCase();
-      if (email) byEmail.set(email, e);
     });
 
-    return { byParentUser, byEmail };
+    return { byParentUser };
   }, [activeEnrollments]);
 
   const enrollmentForUser = (u) => {
-    const byParent = activeEnrollmentMaps.byParentUser.get(u.id);
-    if (byParent) return byParent;
-    const email = String(u.email || '').trim().toLowerCase();
-    if (!email) return null;
-    return activeEnrollmentMaps.byEmail.get(email) || null;
+    return activeEnrollmentMaps.byParentUser.get(u.id) || null;
   };
 
   const sectionById = useMemo(() => {
@@ -275,6 +325,78 @@ const UserManagement = () => {
     return `${prefix} – ${section.name}`;
   };
 
+  const teacherSubjects = (teacher) => {
+    const multi = Array.isArray(teacher?.teacher_profile?.subjects)
+      ? teacher.teacher_profile.subjects
+      : [];
+    if (multi.length > 0) return multi;
+
+    const legacy = teacher?.teacher_profile?.subject;
+    return legacy ? [legacy] : [];
+  };
+
+  const normalizeSubjectIds = (subjectIds) => {
+    const values = (subjectIds || [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isInteger(id) && id > 0);
+    return [...new Set(values)];
+  };
+
+  const extractErrorMessage = (payload, fallback = 'Request failed.') => {
+    if (!payload) return fallback;
+
+    const stringifyValue = (value) => {
+      if (!value) return '';
+      if (Array.isArray(value)) return value.join(' ');
+      if (typeof value === 'string') return value;
+      return '';
+    };
+
+    return (
+      stringifyValue(payload.detail)
+      || stringifyValue(payload.non_field_errors)
+      || stringifyValue(payload.subjects)
+      || stringifyValue(payload.subject)
+      || stringifyValue(payload.section)
+      || stringifyValue(payload.section_teacher)
+      || stringifyValue(payload.email)
+      || stringifyValue(payload.errors?.detail)
+      || fallback
+    );
+  };
+
+  const addSubjectPicker = (setter) => {
+    setter((prev) => ({
+      ...prev,
+      subjects: [...(prev.subjects || []), ''],
+    }));
+  };
+
+  const updateSubjectPicker = (setter, index, value) => {
+    setter((prev) => {
+      const next = [...(prev.subjects || [''])];
+      next[index] = value;
+      return { ...prev, subjects: next };
+    });
+  };
+
+  const removeSubjectPicker = (setter, index) => {
+    setter((prev) => {
+      const next = [...(prev.subjects || [''])];
+      next.splice(index, 1);
+      return { ...prev, subjects: next.length ? next : [''] };
+    });
+  };
+
+  const isSubjectOptionDisabled = (selectedIds, candidateId, currentIndex) => {
+    return (selectedIds || []).some(
+      (id, idx) => idx !== currentIndex && String(id) === String(candidateId)
+    );
+  };
+
+  const normalizedStatus = (value) => String(value || 'INACTIVE').toUpperCase();
+  const normalizedTransferStatus = (value) => String(value || 'NONE').toUpperCase();
+
   // ── filter ──
   const filteredStudents = students.filter((u) => {
     const name = studentName(u).toLowerCase();
@@ -283,20 +405,42 @@ const UserManagement = () => {
       name.includes(searchTerm.toLowerCase()) ||
       parent.includes(searchTerm.toLowerCase()) ||
       u.email.toLowerCase().includes(searchTerm.toLowerCase());
-      const statusCode = String(u.status || "INACTIVE").toUpperCase();
-const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUpperCase();
+    const statusCode = normalizedStatus(u.status);
+    const matchStatus = filterStatus === 'All' || statusCode === filterStatus.toUpperCase();
     return matchSearch && matchStatus;
   });
 
   const filteredTeachers = teachers.filter((u) => {
-    const subjectName = u.teacher_profile?.subject?.name || '';
+    const subjectName = teacherSubjects(u).map((s) => s?.name || '').join(' ');
     const matchSearch =
       u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       subjectName.toLowerCase().includes(searchTerm.toLowerCase());
-   const statusCode = String(u.status || "INACTIVE").toUpperCase();
-const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUpperCase();
+    const statusCode = normalizedStatus(u.status);
+    const matchStatus = filterStatus === 'All' || statusCode === filterStatus.toUpperCase();
     return matchSearch && matchStatus;
+  });
+
+  const transferRequests = students.filter((u) => normalizedTransferStatus(u.profile?.transfer_status) !== 'NONE');
+
+  const filteredTransferRequests = transferRequests.filter((u) => {
+    const transferStatus = normalizedTransferStatus(u.profile?.transfer_status);
+    const matchStatus = transferDecisionFilter === 'All' || transferStatus === transferDecisionFilter.toUpperCase();
+
+    const haystack = [
+      studentNameDisplay(u),
+      parentNameDisplay(u),
+      u.email,
+      u.profile?.destination_school_name,
+      u.profile?.transfer_reason,
+      u.profile?.transfer_reference_number,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    const matchSearch = haystack.includes(searchTerm.toLowerCase());
+    return matchStatus && matchSearch;
   });
 
   // ── pagination slicing ──
@@ -304,20 +448,26 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
   const paginatedStudents = filteredStudents.slice((studentPage - 1) * ITEMS_PER_PAGE, studentPage * ITEMS_PER_PAGE);
   const teacherTotalPages = Math.ceil(filteredTeachers.length / ITEMS_PER_PAGE);
   const paginatedTeachers = filteredTeachers.slice((teacherPage - 1) * ITEMS_PER_PAGE, teacherPage * ITEMS_PER_PAGE);
+  const transferTotalPages = Math.ceil(filteredTransferRequests.length / ITEMS_PER_PAGE);
+  const paginatedTransfers = filteredTransferRequests.slice((transferPage - 1) * ITEMS_PER_PAGE, transferPage * ITEMS_PER_PAGE);
 
   // reset page on filter/search/tab changes
-  useEffect(() => { setStudentPage(1); setTeacherPage(1); }, [searchTerm, filterStatus, activeTab]);
+  useEffect(() => { setStudentPage(1); setTeacherPage(1); setTransferPage(1); }, [searchTerm, filterStatus, transferDecisionFilter, activeTab]);
 
   // ── create teacher ──
   const handleCreateTeacher = async () => {
     setCreateError('');
     setEmailHint('');
     if (!createForm.username || !createForm.email || !createForm.password) {
-      setCreateError('Username, email and password are required.');
+      const msg = 'Username, email and password are required.';
+      setCreateError(msg);
+      addToast('Validation Error', msg, 'error');
       return;
     }
     if (!isValidTeacherEmail(createForm.email)) {
-      setCreateError('Email must follow teacher format: firstname.lastname@cesi.edu.ph');
+      const msg = 'Email must follow teacher format: firstname.lastname@cesi.edu.ph';
+      setCreateError(msg);
+      addToast('Invalid Email', msg, 'error');
       return;
     }
     setCreating(true);
@@ -329,7 +479,10 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         role: 'TEACHER',
         employee_id: createForm.employee_id || '',
       };
-      if (createForm.subject) body.subject = parseInt(createForm.subject);
+      const subjectIds = normalizeSubjectIds(createForm.subjects);
+      if (subjectIds.length > 0) {
+        body.subjects = subjectIds;
+      }
       if (createForm.section_teacher) body.section_teacher = parseInt(createForm.section_teacher);
 
       const res = await apiFetch('/api/accounts/admin/create-user/', {
@@ -339,13 +492,15 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.detail || data.errors?.detail || JSON.stringify(data.errors || data));
+        throw new Error(extractErrorMessage(data, 'Failed to create teacher.'));
       }
+      addToast('Success', 'Teacher created successfully!', 'success');
       setShowCreateForm(false);
-      setCreateForm({ username: '', email: '', password: '', subject: '', section_teacher: '', employee_id: '' });
-      fetchTeachers();
+      setCreateForm({ username: '', email: '', password: '', subjects: [''], section_teacher: '', employee_id: '' });
+      await fetchTeachers();
     } catch (e) {
       setCreateError(e.message);
+      addToast('Error', e.message, 'error');
     } finally {
       setCreating(false);
     }
@@ -379,7 +534,9 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
   const handleSaveStudent = async () => {
     setStudentEditError('');
     if (!studentForm.student_first_name || !studentForm.student_last_name) {
-      setStudentEditError('Student first and last name are required.');
+      const msg = 'Student first and last name are required.';
+      setStudentEditError(msg);
+      addToast('Validation Error', msg, 'error');
       return;
     }
     setSavingStudent(true);
@@ -395,20 +552,264 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || JSON.stringify(err));
       }
+      addToast('Success', 'Student information updated successfully!', 'success');
       closeStudentEdit();
       fetchStudents();
     } catch (e) {
       setStudentEditError(e.message);
+      addToast('Error', e.message, 'error');
     } finally {
       setSavingStudent(false);
     }
   };
 
+  const openTransferModal = (u) => {
+    const p = u?.profile || {};
+    const status = normalizedTransferStatus(p.transfer_status);
+    const normalizedDecision = ["PENDING", "APPROVED", "REJECTED"].includes(status) ? status : "PENDING";
+    setTransferStudent(u);
+    setTransferError('');
+    setTransferForm({
+      decision: normalizedDecision,
+      transfer_date: p.transfer_date || '',
+      transfer_reason: p.transfer_reason || '',
+      destination_school_name: p.destination_school_name || '',
+      destination_school_address: p.destination_school_address || '',
+      destination_school_contact: p.destination_school_contact || '',
+      transfer_reference_number: p.transfer_reference_number || '',
+      transfer_notes: p.transfer_notes || '',
+      allow_transfer_with_balance: Boolean(p.allow_transfer_with_balance),
+      transfer_clearance: null,
+    });
+    setShowTransferForm(true);
+  };
+
+  const closeTransferModal = () => {
+    setShowTransferForm(false);
+    setTransferStudent(null);
+    setTransferError('');
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) return '—';
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return '—';
+    return dt.toLocaleString();
+  };
+
+  const submitTransferDecision = async () => {
+    if (!transferStudent) return;
+
+    setTransferError('');
+    setSavingTransfer(true);
+    try {
+      const formData = new FormData();
+      formData.append('decision', transferForm.decision);
+      if (transferForm.transfer_date) formData.append('transfer_date', transferForm.transfer_date);
+      formData.append('transfer_reason', transferForm.transfer_reason || '');
+      formData.append('destination_school_name', transferForm.destination_school_name || '');
+      formData.append('destination_school_address', transferForm.destination_school_address || '');
+      formData.append('destination_school_contact', transferForm.destination_school_contact || '');
+      formData.append('transfer_reference_number', transferForm.transfer_reference_number || '');
+      formData.append('transfer_notes', transferForm.transfer_notes || '');
+      formData.append('allow_transfer_with_balance', transferForm.allow_transfer_with_balance ? 'true' : 'false');
+      if (transferForm.transfer_clearance) {
+        formData.append('transfer_clearance', transferForm.transfer_clearance);
+      }
+
+      const res = await apiFetch(`/api/accounts/users/${transferStudent.id}/transfer/`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(extractErrorMessage(payload, 'Failed to save transfer decision.'));
+      }
+
+      addToast('Success', 'Transfer decision saved successfully.', 'success');
+      closeTransferModal();
+      await fetchStudents();
+    } catch (e) {
+      setTransferError(e.message);
+      addToast('Error', e.message, 'error');
+    } finally {
+      setSavingTransfer(false);
+    }
+  };
+
+  const printTransferClearance = () => {
+    if (!transferStudent) {
+      addToast('Print Error', 'No selected student for clearance printing.', 'error');
+      return;
+    }
+
+    const student = studentNameDisplay(transferStudent) || 'N/A';
+    const grade = studentGradeDisplay(transferStudent) || 'N/A';
+    const section = studentSectionDisplay(transferStudent) || 'N/A';
+    const parent = parentNameDisplay(transferStudent) || 'N/A';
+    const dateValue = transferForm.transfer_date || new Date().toISOString().slice(0, 10);
+    const decisionLabel = transferForm.decision === 'APPROVED'
+      ? 'Approved'
+      : transferForm.decision === 'REJECTED'
+        ? 'Rejected'
+        : 'Pending';
+
+    const printWindow = window.open('', '_blank', 'width=900,height=1200');
+    if (!printWindow) {
+      addToast('Print Blocked', 'Enable pop-ups to print transfer clearance.', 'warning');
+      return;
+    }
+
+    const escapeHtml = (value) => String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+    const html = `
+      <!doctype html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Transfer Clearance - ${escapeHtml(student)}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 28px; color: #111827; }
+          .header { text-align: center; margin-bottom: 24px; }
+          .header h1 { margin: 0 0 6px; font-size: 22px; }
+          .header p { margin: 0; color: #4b5563; }
+          .card { border: 1px solid #d1d5db; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+          .row { margin: 8px 0; }
+          .label { color: #4b5563; font-size: 12px; margin-bottom: 2px; }
+          .value { font-size: 14px; font-weight: 600; white-space: pre-wrap; word-break: break-word; }
+          .full { grid-column: 1 / -1; }
+          .signatures { margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+          .sig-line { border-top: 1px solid #111827; margin-top: 38px; padding-top: 6px; font-size: 12px; color: #374151; }
+          @media print {
+            body { margin: 12mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Caloocan Evangelical School Inc.</h1>
+          <p>Student Transfer Clearance</p>
+        </div>
+
+        <div class="card">
+          <div class="grid">
+            <div>
+              <div class="label">Student Name</div>
+              <div class="value">${escapeHtml(student)}</div>
+            </div>
+            <div>
+              <div class="label">Clearance Date</div>
+              <div class="value">${escapeHtml(dateValue)}</div>
+            </div>
+            <div>
+              <div class="label">Grade Level</div>
+              <div class="value">${escapeHtml(grade)}</div>
+            </div>
+            <div>
+              <div class="label">Section</div>
+              <div class="value">${escapeHtml(section)}</div>
+            </div>
+            <div>
+              <div class="label">Parent / Guardian</div>
+              <div class="value">${escapeHtml(parent)}</div>
+            </div>
+            <div>
+              <div class="label">Decision</div>
+              <div class="value">${escapeHtml(decisionLabel)}</div>
+            </div>
+            <div class="full">
+              <div class="label">Destination School</div>
+              <div class="value">${escapeHtml(transferForm.destination_school_name || 'N/A')}</div>
+            </div>
+            <div class="full">
+              <div class="label">Destination Address</div>
+              <div class="value">${escapeHtml(transferForm.destination_school_address || 'N/A')}</div>
+            </div>
+            <div>
+              <div class="label">Destination Contact</div>
+              <div class="value">${escapeHtml(transferForm.destination_school_contact || 'N/A')}</div>
+            </div>
+            <div>
+              <div class="label">Reference Number</div>
+              <div class="value">${escapeHtml(transferForm.transfer_reference_number || 'N/A')}</div>
+            </div>
+            <div class="full">
+              <div class="label">Reason for Transfer</div>
+              <div class="value">${escapeHtml(transferForm.transfer_reason || 'N/A')}</div>
+            </div>
+            <div class="full">
+              <div class="label">Admin Notes</div>
+              <div class="value">${escapeHtml(transferForm.transfer_notes || 'N/A')}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="signatures">
+          <div>
+            <div class="sig-line">Prepared by (Admin)</div>
+          </div>
+          <div>
+            <div class="sig-line">Parent / Guardian Signature</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  const openDeleteUserModal = (u) => {
+    setDeleteTargetUser(u);
+  };
+
+  const closeDeleteUserModal = () => {
+    if (deletingUser) return;
+    setDeleteTargetUser(null);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteTargetUser) return;
+    const displayName = studentNameDisplay(deleteTargetUser) || deleteTargetUser.username || `ID ${deleteTargetUser.id}`;
+
+    try {
+      setDeletingUser(true);
+      const res = await apiFetch(`/api/accounts/users/${deleteTargetUser.id}/`, { method: 'DELETE' });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(extractErrorMessage(payload, 'Failed to delete user.'));
+      }
+      addToast('Deleted', `${displayName} and related records were deleted.`, 'success');
+      setDeleteTargetUser(null);
+      await refreshAll(true);
+    } catch (e) {
+      addToast('Delete Failed', e.message, 'error');
+    } finally {
+      setDeletingUser(false);
+    }
+  };
+
   // ── inline assignment ──
   const startEdit = (teacher) => {
+    const existingSubjectIds = teacherSubjects(teacher)
+      .map((s) => s?.id)
+      .filter((id) => id !== null && id !== undefined)
+      .map((id) => String(id));
+
     setEditingId(teacher.id);
     setAssignForm({
-      subject: teacher.teacher_profile?.subject?.id || '',
+      subjects: existingSubjectIds.length ? existingSubjectIds : [''],
       section: teacher.teacher_profile?.section?.id || '',
       employee_id: teacher.teacher_profile?.employee_id || '',
     });
@@ -421,7 +822,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
     setAssignError('');
     try {
       const body = {
-        subject: assignForm.subject ? parseInt(assignForm.subject) : null,
+        subjects: normalizeSubjectIds(assignForm.subjects),
         section: assignForm.section ? parseInt(assignForm.section) : null,
         employee_id: assignForm.employee_id || '',
       };
@@ -432,12 +833,14 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || JSON.stringify(err));
+        throw new Error(extractErrorMessage(err, 'Failed to update teacher assignment.'));
       }
+      addToast('Success', 'Teacher assignment updated successfully!', 'success');
       setEditingId(null);
-      fetchTeachers();
+      await fetchTeachers();
     } catch (e) {
       setAssignError(e.message);
+      addToast('Error', e.message, 'error');
     }
   };
 
@@ -450,13 +853,81 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
   const teacherStats = {
     total: teachers.length,
     active: teachers.filter((t) => t.status === 'ACTIVE').length,
-    assigned: teachers.filter((t) => t.teacher_profile?.subject).length,
+    assigned: teachers.filter((t) => teacherSubjects(t).length > 0).length,
   };
+  const transferStats = {
+    total: transferRequests.length,
+    pending: transferRequests.filter((s) => normalizedTransferStatus(s.profile?.transfer_status) === 'PENDING').length,
+    approved: transferRequests.filter((s) => normalizedTransferStatus(s.profile?.transfer_status) === 'APPROVED').length,
+    rejected: transferRequests.filter((s) => normalizedTransferStatus(s.profile?.transfer_status) === 'REJECTED').length,
+  };
+
+  const skeletonColumnCount = activeTab === 'teachers' ? 7 : 9;
+
+  const renderSkeletonRows = (columnCount) => (
+    Array.from({ length: SKELETON_ROW_COUNT }).map((_, rowIdx) => (
+      <tr key={`skeleton-row-${rowIdx}`}>
+        {Array.from({ length: columnCount }).map((__, colIdx) => (
+          <td key={`skeleton-cell-${rowIdx}-${colIdx}`}>
+            <div
+              className={`skeleton-line ${
+                colIdx === 0 ? 'w-lg' : colIdx === columnCount - 1 ? 'w-sm' : 'w-md'
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ))
+  );
 
   if (loading) {
     return (
       <div className="user-management">
-        <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>Loading users…</div>
+        <div className="user-header skeleton-header-row">
+          <div className="skeleton-line w-xl" />
+          <div className="skeleton-header-actions">
+            <div className="skeleton-line w-md" />
+            <div className="skeleton-line w-sm" />
+          </div>
+        </div>
+
+        <StatsGrid>
+          <div className="stat-card skeleton-stat-card">
+            <div className="skeleton-line w-sm" />
+            <div className="skeleton-line w-xs" />
+          </div>
+          <div className="stat-card skeleton-stat-card">
+            <div className="skeleton-line w-sm" />
+            <div className="skeleton-line w-xs" />
+          </div>
+          <div className="stat-card skeleton-stat-card">
+            <div className="skeleton-line w-sm" />
+            <div className="skeleton-line w-xs" />
+          </div>
+        </StatsGrid>
+
+        <div className="user-controls skeleton-controls">
+          <div className="skeleton-line w-full" />
+          <div className="skeleton-line w-full" />
+        </div>
+
+        <div className="users-container skeleton-container">
+          <div className="users-table-scroll-hint">Loading user table...</div>
+          <table className="users-table users-table-skeleton" aria-hidden="true">
+            <thead>
+              <tr>
+                {Array.from({ length: skeletonColumnCount }).map((_, idx) => (
+                  <th key={`skeleton-head-${idx}`}>
+                    <div className="skeleton-line skeleton-header-line" />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {renderSkeletonRows(skeletonColumnCount)}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }
@@ -468,31 +939,49 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         <div className="tabs-container">
           <button
             className={`tab-btn ${activeTab === 'students' ? 'active' : ''}`}
+            aria-label="Students"
             onClick={() => { setActiveTab('students'); setSearchTerm(''); setFilterStatus('All'); }}
           >
-            <GraduationCap size={18} /> Students ({studentStats.total})
+            <GraduationCap size={18} /> <span className="tab-btn-text">Students ({studentStats.total})</span>
           </button>
           <button
             className={`tab-btn ${activeTab === 'teachers' ? 'active' : ''}`}
+            aria-label="Teachers"
             onClick={() => { setActiveTab('teachers'); setSearchTerm(''); setFilterStatus('All'); }}
           >
-            <BookOpen size={18} /> Teachers ({teacherStats.total})
+            <BookOpen size={18} /> <span className="tab-btn-text">Teachers ({teacherStats.total})</span>
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'transfers' ? 'active' : ''}`}
+            aria-label="Transfer Requests"
+            onClick={() => { setActiveTab('transfers'); setSearchTerm(''); setTransferDecisionFilter('All'); }}
+          >
+            <ArrowRightLeft size={18} /> <span className="tab-btn-text">Transfer Requests ({transferStats.total})</span>
           </button>
         </div>
         {activeTab === 'teachers' && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button className="btn-secondary" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest data from database">
-              <RefreshCw size={16} /> {refreshing ? 'Refreshing…' : 'Refresh'}
+          <div className="user-header-actions">
+            <button className="btn-primary header-btn btn-add-teacher" onClick={() => setShowCreateForm(true)} aria-label="Add new teacher">
+              <Plus size={18} /> <span className="header-btn-text">Add New Teacher</span>
             </button>
-            <button className="btn-primary" onClick={() => setShowCreateForm(true)}>
-              <Plus size={18} /> Add New Teacher
+            <button className="btn-secondary header-btn btn-refresh" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest data from database" aria-label={refreshing ? 'Refreshing data' : 'Refresh data'}>
+              <RefreshCw size={16} /> <span className="header-btn-text">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
             </button>
           </div>
         )}
         {activeTab === 'students' && (
-          <button className="btn-secondary" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest data from database">
-            <RefreshCw size={16} /> {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
+          <div className="user-header-actions single-action">
+            <button className="btn-secondary header-btn btn-refresh" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest data from database" aria-label={refreshing ? 'Refreshing data' : 'Refresh data'}>
+              <RefreshCw size={16} /> <span className="header-btn-text">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+            </button>
+          </div>
+        )}
+        {activeTab === 'transfers' && (
+          <div className="user-header-actions single-action">
+            <button className="btn-secondary header-btn btn-refresh" onClick={() => refreshAll(true)} disabled={refreshing} title="Refresh latest transfer requests from database" aria-label={refreshing ? 'Refreshing data' : 'Refresh data'}>
+              <RefreshCw size={16} /> <span className="header-btn-text">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+            </button>
+          </div>
         )}
       </div>
       {lastUpdated && (
@@ -514,6 +1003,14 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
           <StatCard label="Total Teachers" value={teacherStats.total} icon={<BookOpen size={20} />} color="blue" />
           <StatCard label="Active" value={teacherStats.active} icon={<UserCheck size={20} />} color="green" />
           <StatCard label="Assigned to Subject" value={teacherStats.assigned} icon={<GraduationCap size={20} />} color="purple" />
+        </StatsGrid>
+      )}
+      {activeTab === 'transfers' && (
+        <StatsGrid>
+          <StatCard label="Total Requests" value={transferStats.total} icon={<ArrowRightLeft size={20} />} color="blue" />
+          <StatCard label="Pending" value={transferStats.pending} icon={<RefreshCw size={20} />} color="red" />
+          <StatCard label="Approved" value={transferStats.approved} icon={<UserCheck size={20} />} color="green" />
+          <StatCard label="Rejected" value={transferStats.rejected} icon={<UserX size={20} />} color="purple" />
         </StatsGrid>
       )}
 
@@ -564,12 +1061,44 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Subject</label>
-                <select value={createForm.subject}
-                  onChange={(e) => setCreateForm({ ...createForm, subject: e.target.value })}>
-                  <option value="">— None —</option>
-                  {subjects.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
-                </select>
+                <label>Subjects</label>
+                {(createForm.subjects || []).map((subjectId, idx) => (
+                  <div key={`create-subject-${idx}`} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    <select
+                      value={subjectId}
+                      onChange={(e) => updateSubjectPicker(setCreateForm, idx, e.target.value)}
+                      style={{ flex: 1 }}
+                    >
+                      <option value="">— Select subject —</option>
+                      {subjects.map((s) => (
+                        <option
+                          key={s.id}
+                          value={String(s.id)}
+                          disabled={isSubjectOptionDisabled(createForm.subjects, s.id, idx)}
+                        >
+                          {s.name} ({s.code})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-edit"
+                      onClick={() => addSubjectPicker(setCreateForm)}
+                      title="Add subject"
+                    >
+                      <Plus size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-cancel-sm"
+                      onClick={() => removeSubjectPicker(setCreateForm, idx)}
+                      title="Remove subject"
+                      disabled={(createForm.subjects || []).length === 1}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
               </div>
               <div className="form-group">
                 <label>Assigned Section</label>
@@ -696,6 +1225,163 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         </div>
       )}
 
+      {/* ── Student Transfer Decision Modal ── */}
+      {showTransferForm && transferStudent && (
+        <div className="modal-overlay" onClick={closeTransferModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Student Transfer Decision</h2>
+            {transferError && <div className="form-error">{transferError}</div>}
+
+            <div className="form-group">
+              <label>Student</label>
+              <input type="text" value={studentNameDisplay(transferStudent)} readOnly />
+            </div>
+
+            <div className="form-group">
+              <label>Decision *</label>
+              <select
+                value={transferForm.decision}
+                onChange={(e) => setTransferForm({ ...transferForm, decision: e.target.value })}
+              >
+                <option value="PENDING">Pending</option>
+                <option value="APPROVED">Approve Transfer</option>
+                <option value="REJECTED">Reject Transfer</option>
+              </select>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Transfer Date</label>
+                <input
+                  type="date"
+                  value={transferForm.transfer_date}
+                  onChange={(e) => setTransferForm({ ...transferForm, transfer_date: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Reference Number</label>
+                <input
+                  type="text"
+                  value={transferForm.transfer_reference_number}
+                  onChange={(e) => setTransferForm({ ...transferForm, transfer_reference_number: e.target.value })}
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Destination School Name</label>
+              <input
+                type="text"
+                value={transferForm.destination_school_name}
+                onChange={(e) => setTransferForm({ ...transferForm, destination_school_name: e.target.value })}
+              />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Destination Contact</label>
+                <input
+                  type="text"
+                  value={transferForm.destination_school_contact}
+                  onChange={(e) => setTransferForm({ ...transferForm, destination_school_contact: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Clearance File</label>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => setTransferForm({
+                    ...transferForm,
+                    transfer_clearance: e.target.files && e.target.files.length ? e.target.files[0] : null,
+                  })}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Destination School Address</label>
+              <input
+                type="text"
+                value={transferForm.destination_school_address}
+                onChange={(e) => setTransferForm({ ...transferForm, destination_school_address: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Transfer Reason</label>
+              <input
+                type="text"
+                value={transferForm.transfer_reason}
+                onChange={(e) => setTransferForm({ ...transferForm, transfer_reason: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Admin Notes</label>
+              <input
+                type="text"
+                value={transferForm.transfer_notes}
+                onChange={(e) => setTransferForm({ ...transferForm, transfer_notes: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group" style={{ marginTop: -8 }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={transferForm.allow_transfer_with_balance}
+                  onChange={(e) => setTransferForm({ ...transferForm, allow_transfer_with_balance: e.target.checked })}
+                />
+                Allow transfer even when outstanding balance exists
+              </label>
+            </div>
+
+            <div className="form-group" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
+              <label style={{ marginBottom: 10 }}>Request History / Audit</label>
+              <div style={{ fontSize: 13, color: '#334155', display: 'grid', gap: 6 }}>
+                <div><strong>Current Request Status:</strong> {normalizedTransferStatus(transferStudent.profile?.transfer_status)}</div>
+                <div><strong>Requested At:</strong> {formatDateTime(transferStudent.profile?.transfer_requested_at)}</div>
+                <div><strong>Approved At:</strong> {formatDateTime(transferStudent.profile?.transfer_approved_at)}</div>
+                <div><strong>Approved By (User ID):</strong> {transferStudent.profile?.transfer_approved_by || '—'}</div>
+                <div><strong>Recorded Reason:</strong> {transferStudent.profile?.transfer_reason || '—'}</div>
+                <div><strong>Recorded Destination:</strong> {transferStudent.profile?.destination_school_name || '—'}</div>
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button className="btn-secondary" onClick={closeTransferModal}>Cancel</button>
+              <button className="btn-secondary" onClick={printTransferClearance}>Print Clearance</button>
+              <button className="btn-primary" onClick={submitTransferDecision} disabled={savingTransfer}>
+                <FileUp size={16} /> {savingTransfer ? 'Saving…' : 'Save Decision'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete User Confirmation Modal ── */}
+      {deleteTargetUser && (
+        <div className="modal-overlay" onClick={closeDeleteUserModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Delete User</h2>
+            <div className="form-group">
+              <p style={{ margin: 0, color: '#334155', lineHeight: 1.5 }}>
+                Delete <strong>{studentNameDisplay(deleteTargetUser) || deleteTargetUser.username || `ID ${deleteTargetUser.id}`}</strong>?
+                This will also remove enrollment, academic, and financial records linked to this account. This action cannot be undone.
+              </p>
+            </div>
+            <div className="form-actions">
+              <button className="btn-secondary" onClick={closeDeleteUserModal} disabled={deletingUser}>Cancel</button>
+              <button className="btn-delete" onClick={handleDeleteUser} disabled={deletingUser}>
+                <Trash2 size={16} /> {deletingUser ? 'Deleting…' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search & Filter */}
       <div className="user-controls">
         <div className="search-box">
@@ -704,18 +1390,32 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
             type="text"
             placeholder={activeTab === 'students'
               ? 'Search students by name, parent, or email...'
-              : 'Search teachers by name, subject, or email...'}
+              : activeTab === 'transfers'
+                ? 'Search transfer requests by student, parent, destination, reason...'
+                : 'Search teachers by name, subject, or email...'}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <div className="filter-box">
           <Filter size={18} />
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="All">All Status</option>
-            <option value="Active">Active Only</option>
-            <option value="Inactive">Inactive Only</option>
-          </select>
+          {activeTab === 'transfers' ? (
+            <select value={transferDecisionFilter} onChange={(e) => setTransferDecisionFilter(e.target.value)}>
+              <option value="All">All Decisions</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          ) : (
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="All">All Status</option>
+              <option value="Active">Active Only</option>
+              <option value="Inactive">Inactive Only</option>
+              <option value="Suspended">Suspended Only</option>
+              <option value="Transferred">Transferred Only</option>
+              <option value="New">New Only</option>
+            </select>
+          )}
         </div>
       </div>
 
@@ -724,6 +1424,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
         <div className="users-container">
           {filteredStudents.length > 0 ? (
             <>
+            <div className="users-table-scroll-hint">← Swipe to scroll →</div>
             <table className="users-table">
               <thead>
                 <tr>
@@ -735,6 +1436,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                   <th>Parent / Guardian</th>
                   <th>Email</th>
                   <th>Contact</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -748,10 +1450,17 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                     <td>{parentNameDisplay(u)}</td>
                     <td><a href={`mailto:${u.email}`}>{u.email}</a></td>
                     <td>{contactDisplay(u)}</td>
+                    <td><span className={`user-status-badge ${normalizedStatus(u.status).toLowerCase()}`}>{normalizedStatus(u.status)}</span></td>
                     <td>
                       <div className="action-buttons">
                         <button className="btn-edit" onClick={() => openStudentEdit(u)} title="Edit Student">
                           <Edit2 size={16} />
+                        </button>
+                        <button className="btn-save" onClick={() => openTransferModal(u)} title="Transfer Workflow">
+                          <ArrowRightLeft size={16} />
+                        </button>
+                        <button className="btn-delete" onClick={() => openDeleteUserModal(u)} title="Delete User and Records">
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </td>
@@ -773,13 +1482,14 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
           {assignError && <div className="form-error" style={{ marginBottom: '1rem' }}>{assignError}</div>}
           {filteredTeachers.length > 0 ? (
             <>
+            <div className="users-table-scroll-hint">← Swipe to scroll →</div>
             <table className="users-table">
               <thead>
                 <tr>
                   <th>Username</th>
                   <th>Email</th>
                   <th>Employee ID</th>
-                  <th>Subject</th>
+                  <th>Subjects</th>
                   <th>Assigned Section</th>
                   <th>Status</th>
                   <th>Actions</th>
@@ -789,6 +1499,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                 {paginatedTeachers.map((u) => {
                   const isEditing = editingId === u.id;
                   const tp = u.teacher_profile;
+                  const subjectList = teacherSubjects(u);
                   return (
                     <tr key={u.id}>
                       <td><strong>{u.username}</strong></td>
@@ -801,13 +1512,48 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                       </td>
                       <td>
                         {isEditing ? (
-                          <select className="inline-select" value={assignForm.subject}
-                            onChange={(e) => setAssignForm({ ...assignForm, subject: e.target.value })}>
-                            <option value="">— None —</option>
-                            {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                          </select>
-                        ) : tp?.subject ? (
-                          <span className="badge-subject">{tp.subject.name}</span>
+                          <div>
+                            {(assignForm.subjects || []).map((subjectId, idx) => (
+                              <div key={`assign-subject-${u.id}-${idx}`} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                                <select
+                                  className="inline-select"
+                                  value={subjectId}
+                                  onChange={(e) => updateSubjectPicker(setAssignForm, idx, e.target.value)}
+                                  style={{ width: '100%' }}
+                                >
+                                  <option value="">— Select subject —</option>
+                                  {subjects.map((s) => (
+                                    <option
+                                      key={s.id}
+                                      value={String(s.id)}
+                                      disabled={isSubjectOptionDisabled(assignForm.subjects, s.id, idx)}
+                                    >
+                                      {s.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  className="btn-edit"
+                                  onClick={() => addSubjectPicker(setAssignForm)}
+                                  title="Add subject"
+                                >
+                                  <Plus size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-cancel-sm"
+                                  onClick={() => removeSubjectPicker(setAssignForm, idx)}
+                                  title="Remove subject"
+                                  disabled={(assignForm.subjects || []).length === 1}
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : subjectList.length > 0 ? (
+                          <span className="badge-subject">{subjectList.map((s) => s.name).join(', ')}</span>
                         ) : (
                           <span className="badge-none">Unassigned</span>
                         )}
@@ -821,7 +1567,7 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
                           </select>
                         ) : tp?.section ? sectionLabel(tp.section) : '—'}
                       </td>
-                      <td><span className={`status-badge ${u.status.toLowerCase()}`}>{u.status}</span></td>
+                      <td><span className={`user-status-badge ${u.status.toLowerCase()}`}>{u.status}</span></td>
                       <td>
                         <div className="action-buttons">
                           {isEditing ? (
@@ -852,6 +1598,60 @@ const matchStatus = filterStatus === "All" || statusCode === filterStatus.toUppe
           )}
         </div>
       )}
+
+      {/* ── TRANSFER REQUESTS TABLE ── */}
+      {activeTab === 'transfers' && (
+        <div className="users-container">
+          {filteredTransferRequests.length > 0 ? (
+            <>
+              <div className="users-table-scroll-hint">← Swipe to scroll →</div>
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th>Student Name</th>
+                    <th>Parent / Guardian</th>
+                    <th>Grade</th>
+                    <th>Requested At</th>
+                    <th>Destination School</th>
+                    <th>Reason</th>
+                    <th>Decision</th>
+                    <th>Approved At</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedTransfers.map((u) => (
+                    <tr key={`transfer-${u.id}`}>
+                      <td><strong>{studentNameDisplay(u)}</strong></td>
+                      <td>{parentNameDisplay(u)}</td>
+                      <td>{studentGradeDisplay(u)}</td>
+                      <td>{formatDateTime(u.profile?.transfer_requested_at)}</td>
+                      <td>{u.profile?.destination_school_name || '—'}</td>
+                      <td>{u.profile?.transfer_reason || '—'}</td>
+                      <td><span className={`user-status-badge ${normalizedTransferStatus(u.profile?.transfer_status).toLowerCase()}`}>{normalizedTransferStatus(u.profile?.transfer_status)}</span></td>
+                      <td>{formatDateTime(u.profile?.transfer_approved_at)}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button className="btn-save" onClick={() => openTransferModal(u)} title="Review Transfer Request">
+                            <ArrowRightLeft size={16} />
+                          </button>
+                          <button className="btn-delete" onClick={() => openDeleteUserModal(u)} title="Delete User and Records">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <Pagination currentPage={transferPage} totalPages={transferTotalPages} onPageChange={setTransferPage} totalItems={filteredTransferRequests.length} itemsPerPage={ITEMS_PER_PAGE} />
+            </>
+          ) : (
+            <div className="no-results"><ArrowRightLeft size={48} /><p>No transfer requests found.</p></div>
+          )}
+        </div>
+      )}
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </div>
   );
 };

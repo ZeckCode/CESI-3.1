@@ -4,8 +4,29 @@ import DOMPurify from "dompurify";
 import "../IndexWebsiteCSS/Notebook.css";
 import "../IndexWebsiteCSS/AnnouncementCard.css";
 import OrganizationalChart from "../AdminWebsite/OrganizationalChart";
+import { apiFetch } from "../api/apiFetch";
+import { API_BASE_URL } from "../../config/api";
 
-const API_BASE = ""; // use Vite proxy
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+
+// Fix for default marker icons in Leaflet with React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
+const API_BASE = ""; // keep for backwards-compat; prefer toAbsUrl below
+
+function toAbsUrl(path) {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  const base = String(API_BASE_URL || "").replace(/\/api\/?$/i, "").replace(/\/$/, "");
+  const p = String(path).replace(/^\/+/, "");
+  return `${base}/${p}`.replace(/([^:]\/)\/+/, "$1");
+}
 
 const Notebook = ({ onClose, openEnrollment }) => {
   const navigate = useNavigate();
@@ -18,6 +39,34 @@ const Notebook = ({ onClose, openEnrollment }) => {
     mission: {},
     contact: {},
   });
+
+  const tabIcons = {
+    announcements: "📢",
+    "school-info": "🏫",
+    "mission-vision": "🎯",
+    contact: "📞",
+  };
+
+  const quickLinks = [
+    {
+      key: "facebook",
+      href: "https://www.facebook.com/cesicaloocan",
+      icon: "🔔",
+      label: "Facebook",
+    },
+    {
+      key: "calendar",
+      href: "../../../public/CESI-CAL-SY2526.pdf",
+      icon: "📅",
+      label: "School Calendar",
+    },
+    {
+      key: "fees",
+      href: "../../../public/CESI-TF-SY2425.pdf",
+      icon: "📚",
+      label: "Tuition Fees",
+    },
+  ];
 
   useEffect(() => {
     fetch(`${API_BASE}/api/announcements/`)
@@ -35,10 +84,7 @@ const Notebook = ({ onClose, openEnrollment }) => {
 
   }, []);
 
-  function toAbsUrl(path) {
-    if (!path) return null;
-    return path.startsWith("http") ? path : `${API_BASE}${path}`;
-  }
+  // local helper used by components below
 
   function getFirstImagePath(a) {
     const firstImage = a?.media?.find((m) =>
@@ -46,6 +92,131 @@ const Notebook = ({ onClose, openEnrollment }) => {
     );
     return firstImage?.file || firstImage?.file_url || null;
   }
+
+  // Simple staff-only list for the notebook (masked usernames + subject labels)
+  const StaffList = () => {
+    const [staff, setStaff] = useState([]);
+    const [loadingStaff, setLoadingStaff] = useState(true);
+    const [staffError, setStaffError] = useState("");
+
+    useEffect(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          setLoadingStaff(true);
+          setStaffError("");
+          const [teachersRes, adminsRes] = await Promise.all([
+            apiFetch('/api/accounts/users/?role=TEACHER'),
+            apiFetch('/api/accounts/users/?role=ADMIN'),
+          ]);
+
+          const teachers = teachersRes && teachersRes.ok ? await teachersRes.json() : [];
+          const admins = adminsRes && adminsRes.ok ? await adminsRes.json() : [];
+
+          if (!mounted) return;
+          setStaff([...(Array.isArray(admins) ? admins : []), ...(Array.isArray(teachers) ? teachers : [])]);
+        } catch (err) {
+          console.error('Failed loading staff:', err);
+          if (mounted) setStaffError('Failed to load staff.');
+        } finally {
+          if (mounted) setLoadingStaff(false);
+        }
+      })();
+      return () => { mounted = false; };
+    }, []);
+
+    const maskUsername = (u) => {
+      if (!u) return '';
+      if (u.length <= 1) return '*';
+      return `${u[0]}****`;
+    };
+
+    if (loadingStaff) return <div>Loading staff...</div>;
+    if (staffError) return <div>{staffError}</div>;
+    if (!staff || staff.length === 0) return <div>No staff members found.</div>;
+
+    return (
+      <div className="staff-list">
+        {staff.map((u) => (
+          <div key={u.id} className="staff-item">
+            <div className="staff-name">{maskUsername(u.username || (u.first_name || ''))}</div>
+            <div className="staff-role-label">
+              {u.role === 'TEACHER'
+                ? (u.teacher_profile?.subject?.name ? `${u.teacher_profile.subject.name} teacher` : 'Teacher')
+                : 'Administrator'}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Free Map Component using OpenStreetMap
+  const FreeMap = ({ address }) => {
+    const [coordinates, setCoordinates] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+      if (!address) {
+        setLoading(false);
+        return;
+      }
+
+      // Using Nominatim (OpenStreetMap's free geocoding service)
+      const geocodeAddress = async () => {
+        try {
+          setLoading(true);
+          const encodedAddress = encodeURIComponent(address);
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`
+          );
+          const data = await response.json();
+          
+          if (data && data.length > 0) {
+            setCoordinates({
+              lat: parseFloat(data[0].lat),
+              lng: parseFloat(data[0].lon),
+            });
+          } else {
+            setError("Location not found");
+          }
+        } catch (err) {
+          setError("Error loading map");
+          console.error("Geocoding error:", err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      geocodeAddress();
+    }, [address]);
+
+    if (loading) return <p>Loading map...</p>;
+    if (error) return <p style={{ color: "red" }}>{error}</p>;
+    if (!coordinates) return <p>No location available</p>;
+
+    return (
+      <div className="free-map-container">
+        <MapContainer
+          center={[coordinates.lat, coordinates.lng]}
+          zoom={15}
+          style={{ height: "400px", width: "100%", borderRadius: "8px" }}
+          scrollWheelZoom={false}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <Marker position={[coordinates.lat, coordinates.lng]}>
+            <Popup>
+              {address}
+            </Popup>
+          </Marker>
+        </MapContainer>
+      </div>
+    );
+  };
 
   const content = {
     announcements: {
@@ -153,13 +324,13 @@ const Notebook = ({ onClose, openEnrollment }) => {
     "mission-vision": {
       title: "Mission & Vision",
       content: (
-        <>
+        <div className="mission-vision-content">
           <h3>Our Mission</h3>
           <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((cmsData.mission && cmsData.mission.mission_text) ? cmsData.mission.mission_text : `<p>The mission of the School...</p>`) }} />
 
           <h3>Our Vision</h3>
           <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((cmsData.mission && cmsData.mission.vision_text) ? cmsData.mission.vision_text : `<p>The vision of the School...</p>`) }} />
-        </>
+        </div>
       ),
     },
 
@@ -183,74 +354,78 @@ const Notebook = ({ onClose, openEnrollment }) => {
             <strong>Address:</strong> {(cmsData.contact && cmsData.contact.address) ? cmsData.contact.address : "#47 P. Zamora St. Caloocan City, Metro Manila"}
           </p>
 
-          <h3>💬 Social Media</h3>
-          <p>Facebook: <a href={(cmsData.contact && cmsData.contact.facebook_link) ? cmsData.contact.facebook_link : "https://facebook.com/cesicaloocan"} target="_blank" rel="noopener noreferrer">@cesicaloocan</a></p>
-        </>
-      ),
-    },
+          {/* Free Map Section */}
+          <h3>📍 Location Map</h3>
+          <FreeMap address={(cmsData.contact && cmsData.contact.address) || "#47 P. Zamora St. Caloocan City, Metro Manila"} />
+          
+              <h3>💬 Social Media</h3>
+              <p>Facebook: <a href={(cmsData.contact && cmsData.contact.facebook_link) ? cmsData.contact.facebook_link : "https://facebook.com/cesicaloocan"} target="_blank" rel="noopener noreferrer">@cesicaloocan</a></p>
+            </>
+          ),
+        },
 
-    "org-chart": {
-      title: "Organizational Chart",
-      content: <OrganizationalChart />,
-    },
-  };
+      };
 
   return (
-    <div className="notebook-container">
-      <div className="notebook-header">
-        <h2>CESI Student Manual</h2>
-        <button className="close-btn" onClick={onClose}>
-          ✕ Close Book
+    <div className="index-book-container">
+      <div className="index-book-header">
+        <div className="index-book-manual-tag">CESI Student Manual</div>
+        <button className="index-book-close-btn" onClick={onClose} aria-label="Close Book">
+          <span className="index-book-close-icon">✕</span>
+          <span className="index-book-close-text">Close Book</span>
         </button>
       </div>
 
-      <div className="notebook-content">
+      <div className="index-book-content">
         {/* Left Sidebar / Bookmarks + Quick Links */}
-        <div className="bookmarks-left">
-          {Object.keys(content).map((tab) => (
-            <button
-              key={tab}
-              className={`bookmark-btn ${activeTab === tab ? "active" : ""}`}
-              onClick={() => setActiveTab(tab)}
-            >
-              {content[tab].title}
-            </button>
-          ))}
+        <div className="index-book-bookmarks-left">
+          <div className="index-book-bookmark-tabs">
+            {Object.keys(content).map((tab) => (
+              <button
+                key={tab}
+                className={`index-book-bookmark-btn ${activeTab === tab ? "active" : ""}`}
+                onClick={() => setActiveTab(tab)}
+                title={content[tab].title}
+              >
+                <span className="index-book-tab-icon" aria-hidden="true">{tabIcons[tab] || "📘"}</span>
+                <span className="index-book-bookmark-tab-label">{content[tab].title}</span>
+              </button>
+            ))}
+          </div>
 
-          <hr className="sidebar-divider" />
-
-          <div className="quick-links">
+          <div className="index-book-sidebar-quicklinks">
             <h4>🔗 Quick Links</h4>
-            <div className="quick-links-btns">
-              <a
-                href="https://www.facebook.com/cesicaloocan"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <button className="link-btn">🔔 Facebook</button>
-              </a>
-              <a
-                href="../../../public/CESI-CAL-SY2526.pdf"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <button className="link-btn">📅 School Calendar</button>
-              </a>
-              <a
-                href="../../../public/CESI-TF-SY2425.pdf"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <button className="link-btn">📚 Tuition Fees</button>
-              </a>
+            <div className="index-book-sidebar-quick-links-btns">
+              {quickLinks.map((link) => (
+                <a
+                  key={`sidebar-${link.key}`}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="index-book-link-btn"
+                  title={link.label}
+                >
+                  <span className="index-book-link-icon" aria-hidden="true">{link.icon}</span>
+                  <span className="index-book-link-text">{link.label}</span>
+                </a>
+              ))}
             </div>
           </div>
+
+          <button
+            className="index-book-mobile-close-btn"
+            onClick={onClose}
+            aria-label="Close Book"
+            title="Close Book"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Right Page / Main Content */}
-        <div className="notebook-pages">
-          <div className="page-left">
-            <div className="page-content">
+        <div className="index-book-pages">
+          <div className="index-book-page-left">
+            <div className="index-book-page-content">
               <h2>{content[activeTab].title}</h2>
 
               {activeTab === "enrollment-form" ? (
@@ -271,11 +446,30 @@ const Notebook = ({ onClose, openEnrollment }) => {
               )}
             </div>
               
-            <div className="page-footer">
-              <div className="page-number">CESI Elementary</div>
-              <div className="page-date">Student Edition</div>
+            <div className="index-book-page-footer">
+              <div className="index-book-page-number">CESI Elementary</div>
+              <div className="index-book-page-date">Student Edition</div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="index-book-subbookmarks index-book-subbookmarks-mobile">
+        <h4>🔗 Quick Links</h4>
+        <div className="index-book-quick-links-btns">
+          {quickLinks.map((link) => (
+            <a
+              key={link.key}
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="index-book-link-btn"
+              title={link.label}
+            >
+              <span className="index-book-link-icon" aria-hidden="true">{link.icon}</span>
+              <span className="index-book-link-text">{link.label}</span>
+            </a>
+          ))}
         </div>
       </div>
     </div>

@@ -12,7 +12,32 @@
  *   // Parsed response directly
  *   const data = await apiFetchData('/api/grades/items/');
  */
-import { getToken } from '../Auth/auth';
+import { API_BASE_URL } from '../../config/api.js';
+import { getToken, clearAuth } from '../Auth/auth';
+
+/**
+ * Normalizes request URL by combining API_BASE_URL with a relative path.
+ * - If url is absolute (http/https), uses it as-is.
+ * - Otherwise, it prefixes API_BASE_URL.
+ * - Supports VITE_API_URL both with and without /api suffix.
+ */
+function resolveUrl(url) {
+  if (/^https?:\/\//i.test(url)) return url;
+
+  const base = API_BASE_URL.replace(/\/api\/?$/i, '').replace(/\/$/, '');
+
+  // Keep the endpoint simple: path can be '/api/...' or '/...'
+  let path = url.replace(/^\/+/, '');
+  if (path.toLowerCase().startsWith('api/')) {
+    path = path.slice(4);
+  }
+
+  const apiPrefix = API_BASE_URL.endsWith('/api') || API_BASE_URL.endsWith('/api/')
+    ? '/api'
+    : '';
+
+  return `${base}${apiPrefix}/${path}`.replace(/([^:]\/)\/+/g, '$1');
+}
 
 /**
  * Returns a headers object with the Authorization token (if present).
@@ -31,12 +56,23 @@ export function authHeaders(extra = {}) {
  * returns the raw fetch Response object.
  */
 export async function apiFetch(url, options = {}) {
-  const { headers: extraHeaders, ...rest } = options;
-  return fetch(url, {
-    credentials: 'include',
+  const { headers: extraHeaders, credentials, ...rest } = options;
+  const requestUrl = resolveUrl(url);
+  const response = await fetch(requestUrl, {
+    // Send cookies by default so session-authenticated requests also work.
+    credentials: credentials || 'include',
     ...rest,
     headers: authHeaders(extraHeaders),
   });
+
+  if (response.status === 401) {
+    clearAuth();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cesi-auth-changed'));
+    }
+  }
+
+  return response;
 }
 
 /**

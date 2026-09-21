@@ -2,6 +2,8 @@
   "dependencies": {
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^5.0.0",
     "react-quill-new": "^3.7.0"
   }
 }

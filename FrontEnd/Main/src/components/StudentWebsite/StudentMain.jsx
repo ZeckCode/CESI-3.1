@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import Sidebar from "./Sidebar";
+import Sidebar from "./Sidebar"; // Match the capital 'S'
 import Header from "../AdminWebsite/Header";
-
 import Dashboard from "./Dashboard";
 import Profile from "./Profile";
 import Ledgers from "./Ledgers";
@@ -14,17 +13,40 @@ import StudentReminders from "./StudentReminders";
 import StudentEnrollment from "./StudentEnrollment";
 import ProofOfPayment from "./ProofOfPayment";
 import { getToken } from "../Auth/auth";
+import { apiFetch } from "../api/apiFetch";
+import NotificationList from "../AdminWebsite/NotificationList";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 import "../StudentWebsiteCSS/StudentPortal.css";
 
 const API_BASE = "";
+const READ_OVERRIDES_KEY = "reminder-read-overrides:PAYMENT";
 
-const authHeaders = (extra = {}) => {
-  const token = getToken();
-  return {
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...extra,
-  };
+const normalizeReminderPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.results)) return payload.results;
+  return [];
+};
+
+const parseResponseJson = async (response) => {
+  if (!response) return null;
+  const contentType = response.headers?.get("content-type") || "";
+  if (!contentType.toLowerCase().includes("application/json")) return null;
+
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
+const getReadOverrides = () => {
+  try {
+    const raw = localStorage.getItem(READ_OVERRIDES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.map((id) => Number(id)).filter(Number.isFinite) : []);
+  } catch {
+    return new Set();
+  }
 };
 
 const computeEnrollmentWindow = (settings) => {
@@ -59,8 +81,10 @@ const computeEnrollmentWindow = (settings) => {
 
 export default function StudentMain() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.innerWidth <= 1024);
+  const [sidebarHoverExpanded, setSidebarHoverExpanded] = useState(false);
   const [unreadReminders, setUnreadReminders] = useState(0);
+  const [showNotificationList, setShowNotificationList] = useState(false);
 
   const [enrollmentOpen, setEnrollmentOpen] = useState(false);
   const [enrollmentWindow, setEnrollmentWindow] = useState(null);
@@ -74,25 +98,65 @@ export default function StudentMain() {
   };
 
   const handleToggleSidebar = () => setSidebarCollapsed((v) => !v);
+  const handleSidebarHoverChange = (isHoverExpanded) => setSidebarHoverExpanded(isHoverExpanded);
+  const isSidebarExpandedByHover = sidebarCollapsed && sidebarHoverExpanded;
+  const isSidebarVisuallyCollapsed = sidebarCollapsed && !sidebarHoverExpanded;
+
+  useEffect(() => {
+    const syncSidebarCollapsed = () => {
+      setSidebarCollapsed(window.innerWidth <= 1024);
+    };
+
+    syncSidebarCollapsed();
+    window.addEventListener("resize", syncSidebarCollapsed);
+    return () => window.removeEventListener("resize", syncSidebarCollapsed);
+  }, []);
+
+  useEffect(() => {
+    if (window.botpressWebChat && typeof window.botpressWebChat.destroy === "function") {
+      window.botpressWebChat.destroy();
+    }
+
+    [
+      "#bp-web-widget-container",
+      "#bp-web-widget",
+      ".bpWebchat",
+      "iframe[src*=\"botpress\"]",
+      "[id^=\"bp-web-widget\"]",
+      "script[src*=\"cdn.botpress.cloud/webchat\"]",
+      "script[src*=\"files.bpcontent.cloud/2026/03/26/09/20260326092557-6ZV5HUUY.js\"]",
+    ].forEach((selector) => {
+      document.querySelectorAll(selector).forEach((node) => node.remove());
+    });
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
     let pollInterval = null;
 
     const loadUnreadReminders = async () => {
+      const token = getToken();
+      if (!token) {
+        if (isMounted) {
+          setUnreadReminders(0);
+        }
+        return;
+      }
+
       try {
-        const res = await fetch(`${API_BASE}/api/reminders/`, {
-          credentials: "include",
-          headers: authHeaders(),
-        });
+        const res = await apiFetch(`${API_BASE}/api/reminders/`);
 
         if (!res.ok) throw new Error("Failed to load reminders");
 
         const data = await res.json();
-        const reminders = Array.isArray(data) ? data : [];
+        const reminders = normalizeReminderPayload(data);
+        const readOverrides = getReadOverrides();
+        const normalizedReminders = reminders.map((r) =>
+          readOverrides.has(Number(r.id)) ? { ...r, is_read: true } : r
+        );
 
         if (isMounted) {
-          setUnreadReminders(reminders.filter((r) => !r.is_read).length);
+          setUnreadReminders(normalizedReminders.filter((r) => !r.is_read).length);
         }
       } catch (err) {
         console.error("Error loading unread reminders:", err);
@@ -103,10 +167,17 @@ export default function StudentMain() {
     };
 
     loadUnreadReminders();
+
+    const handleReminderChange = () => {
+      loadUnreadReminders();
+    };
+
+    window.addEventListener("reminders-changed", handleReminderChange);
     pollInterval = setInterval(loadUnreadReminders, 30000);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("reminders-changed", handleReminderChange);
       if (pollInterval) {
         clearInterval(pollInterval);
       }
@@ -119,7 +190,7 @@ export default function StudentMain() {
     const loadEnrollmentSettings = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/enrollment-settings/`);
-        const data = await res.json().catch(() => null);
+        const data = await parseResponseJson(res);
 
         if (!isMounted) return;
 
@@ -211,7 +282,7 @@ export default function StudentMain() {
       messages: "View and send messages.",
       reminders: "View payment reminders and important updates.",
       enrollment: enrollmentOpen
-        ? "The Enrollment Period is Open."
+        ? "The Enrollment Period is Open. \n\n Please review your information and submit your application."
         : "Enrollment is currently unavailable.",
     };
     return subtitles[activeMenu] || "Welcome back!";
@@ -224,21 +295,37 @@ export default function StudentMain() {
         onMenuClick={handleMenuClick}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
+        isHoverExpanded={sidebarHoverExpanded}
+        onHoverChange={handleSidebarHoverChange}
         enrollmentOpen={enrollmentOpen}
       />
 
-      <main className={`admin-main ${sidebarCollapsed ? "collapsed" : ""}`}>
+      <main className={`admin-main ${isSidebarVisuallyCollapsed ? "collapsed" : ""}`}>
         <Header
           title={getPageTitle()}
           subtitle={getPageSubtitle()}
           onToggleCollapse={handleToggleSidebar}
-          sidebarCollapsed={sidebarCollapsed}
+          sidebarCollapsed={isSidebarExpandedByHover ? false : sidebarCollapsed}
           showRemindersBell={true}
-          onOpenReminders={() => setActiveMenu("reminders")}
+          onOpenReminders={() => setShowNotificationList(prev => !prev)}
           unreadReminders={unreadReminders}
         />
 
         {renderContent()}
+
+        {showNotificationList && (
+          <NotificationList
+            onClose={() => setShowNotificationList(false)}
+            unreadCount={unreadReminders}
+            reminderType="PAYMENT"
+            targetMenuId="reminders"
+            onUnreadCountChange={setUnreadReminders}
+            onNavigate={(menu) => {
+              setActiveMenu(menu);
+              setShowNotificationList(false);
+            }}
+          />
+        )}
       </main>
     </div>
   );

@@ -1,23 +1,37 @@
-import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { useState, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "./useAuth";
+import { API_BASE_URL } from "../../config/api.js";
 import "../AuthCSS/Login.css";
+import Toast from "../Global/Toast";
 
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const navigate = useNavigate();
+  const [toasts, setToasts] = useState([]);
   const location = useLocation();
   const { login } = useAuth();
   const from = location.state?.from?.pathname;
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
     try {
-      const res = await fetch("/api/accounts/login/", {
+      const res = await fetch(`${API_BASE_URL}/accounts/login/`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -26,25 +40,31 @@ export default function Login() {
 
       const data = await res.json();
       if (!res.ok || !data?.success) {
-        setError(data?.message || "Invalid credentials");
+        const errorMsg = data?.message || "Invalid credentials";
+        setError(errorMsg);
+        addToast("Login Error", errorMsg, "error");
         return;
       }
 
       login({ user: data.user, token: data.token });
 
-      if (from) {
-        navigate(from, { replace: true });
-        return;
-      }
-
       const normalizedRole = data?.user?.role?.toLowerCase();
-      if (normalizedRole === "admin") navigate("/admin", { replace: true });
-      else if (normalizedRole === "teacher") navigate("/teacher", { replace: true });
-      else if (normalizedRole === "parent_student") navigate("/student", { replace: true });
-      else navigate("/", { replace: true });
+      const destination = from
+        ? from
+        : normalizedRole === "admin"
+          ? "/admin"
+          : normalizedRole === "teacher"
+            ? "/teacher"
+            : normalizedRole === "parent_student"
+              ? "/student"
+              : "/";
+
+      // Force a full reload after login so route-scoped widgets are reinitialized cleanly.
+      window.location.replace(destination);
 
     } catch (err) {
       setError("Login failed. Please try again.");
+      addToast("Error", "Login failed. Please try again.", "error");
     }
   };
 
@@ -52,7 +72,6 @@ export default function Login() {
     <div className="login-page">
       <div className="login-container">
         <h1>CESI Portal</h1>
-        {error && <div className="error-msg">{error}</div>}
         <form onSubmit={handleLogin}>
           <input
             type="text"
@@ -91,6 +110,7 @@ export default function Login() {
             </div>
         </form>
       </div>
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </div>
   );
 }
