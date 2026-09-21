@@ -18,6 +18,7 @@ import {
   RadialBarChart,
   RadialBar,
   ReferenceDot,
+  LabelList,
 } from "recharts";
 import {
   Users,
@@ -1023,7 +1024,9 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
                 dataKey="students"
                 fill="url(#barGradient)"
                 radius={[6, 6, 0, 0]}
-              />
+              >
+                <LabelList dataKey="students" position="top" style={{ fontSize: 12, fontWeight: 700, fill: "#4f46e5" }} />
+              </Bar>
               <defs>
                 <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#6366f1" />
@@ -1070,7 +1073,9 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
                 stroke="#10b981"
                 strokeWidth={2.5}
                 fill="url(#areaGradient)"
-              />
+              >
+                <LabelList dataKey="revenue" position="top" formatter={(v) => `₱${(Number(v) / 1000).toFixed(1)}k`} style={{ fontSize: 11, fontWeight: 700, fill: "#059669" }} />
+              </Area>
               {detectRevenueDips(revenueMonthly).map((dip, idx) => (
                 <ReferenceDot
                   key={`dip-${idx}`}
@@ -1204,8 +1209,8 @@ const Dashboard = ({ onNavigateToEnrollment }) => {
                 outerRadius={90}
                 paddingAngle={4}
                 dataKey="value"
-                label={({ name, percent }) =>
-                  `${name} ${((percent || 0) * 100).toFixed(0)}%`
+                label={({ name, value, percent }) =>
+                  `${name} ${value} (${((percent || 0) * 100).toFixed(0)}%)`
                 }
               >
                 {paymentBreakdown.map((_, i) => (

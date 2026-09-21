@@ -8,8 +8,16 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { apiFetch } from '../api/apiFetch';
 import dejavuSansTtfUrl from 'dejavu-fonts-ttf/ttf/DejaVuSans.ttf?url';
+import CESI_logo from '../../assets/CESI-logo.jpg';
 
 // Helper functions
+const DEFAULT_SCHOOL_INFO = {
+  school_name: 'Caloocan Evangelical School Inc.',
+  about_text: 'Quality Christian Education for All',
+  address: '#47 P. Zamora St. Caloocan City, Metro Manila',
+  phone_number: '(02) 8-285-3702 / 0905-299-6303',
+  email: 'caloocanevangelicalschool@gmail.com',
+};
 const getCurrentAcademicYear = () => {
   const today = new Date();
   const year = today.getFullYear();
@@ -279,6 +287,137 @@ const pdfTableStyles = {
   fontStyle: 'normal',
 };
 
+// Strip HTML tags and decode entities so CMS rich-text fields render as plain text.
+const stripHtml = (value) => {
+  if (!value) return '';
+  const div = document.createElement('div');
+  div.innerHTML = value;
+  const text = div.textContent || div.innerText || '';
+  return text.replace(/\s+/g, ' ').trim();
+};
+
+let logoDataUrlPromise;
+const getLogoDataUrl = () => {
+  if (!logoDataUrlPromise) {
+    logoDataUrlPromise = (async () => {
+      try {
+        const response = await fetch(CESI_logo);
+        if (!response.ok) throw new Error('Failed to load logo');
+        const blob = await response.blob();
+        return await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } catch (error) {
+        console.warn('Failed to load school logo for report header:', error);
+        return null;
+      }
+    })();
+  }
+  return logoDataUrlPromise;
+};
+
+const formatDate = (date = new Date()) =>
+  date.toLocaleDateString('en-PH', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+/**
+ * Draws the complete report letterhead (school logo, name, address, contact
+ * and divider) using a clean stacked layout with text wrapping so nothing
+ * overlaps. Returns the Y position to resume content.
+ */
+const drawReportHeader = async (doc, report, schoolInfo, pageWidth) => {
+  const marginX = 14;
+  const contentWidth = pageWidth - marginX * 2;
+  const centerX = pageWidth / 2;
+  const logoDataUrl = await getLogoDataUrl();
+
+  const schoolName = stripHtml(schoolInfo.school_name) || DEFAULT_SCHOOL_INFO.school_name;
+  const address = stripHtml(schoolInfo.address) || DEFAULT_SCHOOL_INFO.address;
+  const contact = [stripHtml(schoolInfo.phone_number), stripHtml(schoolInfo.email)]
+    .filter(Boolean)
+    .join('  •  ');
+  const motto = stripHtml(schoolInfo.about_text);
+
+  let y = 10;
+
+  // Logo (centered, small) — only if available and there is room below
+  if (logoDataUrl) {
+    try {
+      const logoSize = 18;
+      doc.addImage(logoDataUrl, 'JPEG', centerX - logoSize / 2, y, logoSize, logoSize);
+      y += logoSize + 4;
+    } catch (err) {
+      console.warn('Failed to embed logo in header:', err);
+    }
+  }
+
+  // School name
+  doc.setFontSize(16);
+  doc.setTextColor(33, 37, 41);
+  doc.setFont('DejaVuSans', 'normal');
+  const nameLines = doc.splitTextToSize(schoolName, contentWidth);
+  doc.text(nameLines, centerX, y + 4, { align: 'center' });
+  y += nameLines.length * 6 + 6;
+
+  // Address
+  if (address) {
+    doc.setFontSize(9);
+    doc.setTextColor(70, 70, 70);
+    const addressLines = doc.splitTextToSize(address, contentWidth);
+    doc.text(addressLines, centerX, y, { align: 'center' });
+    y += addressLines.length * 4.5 + 3;
+  }
+
+  // Contact (phone • email)
+  if (contact) {
+    doc.setFontSize(9);
+    doc.setTextColor(70, 70, 70);
+    const contactLines = doc.splitTextToSize(contact, contentWidth);
+    doc.text(contactLines, centerX, y, { align: 'center' });
+    y += contactLines.length * 4.5 + 3;
+  }
+
+  // Motto
+  if (motto) {
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    const mottoLines = doc.splitTextToSize(motto, contentWidth);
+    doc.text(mottoLines, centerX, y, { align: 'center' });
+    y += mottoLines.length * 4 + 3;
+  }
+
+  // Divider
+  doc.setDrawColor(79, 110, 247);
+  doc.setLineWidth(0.8);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 8;
+
+  // Report title
+  doc.setFontSize(14);
+  doc.setTextColor(33, 37, 41);
+  const titleLines = doc.splitTextToSize(report.name, contentWidth);
+  doc.text(titleLines, centerX, y + 4, { align: 'center' });
+  y += titleLines.length * 6 + 6;
+
+  // Generated date + period
+  doc.setFontSize(8.5);
+  doc.setTextColor(108, 117, 125);
+  const metaText = `Generated: ${formatDate()}     •     Report Period: ${report.period || 'Current'}`;
+  const metaLines = doc.splitTextToSize(metaText, contentWidth);
+  doc.text(metaLines, centerX, y, { align: 'center' });
+  y += metaLines.length * 4.5 + 4;
+
+  // Bottom divider
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 8;
+
+  return y;
+};
+
 const REPORT_SKELETON_ROWS = 6;
 
 const Reports = () => {
@@ -292,6 +431,7 @@ const Reports = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [schoolInfo, setSchoolInfo] = useState(DEFAULT_SCHOOL_INFO);
   
   // Stats state
   const [enrollmentStats, setEnrollmentStats] = useState({
@@ -407,6 +547,30 @@ const Reports = () => {
   const fetchAcademicYear = useCallback(async () => {
     let academicYear = getCurrentAcademicYear();
     let schoolYear = null;
+
+    // Fetch school information for report headers
+    try {
+      const [schoolRes, contactRes] = await Promise.all([
+        apiFetch('/api/cms/school-info/'),
+        apiFetch('/api/cms/contact-inquiry/'),
+      ]);
+      const schoolData = await schoolRes.json();
+      let contactData = {};
+      try {
+        contactData = await contactRes.json();
+      } catch (e) {
+        contactData = {};
+      }
+      setSchoolInfo({
+        school_name: stripHtml(schoolData.school_name) || DEFAULT_SCHOOL_INFO.school_name,
+        about_text: stripHtml(schoolData.about_text) || DEFAULT_SCHOOL_INFO.about_text,
+        address: stripHtml(contactData.address) || DEFAULT_SCHOOL_INFO.address,
+        phone_number: stripHtml(contactData.phone_number) || DEFAULT_SCHOOL_INFO.phone_number,
+        email: stripHtml(contactData.email) || DEFAULT_SCHOOL_INFO.email,
+      });
+    } catch (error) {
+      console.warn('Error fetching school info for report header:', error);
+    }
 
     try {
       const res = await apiFetch('/api/enrollment-settings/');
@@ -590,24 +754,20 @@ const Reports = () => {
       }
     }
     
-    doc.setFontSize(18);
-    doc.setTextColor(33, 37, 41);
-    doc.text(report.name, 14, 15);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(108, 117, 125);
-    const currentDate = new Date().toLocaleDateString('en-PH', {
-      year: 'numeric', month: 'long', day: 'numeric'
-    });
-    doc.text(`Generated: ${currentDate}`, 14, 22);
-    doc.text(`Report Period: ${report.period || 'Current'}`, 14, 29);
-    
-    let startY = 38;
-    
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let startY = await drawReportHeader(doc, report, schoolInfo, pageWidth);
+
+    // Table of Contents tracking — records section titles with their page numbers
+    const toc = [];
+    const addToc = (title) => {
+      toc.push({ title, page: doc.internal.getNumberOfPages() });
+    };
+
     // SUMMARY STATISTICS
     doc.setFontSize(12);
     doc.setTextColor(33, 37, 41);
     doc.text('Summary Statistics', 14, startY);
+    addToc('Summary Statistics');
     
     let summaryData = [];
     
@@ -695,6 +855,7 @@ const Reports = () => {
     // DETAILS TABLES
     if (report.type === 'students' && report.data.enrollments?.length > 0) {
       doc.text('Enrollment Details', 14, startY);
+      addToc('Enrollment Details');
       const tableData = report.data.enrollments.map(e => [
         `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.student_name || '—',
         formatGradeLevel(e.grade_level),
@@ -718,6 +879,7 @@ const Reports = () => {
     }
     else if (report.type === 'classes' && report.data.sections?.length > 0) {
       doc.text('Class Details', 14, startY);
+      addToc('Class Details');
       const tableData = report.data.sections.map(s => [
         formatGradeLevel(s.grade_level),
         s.name || '—',
@@ -740,6 +902,7 @@ const Reports = () => {
     }
     else if (report.type === 'financial' && report.data.transactions?.length > 0) {
       doc.text('Transaction Details', 14, startY);
+      addToc('Transaction Details');
       const tableData = report.data.transactions.map(t => [
         t.student_name || '—',
         t.transaction_date || '—',
@@ -761,6 +924,7 @@ const Reports = () => {
     }
     else if (report.type === 'teachers' && report.data.teachers?.length > 0) {
       doc.text('Teacher Details', 14, startY);
+      addToc('Teacher Details');
       const tableData = report.data.teachers.map(t => [
         formatTeacherName(t),
         t.email || '—',
@@ -783,6 +947,7 @@ const Reports = () => {
     }
     else if (report.type === 'attendance' && attendanceRecordsForExport?.length > 0) {
       doc.text('Attendance Record Details', 14, startY);
+      addToc('Attendance Records');
       const tableData = attendanceRecordsForExport.map(a => [
         formatStudentName(a),
         a.student_number || a.student?.student_number || '—',
@@ -806,6 +971,7 @@ const Reports = () => {
     }
     else if (report.type === 'history' && historyRecordsForExport?.length > 0) {
       doc.text('Academic History Record Details', 14, startY);
+      addToc('Academic History Records');
       const tableData = historyRecordsForExport.map(h => [
         h.school_year || '—',
         formatStudentName(h),
@@ -831,6 +997,7 @@ const Reports = () => {
       if (report.data.enrollments?.length > 0) {
         if (startY > 250) { doc.addPage(); startY = 20; }
         doc.text('Enrollment Details', 14, startY);
+        addToc('Enrollment Details');
         autoTable(doc, {
           startY: startY + 5,
           head: [['Student Name', 'Grade', 'Section', 'Status']],
@@ -852,6 +1019,7 @@ const Reports = () => {
       if (report.data.sections?.length > 0) {
         if (startY > 250) { doc.addPage(); startY = 20; }
         doc.text('Class Details', 14, startY);
+        addToc('Class Details');
         autoTable(doc, {
           startY: startY + 5,
           head: [['Grade', 'Section', 'Students', 'Status']],
@@ -873,6 +1041,7 @@ const Reports = () => {
       if (attendanceRecordsForExport?.length > 0) {
         if (startY > 250) { doc.addPage(); startY = 20; }
         doc.text('Attendance Records', 14, startY);
+        addToc('Attendance Records');
         autoTable(doc, {
           startY: startY + 5,
           head: [['Student', 'Section', 'Subject', 'Status', 'Date']],
@@ -895,6 +1064,7 @@ const Reports = () => {
       if (historyRecordsForExport?.length > 0) {
         if (startY > 250) { doc.addPage(); startY = 20; }
         doc.text('Academic History Records', 14, startY);
+        addToc('Academic History Records');
         autoTable(doc, {
           startY: startY + 5,
           head: [['Student', 'School Year', 'Subject', 'Final Grade', 'Remarks']],
@@ -916,6 +1086,7 @@ const Reports = () => {
       if (report.data.teacherRecords?.length > 0) {
         if (startY > 250) { doc.addPage(); startY = 20; }
         doc.text('Teachers', 14, startY);
+        addToc('Teachers');
         autoTable(doc, {
           startY: startY + 5,
           head: [['Teacher Name', 'Subject(s)', 'Section', 'Status']],
@@ -937,6 +1108,7 @@ const Reports = () => {
       if (report.data.transactions?.length > 0) {
         if (startY > 250) { doc.addPage(); startY = 20; }
         doc.text('Recent Transactions', 14, startY);
+        addToc('Recent Transactions');
         autoTable(doc, {
           startY: startY + 5,
           head: [['Student', 'Date', 'Type', 'Debit', 'Credit', 'Status']],
@@ -957,6 +1129,52 @@ const Reports = () => {
       }
     }
     
+    // ── TABLE OF CONTENTS (cover page) ─────────────────────────────
+    // Insert a TOC page at the front. Existing page numbers shift by +1.
+    const tocCount = toc.length;
+    if (tocCount > 0) {
+      doc.insertPage(1);
+      doc.setPage(1);
+
+      // Letterhead on the cover — resume content below it to avoid overlap.
+      const headerEndY = await drawReportHeader(doc, { ...report, name: report.name }, schoolInfo, pageWidth);
+      let tocY = headerEndY + 4;
+
+      doc.setFontSize(13);
+      doc.setTextColor(33, 37, 41);
+      doc.text('Table of Contents', 14, tocY);
+      tocY += 10;
+
+      const pageHeight = doc.internal.pageSize.height;
+      const labelMaxWidth = pageWidth - 60; // leave room for right-aligned page number
+
+      toc.forEach((entry) => {
+        doc.setFontSize(10);
+        doc.setTextColor(60, 60, 60);
+
+        if (tocY > pageHeight - 25) {
+          doc.addPage();
+          tocY = 20;
+        }
+
+        // Wrap long titles so they never collide with the page number.
+        const titleLines = doc.splitTextToSize(entry.title, labelMaxWidth);
+        const firstLine = titleLines[0];
+
+        doc.text(firstLine, 20, tocY);
+        doc.text(`${entry.page + 1}`, pageWidth - 20, tocY, { align: 'right' });
+
+        // Dot leader between title and page number
+        let lineY = tocY;
+        for (let li = 1; li < titleLines.length; li++) {
+          lineY += 5;
+          doc.text(titleLines[li], 20, lineY);
+        }
+
+        tocY = lineY + 11;
+      });
+    }
+
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
@@ -964,7 +1182,7 @@ const Reports = () => {
       doc.setTextColor(108, 117, 125);
       doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10);
     }
-    
+
     const pdfBlob = doc.output('blob');
     const pdfUrl = URL.createObjectURL(pdfBlob);
     window.open(pdfUrl, '_blank');

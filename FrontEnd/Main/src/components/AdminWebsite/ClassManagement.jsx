@@ -1016,24 +1016,58 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
   };
 
   const handleSave = async () => {
-    if (!form.name) {
+    const trimmedName = String(form.name || '').trim();
+
+    if (!trimmedName) {
       setError('Section name is required.');
       return;
     }
 
+    if (trimmedName.length > 50) {
+      setError('Section name must be 50 characters or fewer.');
+      return;
+    }
+
+    if (!/^[\p{L}\p{N}][\p{L}\p{N}\s\-'.()]*$/u.test(trimmedName)) {
+      setError('Section name must start with a letter or number and contain only letters, numbers, spaces, hyphens, apostrophes, periods, or parentheses.');
+      return;
+    }
+
     if (!editId) {
-      if (form.grade_level === '' || !form.grade_level) {
+      const grade = String(form.grade_level || '').trim();
+      if (!grade) {
         setError('Grade level is required. Please select a valid grade level from the dropdown.');
         return;
       }
       const validGradeLevels = GRADE_LEVELS.map((g) => String(g.value));
-      if (!validGradeLevels.includes(String(form.grade_level))) {
+      if (!validGradeLevels.includes(grade)) {
         setError('Invalid grade level selected. Please choose from the available options.');
+        return;
+      }
+
+      const duplicate = (sections || []).some(
+        (sec) =>
+          normalizeGradeCode(sec.grade_level) === normalizeGradeCode(grade) &&
+          String(sec.name || '').trim().toLowerCase() === trimmedName.toLowerCase()
+      );
+      if (duplicate) {
+        setError(`A section named "${trimmedName}" already exists in this grade level.`);
         return;
       }
 
       if (form.adviser) {
         setError('Assign adviser after creating the section and adding schedule entries for that teacher.');
+        return;
+      }
+    } else {
+      const duplicate = (sections || []).some(
+        (sec) =>
+          Number(sec.id) !== Number(editId) &&
+          normalizeGradeCode(sec.grade_level) === normalizeGradeCode(form.grade_level) &&
+          String(sec.name || '').trim().toLowerCase() === trimmedName.toLowerCase()
+      );
+      if (duplicate) {
+        setError(`A section named "${trimmedName}" already exists in this grade level.`);
         return;
       }
     }
@@ -1052,7 +1086,7 @@ function ClassesTab({ sections, teachers, rooms, enrollments, schedules, onRefre
     setError('');
     try {
       const payload = {
-        name: form.name,
+        name: trimmedName,
         adviser: form.adviser ? Number(form.adviser) : null,
         room: form.room ? Number(form.room) : null,
       };
