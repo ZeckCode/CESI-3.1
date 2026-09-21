@@ -7,6 +7,7 @@ import PreviewModal from "../PreviewModal";
 import ExcelJS from "exceljs";
 import Toast from "../Global/Toast";
 import { getDisplayName } from "../../utils/userDisplayName";
+import { fetchSchoolInfo, writeExcelHeader } from "../../utils/pdfReportHeader";
 
 const API = "";
 
@@ -122,6 +123,7 @@ const Grade = () => {
   const [teacherSubject, setTeacherSubject] = useState(null);
   const [teacherName, setTeacherName] = useState(() => getDisplayName(getUser()));
   const [schoolYear, setSchoolYear] = useState(null);
+  const [schoolInfo, setSchoolInfo] = useState(null);
 
   const [items, setItems] = useState([]);
   const [students, setStudents] = useState([]);
@@ -342,6 +344,8 @@ const Grade = () => {
       } catch (e) {
         console.error(e);
       }
+
+      fetchSchoolInfo().then(setSchoolInfo).catch(() => {});
     })();
   }, []);
 
@@ -1153,10 +1157,17 @@ const Grade = () => {
 
       // Get column headers from gradePreviewColumns
       const headers = gradePreviewColumns.map(col => col.label);
-      
-      // Add header row
-      const headerRow = worksheet.addRow(headers);
-      
+
+      // School letterhead across the full table width
+      const headerRowNum = writeExcelHeader(worksheet, schoolInfo, {
+        title: 'Student Grade Sheet',
+        columnCount: headers.length,
+      });
+
+      // Header row
+      const headerRow = worksheet.getRow(headerRowNum);
+      headers.forEach((h, i) => { headerRow.getCell(i + 1).value = h; });
+
       // Style header row
       headerRow.eachCell((cell) => {
         cell.fill = {

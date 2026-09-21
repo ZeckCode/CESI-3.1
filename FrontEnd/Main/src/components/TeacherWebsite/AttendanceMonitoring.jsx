@@ -9,6 +9,7 @@ import { getUser } from "../Auth/auth";
 import PreviewModal from "../PreviewModal";
 import Toast from "../Global/Toast";
 import { getDisplayName } from "../../utils/userDisplayName";
+import { drawReportHeader, ensurePdfFont, fetchSchoolInfo, writeExcelHeader } from "../../utils/pdfReportHeader";
 
 const API = "";
 
@@ -169,6 +170,7 @@ const AttendanceMonitoring = () => {
   const [attendancePreviewData, setAttendancePreviewData] = useState([]);
   const [monthlyPreviewContent, setMonthlyPreviewContent] = useState(null);
   const [teacherName, setTeacherName] = useState(() => getDisplayName(getUser()));
+  const [schoolInfo, setSchoolInfo] = useState(null);
   const [toasts, setToasts] = useState([]);
 
   const dismissToast = useCallback((toastId) => {
@@ -236,6 +238,8 @@ const AttendanceMonitoring = () => {
       } catch (e) {
         console.error("Failed to load sections:", e);
       }
+
+      fetchSchoolInfo().then(setSchoolInfo).catch(() => {});
     })();
   }, []);
 
@@ -1069,8 +1073,15 @@ const AttendanceMonitoring = () => {
         headers.push(`${dayName} ${day}`);
       });
       headers.push("TOTAL ABSENT", "TOTAL LATE", "TOTAL PRESENT");
-      
-      const headerRow = worksheet.addRow(headers);
+
+      // School letterhead across the full table width
+      const nextRow = writeExcelHeader(worksheet, schoolInfo, {
+        title: `Monthly Attendance Report of ${monthYear}`,
+        columnCount: headers.length,
+      });
+
+      const headerRow = worksheet.getRow(nextRow);
+      headers.forEach((h, i) => { headerRow.getCell(i + 1).value = h; });
       headerRow.height = 25;
       headerRow.eachCell((cell) => {
         cell.style = headerStyle;
@@ -1215,23 +1226,18 @@ const AttendanceMonitoring = () => {
       
       // Create PDF document in landscape orientation
       const pdf = new jsPDF("l", "mm", "a4");
+      await ensurePdfFont(pdf);
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 15;
-      let yPosition = margin;
-      
-      // Add title and divider matching the grade sheet PDF header
-      pdf.setFontSize(14);
-      pdf.setFont(undefined, "bold");
-      pdf.text(`Monthly Attendance Report of ${monthYear}`, margin, yPosition);
-
-      pdf.setDrawColor(0, 123, 255);
-      pdf.setLineWidth(1);
-      pdf.line(margin, yPosition + 3, pageWidth - margin, yPosition + 3);
-      yPosition += 14;
+      let yPosition = await drawReportHeader(pdf, {
+        title: `Monthly Attendance Report of ${monthYear}`,
+        schoolInfo: schoolInfo || {},
+        pageWidth,
+      });
 
       pdf.setFontSize(11);
-      pdf.setFont(undefined, "bold");
+      pdf.setFont("DejaVuSans", "normal");
       pdf.text(
         `Grade: ${currentSection ? GRADE_FULL_LABEL(getGradeSource(currentSection)) : "N/A"}`,
         margin,
@@ -1247,7 +1253,7 @@ const AttendanceMonitoring = () => {
       
       // Add legend
       pdf.setFontSize(9);
-      pdf.setFont(undefined, "normal");
+      pdf.setFont("DejaVuSans", "normal");
       pdf.text("P = Present | A = Absent | L = Late | E = Excused", margin, yPosition);
       yPosition += 8;
       

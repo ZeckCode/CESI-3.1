@@ -7,6 +7,7 @@ import "../TeacherWebsiteCSS/TeacherClassSchedule.css";
 import { apiFetch } from "../api/apiFetch";
 import PreviewModal from "../PreviewModal";
 import Toast from "../Global/Toast";
+import { drawReportHeader, ensurePdfFont, fetchSchoolInfo, writeExcelHeader } from "../../utils/pdfReportHeader";
 
 const API = "";
 
@@ -126,6 +127,7 @@ const TeacherClassSchedule = () => {
   const [schoolYear, setSchoolYear] = useState(null);
   const [schedulePreviewOpen, setSchedulePreviewOpen] = useState(false);
   const [schedulePreviewData, setSchedulePreviewData] = useState(null);
+  const [schoolInfo, setSchoolInfo] = useState(null);
   const [toasts, setToasts] = useState([]);
   const printRef = useRef(null);
 
@@ -170,6 +172,8 @@ const TeacherClassSchedule = () => {
       } finally {
         setLoading(false);
       }
+
+      fetchSchoolInfo().then(setSchoolInfo).catch(() => {});
     })();
   }, []);
 
@@ -394,18 +398,21 @@ const TeacherClassSchedule = () => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Schedule');
 
-      // Set column widths
-      worksheet.columns = [
-        { header: 'Time', key: 'time', width: 18 },
-        { header: 'Monday', key: 'MON', width: 30 },
-        { header: 'Tuesday', key: 'TUE', width: 30 },
-        { header: 'Wednesday', key: 'WED', width: 30 },
-        { header: 'Thursday', key: 'THU', width: 30 },
-        { header: 'Friday', key: 'FRI', width: 30 },
-      ];
+      const headers = ['Time', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
-      // Style header row
-      const headerRow = worksheet.getRow(1);
+      // Set column widths (without auto header writing)
+      worksheet.getColumn(1).width = 18;
+      [30, 30, 30, 30, 30].forEach((w, i) => { worksheet.getColumn(i + 2).width = w; });
+
+      // School letterhead across the full table width
+      const headerRowNum = writeExcelHeader(worksheet, schoolInfo, {
+        title: 'Class Schedule',
+        columnCount: headers.length,
+      });
+
+      // Header row
+      const headerRow = worksheet.getRow(headerRowNum);
+      headers.forEach((h, i) => { headerRow.getCell(i + 1).value = h; });
       headerRow.eachCell((cell) => {
         cell.fill = {
           type: 'pattern',
@@ -425,11 +432,9 @@ const TeacherClassSchedule = () => {
 
       // Add data rows
       sortedTimeSlots.forEach((timeSlot) => {
-        const rowData = {
-          time: `${formatTime(timeSlot)} - ${formatTime(
-            `${String(Math.floor((timeToMinutes(timeSlot) + 60) / 60)).padStart(2, "0")}:${String((timeToMinutes(timeSlot) + 60) % 60).padStart(2, "0")}:00`
-          )}`,
-        };
+        const rowData = [`${formatTime(timeSlot)} - ${formatTime(
+          `${String(Math.floor((timeToMinutes(timeSlot) + 60) / 60)).padStart(2, "0")}:${String((timeToMinutes(timeSlot) + 60) % 60).padStart(2, "0")}:00`
+        )}`];
 
         // Add schedules for each day
         DAYS_ORDER.forEach((day) => {
@@ -437,7 +442,7 @@ const TeacherClassSchedule = () => {
           const dayContent = daySchedules
             .map((s) => `${s.subject_name}\n(${sectionLabel(s)})\nRoom: ${s.room_code || 'TBA'}`)
             .join('\n\n');
-          rowData[day] = dayContent;
+          rowData.push(dayContent);
         });
 
         const row = worksheet.addRow(rowData);
@@ -502,24 +507,18 @@ const TeacherClassSchedule = () => {
 
       // Create PDF in landscape
       const doc = new jsPDF('l', 'mm', 'a4');
+      await ensurePdfFont(doc);
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 5;
       const usableWidth = pageWidth - 2 * margin;
 
-      // Title
-      doc.setFontSize(16);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(31, 41, 55);
-      doc.text('Class Schedule', margin, 15);
-
-      // Add timestamp
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'normal');
-      doc.setTextColor(107, 114, 128);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 22);
-
-      let yPos = 28;
+      const titleY = await drawReportHeader(doc, {
+        title: 'Class Schedule',
+        schoolInfo: schoolInfo || {},
+        pageWidth,
+      });
+      let yPos = titleY + 4;
 
       // Table dimensions
       const timeColWidth = 27;

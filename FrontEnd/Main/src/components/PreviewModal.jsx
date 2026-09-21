@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import './PreviewModal.css';
+import { drawReportHeader, ensurePdfFont, fetchSchoolInfo } from '../utils/pdfReportHeader';
 
 const PreviewModal = ({ 
   isOpen, 
@@ -57,54 +58,42 @@ const PreviewModal = ({
       } else {
         // Default PDF export using jsPDF (manual table drawing)
         const doc = new jsPDF('l', 'mm', 'a4'); // Landscape mode for wider table
-        const timestamp = new Date().toLocaleString();
         const dateOnly = new Date().toISOString().slice(0, 10);
-        
+
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 10; // Reduced from 14 for more space
         const usableWidth = pageWidth - 2 * margin;
-        
-        // Add title
-        const titleY = 15;
-        doc.setFontSize(14); // Reduced from 16
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(0, 0, 0);
-        doc.text(title || 'Report', margin, titleY);
-        
-        // Add underline below title
-        doc.setDrawColor(0, 123, 255);
-        doc.setLineWidth(1);
-        const titleUnderlineY = titleY + 3;
-        doc.line(margin, titleUnderlineY, pageWidth - margin, titleUnderlineY);
+
+        await ensurePdfFont(doc);
+        const schoolInfo = await fetchSchoolInfo();
+        let generatedY = await drawReportHeader(doc, {
+          title: title || 'Report',
+          schoolInfo,
+          pageWidth,
+        });
 
         // Add teacher/header line below the report title when provided
-        let generatedY = titleUnderlineY + 7;
         if (pdfHeader) {
-          doc.setFontSize(14);
-          doc.setFont(undefined, 'bold');
+          doc.setFontSize(12);
+          doc.setFont('DejaVuSans', 'normal');
           doc.setTextColor(0, 0, 0);
-          doc.text(pdfHeader, margin, titleUnderlineY + 11);
-          generatedY = titleUnderlineY + 20;
+          doc.text(pdfHeader, margin, generatedY + 6);
+          generatedY += 10;
         }
 
         if (pdfDetails) {
-          doc.setFontSize(11);
-          doc.setFont(undefined, 'bold');
+          doc.setFontSize(10);
+          doc.setFont('DejaVuSans', 'normal');
           doc.setTextColor(0, 0, 0);
           const detailLines = Array.isArray(pdfDetails) ? pdfDetails : [pdfDetails];
-          const detailStartY = titleUnderlineY + 11;
           detailLines.forEach((detailLine, index) => {
-            doc.text(detailLine, margin, detailStartY + (index * 6));
+            doc.text(detailLine, margin, generatedY + (index * 5.5));
           });
-          generatedY = detailStartY + 9 + ((detailLines.length - 1) * 6);
+          generatedY += 5 + (detailLines.length * 5.5);
         }
-        
-        // Add timestamp
-        doc.setFontSize(10); // Reduced from 11
-        doc.setFont(undefined, 'normal');
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Generated: ${timestamp}`, margin, generatedY);
+
+        generatedY += 3;
         
         // Get formatted data for PDF
         let pdfData = data;
@@ -159,7 +148,7 @@ const PreviewModal = ({
           
           // Draw header text (no wrapping, just simple text)
           doc.setTextColor(255, 255, 255);
-          doc.setFont(undefined, 'bold');
+          doc.setFont('DejaVuSans', 'bold');
           doc.setFontSize(8); // Reduced from 10 for narrower columns
           headers.forEach((header, idx) => {
             const xPos = margin + (idx === 0 ? 0 : firstColWidth + (idx - 1) * otherColWidth);
@@ -171,7 +160,7 @@ const PreviewModal = ({
           yPos += headerRowHeight;
           
           // Draw body rows
-          doc.setFont(undefined, 'normal');
+          doc.setFont('DejaVuSans', 'normal');
           doc.setFontSize(8); // Reduced from 10 to match header
           
           rows.forEach((row, rowIdx) => {
