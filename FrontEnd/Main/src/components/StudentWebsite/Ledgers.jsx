@@ -2002,14 +2002,7 @@
               </div>
 
               <div style={{ padding: "1.5rem" }}>
-                <div
-                  className="tuition-breakdown-grid"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-                    gap: "1.5rem",
-                  }}
-                >
+                <div className="tuition-breakdown-grid">
                   {normalizedTuitionInstallments.length === 0 ? (
                     <div
                       style={{
@@ -2140,11 +2133,11 @@
 
                           {/* Breakdown Table */}
                           <div
-                            className="table-responsive ledger-table-scroll"
+                            className="table-responsive ledger-table-scroll ledger-table-scroll--accounting"
                             style={{ padding: "0" }}
                           >
                             <table
-                              className="ledger-table tuition-breakdown-table"
+                              className="ledger-table ledger-accounting tuition-breakdown-table"
                               style={{ marginBottom: 0 }}
                             >
                               <thead>
