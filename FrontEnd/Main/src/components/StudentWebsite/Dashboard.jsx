@@ -218,10 +218,17 @@ const Dashboard = () => {
   
   const gradeLabelStr = getNormalizedGrade(gradeLevel);
 
-  const attPct =
-    attStats?.attendance_percentage !== undefined
-      ? attStats.attendance_percentage
-      : attStats?.attendance_pct ?? null;
+  const attPct = (() => {
+    if (!attStats) return null;
+    const raw =
+      attStats.percentage ??
+      attStats.attendance_percentage ??
+      attStats.attendance_rate ??
+      attStats.attendance_pct;
+    if (raw === undefined || raw === null || raw === "") return null;
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : null;
+  })();
 
   const studentInsights = useMemo(() => {
     const attendanceValue =
