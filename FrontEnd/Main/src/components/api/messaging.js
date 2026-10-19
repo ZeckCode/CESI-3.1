@@ -26,18 +26,24 @@ export async function updateChat(chatId, payload) {
   });
 }
 
-export async function searchUsers(query) {
+export async function searchUsers(query, options = {}) {
   const params = new URLSearchParams();
   if (query) {
     params.set('q', query);
   }
+  if (options.scope) {
+    params.set('scope', options.scope);
+  }
   return apiFetchData(`${API_BASE}/chats/search_users/?${params.toString()}`);
 }
 
-export async function searchSections(query) {
+export async function searchSections(query, options = {}) {
   const params = new URLSearchParams();
   if (query) {
     params.set('q', query);
+  }
+  if (options.schoolYearId) {
+    params.set('school_year', options.schoolYearId);
   }
   return apiFetchData(`${API_BASE}/chats/search_sections/?${params.toString()}`);
 }

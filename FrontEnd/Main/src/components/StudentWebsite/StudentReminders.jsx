@@ -1,16 +1,81 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Bell, CheckCircle, Clock, AlertCircle } from "lucide-react";
-import { getToken } from "../Auth/auth";
+import { apiFetch } from "../api/apiFetch";
 import "../StudentWebsiteCSS/StudentReminders.css";
 
-const API_BASE = "";
+const READ_OVERRIDES_KEY = "reminder-read-overrides:PAYMENT";
 
-const authHeaders = (extra = {}) => {
-  const token = getToken();
-  return {
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...extra,
-  };
+const normalizeReminderPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.results)) return payload.results;
+  return [];
+};
+
+const getReadOverrides = () => {
+  try {
+    const raw = localStorage.getItem(READ_OVERRIDES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.map((id) => Number(id)).filter(Number.isFinite) : []);
+  } catch {
+    return new Set();
+  }
+};
+
+const saveReadOverride = (id) => {
+  const overrides = getReadOverrides();
+  overrides.add(Number(id));
+  localStorage.setItem(READ_OVERRIDES_KEY, JSON.stringify(Array.from(overrides)));
+};
+
+const applyReadOverrides = (reminders) => {
+  const overrides = getReadOverrides();
+  if (overrides.size === 0) return reminders;
+  return reminders.map((r) => (overrides.has(Number(r.id)) ? { ...r, is_read: true } : r));
+};
+
+const parseErrorDetail = async (res) => {
+  try {
+    const data = await res.json();
+    return String(data?.detail || data?.message || "").trim();
+  } catch {
+    return "";
+  }
+};
+
+const notifyReminderChanged = () => {
+  window.dispatchEvent(new Event("reminders-changed"));
+};
+
+const markReminderRead = async (id) => {
+  const attempts = [
+    { url: `/api/reminders/mark-read/${id}/`, method: "POST" },
+    { url: `/api/reminders/mark-read/${id}/`, method: "PATCH" },
+    { url: `/api/reminders/${id}/read/`, method: "POST" },
+    { url: `/api/reminders/${id}/read/`, method: "PATCH" },
+  ];
+
+  let lastError = "";
+
+  for (const attempt of attempts) {
+    const res = await apiFetch(attempt.url, { method: attempt.method });
+
+    if (res.ok) return { ok: true, detail: "" };
+
+    const detail = await parseErrorDetail(res);
+    const detailLower = detail.toLowerCase();
+
+    if (detailLower.includes("reminder not found")) {
+      return { ok: true, detail };
+    }
+
+    if (res.status === 404 || res.status === 405) {
+      continue;
+    }
+
+    lastError = detail || `Request failed with status ${res.status}`;
+  }
+
+  return { ok: false, detail: lastError || "Failed to mark as read" };
 };
 
 export default function StudentReminders() {
@@ -18,6 +83,13 @@ export default function StudentReminders() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
   const [markingId, setMarkingId] = useState(null);
+  const [errorToast, setErrorToast] = useState("");
+
+  useEffect(() => {
+    if (!errorToast) return undefined;
+    const timeoutId = window.setTimeout(() => setErrorToast(""), 2800);
+    return () => window.clearTimeout(timeoutId);
+  }, [errorToast]);
 
   const loadReminders = async () => {
     setLoading(true);
@@ -27,15 +99,12 @@ export default function StudentReminders() {
           ? "/api/reminders/"
           : `/api/reminders/?type=${activeFilter}`;
 
-      const res = await fetch(`${API_BASE}${query}`, {
-        credentials: "include",
-        headers: authHeaders(),
-      });
+      const res = await apiFetch(query);
 
       if (!res.ok) throw new Error("Failed to load reminders");
 
       const data = await res.json();
-      setReminders(Array.isArray(data) ? data : []);
+      setReminders(applyReadOverrides(normalizeReminderPayload(data)));
     } catch (err) {
       console.error("Error loading reminders:", err);
       setReminders([]);
@@ -48,6 +117,15 @@ export default function StudentReminders() {
     loadReminders();
   }, [activeFilter]);
 
+  useEffect(() => {
+    const handleReminderChange = () => {
+      loadReminders();
+    };
+
+    window.addEventListener("reminders-changed", handleReminderChange);
+    return () => window.removeEventListener("reminders-changed", handleReminderChange);
+  }, [activeFilter]);
+
   const unreadCount = useMemo(
     () => reminders.filter((r) => !r.is_read).length,
     [reminders]
@@ -56,28 +134,24 @@ export default function StudentReminders() {
   const markAsRead = async (id) => {
     setMarkingId(id);
     try {
-      const res = await fetch(`${API_BASE}/api/reminders/${id}/read/`, {
-        method: "POST",
-        credentials: "include",
-        headers: authHeaders(),
-      });
+      const result = await markReminderRead(id);
 
-      if (!res.ok) throw new Error("Failed to mark as read");
+      if (!result.ok) {
+        throw new Error(result.detail || "Failed to mark as read");
+      }
+
+      saveReadOverride(id);
 
       setReminders((prev) =>
         prev.map((r) => (r.id === id ? { ...r, is_read: true } : r))
       );
+      notifyReminderChanged();
     } catch (err) {
       console.error("Error marking reminder as read:", err);
+      setErrorToast(err?.message || "Could not mark reminder as read. Please try again.");
     } finally {
       setMarkingId(null);
     }
-  };
-
-  const iconForType = (type) => {
-    if (type === "PAYMENT") return <AlertCircle size={18} />;
-    if (type === "PERFORMANCE") return <Clock size={18} />;
-    return <Bell size={18} />;
   };
 
   return (
@@ -129,7 +203,9 @@ export default function StudentReminders() {
                 className={`sr-card ${reminder.is_read ? "read" : "unread"}`}
               >
                 <div className="sr-card-top">
-                  <div className="sr-type-icon">{iconForType(reminder.reminder_type)}</div>
+                  <div className="sr-type-icon">
+                    {reminder.is_read ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+                  </div>
                   <div className="sr-content">
                     <div className="sr-card-header">
                       <h3>{reminder.title}</h3>
@@ -144,7 +220,9 @@ export default function StudentReminders() {
                       <span>{reminder.reminder_type}</span>
                       <span>•</span>
                       <span>
-                        {new Date(reminder.created_at).toLocaleString()}
+                        {reminder.created_at
+                          ? new Date(reminder.created_at).toLocaleString()
+                          : "-"}
                       </span>
                     </div>
                   </div>
@@ -157,7 +235,7 @@ export default function StudentReminders() {
                       onClick={() => markAsRead(reminder.id)}
                       disabled={markingId === reminder.id}
                     >
-                      <CheckCircle size={16} />
+                      <Clock size={16} />
                       {markingId === reminder.id ? "Marking..." : "Mark as Read"}
                     </button>
                   </div>
@@ -167,6 +245,13 @@ export default function StudentReminders() {
           </div>
         )}
       </section>
+
+      {errorToast && (
+        <div className="sr-snackbar" role="alert" aria-live="assertive">
+          <AlertCircle size={16} />
+          <span>{errorToast}</span>
+        </div>
+      )}
     </main>
   );
 }

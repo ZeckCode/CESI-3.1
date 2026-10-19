@@ -164,17 +164,16 @@ const splitAddress = (address = "") => {
     city: parts[2] || "",
     province: parts[3] || "",
     region: parts[4] || "",
-    zip_code: parts[5] || "",
   };
 };
 
-const buildAddress = ({ street, barangay, city, province, region, zipCode }) =>
-  [street, barangay, city, province, region, zipCode]
+const buildAddress = ({ street, barangay, city, province, region}) =>
+  [street, barangay, city, province, region]
     .map((p) => String(p || "").trim())
     .filter(Boolean)
     .join(", ");
 
-export default function StudentReenrollment() {
+export default function StudentReenrollment({ enrollmentWindow }) {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -195,16 +194,19 @@ export default function StudentReenrollment() {
   const [parentLastName, setParentLastName] = useState("");
 
   const [contactNumber, setContactNumber] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentMode, setPaymentMode] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [paymentChannel, setPaymentChannel] = useState("");
 
   const [street, setStreet] = useState("");
   const [barangay, setBarangay] = useState("");
   const [city, setCity] = useState("");
   const [province, setProvince] = useState("");
   const [region, setRegion] = useState("");
-  const [zipCode, setZipCode] = useState("");
 
+  const [studentPhotoFile, setStudentPhotoFile] = useState(null);
+  const [paymentProofFile, setPaymentProofFile] = useState(null);
   const [form137File, setForm137File] = useState(null);
   const [sf10File, setSf10File] = useState(null);
   const [birthCertificateFile, setBirthCertificateFile] = useState(null);
@@ -292,7 +294,6 @@ export default function StudentReenrollment() {
         setCity(parsedAddress.city);
         setProvince(parsedAddress.province);
         setRegion(parsedAddress.region);
-        setZipCode(parsedAddress.zip_code);
       } catch (e) {
         const msg = e.message || "Failed to load reenrollment data.";
         setError(msg);
@@ -371,6 +372,7 @@ export default function StudentReenrollment() {
     const currentGradeCode = studentInfo.gradeCode;
     const nextGrade = NEXT_GRADE_MAP[currentGradeCode] || null;
     const hasBalance = outstandingBalance > 0;
+    const hasNoAssignedSubjects = gradeSummary.totalSubjects === 0;
     const hasIncompleteGrades = gradeSummary.incompleteSubjects > 0;
     const hasFailingGrades = gradeSummary.failedSubjects > 0;
 
@@ -406,6 +408,21 @@ export default function StudentReenrollment() {
             maximumFractionDigits: 2,
           }
         )}. Please settle it before enrolling.`,
+      };
+    }
+
+    if (hasNoAssignedSubjects) {
+      return {
+        eligible: false,
+        badge: "Not Eligible",
+        color: "#92400e",
+        bg: "#fffbeb",
+        border: "#fcd34d",
+        nextGrade,
+        financeNote: "No existing balance",
+        academicNote: "No subjects assigned yet",
+        message:
+          "You are not eligible to enroll yet because no subjects have been assigned.",
       };
     }
 
@@ -456,71 +473,72 @@ export default function StudentReenrollment() {
 
   const formValidation = useMemo(() => {
     const errors = [];
-
     if (!studentFirstName.trim()) errors.push("Student first name is required.");
     else if (!isValidName(studentFirstName)) {
       errors.push("Student first name contains invalid characters.");
     }
-
     if (studentMiddleName.trim() && !isValidName(studentMiddleName)) {
       errors.push("Student middle name contains invalid characters.");
     }
-
     if (!studentLastName.trim()) errors.push("Student last name is required.");
     else if (!isValidName(studentLastName)) {
       errors.push("Student last name contains invalid characters.");
     }
-
     if (!parentFirstName.trim()) errors.push("Parent first name is required.");
     else if (!isValidName(parentFirstName)) {
       errors.push("Parent first name contains invalid characters.");
     }
-
     if (parentMiddleName.trim() && !isValidName(parentMiddleName)) {
       errors.push("Parent middle name contains invalid characters.");
     }
-
     if (!parentLastName.trim()) errors.push("Parent last name is required.");
     else if (!isValidName(parentLastName)) {
       errors.push("Parent last name contains invalid characters.");
     }
-
     if (!contactNumber.trim()) {
       errors.push("Contact number is required.");
     } else if (!isValidPHMobile(contactNumber)) {
       errors.push("Contact number must be 09XXXXXXXXX or +639XXXXXXXXX.");
     }
-
     if (!street.trim()) errors.push("House No. / Street is required.");
     if (!barangay.trim()) errors.push("Barangay is required.");
     if (!city.trim()) errors.push("City / Municipality is required.");
     if (!province.trim()) errors.push("Province is required.");
     if (!region.trim()) errors.push("Region is required.");
-    if (!zipCode.trim()) {
-      errors.push("ZIP Code is required.");
-    } else if (!/^\d{4}$/.test(zipCode.trim())) {
-      errors.push("ZIP Code must be exactly 4 digits.");
+    if (!paymentMethod.trim()) {
+      errors.push("Please select a payment method.");
     }
-
     if (!paymentMode.trim()) {
       errors.push("Please select a payment mode.");
     }
-
+    if (paymentMethod === "online" && !paymentChannel.trim()) {
+      errors.push("Please select a payment channel for online payments.");
+    }
+    // Require proof of payment only for online payments
+    if (paymentMethod === "online" && !paymentProofFile) {
+      errors.push("Proof of payment is required for online payments.");
+    }
+    // Require 2x2 photo (studentPhotoFile), but allow reuse if previously uploaded
+    const prevPhoto = data?.enrollment?.documents?.find((d) => d.document_type === "student_photo");
+    if (!studentPhotoFile && !prevPhoto) {
+      errors.push("A new 2x2 ID photo is required.");
+    } else if (studentPhotoFile) {
+      const err = validateUploadFile(studentPhotoFile, "2x2 ID Photo");
+      if (err) errors.push(err);
+    }
     if (remarks.trim().length > 500) {
       errors.push("Remarks must not exceed 500 characters.");
     }
-
+    // Other documents are optional, but validate if provided
     const fileChecks = [
-      validateUploadFile(form137File, "Form 137-E"),
-      validateUploadFile(sf10File, "School Form 10"),
-      validateUploadFile(birthCertificateFile, "Birth Certificate"),
-      validateUploadFile(goodMoralFile, "Good Moral Certificate"),
-      validateUploadFile(reportCardFile, "Report Card"),
-      validateUploadFile(otherDocumentFile, "Other Document"),
+      form137File ? validateUploadFile(form137File, "Form 137-E") : null,
+      sf10File ? validateUploadFile(sf10File, "School Form 10") : null,
+      birthCertificateFile ? validateUploadFile(birthCertificateFile, "Birth Certificate") : null,
+      goodMoralFile ? validateUploadFile(goodMoralFile, "Good Moral Certificate") : null,
+      reportCardFile ? validateUploadFile(reportCardFile, "Report Card") : null,
+      otherDocumentFile ? validateUploadFile(otherDocumentFile, "Other Document") : null,
     ].filter(Boolean);
-
     errors.push(...fileChecks);
-
     return {
       valid: errors.length === 0,
       errors,
@@ -538,15 +556,19 @@ export default function StudentReenrollment() {
     city,
     province,
     region,
-    zipCode,
+    paymentMethod,
     paymentMode,
+    paymentChannel,
+    paymentProofFile,
     remarks,
+    studentPhotoFile,
     form137File,
     sf10File,
     birthCertificateFile,
     goodMoralFile,
     reportCardFile,
     otherDocumentFile,
+    data,
   ]);
 
   const handleSubmit = async (e) => {
@@ -586,12 +608,19 @@ export default function StudentReenrollment() {
           city,
           province,
           region,
-          zipCode,
         })
       );
+      form.append("payment_method", paymentMethod);
       form.append("payment_mode", paymentMode);
+      if (paymentProofFile && paymentMethod === "online") {
+        form.append("payment_proof", paymentProofFile);
+      }
+      if (paymentMethod === "online" && paymentChannel) {
+        form.append("payment_channel", paymentChannel);
+      }
       form.append("remarks", remarks.trim());
 
+      if (studentPhotoFile) form.append("student_photo", studentPhotoFile);
       if (form137File) form.append("form_137_file", form137File);
       if (sf10File) form.append("sf10_file", sf10File);
       if (birthCertificateFile) form.append("birth_certificate_file", birthCertificateFile);
@@ -662,15 +691,25 @@ export default function StudentReenrollment() {
     <div className="profile-content">
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
-      <div className="profile-hero-card">
-        <div className="hero-text">
-          <h1 className="student-name">Student enrollment</h1>
-          <p className="student-lrn">
-            Review and update your information before submitting your
-            enrollment application.
-          </p>
+      {/* Academic Year Banner from Enrollment Settings */}
+      {enrollmentWindow?.academicYear && (
+        <div
+          style={{
+            margin: "0 0 18px 0",
+            padding: "14px 18px",
+            borderRadius: "12px",
+            background: "#e0f2fe",
+            border: "1.5px solid #0284c7",
+            color: "#0369a1",
+            fontWeight: 700,
+            fontSize: "17px",
+            textAlign: "center",
+            letterSpacing: "0.5px",
+          }}
+        >
+          Enrollment is for Academic Year: <span style={{ fontWeight: 900 }}>{enrollmentWindow.academicYear}</span>
         </div>
-      </div>
+      )}
 
       <div
         style={{
@@ -749,6 +788,21 @@ export default function StudentReenrollment() {
           <div>
             <strong>Academic Check:</strong> {eligibility.academicNote}
           </div>
+          {gradeSummary.totalSubjects === 0 && (
+            <div
+              style={{
+                marginTop: "4px",
+                padding: "10px 12px",
+                borderRadius: "10px",
+                background: "#fff7ed",
+                border: "1px solid #fdba74",
+                color: "#9a3412",
+                fontWeight: 600,
+              }}
+            >
+              No subjects are assigned yet, so reenrollment remains blocked until the academic record is available.
+            </div>
+          )}
         </div>
       </div>
 
@@ -774,7 +828,7 @@ export default function StudentReenrollment() {
             <InfoRow
               label="Address"
               value={
-                buildAddress({ street, barangay, city, province, region, zipCode }) || "—"
+                buildAddress({ street, barangay, city, province, region}) || "—"
               }
             />
             <InfoRow
@@ -988,26 +1042,25 @@ export default function StudentReenrollment() {
               </select>
             </div>
 
-            <div className="form-group">
-              <label>
-                ZIP Code<span className="required">*</span>
-              </label>
-              <input
-                value={zipCode}
-                onChange={(e) =>
-                  setZipCode(e.target.value.replace(/\D/g, "").slice(0, 4))
-                }
-                placeholder="e.g. 1400"
-                maxLength={4}
-                inputMode="numeric"
-                disabled={!eligibility.eligible}
-                required
-              />
-            </div>
+           
           </div>
 
           <div className="info-entry entry-border edit-mode">
-            <span className="entry-label">Payment Mode</span>
+            <span className="entry-label">Payment Method<span className="required">*</span></span>
+            <select
+              className="entry-input"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              disabled={!eligibility.eligible}
+            >
+              <option value="">Select payment method</option>
+              <option value="online">Online (Offsite)</option>
+              <option value="onsite">Onsite (In-person)</option>
+            </select>
+          </div>
+
+          <div className="info-entry entry-border edit-mode">
+            <span className="entry-label">Payment Mode<span className="required">*</span></span>
             <select
               className="entry-input"
               value={paymentMode}
@@ -1019,6 +1072,68 @@ export default function StudentReenrollment() {
               <option value="installment">Installment</option>
             </select>
           </div>
+
+
+          {paymentMethod === "online" && (
+            <>
+              {/* Payment Channel Selection */}
+              <div className="info-entry entry-border edit-mode">
+                <span className="entry-label">Payment Channel <span className="required">*</span></span>
+                <select
+                  className="entry-input"
+                  value={paymentChannel}
+                  onChange={e => setPaymentChannel(e.target.value)}
+                  disabled={!eligibility.eligible}
+                  required
+                >
+                  <option value="">Select channel</option>
+                  <option value="bank">Bank (PNB)</option>
+                  <option value="ewallet">E-Wallet (Gcash/Maya)</option>
+                </select>
+              </div>
+
+              {/* Show relevant payment details */}
+              {paymentChannel === "bank" && (
+                <div className="info-entry entry-border edit-mode">
+                  <span className="entry-label">Bank Account Details</span>
+                  <div style={{ fontSize: "13px", color: '#0369a1', marginTop: 2, marginBottom: 2 }}>
+                    <b>PNB Bank Account:</b> 1003-10040-500
+                  </div>
+                  <div style={{ fontSize: "12px", color: '#666' }}>
+                    Please send your payment to the above bank account and upload your proof of payment below.
+                  </div>
+                </div>
+              )}
+              {paymentChannel === "ewallet" && (
+                <div className="info-entry entry-border edit-mode">
+                  <span className="entry-label">E-Wallet Details</span>
+                  <div style={{ fontSize: "13px", color: '#0369a1', marginTop: 2, marginBottom: 2 }}>
+                    <b>Gcash/Maya:</b> 0912345678 Cesi Admin
+                  </div>
+                  <div style={{ fontSize: "12px", color: '#666' }}>
+                    Please send your payment to the above E-Wallet and upload your proof of payment below.
+                  </div>
+                </div>
+              )}
+
+              {/* Proof of Payment Upload */}
+              <div className="info-entry entry-border edit-mode">
+                <span className="entry-label">Proof of Payment<span className="required">*</span></span>
+                <input
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  className="entry-input"
+                  onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)}
+                  disabled={!eligibility.eligible}
+                />
+                {paymentProofFile && (
+                  <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                    📄 {paymentProofFile.name}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           <div className="info-entry edit-mode">
             <span className="entry-label">Remarks</span>
@@ -1032,76 +1147,212 @@ export default function StudentReenrollment() {
             />
           </div>
 
+
           <div className="details-header" style={{ marginTop: "18px" }}>
-            enrollment Documents
+            Enrollment Documents
           </div>
 
+          {/* 2x2 ID Photo */}
+          <div className="info-entry entry-border edit-mode">
+            <span className="entry-label">2x2 ID Photo <span className="required">*</span></span>
+            {(() => {
+              const prev = data?.enrollment?.documents?.find((d) => d.document_type === "student_photo");
+              return (
+                <>
+                  {prev && !studentPhotoFile && (
+                    <div style={{ fontSize: "12px", color: "#059669", marginBottom: 4 }}>
+                      Previously uploaded: <a href={prev.file} target="_blank" rel="noopener noreferrer">{prev.label || "2x2 ID Photo"}</a>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png"
+                    className="entry-input"
+                    onChange={(e) => setStudentPhotoFile(e.target.files?.[0] || null)}
+                    disabled={!eligibility.eligible}
+                  />
+                  {studentPhotoFile && (
+                    <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                      📄 {studentPhotoFile.name}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+
+          {/* Form 137-E */}
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Form 137-E</span>
-            <input
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              className="entry-input"
-              onChange={(e) => setForm137File(e.target.files?.[0] || null)}
-              disabled={!eligibility.eligible}
-            />
+            {(() => {
+              const prev = data?.enrollment?.documents?.find((d) => d.document_type === "form_137");
+              return (
+                <>
+                  {prev && !form137File && (
+                    <div style={{ fontSize: "12px", color: "#059669", marginBottom: 4 }}>
+                      Previously uploaded: <a href={prev.file} target="_blank" rel="noopener noreferrer">{prev.label || "Form 137-E"}</a>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    className="entry-input"
+                    onChange={(e) => setForm137File(e.target.files?.[0] || null)}
+                    disabled={!eligibility.eligible}
+                  />
+                  {form137File && (
+                    <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                      📄 {form137File.name}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
+          {/* SF10 */}
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">School Form 10 (SF10)</span>
-            <input
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              className="entry-input"
-              onChange={(e) => setSf10File(e.target.files?.[0] || null)}
-              disabled={!eligibility.eligible}
-            />
+            {(() => {
+              const prev = data?.enrollment?.documents?.find((d) => d.document_type === "sf10");
+              return (
+                <>
+                  {prev && !sf10File && (
+                    <div style={{ fontSize: "12px", color: "#059669", marginBottom: 4 }}>
+                      Previously uploaded: <a href={prev.file} target="_blank" rel="noopener noreferrer">{prev.label || "SF10"}</a>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    className="entry-input"
+                    onChange={(e) => setSf10File(e.target.files?.[0] || null)}
+                    disabled={!eligibility.eligible}
+                  />
+                  {sf10File && (
+                    <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                      📄 {sf10File.name}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
+          {/* Birth Certificate */}
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Birth Certificate</span>
-            <input
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              className="entry-input"
-              onChange={(e) =>
-                setBirthCertificateFile(e.target.files?.[0] || null)
-              }
-              disabled={!eligibility.eligible}
-            />
+            {(() => {
+              const prev = data?.enrollment?.documents?.find((d) => d.document_type === "birth_certificate");
+              return (
+                <>
+                  {prev && !birthCertificateFile && (
+                    <div style={{ fontSize: "12px", color: "#059669", marginBottom: 4 }}>
+                      Previously uploaded: <a href={prev.file} target="_blank" rel="noopener noreferrer">{prev.label || "Birth Certificate"}</a>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    className="entry-input"
+                    onChange={(e) => setBirthCertificateFile(e.target.files?.[0] || null)}
+                    disabled={!eligibility.eligible}
+                  />
+                  {birthCertificateFile && (
+                    <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                      📄 {birthCertificateFile.name}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
+          {/* Good Moral Certificate */}
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Good Moral Certificate</span>
-            <input
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              className="entry-input"
-              onChange={(e) => setGoodMoralFile(e.target.files?.[0] || null)}
-              disabled={!eligibility.eligible}
-            />
+            {(() => {
+              const prev = data?.enrollment?.documents?.find((d) => d.document_type === "good_moral");
+              return (
+                <>
+                  {prev && !goodMoralFile && (
+                    <div style={{ fontSize: "12px", color: "#059669", marginBottom: 4 }}>
+                      Previously uploaded: <a href={prev.file} target="_blank" rel="noopener noreferrer">{prev.label || "Good Moral Certificate"}</a>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    className="entry-input"
+                    onChange={(e) => setGoodMoralFile(e.target.files?.[0] || null)}
+                    disabled={!eligibility.eligible}
+                  />
+                  {goodMoralFile && (
+                    <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                      📄 {goodMoralFile.name}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
+          {/* Report Card */}
           <div className="info-entry entry-border edit-mode">
             <span className="entry-label">Report Card</span>
-            <input
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              className="entry-input"
-              onChange={(e) => setReportCardFile(e.target.files?.[0] || null)}
-              disabled={!eligibility.eligible}
-            />
+            {(() => {
+              const prev = data?.enrollment?.documents?.find((d) => d.document_type === "report_card");
+              return (
+                <>
+                  {prev && !reportCardFile && (
+                    <div style={{ fontSize: "12px", color: "#059669", marginBottom: 4 }}>
+                      Previously uploaded: <a href={prev.file} target="_blank" rel="noopener noreferrer">{prev.label || "Report Card"}</a>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    className="entry-input"
+                    onChange={(e) => setReportCardFile(e.target.files?.[0] || null)}
+                    disabled={!eligibility.eligible}
+                  />
+                  {reportCardFile && (
+                    <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                      📄 {reportCardFile.name}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
+          {/* Other Document */}
           <div className="info-entry edit-mode">
             <span className="entry-label">Other Document</span>
-            <input
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              className="entry-input"
-              onChange={(e) => setOtherDocumentFile(e.target.files?.[0] || null)}
-              disabled={!eligibility.eligible}
-            />
+            {(() => {
+              const prev = data?.enrollment?.documents?.find((d) => d.document_type === "other");
+              return (
+                <>
+                  {prev && !otherDocumentFile && (
+                    <div style={{ fontSize: "12px", color: "#059669", marginBottom: 4 }}>
+                      Previously uploaded: <a href={prev.file} target="_blank" rel="noopener noreferrer">{prev.label || "Other Document"}</a>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    className="entry-input"
+                    onChange={(e) => setOtherDocumentFile(e.target.files?.[0] || null)}
+                    disabled={!eligibility.eligible}
+                  />
+                  {otherDocumentFile && (
+                    <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                      📄 {otherDocumentFile.name}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {!formValidation.valid && (
@@ -1125,14 +1376,7 @@ export default function StudentReenrollment() {
             <button type="submit" disabled={saving || !eligibility.eligible}>
               {saving ? "Submitting..." : "Submit enrollment"}
             </button>
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => navigate("/student")}
-              disabled={saving}
-            >
-              Back to Portal
-            </button>
+            
           </div>
         </div>
       </form>

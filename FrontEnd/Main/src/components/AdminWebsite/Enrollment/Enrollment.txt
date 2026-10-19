@@ -1,0 +1,14 @@
+components/
+└── AdminWebsite/
+    ├── EnrollmentManagement.jsx              # main page only
+    ├── Enrollment/
+    │   ├── EnrollmentDetailsModal.jsx
+    │   ├── DeclineDialog.jsx
+    │   ├── IdUploadModal.jsx
+    │   ├── EnrollmentSection.jsx
+    │   ├── EnrollmentToast.jsx
+    │   ├── EnrollmentBadges.jsx
+    │   ├── EnrollmentCells.jsx
+    │   ├── enrollmentUtils.js
+    │   ├── enrollmentConstants.js
+    │   └── exportEnrollmentPDF.js

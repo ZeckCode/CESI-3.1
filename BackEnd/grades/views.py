@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError
 from django.db.models import Count, Max, Q, Sum
 
 from decimal import Decimal
+import logging
 
 from .models import GradeWeight, GradeItem, StudentScore, ClassStanding, AcademicRecord
 from .serializers import (
@@ -15,12 +16,103 @@ from .serializers import (
     StudentScoreSerializer,
     ClassStandingSerializer,
     AcademicRecordSerializer,
+    resolve_student_display_name,
 )
 from accounts.models import User, UserProfile, Subject
-from classmanagement.models import Schedule
+from classmanagement.models import Schedule, SchoolYear
 from enrollment.models import Enrollment
 
 from finance.models import Transaction
+
+
+logger = logging.getLogger(__name__)
+
+
+def get_teacher_subjects(tp):
+    subjects = list(tp.subjects.all())
+    if tp.subject and all(subj.id != tp.subject_id for subj in subjects):
+        subjects.insert(0, tp.subject)
+    return subjects
+
+
+def get_teacher_subject_ids(tp):
+    return [subj.id for subj in get_teacher_subjects(tp)]
+
+
+def teacher_schedule_access_q(user):
+    """
+    Teachers can access schedules explicitly assigned to them, and legacy/unassigned
+    schedule rows through adviser/section/subject fallback assignments.
+    """
+    access_q = Q(teacher=user) | Q(teacher__isnull=True, section__adviser__user=user)
+
+    try:
+        teacher_profile = user.teacher_profile
+    except Exception:
+        return access_q
+
+    if teacher_profile.section_id:
+        access_q |= Q(teacher__isnull=True, section_id=teacher_profile.section_id)
+
+    subject_ids = get_teacher_subject_ids(teacher_profile)
+    if subject_ids:
+        access_q |= Q(teacher__isnull=True, subject_id__in=subject_ids)
+
+    return access_q
+
+
+def get_active_school_year_obj():
+    return SchoolYear.objects.filter(is_active=True).first()
+
+
+def get_school_year_quarter_dates(quarter, school_year_obj=None):
+    from datetime import date as date_class
+
+    if school_year_obj and getattr(school_year_obj, "start_date", None):
+        sy_start = school_year_obj.start_date.year
+    else:
+        today = date_class.today()
+        sy_start = today.year if today.month >= 6 else today.year - 1
+
+    quarter_ranges = {
+        1: (date_class(sy_start, 6, 1), date_class(sy_start, 8, 31)),
+        2: (date_class(sy_start, 9, 1), date_class(sy_start, 11, 30)),
+        3: (date_class(sy_start, 12, 1), date_class(sy_start + 1, 2, 28)),
+        4: (date_class(sy_start + 1, 3, 1), date_class(sy_start + 1, 5, 31)),
+    }
+    return quarter_ranges.get(quarter)
+
+
+def get_teacher_schedule_subject_ids(user, school_year_obj=None):
+    qs = Schedule.objects.filter(
+        teacher_schedule_access_q(user),
+        subject__isnull=False,
+    )
+    if school_year_obj:
+        qs = qs.filter(school_year=school_year_obj)
+    return list(qs.values_list("subject_id", flat=True).distinct())
+
+
+def get_teacher_subjects_for_grades(user, teacher_profile, school_year_obj=None):
+    """
+    Resolve teacher subjects robustly for teacher-side grade flows:
+    1) profile multi-subject + legacy primary subject
+    2) fallback subject IDs discovered from accessible schedules
+    """
+    subjects = get_teacher_subjects(teacher_profile)
+    subject_map = {subj.id: subj for subj in subjects}
+
+    schedule_subject_ids = get_teacher_schedule_subject_ids(user, school_year_obj=school_year_obj)
+    missing_ids = [sid for sid in schedule_subject_ids if sid not in subject_map]
+    if missing_ids:
+        for subj in Subject.objects.filter(id__in=missing_ids).order_by("name"):
+            subject_map[subj.id] = subj
+
+    ordered_subjects = sorted(
+        subject_map.values(),
+        key=lambda subj: (0 if subj.id in schedule_subject_ids else 1, (subj.name or "").lower()),
+    )
+    return ordered_subjects, set(schedule_subject_ids)
 
 
 def normalize_grade_level(value):
@@ -31,8 +123,14 @@ def normalize_grade_level(value):
 
     grade_map = {
         "prek": -1,
+        "pre-k": -1,
+        "pre k": -1,
+        "pre kinder": -1,
         "pre-kinder": -1,
+        "prekindergarten": -1,
+        "pre kindergarten": -1,
         "kinder": 0,
+        "kindergarten": 0,
         "grade1": 1,
         "grade2": 2,
         "grade3": 3,
@@ -66,12 +164,298 @@ def normalize_grade_level(value):
 def grade_level_label(value):
     normalized = normalize_grade_level(value)
     if normalized == -1:
-        return "Pre-Kinder"
+        return "Pre Kinder"
     if normalized == 0:
         return "Kinder"
     if normalized is not None and normalized > 0:
         return f"Grade {normalized}"
     return str(value or "—")
+
+
+def normalize_school_year_label(value):
+    return str(value or "").strip()
+
+
+def resolve_school_year_label(school_year_obj):
+    if not school_year_obj:
+        return ""
+
+    name = normalize_school_year_label(getattr(school_year_obj, "name", ""))
+    if name:
+        return name
+
+    start_date = getattr(school_year_obj, "start_date", None)
+    end_date = getattr(school_year_obj, "end_date", None)
+    if start_date and end_date:
+        return f"{start_date.year}-{end_date.year}"
+
+    return ""
+
+
+def resolve_portal_student_user(enrollment):
+    # Prefer the concrete student account used in enrollments.
+    if enrollment.student_id and enrollment.student and enrollment.student.username != "public_user":
+        return enrollment.student
+
+    if enrollment.parent_user_id:
+        return enrollment.parent_user
+
+    enrollment_email = str(enrollment.email or "").strip()
+    if enrollment_email:
+        candidate = User.objects.filter(
+            email__iexact=enrollment_email,
+            role="PARENT_STUDENT",
+        ).first()
+        if candidate:
+            return candidate
+
+    identifiers = [enrollment.student_number, enrollment.lrn]
+    for identifier in identifiers:
+        lookup_value = str(identifier or "").strip()
+        if not lookup_value:
+            continue
+        profile = (
+            UserProfile.objects.select_related("user")
+            .filter(
+                Q(student_number__iexact=lookup_value) | Q(lrn__iexact=lookup_value),
+                user__role="PARENT_STUDENT",
+            )
+            .order_by("-id")
+            .first()
+        )
+        if profile and profile.user_id:
+            return profile.user
+
+    return enrollment.student
+
+
+def resolve_student_for_grade_write(student_id=None, student_number=None):
+    resolved_ids = []
+
+    try:
+        sid = int(student_id)
+        if sid > 0:
+            resolved_ids.append(sid)
+    except (TypeError, ValueError):
+        pass
+
+    lookup_number = str(student_number or "").strip()
+    if lookup_number:
+        profile_user_ids = list(
+            UserProfile.objects.filter(
+                Q(student_number__iexact=lookup_number) | Q(lrn__iexact=lookup_number),
+                user__role="PARENT_STUDENT",
+            ).values_list("user_id", flat=True)
+        )
+        enrollment_user_ids = list(
+            Enrollment.objects.filter(
+                Q(student_number__iexact=lookup_number) | Q(lrn__iexact=lookup_number),
+                status="ACTIVE",
+            ).values_list("student_id", flat=True)
+        )
+        for candidate_id in profile_user_ids + enrollment_user_ids:
+            if candidate_id and candidate_id not in resolved_ids:
+                resolved_ids.append(candidate_id)
+
+    if not resolved_ids:
+        return student_id
+
+    users = {
+        row["id"]: row
+        for row in User.objects.filter(id__in=resolved_ids, role="PARENT_STUDENT").values("id", "username")
+    }
+
+    for candidate_id in resolved_ids:
+        candidate = users.get(candidate_id)
+        if candidate and str(candidate.get("username") or "").strip().lower() != "public_user":
+            return candidate_id
+
+    return resolved_ids[0]
+
+
+def get_school_year_scoped_student_ids(school_year_id, subject_id=None, section_id=None):
+    try:
+        school_year_id = int(school_year_id)
+    except (TypeError, ValueError):
+        return set()
+
+    schedule_qs = Schedule.objects.filter(school_year_id=school_year_id)
+    if subject_id not in (None, ""):
+        try:
+            schedule_qs = schedule_qs.filter(subject_id=int(subject_id))
+        except (TypeError, ValueError):
+            return set()
+
+    if section_id not in (None, ""):
+        try:
+            schedule_qs = schedule_qs.filter(section_id=int(section_id))
+        except (TypeError, ValueError):
+            return set()
+
+    section_ids = list(schedule_qs.values_list("section_id", flat=True).distinct())
+    if not section_ids:
+        return set()
+
+    enrollments = (
+        Enrollment.objects.filter(section_id__in=section_ids, status="ACTIVE")
+        .select_related("student", "student__profile", "parent_user", "parent_user__profile")
+    )
+
+    student_ids = set()
+    number_keys = set()
+
+    for enrollment in enrollments:
+        resolved_student = resolve_portal_student_user(enrollment)
+        for candidate in (resolved_student, enrollment.student, enrollment.parent_user):
+            candidate_id = getattr(candidate, "id", None)
+            if candidate_id:
+                student_ids.add(candidate_id)
+
+        student_number = (
+            enrollment.student_number
+            or getattr(getattr(resolved_student, "profile", None), "student_number", None)
+            or enrollment.lrn
+            or ""
+        )
+        number_key = str(student_number).strip().lower()
+        if number_key:
+            number_keys.add(number_key)
+
+    if number_keys:
+        for profile_row in (
+            UserProfile.objects.filter(user__role="PARENT_STUDENT")
+            .exclude(student_number__isnull=True)
+            .exclude(student_number__exact="")
+            .values("user_id", "student_number")
+        ):
+            profile_number_key = str(profile_row.get("student_number") or "").strip().lower()
+            if profile_number_key in number_keys and profile_row.get("user_id"):
+                student_ids.add(profile_row["user_id"])
+
+    return student_ids
+
+
+def build_section_students_payload(section_id):
+    def normalize_student_number(value):
+        return str(value or "").strip().lower()
+
+    def normalize_student_name(value):
+        return " ".join(str(value or "").strip().lower().split())
+
+    def row_quality(row):
+        username = str(row.get("username") or "").strip().lower()
+        return (
+            0 if username == "public_user" else 1,
+            1 if "@" in username else 0,
+            row.get("id") or 0,
+        )
+
+    def pick_preferred_row(a, b):
+        return a if row_quality(a) >= row_quality(b) else b
+
+    candidate_rows = []
+    enrollments = (
+        Enrollment.objects.filter(section_id=section_id, status="ACTIVE")
+        .select_related("student", "student__profile", "parent_user", "parent_user__profile")
+        .order_by("last_name", "first_name", "id")
+    )
+
+    for enrollment in enrollments:
+        student_user = resolve_portal_student_user(enrollment)
+        if not student_user:
+            continue
+
+        profile = getattr(student_user, "profile", None)
+        full_name = " ".join(
+            p for p in [enrollment.first_name or "", enrollment.last_name or ""] if p
+        ).strip()
+        if not full_name and profile:
+            full_name = " ".join(
+                p for p in [profile.student_first_name or "", profile.student_last_name or ""] if p
+            ).strip()
+        if not full_name:
+            full_name = student_user.username
+
+        candidate_rows.append({
+            "id": student_user.id,
+            "username": student_user.username,
+            "student_name": full_name,
+            "student_number": (
+                getattr(profile, "student_number", None)
+                or enrollment.student_number
+                or enrollment.lrn
+                or ""
+            ),
+            "grade_level": enrollment.grade_level or getattr(profile, "grade_level", None),
+        })
+
+    # Only use legacy profile fallback when there are no active enrollment rows.
+    if not candidate_rows:
+        legacy_profiles = UserProfile.objects.filter(
+            section_id=section_id,
+            user__role="PARENT_STUDENT",
+            user__status="ACTIVE",
+        ).select_related("user")
+
+        for profile in legacy_profiles:
+            student_user = profile.user
+            full_name = " ".join(
+                part for part in [profile.student_first_name or "", profile.student_last_name or ""] if part
+            ).strip() or student_user.username
+            candidate_rows.append({
+                "id": student_user.id,
+                "username": student_user.username,
+                "student_name": full_name,
+                "student_number": profile.student_number or "",
+                "grade_level": profile.grade_level,
+            })
+
+    # Collapse only true clone identities (same student_number + same normalized name).
+    clone_collapsed = {}
+    no_identity_rows = []
+    for row in candidate_rows:
+        number_key = normalize_student_number(row.get("student_number"))
+        name_key = normalize_student_name(row.get("student_name"))
+        if number_key and name_key:
+            clone_key = f"{number_key}::{name_key}"
+            existing = clone_collapsed.get(clone_key)
+            clone_collapsed[clone_key] = pick_preferred_row(existing, row) if existing else row
+        else:
+            no_identity_rows.append(row)
+
+    final_map = {}
+    for row in list(clone_collapsed.values()) + no_identity_rows:
+        row_id = row.get("id")
+        if row_id is None:
+            continue
+        existing = final_map.get(row_id)
+        final_map[row_id] = pick_preferred_row(existing, row) if existing else row
+
+    final_rows = list(final_map.values())
+    return sorted(final_rows, key=lambda s: (str(s.get("student_name") or "").lower(), s.get("id") or 0))
+
+
+def dedupe_serialized_academic_records(records):
+    deduped = {}
+    for record in records:
+        school_year = str(record.get("school_year") or "").strip()
+        subject_name = str(record.get("subject_name") or "").strip().lower()
+        number_key = str(record.get("student_number") or "").strip().lower()
+        student_id = record.get("student")
+        identity_key = number_key or (f"id:{student_id}" if student_id is not None else "unknown")
+        dedupe_key = (school_year, identity_key, subject_name)
+
+        existing = deduped.get(dedupe_key)
+        if not existing:
+            deduped[dedupe_key] = record
+            continue
+
+        existing_updated = str(existing.get("updated_at") or "")
+        current_updated = str(record.get("updated_at") or "")
+        if current_updated > existing_updated:
+            deduped[dedupe_key] = record
+
+    return list(deduped.values())
 
 
 # ══════════════════════════════════════════════════════
@@ -161,6 +545,8 @@ class StudentScoreListCreate(generics.ListCreateAPIView):
         subject = self.request.query_params.get("subject")
         grade_level = self.request.query_params.get("grade_level")
         quarter = self.request.query_params.get("quarter")
+        school_year = self.request.query_params.get("school_year")
+        section = self.request.query_params.get("section")
 
         if grade_item:
             qs = qs.filter(grade_item_id=grade_item)
@@ -180,6 +566,16 @@ class StudentScoreListCreate(generics.ListCreateAPIView):
         if quarter:
             qs = qs.filter(grade_item__quarter=quarter)
 
+        if school_year:
+            scoped_ids = get_school_year_scoped_student_ids(
+                school_year,
+                subject_id=subject,
+                section_id=section,
+            )
+            if not scoped_ids:
+                return qs.none()
+            qs = qs.filter(student_id__in=list(scoped_ids))
+
         return qs
 
 
@@ -191,6 +587,7 @@ def upsert_score(request):
     Body: { student, grade_item, score }
     """
     student_id = request.data.get("student")
+    student_number = request.data.get("student_number")
     grade_item_id = request.data.get("grade_item")
     score_val = request.data.get("score")
 
@@ -202,8 +599,10 @@ def upsert_score(request):
     except GradeItem.DoesNotExist:
         return Response({"detail": "Grade item not found"}, status=404)
 
+    resolved_student_id = resolve_student_for_grade_write(student_id=student_id, student_number=student_number)
+
     obj, created = StudentScore.objects.update_or_create(
-        student_id=student_id,
+        student_id=resolved_student_id,
         grade_item=grade_item,
         defaults={"score": score_val},
     )
@@ -221,6 +620,7 @@ def upsert_class_standing(request):
     Body: { student, subject, quarter, score }
     """
     student_id = request.data.get("student")
+    student_number = request.data.get("student_number")
     subject_id = request.data.get("subject")
     quarter = request.data.get("quarter")
     score_val = request.data.get("score")
@@ -228,8 +628,10 @@ def upsert_class_standing(request):
     if not all([student_id, subject_id, quarter, score_val is not None]):
         return Response({"detail": "student, subject, quarter, score required"}, status=400)
 
+    resolved_student_id = resolve_student_for_grade_write(student_id=student_id, student_number=student_number)
+
     obj, _ = ClassStanding.objects.update_or_create(
-        student_id=student_id,
+        student_id=resolved_student_id,
         subject_id=subject_id,
         quarter=quarter,
         defaults={"score": score_val},
@@ -244,12 +646,25 @@ def list_class_standings(request):
     subject = request.query_params.get("subject")
     quarter = request.query_params.get("quarter")
     student = request.query_params.get("student")
+    school_year = request.query_params.get("school_year")
+    section = request.query_params.get("section")
     if subject:
         qs = qs.filter(subject_id=subject)
     if quarter:
         qs = qs.filter(quarter=quarter)
     if student:
         qs = qs.filter(student_id=student)
+
+    if school_year:
+        scoped_ids = get_school_year_scoped_student_ids(
+            school_year,
+            subject_id=subject,
+            section_id=section,
+        )
+        if not scoped_ids:
+            return Response([])
+        qs = qs.filter(student_id__in=list(scoped_ids))
+
     return Response(ClassStandingSerializer(qs, many=True).data)
 
 
@@ -278,7 +693,7 @@ def students_by_grade(request, grade_level):
 # ══════════════════════════════════════════════════════
 # COMPUTE QUARTER GRADE  (live computation)
 # ══════════════════════════════════════════════════════
-def _compute_quarter_grade(student_id, subject_id, quarter):
+def _compute_quarter_grade(student_id, subject_id, quarter, grade_level=None, teacher_id=None):
     """
     Compute the weighted quarter grade for one student.
     Returns dict with category averages + weighted total.
@@ -296,6 +711,10 @@ def _compute_quarter_grade(student_id, subject_id, quarter):
         items = GradeItem.objects.filter(
             subject_id=subject_id, quarter=quarter, category=category
         )
+        if grade_level is not None:
+            items = items.filter(grade_level=grade_level)
+        if teacher_id is not None:
+            items = items.filter(teacher_id=teacher_id)
         if not items.exists():
             return None
         scores = StudentScore.objects.filter(
@@ -410,9 +829,23 @@ def publish_academic_history(request):
     if user.role not in ("TEACHER", "ADMIN"):
         return Response({"detail": "Forbidden"}, status=403)
 
-    section_id = request.query_params.get("section_id") if request.method == "GET" else request.data.get("section_id")
-    school_year = request.query_params.get("school_year") if request.method == "GET" else request.data.get("school_year")
-    subject_id = request.query_params.get("subject_id") if request.method == "GET" else request.data.get("subject_id")
+    raw_section_id = request.query_params.get("section_id") if request.method == "GET" else request.data.get("section_id")
+    requested_school_year = request.query_params.get("school_year") if request.method == "GET" else request.data.get("school_year")
+    raw_subject_id = request.query_params.get("subject_id") if request.method == "GET" else request.data.get("subject_id")
+    active_school_year = get_active_school_year_obj()
+
+    try:
+        section_id = int(raw_section_id)
+        subject_id = int(raw_subject_id)
+    except (TypeError, ValueError):
+        return Response({"detail": "section_id and subject_id must be valid integers"}, status=400)
+
+    if user.role == "TEACHER":
+        if not active_school_year:
+            return Response({"detail": "No active school year"}, status=404)
+        school_year = resolve_school_year_label(active_school_year)
+    else:
+        school_year = normalize_school_year_label(requested_school_year)
 
     if not section_id or not school_year or not subject_id:
         return Response({"detail": "section_id, school_year, subject_id are required"}, status=400)
@@ -425,9 +858,18 @@ def publish_academic_history(request):
         return Response({"detail": "Section not found"}, status=404)
 
     if user.role == "TEACHER":
-        if not hasattr(user, "teacher_profile") or not user.teacher_profile.subject_id:
+        if not hasattr(user, "teacher_profile"):
             return Response({"detail": "No subject assigned"}, status=403)
-        if int(subject_id) != user.teacher_profile.subject_id:
+
+        schedule_subject_ids = set(
+            get_teacher_schedule_subject_ids(user, school_year_obj=active_school_year)
+            if active_school_year else get_teacher_schedule_subject_ids(user)
+        )
+        teacher_subject_ids = schedule_subject_ids or set(get_teacher_subject_ids(user.teacher_profile))
+        if not teacher_subject_ids:
+            return Response({"detail": "No subject assigned"}, status=403)
+
+        if subject_id not in teacher_subject_ids:
             return Response({"detail": "Teacher subject mismatch"}, status=403)
 
     try:
@@ -436,25 +878,75 @@ def publish_academic_history(request):
         return Response({"detail": "Subject not found"}, status=404)
 
     if user.role == "TEACHER":
-        if not Schedule.objects.filter(teacher=user, section_id=section_obj.id, subject_id=subject.id).exists():
+        teacher_schedule_qs = Schedule.objects.filter(
+            teacher_schedule_access_q(user),
+            section_id=section_obj.id,
+            subject_id=subject.id,
+        )
+        if active_school_year:
+            teacher_schedule_qs = teacher_schedule_qs.filter(school_year=active_school_year)
+        if not teacher_schedule_qs.exists():
             return Response({"detail": "Forbidden"}, status=403)
 
-    enrollments = Enrollment.objects.filter(section=section_obj, status="ACTIVE").select_related("student")
+    if user.role == "TEACHER":
+        section_students = build_section_students_payload(section_obj.id)
+    else:
+        section_students = []
+        admin_enrollments = Enrollment.objects.filter(
+            section=section_obj,
+            status="ACTIVE",
+        ).select_related("student", "student__profile")
+        for enrollment in admin_enrollments:
+            student = enrollment.student
+            if not student:
+                continue
+            student_name = (
+                f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip()
+                or resolve_student_display_name(student, school_year)
+            )
+            student_number = (
+                enrollment.student_number
+                or getattr(getattr(student, "profile", None), "student_number", None)
+                or ""
+            )
+            section_students.append({
+                "id": student.id,
+                "username": student.username,
+                "student_name": student_name,
+                "student_number": student_number,
+                "grade_level": enrollment.grade_level,
+            })
 
-    if not enrollments.exists():
-        return Response({"detail": "No active students found for section"}, status=400)
+    if not section_students:
+        return Response({"detail": "No students found for section"}, status=400)
 
     has_incomplete = False
     preview_rows = []
 
-    for enrollment in enrollments:
-        student = enrollment.student
+    for section_student in section_students:
+        student_id = section_student.get("id")
+        if not student_id:
+            continue
+
+        student = User.objects.filter(pk=student_id).first()
         if not student:
             continue
 
         scores_by_q = []
         for q in range(1, 5):
-            scores_by_q.append(_compute_quarter_grade(student.id, subject.id, q)["quarter_grade"])
+            row_grade_level = normalize_grade_level(section_student.get("grade_level"))
+            if row_grade_level is None:
+                row_grade_level = normalize_grade_level(section_obj.grade_level)
+
+            scores_by_q.append(
+                _compute_quarter_grade(
+                    student.id,
+                    subject.id,
+                    q,
+                    grade_level=row_grade_level,
+                    teacher_id=user.id if user.role == "TEACHER" else None,
+                )["quarter_grade"]
+            )
 
         final_grade, remarks = _compute_overall_record(scores_by_q)
 
@@ -462,10 +954,14 @@ def publish_academic_history(request):
         if not is_complete:
             has_incomplete = True
 
+        student_name = str(section_student.get("student_name") or "").strip() or resolve_student_display_name(student, school_year)
+        student_number = str(section_student.get("student_number") or "").strip()
+
         preview_rows.append({
             "student_id": student.id,
-            "student_name": f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() or student.username,
-            "grade_level": enrollment.grade_level,
+            "student_name": student_name,
+            "student_number": student_number,
+            "grade_level": section_student.get("grade_level"),
             "q1": scores_by_q[0],
             "q2": scores_by_q[1],
             "q3": scores_by_q[2],
@@ -482,6 +978,7 @@ def publish_academic_history(request):
             "subject": subject.name,
             "school_year": school_year,
             "rows": preview_rows,
+            "student_count": len(preview_rows),
             "can_publish": not has_incomplete,
             "incomplete_count": sum(1 for r in preview_rows if not r["complete"]),
         })
@@ -496,17 +993,58 @@ def publish_academic_history(request):
     published = 0
     updated = 0
 
+    subject_name = str(subject.name or "").strip()
+    subject_code = str(subject.code or "").strip()
+    school_year_key = normalize_school_year_label(school_year)
+
+    if not subject_name:
+        return Response({"detail": "Subject name is missing. Please update the subject record."}, status=400)
+
     for row in preview_rows:
         student = User.objects.filter(pk=row["student_id"]).first()
         if not student:
             continue
 
-        grade_level = normalize_grade_level(section_obj.grade_level if section_obj.grade_level is not None else row.get("grade_level"))
+        enrollment = Enrollment.objects.filter(
+            student=student,
+            section=section_obj,
+            status="ACTIVE",
+        ).order_by("-created_at", "-id").first()
+
+        if not enrollment:
+            enrollment = Enrollment.objects.filter(
+                student=student,
+                academic_year=school_year,
+            ).order_by("-created_at", "-id").first()
+
+        grade_level = normalize_grade_level(row.get("grade_level"))
+        if grade_level is None:
+            grade_level = normalize_grade_level(section_obj.grade_level)
+
+        resolved_section_name = (
+            getattr(getattr(enrollment, "section", None), "name", None)
+            or section_obj.name
+            or ""
+        )
+
+        student_name = (
+            str(row.get("student_name") or "").strip()
+            or (f"{enrollment.first_name or ''} {enrollment.last_name or ''}".strip() if enrollment else "")
+            or resolve_student_display_name(student, school_year)
+        )
+        student_number = (
+            str(row.get("student_number") or "").strip()
+            or (enrollment.student_number if enrollment else None)
+            or getattr(getattr(student, "profile", None), "student_number", None)
+            or ""
+        )
 
         defaults = {
-            "section_name": section_obj.name or "",
-            "subject_name": subject.name,
-            "subject_code": subject.code,
+            "student_name": student_name,
+            "student_number": student_number,
+            "section_name": resolved_section_name,
+            "subject_name": subject_name,
+            "subject_code": subject_code,
             "grade_level": grade_level if grade_level is not None else 0,
             "q1": row["q1"],
             "q2": row["q2"],
@@ -518,10 +1056,24 @@ def publish_academic_history(request):
             "recorded_by": user,
         }
 
+        target_student = student
+        if student_number:
+            existing_by_number = (
+                AcademicRecord.objects.filter(
+                    school_year=school_year_key,
+                    subject_name=subject_name,
+                    student_number__iexact=student_number,
+                )
+                .order_by("-updated_at", "-id")
+                .first()
+            )
+            if existing_by_number and existing_by_number.student_id:
+                target_student = existing_by_number.student
+
         _, created = AcademicRecord.objects.update_or_create(
-            student=student,
-            school_year=school_year,
-            subject_name=subject.name,
+            student=target_student,
+            school_year=school_year_key,
+            subject_name=subject_name,
             defaults=defaults,
         )
 
@@ -533,8 +1085,9 @@ def publish_academic_history(request):
     return Response({
         "success": True,
         "section": section_obj.name,
-        "subject": subject.name,
-        "school_year": school_year,
+        "subject": subject_name,
+        "school_year": school_year_key,
+        "student_count": len(preview_rows),
         "published": published,
         "updated": updated,
         "total": len(preview_rows),
@@ -555,7 +1108,39 @@ def my_grades(request):
     if user.role != "PARENT_STUDENT":
         return Response({"detail": "Forbidden"}, status=403)
 
-    subjects = Subject.objects.all()
+    active_sy = get_active_school_year_obj()
+    enrollment_qs = Enrollment.objects.filter(
+        status="ACTIVE",
+    ).filter(Q(parent_user=user) | Q(student=user)).exclude(section__isnull=True)
+    if active_sy:
+        enrollment_qs = enrollment_qs.filter(section__school_year=active_sy)
+    else:
+        enrollment_qs = Enrollment.objects.none()
+
+    resolved_section_ids = list(enrollment_qs.values_list("section_id", flat=True).distinct())
+    if not resolved_section_ids:
+        try:
+            profile = user.profile
+        except UserProfile.DoesNotExist:
+            profile = None
+        if profile:
+            profile_section = getattr(profile, "section", None)
+            if profile_section and (not active_sy or profile_section.school_year_id == active_sy.id):
+                resolved_section_ids = [profile_section.id]
+
+    subjects_qs = Subject.objects.none()
+    if resolved_section_ids:
+        schedule_qs = Schedule.objects.filter(
+            section_id__in=resolved_section_ids,
+            subject__isnull=False,
+        )
+        if active_sy:
+            schedule_qs = schedule_qs.filter(school_year=active_sy)
+        subject_ids = list(schedule_qs.values_list("subject_id", flat=True).distinct())
+        if subject_ids:
+            subjects_qs = Subject.objects.filter(id__in=subject_ids)
+
+    subjects = subjects_qs.order_by("name")
     result = []
     for subj in subjects:
         quarters = {}
@@ -603,38 +1188,244 @@ def admin_grade_records_monitoring(request):
     section_filter = request.query_params.get("section")
     normalized_grade_filter = normalize_grade_level(grade_level_filter) if grade_level_filter else None
 
-    subjects = list(Subject.objects.all().order_by("name"))
-    history_by_student = {
-        row["student_id"]: row
-        for row in AcademicRecord.objects.values("student_id").annotate(
-            record_count=Count("id"),
-            latest_school_year=Max("school_year"),
-        )
-    }
+    active_school_year = get_active_school_year_obj()
+    if not active_school_year:
+        return Response({"detail": "No active school year"}, status=404)
 
     enrollments = (
-        Enrollment.objects.filter(status="ACTIVE")
-        .select_related("student", "student__profile", "section")
+        Enrollment.objects.filter(status="ACTIVE", section__school_year=active_school_year)
+        .select_related("student", "student__profile", "parent_user", "parent_user__profile", "section")
         .order_by("grade_level", "section__name", "last_name", "first_name")
     )
 
-    students = []
-    student_averages = []
-    completed_count = 0
+    def normalize_student_number(value):
+        return str(value or "").strip().lower()
 
+    filtered_enrollments = []
     for enrollment in enrollments:
-        student = enrollment.student
+        student = resolve_portal_student_user(enrollment)
         if not student:
             continue
 
         section_grade = getattr(enrollment.section, "grade_level", None)
-        normalized_grade = normalize_grade_level(section_grade if section_grade is not None else enrollment.grade_level)
+        normalized_grade = normalize_grade_level(
+            section_grade if section_grade is not None else enrollment.grade_level
+        )
         if normalized_grade_filter is not None and normalized_grade != normalized_grade_filter:
             continue
 
         if section_filter and enrollment.section and enrollment.section.name != section_filter:
             continue
 
+        student_number = (
+            enrollment.student_number
+            or getattr(getattr(student, "profile", None), "student_number", None)
+            or enrollment.lrn
+            or ""
+        )
+        student_number_key = normalize_student_number(student_number)
+        filtered_enrollments.append((enrollment, student, normalized_grade, student_number_key, student_number))
+
+    section_ids = {
+        enrollment.section_id
+        for enrollment, _, _, _, _ in filtered_enrollments
+        if enrollment.section_id
+    }
+
+    grades_by_section = {}
+    for enrollment, _, normalized_grade, _, _ in filtered_enrollments:
+        if enrollment.section_id is None:
+            continue
+        grades_by_section[enrollment.section_id] = normalized_grade
+
+    schedule_subject_ids_by_section = {}
+    subject_ids = set()
+    if section_ids:
+        schedule_pairs = (
+            Schedule.objects.filter(
+                section_id__in=section_ids,
+                subject__isnull=False,
+                school_year=active_school_year,
+            )
+            .values_list("section_id", "subject_id")
+            .distinct()
+        )
+        for section_id, subject_id in schedule_pairs:
+            if not subject_id:
+                continue
+            subject_ids.add(subject_id)
+            schedule_subject_ids_by_section.setdefault(section_id, set()).add(subject_id)
+
+    # Fallback for sections with incomplete schedule-subject mappings:
+    # derive subject coverage from grade items by grade level for the selected quarter.
+    grade_levels_in_scope = {
+        grade_level for grade_level in grades_by_section.values() if grade_level is not None
+    }
+    subject_ids_by_grade_level = {}
+    if grade_levels_in_scope:
+        grade_item_pairs = (
+            GradeItem.objects.filter(
+                quarter=quarter,
+                grade_level__in=list(grade_levels_in_scope),
+                subject__isnull=False,
+            )
+            .values_list("grade_level", "subject_id")
+            .distinct()
+        )
+        for grade_level, subject_id in grade_item_pairs:
+            if not subject_id:
+                continue
+            subject_ids.add(subject_id)
+            subject_ids_by_grade_level.setdefault(grade_level, set()).add(subject_id)
+
+    for section_id, grade_level in grades_by_section.items():
+        existing_ids = schedule_subject_ids_by_section.get(section_id, set())
+        if existing_ids:
+            continue
+        fallback_ids = subject_ids_by_grade_level.get(grade_level, set())
+        if not fallback_ids:
+            continue
+        schedule_subject_ids_by_section[section_id] = set(fallback_ids)
+
+    subjects = list(Subject.objects.filter(id__in=subject_ids).order_by("name"))
+    subject_map = {subject.id: subject for subject in subjects}
+    subjects_by_section = {
+        section_id: sorted(
+            (subject_map[sid] for sid in subject_id_set if sid in subject_map),
+            key=lambda subj: (subj.name or "").lower(),
+        )
+        for section_id, subject_id_set in schedule_subject_ids_by_section.items()
+    }
+
+    default_weights = {
+        "activity": 40,
+        "quiz": 20,
+        "exam": 20,
+        "class_standing": 20,
+    }
+    subject_ids = list(subject_map.keys())
+    weights_by_subject = {
+        subject_id: default_weights.copy()
+        for subject_id in subject_ids
+    }
+    for weight in GradeWeight.objects.filter(subject_id__in=subject_ids):
+        weights_by_subject[weight.subject_id] = {
+            "activity": weight.activity_weight,
+            "quiz": weight.quiz_weight,
+            "exam": weight.exam_weight,
+            "class_standing": weight.class_standing_weight,
+        }
+
+    student_ids_by_number = {}
+    for enrollment, student, _, student_number_key, _ in filtered_enrollments:
+        if not student_number_key:
+            continue
+        bucket = student_ids_by_number.setdefault(student_number_key, set())
+        for candidate in (student, enrollment.student, enrollment.parent_user):
+            candidate_id = getattr(candidate, "id", None)
+            if candidate_id:
+                bucket.add(candidate_id)
+
+    if student_ids_by_number:
+        profile_rows = (
+            UserProfile.objects.filter(user__role="PARENT_STUDENT")
+            .exclude(student_number__isnull=True)
+            .exclude(student_number__exact="")
+            .values("user_id", "student_number")
+        )
+        for profile_row in profile_rows:
+            key = normalize_student_number(profile_row.get("student_number"))
+            if not key or key not in student_ids_by_number:
+                continue
+            user_id = profile_row.get("user_id")
+            if user_id:
+                student_ids_by_number[key].add(user_id)
+
+    def get_candidate_student_ids(enrollment, student, student_number_key):
+        ids = []
+        for candidate in (student, enrollment.student, enrollment.parent_user):
+            candidate_id = getattr(candidate, "id", None)
+            if candidate_id and candidate_id not in ids:
+                ids.append(candidate_id)
+
+        for candidate_id in student_ids_by_number.get(student_number_key, set()):
+            if candidate_id not in ids:
+                ids.append(candidate_id)
+
+        return ids
+
+    student_ids = []
+    for enrollment, student, _, student_number_key, _ in filtered_enrollments:
+        student_ids.extend(get_candidate_student_ids(enrollment, student, student_number_key))
+    student_ids = list(set(student_ids))
+
+    users_by_id = {}
+    if student_ids:
+        users_by_id = {
+            row["id"]: row
+            for row in User.objects.filter(id__in=student_ids).values("id", "username")
+        }
+
+    history_by_student = {}
+    if student_ids:
+        history_by_student = {
+            row["student_id"]: row
+            for row in AcademicRecord.objects.filter(student_id__in=student_ids)
+            .values("student_id")
+            .annotate(
+                record_count=Count("id"),
+                latest_school_year=Max("school_year"),
+            )
+        }
+
+    score_map = {}
+    class_standing_map = {}
+    if student_ids and subject_ids:
+        score_rows = (
+            StudentScore.objects.filter(
+                student_id__in=student_ids,
+                grade_item__subject_id__in=subject_ids,
+                grade_item__quarter=quarter,
+            )
+            .values("student_id", "grade_item__subject_id", "grade_item__category")
+            .annotate(
+                total_earned=Sum("score"),
+                total_possible=Sum("grade_item__total_score"),
+            )
+        )
+        for row in score_rows:
+            score_map[(
+                row["student_id"],
+                row["grade_item__subject_id"],
+                row["grade_item__category"],
+            )] = row
+
+        class_standing_rows = ClassStanding.objects.filter(
+            student_id__in=student_ids,
+            subject_id__in=subject_ids,
+            quarter=quarter,
+        ).values("student_id", "subject_id", "score")
+        for row in class_standing_rows:
+            class_standing_map[(row["student_id"], row["subject_id"])] = row["score"]
+
+    def get_category_avg(student_ids, subject_id, category):
+        row = None
+        for sid in student_ids:
+            row = score_map.get((sid, subject_id, category))
+            if row:
+                break
+        if not row:
+            return None
+        total_possible = row["total_possible"] or 0
+        if total_possible == 0:
+            return Decimal("0")
+        return (Decimal(str(row["total_earned"])) / Decimal(str(total_possible))) * 100
+
+    students = []
+    student_averages = []
+    completed_count = 0
+
+    for enrollment, student, normalized_grade, student_number_key, student_number_raw in filtered_enrollments:
         name = " ".join(
             part for part in [enrollment.first_name or "", enrollment.last_name or ""] if part
         ).strip()
@@ -644,14 +1435,47 @@ def admin_grade_records_monitoring(request):
             ).strip()
         name = name or student.username
 
-        section_grade = getattr(enrollment.section, "grade_level", None)
-        normalized_grade = normalize_grade_level(section_grade if section_grade is not None else enrollment.grade_level)
         subject_breakdown = []
         graded_values = []
 
-        for subject in subjects:
-            grade_data = _compute_quarter_grade(student.id, subject.id, quarter)
-            quarter_grade = grade_data["quarter_grade"]
+        section_subjects = subjects_by_section.get(enrollment.section_id, [])
+        candidate_student_ids = get_candidate_student_ids(enrollment, student, student_number_key)
+        for subject in section_subjects:
+            weights = weights_by_subject.get(subject.id, default_weights)
+            act_avg = get_category_avg(candidate_student_ids, subject.id, "ACTIVITY")
+            quiz_avg = get_category_avg(candidate_student_ids, subject.id, "QUIZ")
+            exam_avg = get_category_avg(candidate_student_ids, subject.id, "EXAM")
+            cs_score = None
+            for sid in candidate_student_ids:
+                cs_score = class_standing_map.get((sid, subject.id))
+                if cs_score is not None:
+                    break
+
+            components = []
+            if act_avg is not None:
+                components.append((act_avg, weights["activity"]))
+            if quiz_avg is not None:
+                components.append((quiz_avg, weights["quiz"]))
+            if exam_avg is not None:
+                components.append((exam_avg, weights["exam"]))
+            if cs_score is not None:
+                components.append((Decimal(str(cs_score)), weights["class_standing"]))
+
+            if components:
+                total_weight = sum(weight for _, weight in components)
+                if total_weight > 0:
+                    weighted_total = (
+                        sum(val * wt for val, wt in components)
+                        / Decimal(str(total_weight))
+                        * 100
+                        / 100
+                    )
+                else:
+                    weighted_total = None
+            else:
+                weighted_total = None
+
+            quarter_grade = round(float(weighted_total), 2) if weighted_total is not None else None
             if quarter_grade is not None:
                 graded_values.append(quarter_grade)
             subject_breakdown.append({
@@ -667,7 +1491,7 @@ def admin_grade_records_monitoring(request):
             })
 
         average_grade = round(sum(graded_values) / len(graded_values), 2) if graded_values else None
-        total_subjects = len(subjects)
+        total_subjects = len(section_subjects)
         graded_subjects = len(graded_values)
 
         if total_subjects > 0 and graded_subjects == total_subjects:
@@ -681,11 +1505,27 @@ def admin_grade_records_monitoring(request):
         if average_grade is not None:
             student_averages.append(average_grade)
 
-        history_meta = history_by_student.get(student.id, {})
+        history_meta = {}
+        for sid in candidate_student_ids:
+            candidate_history = history_by_student.get(sid)
+            if not candidate_history:
+                continue
+            if not history_meta or (candidate_history.get("record_count", 0) > history_meta.get("record_count", 0)):
+                history_meta = candidate_history
+
+        output_student_id = student.id
+        output_student_username = student.username
+        for sid in candidate_student_ids:
+            candidate_user = users_by_id.get(sid)
+            if candidate_user and str(candidate_user.get("username") or "").strip().lower() != "public_user":
+                output_student_id = sid
+                output_student_username = candidate_user.get("username")
+                break
+
         students.append({
-            "student_id": student.id,
-            "student_username": student.username,
-            "student_number": enrollment.student_number or getattr(getattr(student, "profile", None), "student_number", None),
+            "student_id": output_student_id,
+            "student_username": output_student_username,
+            "student_number": student_number_raw or enrollment.student_number or getattr(getattr(student, "profile", None), "student_number", None),
             "student_name": name,
             "grade_level": normalized_grade,
             "grade_level_label": grade_level_label(normalized_grade),
@@ -726,17 +1566,41 @@ def admin_grade_records_monitoring(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def teacher_info(request):
-    """Return the teacher's assigned subject."""
+    """Return the teacher's assigned subject(s)."""
     user = request.user
     if user.role != "TEACHER":
         return Response({"detail": "Forbidden"}, status=403)
     try:
         tp = user.teacher_profile
-        if tp.subject:
+
+        active_school_year = SchoolYear.objects.filter(is_active=True).first()
+        subjects, scheduled_subject_ids = get_teacher_subjects_for_grades(
+            user,
+            tp,
+            school_year_obj=active_school_year,
+        )
+        if scheduled_subject_ids:
+            subjects = [subj for subj in subjects if subj.id in scheduled_subject_ids]
+        if subjects:
+            primary_subject = tp.subject if tp.subject in subjects else None
+            if primary_subject is None:
+                primary_subject = next(
+                    (subj for subj in subjects if subj.id in scheduled_subject_ids),
+                    subjects[0],
+                )
             return Response({
-                "subject_id": tp.subject.id,
-                "subject_name": tp.subject.name,
-                "subject_code": tp.subject.code,
+                "subject_id": primary_subject.id,
+                "subject_name": primary_subject.name,
+                "subject_code": primary_subject.code,
+                "subjects": [
+                    {
+                        "id": subj.id,
+                        "name": subj.name,
+                        "code": subj.code,
+                        "is_primary": subj.id == getattr(primary_subject, "id", None),
+                    }
+                    for subj in subjects
+                ],
             })
         return Response({"detail": "No subject assigned"}, status=404)
     except Exception:
@@ -752,11 +1616,32 @@ def section_performance(request):
     The teacher's subject is resolved from their profile.
     """
     user = request.user
-    if user.role not in ("TEACHER", "ADMIN"):
-        return Response({"detail": "Forbidden"}, status=403)
-
     section_id = request.query_params.get("section")
     quarter_param = request.query_params.get("quarter")
+    trace_mode = str(request.query_params.get("trace", "")).strip().lower() in ("1", "true", "yes", "on")
+
+    def forbid(reason, **extra):
+        base_context = {
+            "user_id": getattr(user, "id", None),
+            "user_role": getattr(user, "role", None),
+            "section_id": section_id,
+            "quarter": quarter_param,
+        }
+        if extra:
+            base_context.update(extra)
+
+        logger.warning("section_performance forbidden: %s | context=%s", reason, base_context)
+
+        payload = {"detail": "Forbidden", "error_code": reason}
+        if trace_mode:
+            payload["trace_reason"] = reason
+            payload["trace"] = base_context
+        response = Response(payload, status=403)
+        response["X-Section-Performance-Error"] = reason
+        return response
+
+    if user.role not in ("TEACHER", "ADMIN"):
+        return forbid("role_not_allowed")
 
     if not section_id or not quarter_param:
         return Response({"detail": "section and quarter are required"}, status=400)
@@ -770,20 +1655,76 @@ def section_performance(request):
         return Response({"detail": "Invalid section or quarter"}, status=400)
 
     if user.role == "TEACHER":
+        school_year_obj = get_active_school_year_obj()
+        if not school_year_obj:
+            return Response({"detail": "No active school year"}, status=404)
+    else:
+        raw_school_year = request.query_params.get("school_year")
+        school_year_obj = None
+        if raw_school_year not in (None, ""):
+            try:
+                school_year_obj = SchoolYear.objects.get(pk=int(raw_school_year))
+            except (TypeError, ValueError, SchoolYear.DoesNotExist):
+                return Response({"detail": "Invalid school_year"}, status=400)
+        else:
+            school_year_obj = get_active_school_year_obj()
+
+    if user.role == "TEACHER":
         try:
-            subject_id = user.teacher_profile.subject_id
+            teacher_profile = user.teacher_profile
         except Exception:
             return Response({"detail": "Teacher profile not found"}, status=404)
-        if not subject_id:
-            return Response({"detail": "No subject assigned to this teacher"}, status=404)
-        teacher_schedules = Schedule.objects.filter(
-            teacher=user,
+
+        teacher_schedules_qs = Schedule.objects.filter(
+            teacher_schedule_access_q(user),
             section_id=section_id,
-            subject_id=subject_id,
+            subject__isnull=False,
         )
-        if not teacher_schedules.exists():
-            return Response({"detail": "Forbidden"}, status=403)
+        if school_year_obj:
+            teacher_schedules_qs = teacher_schedules_qs.filter(school_year=school_year_obj)
+
+        section_subject_ids = list(teacher_schedules_qs.values_list("subject_id", flat=True).distinct())
+        if not section_subject_ids:
+            return forbid(
+                "no_teacher_schedules_for_section",
+                school_year_id=getattr(school_year_obj, "id", None),
+            )
+        section_subject_id_set = set(section_subject_ids)
+
+        raw_subj = request.query_params.get("subject")
+        if raw_subj:
+            try:
+                subject_id = int(raw_subj)
+            except (ValueError, TypeError):
+                return Response({"detail": "Invalid subject id"}, status=400)
+            if subject_id not in section_subject_id_set:
+                return forbid(
+                    "subject_not_assigned_for_section",
+                    requested_subject_id=subject_id,
+                    allowed_subject_ids=section_subject_ids,
+                    school_year_id=getattr(school_year_obj, "id", None),
+                )
+        else:
+            # Pick a section-linked subject to avoid false 403 when profile.subject points elsewhere.
+            profile_subject_id = teacher_profile.subject_id
+            if profile_subject_id in section_subject_id_set:
+                subject_id = profile_subject_id
+            else:
+                teacher_subject_ids = get_teacher_subject_ids(teacher_profile)
+                subject_id = next(
+                    (sid for sid in teacher_subject_ids if sid in section_subject_id_set),
+                    section_subject_ids[0],
+                )
+
+        teacher_schedules = teacher_schedules_qs.filter(subject_id=subject_id)
         schedule_ids = list(teacher_schedules.values_list("id", flat=True))
+        if not schedule_ids:
+            return forbid(
+                "no_teacher_schedules_for_subject",
+                subject_id=subject_id,
+                allowed_subject_ids=section_subject_ids,
+                school_year_id=getattr(school_year_obj, "id", None),
+            )
     else:
         raw_subj = request.query_params.get("subject")
         if not raw_subj:
@@ -792,88 +1733,184 @@ def section_performance(request):
             subject_id = int(raw_subj)
         except (ValueError, TypeError):
             return Response({"detail": "Invalid subject id"}, status=400)
-        schedule_ids = list(
-            Schedule.objects.filter(section_id=section_id, subject_id=subject_id)
-            .values_list("id", flat=True)
-        )
+        admin_schedule_qs = Schedule.objects.filter(section_id=section_id, subject_id=subject_id)
+        if school_year_obj:
+            admin_schedule_qs = admin_schedule_qs.filter(school_year=school_year_obj)
+        schedule_ids = list(admin_schedule_qs.values_list("id", flat=True))
 
-    from datetime import date as date_class
     from attendance.models import AttendanceRecord
 
-    today = date_class.today()
-    sy_start = today.year if today.month >= 6 else today.year - 1
-    quarter_ranges = {
-        1: (date_class(sy_start, 6, 1), date_class(sy_start, 8, 31)),
-        2: (date_class(sy_start, 9, 1), date_class(sy_start, 11, 30)),
-        3: (date_class(sy_start, 12, 1), date_class(sy_start + 1, 2, 28)),
-        4: (date_class(sy_start + 1, 3, 1), date_class(sy_start + 1, 5, 31)),
-    }
-    q_start, q_end = quarter_ranges[quarter]
+    q_start, q_end = get_school_year_quarter_dates(quarter, school_year_obj=school_year_obj)
 
-    students_map = {}
+    section_students = build_section_students_payload(section_id)
+    if not section_students:
+        return Response([])
+
+    def normalize_student_number(value):
+        return str(value or "").strip().lower()
+
+    student_ids_by_number = {}
     enrollments = (
         Enrollment.objects.filter(section_id=section_id, status="ACTIVE")
-        .select_related("student", "student__profile")
+        .select_related("student", "student__profile", "parent_user", "parent_user__profile")
         .order_by("last_name", "first_name")
     )
-    for enr in enrollments:
-        stu = enr.student
-        if not stu:
+    for enrollment in enrollments:
+        resolved_student = resolve_portal_student_user(enrollment)
+        student_number = (
+            enrollment.student_number
+            or getattr(getattr(resolved_student, "profile", None), "student_number", None)
+            or enrollment.lrn
+            or ""
+        )
+        number_key = normalize_student_number(student_number)
+        if not number_key:
             continue
-        name = " ".join(p for p in [enr.first_name or "", enr.last_name or ""] if p).strip()
-        if not name and hasattr(stu, "profile") and stu.profile:
-            name = " ".join(
-                p for p in [stu.profile.student_first_name or "", stu.profile.student_last_name or ""] if p
-            ).strip()
-        students_map[stu.id] = name or stu.username
+        bucket = student_ids_by_number.setdefault(number_key, set())
+        for candidate in (resolved_student, enrollment.student, enrollment.parent_user):
+            candidate_id = getattr(candidate, "id", None)
+            if candidate_id:
+                bucket.add(candidate_id)
 
-    for p in UserProfile.objects.filter(
-        section_id=section_id,
-        user__role="PARENT_STUDENT",
-        user__status="ACTIVE",
-    ).select_related("user"):
-        if p.user_id not in students_map:
-            students_map[p.user_id] = " ".join(
-                pt for pt in [p.student_first_name or "", p.student_last_name or ""] if pt
-            ).strip() or p.user.username
+    if student_ids_by_number:
+        profile_rows = (
+            UserProfile.objects.filter(user__role="PARENT_STUDENT")
+            .exclude(student_number__isnull=True)
+            .exclude(student_number__exact="")
+            .values("user_id", "student_number")
+        )
+        for profile_row in profile_rows:
+            key = normalize_student_number(profile_row.get("student_number"))
+            if not key or key not in student_ids_by_number:
+                continue
+            user_id = profile_row.get("user_id")
+            if user_id:
+                student_ids_by_number[key].add(user_id)
+
+    all_candidate_ids = set()
+    for ids in student_ids_by_number.values():
+        all_candidate_ids.update(ids)
+    for row in section_students:
+        if row.get("id"):
+            all_candidate_ids.add(row.get("id"))
+
+    users_by_id = {
+        row["id"]: row
+        for row in User.objects.filter(id__in=list(all_candidate_ids)).values("id", "username")
+    }
 
     results = []
-    for student_id, student_name in students_map.items():
-        grade_data = _compute_quarter_grade(student_id, subject_id, quarter)
-        att = AttendanceRecord.get_student_attendance_stats(
-            student_id,
-            q_start,
-            q_end,
-            schedule_ids=schedule_ids,
-            section_id=section_id,
-        )
-        if att["percentage"] is None:
-            # Fall back to legacy section-level attendance records when subject-linked rows do not exist.
+    for student_row in section_students:
+        student_name = student_row.get("student_name") or "—"
+        student_number = student_row.get("student_number")
+        student_number_key = normalize_student_number(student_number)
+
+        candidate_ids = []
+        primary_id = student_row.get("id")
+        if primary_id:
+            candidate_ids.append(primary_id)
+        for candidate_id in student_ids_by_number.get(student_number_key, set()):
+            if candidate_id not in candidate_ids:
+                candidate_ids.append(candidate_id)
+
+        if not candidate_ids:
+            continue
+
+        best_grade_data = {
+            "quarter_grade": None,
+            "activity_avg": None,
+            "quiz_avg": None,
+            "exam_avg": None,
+            "class_standing": None,
+        }
+        best_grade_rank = (-1, -1)
+        best_grade_student_id = candidate_ids[0]
+
+        row_grade_level = normalize_grade_level(student_row.get("grade_level"))
+
+        for candidate_id in candidate_ids:
+            grade_data = _compute_quarter_grade(
+                candidate_id,
+                subject_id,
+                quarter,
+                grade_level=row_grade_level,
+                teacher_id=user.id if user.role == "TEACHER" else None,
+            )
+            non_null_count = sum(
+                1
+                for key in ("activity_avg", "quiz_avg", "exam_avg", "class_standing")
+                if grade_data.get(key) is not None
+            )
+            rank = (1 if grade_data.get("quarter_grade") is not None else 0, non_null_count)
+            if rank > best_grade_rank:
+                best_grade_rank = rank
+                best_grade_data = grade_data
+                best_grade_student_id = candidate_id
+
+        best_attendance = {"total": 0, "present": 0, "absent": 0, "percentage": None}
+        best_attendance_rank = (-1, -1)
+        for candidate_id in candidate_ids:
             att = AttendanceRecord.get_student_attendance_stats(
-                student_id,
+                candidate_id,
                 q_start,
                 q_end,
+                schedule_ids=schedule_ids,
                 section_id=section_id,
             )
+            if att["percentage"] is None:
+                # Fall back to legacy section-level attendance records when subject-linked rows do not exist.
+                att = AttendanceRecord.get_student_attendance_stats(
+                    candidate_id,
+                    q_start,
+                    q_end,
+                    section_id=section_id,
+                )
+
+            att_rank = (att.get("total") or 0, int((att.get("percentage") or 0) * 100))
+            if att_rank > best_attendance_rank:
+                best_attendance_rank = att_rank
+                best_attendance = att
+
+        output_student_id = best_grade_student_id
+        output_student_username = users_by_id.get(best_grade_student_id, {}).get("username")
+        for candidate_id in candidate_ids:
+            candidate_username = str(users_by_id.get(candidate_id, {}).get("username") or "").strip().lower()
+            if candidate_username and candidate_username != "public_user":
+                output_student_id = candidate_id
+                output_student_username = users_by_id.get(candidate_id, {}).get("username")
+                break
+
         results.append({
-            "student_id": student_id,
+            "student_id": str(output_student_id),
             "student_name": student_name,
-            "quarter_grade": grade_data["quarter_grade"],
-            "activity_avg": grade_data["activity_avg"],
-            "quiz_avg": grade_data["quiz_avg"],
-            "exam_avg": grade_data["exam_avg"],
-            "class_standing": grade_data["class_standing"],
-            "attendance_pct": att["percentage"],
-            "attendance_days_present": att["present"],
-            "attendance_days_absent": att["absent"],
-            "attendance_days_total": att["total"],
+            "student_number": student_number,
+            "student_username": output_student_username,
+            "quarter_grade": best_grade_data["quarter_grade"],
+            "activity_avg": best_grade_data["activity_avg"],
+            "quiz_avg": best_grade_data["quiz_avg"],
+            "exam_avg": best_grade_data["exam_avg"],
+            "class_standing": best_grade_data["class_standing"],
+            "attendance_pct": best_attendance.get("percentage"),
+            "attendance_days_present": best_attendance.get("present", 0),
+            "attendance_days_absent": best_attendance.get("absent", 0),
+            "attendance_days_total": best_attendance.get("total", 0),
         })
 
-    results.sort(
+    # Deduplicate by student_number first (fallback: student_id) to avoid legacy identity collisions.
+    seen = set()
+    unique_results = []
+    for r in results:
+        dedupe_key = normalize_student_number(r.get("student_number")) or str(r.get("student_id") or "")
+        if not dedupe_key or dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        unique_results.append(r)
+
+    unique_results.sort(
         key=lambda x: x["quarter_grade"] if x["quarter_grade"] is not None else -1,
         reverse=True,
     )
-    return Response(results)
+    return Response(unique_results)
 
 
 @api_view(["GET"])
@@ -888,7 +1925,20 @@ def teacher_sections(request):
         return Response({"detail": "Forbidden"}, status=403)
 
     subject_id = request.query_params.get("subject")
-    qs = Schedule.objects.select_related("section", "subject").filter(teacher=user)
+    active_school_year = get_active_school_year_obj()
+    if not active_school_year:
+        return Response([])
+
+    qs = (
+        Schedule.objects
+        .select_related("section", "subject", "school_year")
+        .filter(
+            teacher_schedule_access_q(user),
+            school_year=active_school_year,
+            subject__isnull=False,
+        )
+    )
+
     if subject_id:
         qs = qs.filter(subject_id=subject_id)
 
@@ -904,6 +1954,8 @@ def teacher_sections(request):
                 "grade_level": sec.grade_level,
                 "subject_id": sched.subject_id,
                 "subject_name": sched.subject.name if sched.subject else None,
+                "school_year_id": sched.school_year_id,
+                "school_year_name": sched.school_year.name if sched.school_year else None,
             }
 
     result = sorted(
@@ -925,58 +1977,29 @@ def students_by_section(request, section_id):
         return Response({"detail": "Forbidden"}, status=403)
 
     if user.role == "TEACHER":
-        allowed = Schedule.objects.filter(teacher=user, section_id=section_id).exists()
+        school_year_obj = get_active_school_year_obj()
+        if not school_year_obj:
+            return Response({"detail": "No active school year"}, status=404)
+    else:
+        raw_school_year = request.query_params.get("school_year")
+        school_year_obj = None
+        if raw_school_year not in (None, ""):
+            try:
+                school_year_obj = SchoolYear.objects.get(pk=int(raw_school_year))
+            except (TypeError, ValueError, SchoolYear.DoesNotExist):
+                return Response({"detail": "Invalid school_year"}, status=400)
+        else:
+            school_year_obj = get_active_school_year_obj()
+
+    if user.role == "TEACHER":
+        allowed_qs = Schedule.objects.filter(teacher_schedule_access_q(user), section_id=section_id)
+        if school_year_obj:
+            allowed_qs = allowed_qs.filter(school_year=school_year_obj)
+        allowed = allowed_qs.exists()
         if not allowed:
             return Response({"detail": "Forbidden"}, status=403)
 
-    students_map = {}
-
-    enrollments = Enrollment.objects.filter(
-        section_id=section_id,
-        status="ACTIVE",
-    ).select_related("student", "student__profile")
-
-    for enr in enrollments:
-        stu = enr.student
-        if not stu:
-            continue
-        full_name = " ".join(
-            p for p in [enr.first_name or "", enr.last_name or ""] if p
-        ).strip()
-        if not full_name and hasattr(stu, "profile") and stu.profile:
-            full_name = " ".join(
-                p for p in [stu.profile.student_first_name or "", stu.profile.student_last_name or ""] if p
-            ).strip()
-        if not full_name:
-            full_name = stu.username
-
-        students_map[stu.id] = {
-            "id": stu.id,
-            "username": stu.username,
-            "student_name": full_name,
-        }
-
-    legacy_profiles = UserProfile.objects.filter(
-        section_id=section_id,
-        user__role="PARENT_STUDENT",
-        user__status="ACTIVE",
-    ).select_related("user")
-
-    for p in legacy_profiles:
-        stu = p.user
-        if stu.id in students_map:
-            continue
-        full_name = " ".join(
-            part for part in [p.student_first_name or "", p.student_last_name or ""] if part
-        ).strip() or stu.username
-        students_map[stu.id] = {
-            "id": stu.id,
-            "username": stu.username,
-            "student_name": full_name,
-        }
-
-    result = sorted(students_map.values(), key=lambda s: (s["student_name"].lower(), s["id"]))
-    return Response(result)
+    return Response(build_section_students_payload(section_id))
 
 
 # ══════════════════════════════════════════════════════
@@ -993,22 +2016,64 @@ def my_academic_history(request):
     if user.role != "PARENT_STUDENT":
         return Response({"detail": "Forbidden"}, status=403)
 
-    records = AcademicRecord.objects.filter(student=user).order_by("-school_year", "subject_name")
+    candidate_numbers = set()
+    profile = getattr(user, "profile", None)
+    profile_number = str(getattr(profile, "student_number", "") or "").strip()
+    if profile_number:
+        candidate_numbers.add(profile_number)
+
+    enrollment_numbers = (
+        Enrollment.objects.filter(Q(student=user) | Q(parent_user=user))
+        .exclude(student_number__isnull=True)
+        .exclude(student_number__exact="")
+        .values_list("student_number", flat=True)
+    )
+    for number in enrollment_numbers:
+        normalized_number = str(number or "").strip()
+        if normalized_number:
+            candidate_numbers.add(normalized_number)
+
+    records_qs = AcademicRecord.objects.select_related("student", "student__profile")
+    if candidate_numbers:
+        records_qs = records_qs.filter(Q(student=user) | Q(student_number__in=list(candidate_numbers)))
+    else:
+        records_qs = records_qs.filter(student=user)
+
+    records = records_qs.order_by("-school_year", "grade_level", "section_name", "subject_name")
     serialized = AcademicRecordSerializer(records, many=True).data
+    serialized = dedupe_serialized_academic_records(serialized)
 
     grouped = {}
     for rec in serialized:
-        sy = rec["school_year"]
-        if sy not in grouped:
-            grouped[sy] = {
+        sy = rec.get("school_year")
+        grade_level = rec.get("grade_level")
+        section_name = rec.get("section_name") or ""
+        group_key = f"{sy}::{grade_level}::{section_name}"
+        if group_key not in grouped:
+            grouped[group_key] = {
+                "group_key": group_key,
                 "school_year": sy,
                 "grade_level": rec["grade_level"],
-                "section_name": rec["section_name"],
+                "section_name": section_name,
                 "records": [],
             }
-        grouped[sy]["records"].append(rec)
+        grouped[group_key]["records"].append(rec)
 
-    records_by_year = sorted(grouped.values(), key=lambda g: g["school_year"], reverse=True)
+    def history_group_sort_key(group):
+        school_year = str(group.get("school_year") or "")
+        try:
+            year_start = int(school_year.split("-")[0])
+        except (TypeError, ValueError, IndexError):
+            year_start = -1
+
+        grade_value = normalize_grade_level(group.get("grade_level"))
+        return (
+            -year_start,
+            grade_value if grade_value is not None else 999,
+            str(group.get("section_name") or "").lower(),
+        )
+
+    records_by_year = sorted(grouped.values(), key=history_group_sort_key)
 
     return Response({
         "has_history": len(records_by_year) > 0,
@@ -1031,12 +2096,29 @@ class AcademicRecordListCreate(generics.ListCreateAPIView):
             return AcademicRecord.objects.none()
         qs = AcademicRecord.objects.select_related("student", "student__profile", "recorded_by").all()
         student_id = self.request.query_params.get("student")
+        grade_level = self.request.query_params.get("grade_level")
+        section_name = self.request.query_params.get("section")
         school_year = self.request.query_params.get("school_year")
+        status_filter = self.request.query_params.get("status")
         if student_id:
             qs = qs.filter(student_id=student_id)
+        if grade_level is not None and grade_level != "":
+            mapped_grade = normalize_grade_level(grade_level)
+            if mapped_grade is None:
+                raise ValidationError({"grade_level": f"Invalid grade_level: {grade_level}"})
+            qs = qs.filter(grade_level=mapped_grade)
+        if section_name:
+            qs = qs.filter(section_name__iexact=section_name)
         if school_year:
             qs = qs.filter(school_year=school_year)
+        if status_filter:
+            qs = qs.filter(remarks__iexact=status_filter)
         return qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset().order_by("-updated_at", "-id"))
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(dedupe_serialized_academic_records(serializer.data))
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -1055,7 +2137,7 @@ class AcademicRecordDetail(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.user
         if user.role not in ("ADMIN", "TEACHER"):
             return AcademicRecord.objects.none()
-        return AcademicRecord.objects.all()
+        return AcademicRecord.objects.select_related("student", "student__profile", "recorded_by").all()
 
     def perform_update(self, serializer):
         serializer.save(recorded_by=self.request.user)
@@ -1131,11 +2213,13 @@ def my_reenrollment_eligibility(request):
 
     grade6_completed = current_grade == "grade6"
     has_balance = outstanding_balance > 0
+    has_no_assigned_subjects = total_subjects == 0
     has_incomplete_grades = incomplete_subjects > 0
     has_failing_grades = failed_subjects > 0
 
     eligible = not (
         has_balance
+        or has_no_assigned_subjects
         or has_incomplete_grades
         or has_failing_grades
         or grade6_completed
@@ -1145,6 +2229,8 @@ def my_reenrollment_eligibility(request):
         message = "Congratulations! You already completed Grade 6. No further re-enrollment is needed."
     elif has_balance:
         message = f"You still have an outstanding balance of ₱{outstanding_balance:,.2f}."
+    elif has_no_assigned_subjects:
+        message = "You are not eligible to re-enroll yet because no subjects have been assigned."
     elif has_incomplete_grades:
         message = "You have incomplete grades. Please wait until all subjects have final grades."
     elif has_failing_grades:
@@ -1160,6 +2246,7 @@ def my_reenrollment_eligibility(request):
         "next_grade": next_grade,
         "outstanding_balance": float(outstanding_balance),
         "has_balance": has_balance,
+        "has_no_assigned_subjects": has_no_assigned_subjects,
         "has_incomplete_grades": has_incomplete_grades,
         "has_failing_grades": has_failing_grades,
         "grade6_completed": grade6_completed,

@@ -8,6 +8,7 @@ from .views import (
     parent_students,
     my_transactions,
     my_ledger_summary,
+    my_billing_items,
     my_tuition_installments,
     student_tuition_overview,
     TuitionConfigListCreate,
@@ -15,6 +16,13 @@ from .views import (
     tuition_config_stats,
     tuition_config_by_grade,
     ProofOfPaymentViewSet,
+    pay_student_balance,
+    refund_student_payment,
+    auto_apply_advance,
+    repair_ledger_statuses,
+    my_advance_requests,
+    advance_requests_admin,
+    process_advance_request,
 )
 
 urlpatterns = [
@@ -28,7 +36,12 @@ urlpatterns = [
     # Parent endpoint — own ledger
     path('my-transactions/', my_transactions, name='my-transactions'),
     path('my-ledger-summary/', my_ledger_summary, name='my-ledger-summary'),
+    path('my-billing-items/', my_billing_items, name='my-billing-items'),
     path('my-tuition-installments/', my_tuition_installments, name='my-tuition-installments'),
+    path('my-advance-requests/', my_advance_requests, name='my-advance-requests'),
+    path('advance-requests/', advance_requests_admin, name='advance-requests-admin'),
+    path('advance-requests/<int:pk>/process/', process_advance_request, name='advance-request-process'),
+    
 
     # ADD THESE NEW TUITION CONFIG ENDPOINTS
     path('tuition-configs/', TuitionConfigListCreate.as_view(), name='tuition-config-list'),
@@ -43,4 +56,10 @@ urlpatterns = [
     path('proof-of-payments/<int:pk>/', ProofOfPaymentViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), name='proof-detail'),
     path('proof-of-payments/<int:pk>/approve/', ProofOfPaymentViewSet.as_view({'patch': 'approve'}), name='proof-approve'),
     path('proof-of-payments/<int:pk>/reject/', ProofOfPaymentViewSet.as_view({'patch': 'reject'}), name='proof-reject'),
+
+    # Additional endpoints for paying balance and processing refunds
+    path('ledgers/pay/', pay_student_balance, name='ledger-pay'),
+    path('ledgers/refund/', refund_student_payment, name='ledger-refund'),
+    path('ledgers/auto-apply-advance/', auto_apply_advance, name='ledger-auto-apply-advance'),
+    path('ledgers/repair-statuses/', repair_ledger_statuses, name='ledger-repair-statuses'),
 ]

@@ -4,7 +4,6 @@ import {
   listChats,
   getChatDetail,
   updateChat,
-  createClassChat,
   createProjectChat,
   searchUsers,
   sendMessage,
@@ -16,8 +15,11 @@ import {
   createMessageReport,
   createChatRequest,
 } from "../api/messaging";
+import { apiFetch } from "../api/apiFetch";
 import { getSchoolYear } from "../api/announcements";
 import { getToken } from "../Auth/auth";
+
+const MESSAGE_POLL_INTERVAL_MS = 2000;
 
 const StudentMessage = () => {
   const [chats, setChats] = useState([]);
@@ -30,14 +32,14 @@ const StudentMessage = () => {
   const [schoolYear, setSchoolYear] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const scrollRef = useRef(null);
+  const [showChatList, setShowChatList] = useState(true);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [newChatError, setNewChatError] = useState("");
   const [newChatType, setNewChatType] = useState("individual");
   const [newChatName, setNewChatName] = useState("");
-  const [newChatTarget, setNewChatTarget] = useState("");
+  const [newChatQuery, setNewChatQuery] = useState("");
   const [initialMessage, setInitialMessage] = useState("");
   const [selectedUserId, setSelectedUserId] = useState(null);
-  const [newChatSection, setNewChatSection] = useState("");
-  const [newChatSubject, setNewChatSubject] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [respondingToRequest, setRespondingToRequest] = useState(null);
@@ -45,8 +47,6 @@ const StudentMessage = () => {
   const [userSuggestions, setUserSuggestions] = useState([]);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [selectedUserText, setSelectedUserText] = useState("");
-  const [sections, setSections] = useState([]);
-  const [subjects, setSubjects] = useState([]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showGroupActionsModal, setShowGroupActionsModal] = useState(false);
   const [groupActionView, setGroupActionView] = useState("menu");
@@ -80,6 +80,71 @@ const StudentMessage = () => {
     }
   }, [messages]);
 
+  const toggleNewChatModal = () => {
+    setNewChatError("");
+    setShowChatList(false);
+    setShowNewChat((prev) => !prev);
+  };
+
+  const mergeMessages = (currentMessages, incomingMessages) => {
+    if (!Array.isArray(incomingMessages)) return currentMessages;
+    if (!Array.isArray(currentMessages) || currentMessages.length === 0) {
+      return incomingMessages;
+    }
+
+    const byId = new Map(currentMessages.map((msg) => [msg.id, msg]));
+    let changed = false;
+
+    for (const msg of incomingMessages) {
+      const existing = byId.get(msg.id);
+      if (!existing) {
+        byId.set(msg.id, msg);
+        changed = true;
+        continue;
+      }
+
+      if (
+        existing.content !== msg.content ||
+        existing.is_deleted !== msg.is_deleted ||
+        existing.is_flagged !== msg.is_flagged ||
+        existing.flagged_words !== msg.flagged_words ||
+        existing.image !== msg.image
+      ) {
+        byId.set(msg.id, msg);
+        changed = true;
+      }
+    }
+
+    if (!changed) return currentMessages;
+
+    return Array.from(byId.values()).sort(
+      (a, b) => new Date(a.created_at) - new Date(b.created_at)
+    );
+  };
+
+  useEffect(() => {
+    if (!selectedChat?.id) return;
+    let isActive = true;
+
+    const refreshMessages = async () => {
+      try {
+        const chatData = await getChatDetail(selectedChat.id);
+        if (!isActive) return;
+        setSelectedChat(chatData);
+        setMessages((prev) => mergeMessages(prev, chatData.messages || []));
+      } catch (err) {
+        // Silent polling errors to avoid disrupting the UI.
+      }
+    };
+
+    refreshMessages();
+    const intervalId = setInterval(refreshMessages, MESSAGE_POLL_INTERVAL_MS);
+    return () => {
+      isActive = false;
+      clearInterval(intervalId);
+    };
+  }, [selectedChat?.id]);
+
   const loadInitialData = async () => {
     try {
       setLoading(true);
@@ -88,32 +153,11 @@ const StudentMessage = () => {
       const token = getToken();
       let currentUserData = null;
       if (token) {
-        const userRes = await fetch("/api/accounts/me/detail/", {
-          headers: { Authorization: `Token ${token}` },
-        });
+        const userRes = await apiFetch("/api/accounts/me/detail/");
         if (userRes.ok) {
           currentUserData = await userRes.json();
           setCurrentUser(currentUserData);
         }
-      }
-
-      // Load lightweight dropdown options used by parent/student class chat creation.
-      const [sectionsRes, subjectsRes] = await Promise.all([
-        fetch("/api/accounts/sections/", {
-          headers: { Authorization: `Token ${token}` },
-        }),
-        fetch("/api/accounts/subjects/", {
-          headers: { Authorization: `Token ${token}` },
-        }),
-      ]);
-
-      if (sectionsRes.ok) {
-        const data = await sectionsRes.json();
-        setSections(Array.isArray(data) ? data : data.results || []);
-      }
-      if (subjectsRes.ok) {
-        const data = await subjectsRes.json();
-        setSubjects(Array.isArray(data) ? data : data.results || []);
       }
 
       // Fetch school year
@@ -153,6 +197,7 @@ const StudentMessage = () => {
   };
 
   const handleSelectChat = (chat) => {
+    setShowChatList(false);
     loadChatDetail(chat.id);
   };
 
@@ -180,32 +225,40 @@ const StudentMessage = () => {
   };
 
   const handleCreateNewChat = async (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) {
+      e.preventDefault();
+    }
+    setNewChatError("");
+
     if (!schoolYear) {
-      setError("Could not determine school year");
+      setNewChatError("Could not determine school year");
       return;
     }
 
     // Validate input
     if (newChatType === "individual" && !selectedUserId) {
-      setError("Please select a user");
+      setNewChatError("Please select a user");
       return;
     }
     if (newChatType === "project" && !newChatName) {
-      setError("Please enter a group name");
-      return;
-    }
-    if (newChatType === "class" && (!newChatSection || !newChatSubject)) {
-      setError("Please select both section and subject");
+      setNewChatError("Please enter a group name");
       return;
     }
 
     try {
       let chatData = null;
       if (newChatType === "individual") {
-        await createChatRequest(selectedUserId, initialMessage || "");
-      } else if (newChatType === "class") {
-        chatData = await createClassChat(newChatSection, newChatSubject, schoolYear.name);
+        const chatRequest = await createChatRequest(selectedUserId, initialMessage || "");
+        
+        // Send the initial message immediately if provided and chat was created
+        if (initialMessage?.trim() && chatRequest?.chat?.id) {
+          try {
+            await sendMessage(chatRequest.chat.id, initialMessage.trim(), null);
+          } catch (msgErr) {
+            console.error("Failed to send initial message:", msgErr);
+            // Don't fail the chat creation if message sending fails
+          }
+        }
       } else {
         chatData = await createProjectChat(newChatName, schoolYear.name);
       }
@@ -215,25 +268,24 @@ const StudentMessage = () => {
       setShowNewChat(false);
       setNewChatType("individual");
       setNewChatName("");
-      setNewChatTarget("");
+      setNewChatQuery("");
       setSelectedUserId(null);
       setInitialMessage("");
-      setNewChatSection("");
-      setNewChatSubject("");
       setSelectedUserText("");
-      setError("");
+      setNewChatError("");
       if (chatData?.id) {
         handleSelectChat(chatData);
       }
     } catch (err) {
-      setError("Failed to create chat: " + (err.message || "Unknown error"));
+      setNewChatError("Failed to create chat: " + (err.message || "Unknown error"));
       console.error(err);
     }
   };
 
   const handleUserSearch = async (query) => {
-    setSelectedUserText(query);
+    setSelectedUserText("");
     setSelectedUserId(null);
+    setNewChatQuery(query);
     if (query.length < 2) {
       setUserSuggestions([]);
       setShowUserDropdown(false);
@@ -252,6 +304,7 @@ const StudentMessage = () => {
   const handleSelectUser = (user) => {
     setSelectedUserId(user.id);
     setSelectedUserText(getUserDisplayName(user));
+    setNewChatQuery("");
     setUserSuggestions([]);
     setShowUserDropdown(false);
   };
@@ -267,6 +320,7 @@ const StudentMessage = () => {
         // Refresh chat list to show the newly accepted chat
         const chatsData = await listChats();
         setChats(chatsData || []);
+        setShowChatList(true);
       }
       setError("");
     } catch (err) {
@@ -327,7 +381,8 @@ const StudentMessage = () => {
     }
 
     try {
-      const data = await searchUsers(query);
+      const searchScope = selectedChat?.chat_type === "GROUP_PROJECT" ? "project" : "";
+      const data = await searchUsers(query, searchScope ? { scope: searchScope } : undefined);
       const existingIds = selectedChat.members?.map((m) => m.user.id) || [];
       const filtered = (data || []).filter((u) => !existingIds.includes(u.id));
       setMemberSuggestions(filtered);
@@ -443,6 +498,13 @@ const StudentMessage = () => {
     return chat.name || "Group";
   };
 
+  const getMemberRoleLabel = (member) => {
+    if (!member) return "";
+    if (member.user?.id === selectedChat?.creator?.id) return "creator";
+    if (member.is_admin) return "leader";
+    return "";
+  };
+
   const getRequestSenderDisplayName = (chatRequest) => {
     if (!chatRequest) return "User";
 
@@ -503,9 +565,17 @@ const StudentMessage = () => {
       <div className="msg__top">
         <h2 hidden className="msg__title">Messages</h2>
         <button
+          className="msg__listToggle"
+          type="button"
+          aria-expanded={showChatList}
+          onClick={() => setShowChatList((prev) => !prev)}
+        >
+          Chats
+        </button>
+        <button
           className="msg__newBtn"
           type="button"
-          onClick={() => setShowNewChat(!showNewChat)}
+          onClick={toggleNewChatModal}
         >
           <span className="msg__icon" aria-hidden="true">➕</span>
           New Chat
@@ -555,9 +625,105 @@ const StudentMessage = () => {
         </div>
       )}
 
+      <div
+        className={`msg__listOverlay${showChatList ? " active" : ""}`}
+        role="presentation"
+        onClick={() => setShowChatList(false)}
+      />
+
+      {showNewChat && (
+        <div className="msgModal">
+          <div className="msgModal__card">
+            <h3 className="msgModal__title">Create New Chat</h3>
+            {newChatError && (
+              <div className="msgModal__error">
+                {newChatError}
+              </div>
+            )}
+            <select
+              value={newChatType}
+              onChange={(e) => setNewChatType(e.target.value)}
+              className="msgModal__field"
+            >
+              <option value="individual">Individual DM</option>
+              <option value="project">Project Group</option>
+            </select>
+
+            {newChatType === "individual" && (
+              <div className="msgModal__stack">
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={selectedUserText || newChatQuery}
+                  onChange={(e) => {
+                    if (selectedUserText) {
+                      setSelectedUserText("");
+                    }
+                    handleUserSearch(e.target.value);
+                  }}
+                  onFocus={() => newChatQuery.length >= 2 && setShowUserDropdown(true)}
+                  className="msgModal__field"
+                />
+                {showUserDropdown && userSuggestions.length > 0 && (
+                  <div className="msgModal__dropdown">
+                    {userSuggestions.map((user) => (
+                      <div
+                        key={user.id}
+                        onClick={() => handleSelectUser(user)}
+                        className="msgModal__option"
+                      >
+                        {getUserDisplayName(user)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {selectedUserId && (
+                  <textarea
+                    placeholder="Initial message (optional)..."
+                    value={initialMessage}
+                    onChange={(e) => setInitialMessage(e.target.value)}
+                    className="msgModal__field msgModal__textarea"
+                  />
+                )}
+              </div>
+            )}
+
+            {newChatType === "project" && (
+              <input
+                type="text"
+                placeholder="Group name..."
+                value={newChatName}
+                onChange={(e) => setNewChatName(e.target.value)}
+                className="msgModal__field"
+              />
+            )}
+
+            <div className="msgModal__actions">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNewChat(false);
+                  setNewChatError("");
+                }}
+                className="msgModal__btn"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateNewChat}
+                className="msgModal__btn msgModal__btn--primary"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="msg__shell">
         {/* LEFT: chat list */}
-        <aside className="msg__listPane">
+        <aside className={`msg__listPane${showChatList ? " active" : ""}`}>
           <div className="msg__searchBar">
             <span className="msg__searchIcon" aria-hidden="true">🔎</span>
             <input
@@ -568,108 +734,6 @@ const StudentMessage = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-
-          {showNewChat && (
-            <div style={{position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 2100}}>
-              <div style={{width: "100%", maxWidth: "460px", background: "#fff", borderRadius: "10px", padding: "16px"}}>
-                <h3 style={{marginTop: 0, marginBottom: "12px"}}>Create New Chat</h3>
-                <select
-                  value={newChatType}
-                  onChange={(e) => setNewChatType(e.target.value)}
-                  style={{width: "100%", padding: "8px", marginBottom: "10px"}}
-                >
-                  <option value="individual">Individual DM</option>
-                  <option value="class">Class Group</option>
-                  <option value="project">Project Group</option>
-                </select>
-
-                {newChatType === "individual" && (
-                  <div style={{position: "relative", marginBottom: "10px"}}>
-                    <input
-                      type="text"
-                      placeholder="Search users..."
-                      value={selectedUserText}
-                      onChange={(e) => {
-                        handleUserSearch(e.target.value);
-                      }}
-                      onFocus={() => selectedUserText.length >= 2 && setShowUserDropdown(true)}
-                      style={{width: "100%", padding: "8px", marginBottom: "10px"}}
-                    />
-                    {showUserDropdown && userSuggestions.length > 0 && (
-                      <div style={{position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "white", border: "1px solid #ccc", maxHeight: "150px", overflowY: "auto", zIndex: 1000}}>
-                        {userSuggestions.map((user) => (
-                          <div
-                            key={user.id}
-                            onClick={() => handleSelectUser(user)}
-                            style={{padding: "8px", borderBottom: "1px solid #eee", cursor: "pointer", backgroundColor: "#f9f9f9"}}
-                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e8e8e8")}
-                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f9f9f9")}
-                          >
-                            {getUserDisplayName(user)}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {selectedUserId && (
-                      <textarea
-                        placeholder="Initial message (optional)..."
-                        value={initialMessage}
-                        onChange={(e) => setInitialMessage(e.target.value)}
-                        style={{width: "100%", padding: "8px", marginTop: "8px", minHeight: "60px", fontFamily: "inherit"}}
-                      />
-                    )}
-                  </div>
-                )}
-
-                {newChatType === "class" && (
-                  <>
-                    <select
-                      value={newChatSection}
-                      onChange={(e) => setNewChatSection(e.target.value)}
-                      style={{width: "100%", padding: "8px", marginBottom: "10px"}}
-                    >
-                      <option value="">Select section</option>
-                      {sections.map((section) => (
-                        <option key={section.id} value={section.id}>
-                          {section.name} {section.grade_level ? `- ${section.grade_level}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={newChatSubject}
-                      onChange={(e) => setNewChatSubject(e.target.value)}
-                      style={{width: "100%", padding: "8px", marginBottom: "10px"}}
-                    >
-                      <option value="">Select subject</option>
-                      {subjects.map((subject) => (
-                        <option key={subject.id} value={subject.id}>{subject.name}</option>
-                      ))}
-                    </select>
-                  </>
-                )}
-
-                {newChatType === "project" && (
-                  <input
-                    type="text"
-                    placeholder="Group name..."
-                    value={newChatName}
-                    onChange={(e) => setNewChatName(e.target.value)}
-                    style={{width: "100%", padding: "8px", marginBottom: "10px"}}
-                  />
-                )}
-
-                <div style={{display: "flex", justifyContent: "flex-end", gap: "8px"}}>
-                  <button onClick={() => setShowNewChat(false)} style={{padding: "8px 12px", border: "1px solid #ccc", background: "#fff"}}>Cancel</button>
-                  <button
-                    onClick={handleCreateNewChat}
-                    style={{padding: "8px 12px", backgroundColor: "#24148a", color: "white", border: "none", cursor: "pointer"}}
-                  >
-                    Create
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           <div className="msg__scroll">
             {filteredChats.length === 0 ? (
@@ -819,7 +883,8 @@ const StudentMessage = () => {
                       <div style={{display: "flex", flexWrap: "wrap", gap: "5px"}}>
                         {selectedChat.members.map((member) => (
                           <div key={member.id} style={{display: "flex", alignItems: "center", gap: "5px", backgroundColor: "#24148a", color: "white", padding: "5px 10px", borderRadius: "4px", fontSize: "12px"}}>
-                            {getUserDisplayName(member.user)} {member.is_admin && "(admin)"}
+                            {getUserDisplayName(member.user)}
+                            {getMemberRoleLabel(member) ? `(${getMemberRoleLabel(member)})` : ""}
                             {selectedChat.creator?.id === currentUser?.id && member.user.id !== currentUser?.id && (
                               <button onClick={() => handleRemoveMember(member.user.id)} style={{background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "12px"}}>✕</button>
                             )}
@@ -1018,7 +1083,8 @@ const StudentMessage = () => {
                             <div style={{display: "flex", flexWrap: "wrap", gap: "6px"}}>
                               {selectedChat.members.map((member) => (
                                 <div key={member.id} style={{display: "flex", alignItems: "center", gap: "5px", backgroundColor: "#24148a", color: "white", padding: "5px 10px", borderRadius: "4px", fontSize: "12px"}}>
-                                  {getUserDisplayName(member.user)} {member.is_admin && "(admin)"}
+                                  {getUserDisplayName(member.user)}
+                                  {getMemberRoleLabel(member) ? `(${getMemberRoleLabel(member)})` : ""}
                                   {member.user.id !== currentUser?.id && (
                                     <button onClick={() => handleRemoveMember(member.user.id)} style={{background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "12px"}}>✕</button>
                                   )}

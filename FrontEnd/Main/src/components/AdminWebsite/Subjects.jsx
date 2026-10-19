@@ -1,12 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, BookOpen, Save, X, UserCheck } from 'lucide-react';
 import { apiFetch } from '../api/apiFetch';
+import Toast from '../Global/Toast';
 import '../AdminWebsiteCSS/UserManagement.css'; /* reuse same table styles */
 
 const Subjects = () => {
   const [subjects, setSubjects] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   // create
   const [showForm, setShowForm] = useState(false);
@@ -43,7 +57,12 @@ const Subjects = () => {
   // create
   const handleCreate = async () => {
     setFormError('');
-    if (!form.name || !form.code) { setFormError('Name and code are required.'); return; }
+    if (!form.name || !form.code) {
+      const msg = 'Name and code are required.';
+      setFormError(msg);
+      addToast('Validation Error', msg, 'error');
+      return;
+    }
     setSaving(true);
     try {
       const payload = { name: form.name, code: form.code };
@@ -57,10 +76,14 @@ const Subjects = () => {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || JSON.stringify(err));
       }
+      addToast('Success', 'Subject created successfully!', 'success');
       setShowForm(false);
       setForm({ name: '', code: '', assigned_teacher: '' });
       await Promise.all([fetchSubjects(), fetchTeachers()]);
-    } catch (e) { setFormError(e.message); }
+    } catch (e) {
+      setFormError(e.message);
+      addToast('Error', e.message, 'error');
+    }
     finally { setSaving(false); }
   };
 
@@ -85,9 +108,12 @@ const Subjects = () => {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Failed to update');
+      addToast('Success', 'Subject updated successfully!', 'success');
       setEditingId(null);
       await Promise.all([fetchSubjects(), fetchTeachers()]);
-    } catch (e) { alert(e.message); }
+    } catch (e) {
+      addToast('Error', e.message, 'error');
+    }
   };
 
   // delete
@@ -95,8 +121,11 @@ const Subjects = () => {
     if (!window.confirm('Delete this subject? Teachers assigned to it will become unassigned.')) return;
     try {
       await apiFetch(`/api/accounts/subjects/${id}/`, { method: 'DELETE' });
+      addToast('Success', 'Subject deleted successfully!', 'success');
       await Promise.all([fetchSubjects(), fetchTeachers()]);
-    } catch (e) { alert(e.message); }
+    } catch (e) {
+      addToast('Error', e.message, 'error');
+    }
   };
 
   // helpers — figure out which teachers are available for a dropdown
@@ -252,6 +281,7 @@ const Subjects = () => {
           </div>
         )}
       </div>
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </div>
   );
 };
