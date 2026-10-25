@@ -132,6 +132,16 @@ const getHistoryGroupKey = (record) => {
   return `${base}::${record?.school_year || 'unknown'}`;
 };
 
+const safeValue = (value) => (value === null || value === undefined || value === '' ? '—' : value);
+
+const escapeHtml = (value) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
 const GradesRecords = () => {
   const [activeTab, setActiveTab] = useState('grades');
   const [searchTerm, setSearchTerm] = useState('');
@@ -153,6 +163,11 @@ const GradesRecords = () => {
 
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState([]);
+  const [isReportCardOpen, setIsReportCardOpen] = useState(false);
+  const [reportCardLoading, setReportCardLoading] = useState(false);
+  const [reportCardError, setReportCardError] = useState('');
+  const [reportCardData, setReportCardData] = useState(null);
+  const [reportCardRemark, setReportCardRemark] = useState('');
 
   const filterGradeValue = useMemo(() => {
     if (filterGrade === 'all') return null;
@@ -1231,6 +1246,234 @@ const GradesRecords = () => {
     }
   };
 
+  const openReportCard = async (student) => {
+    const studentId = student?.student_id;
+    if (!studentId) {
+      alert('Student ID is missing for this row.');
+      return;
+    }
+
+    setIsReportCardOpen(true);
+    setReportCardLoading(true);
+    setReportCardError('');
+    setReportCardRemark('');
+
+    try {
+      const data = await apiFetchData(`/api/grades/admin-report-card/${studentId}/`);
+      setReportCardData(data);
+    } catch (err) {
+      setReportCardData(null);
+      setReportCardError(err.message || 'Failed to load report card data.');
+    } finally {
+      setReportCardLoading(false);
+    }
+  };
+
+  const closeReportCard = () => {
+    setIsReportCardOpen(false);
+    setReportCardData(null);
+    setReportCardError('');
+    setReportCardRemark('');
+  };
+
+  const downloadReportCardPDF = () => {
+    if (!reportCardData || !reportCardData.student) return;
+
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 12;
+
+    const student = reportCardData.student;
+    const subjects = Array.isArray(reportCardData.subjects) ? reportCardData.subjects : [];
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Student Report Card', pageWidth / 2, 14, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`School Year: ${safeValue(reportCardData.school_year)}`, margin, 22);
+    doc.text(`Name: ${safeValue(student.student_name)}`, margin, 27);
+    doc.text(`Student Number: ${safeValue(student.student_number)}`, margin, 32);
+    doc.text(`Grade / Section: ${safeValue(student.grade_level_label)} - ${safeValue(student.section_name)}`, margin, 37);
+
+    const headers = ['Learning Area', 'Q1', 'Q2', 'Q3', 'Q4', 'Final', 'Remarks'];
+    const rows = subjects.map((row) => [
+      row.subject_name || '—',
+      safeValue(row.q1),
+      safeValue(row.q2),
+      safeValue(row.q3),
+      safeValue(row.q4),
+      safeValue(row.final_grade),
+      safeValue(row.remarks),
+    ]);
+
+    rows.push([
+      'General Average',
+      '',
+      '',
+      '',
+      '',
+      safeValue(reportCardData.general_average),
+      safeValue(reportCardData.overall_remarks),
+    ]);
+
+    const totalWidth = pageWidth - margin * 2;
+    const firstCol = totalWidth * 0.34;
+    const tailCol = totalWidth * 0.12;
+    const otherCol = (totalWidth - firstCol - tailCol) / 5;
+    const rowHeight = 7;
+    const startY = 44;
+
+    doc.setFillColor(25, 118, 210);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, 'bold');
+
+    let x = margin;
+    headers.forEach((header, index) => {
+      const width = index === 0 ? firstCol : index === headers.length - 1 ? tailCol : otherCol;
+      doc.rect(x, startY, width, rowHeight, 'F');
+      doc.text(header, x + width / 2, startY + 4.8, { align: 'center' });
+      x += width;
+    });
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'normal');
+    let y = startY + rowHeight;
+
+    rows.forEach((row, rowIndex) => {
+      const isSummary = rowIndex === rows.length - 1;
+      let cellX = margin;
+
+      row.forEach((cell, cellIndex) => {
+        const width = cellIndex === 0 ? firstCol : cellIndex === row.length - 1 ? tailCol : otherCol;
+        if (isSummary) {
+          doc.setFillColor(232, 240, 254);
+          doc.rect(cellX, y, width, rowHeight, 'F');
+          doc.setFont(undefined, 'bold');
+        } else {
+          doc.setFont(undefined, 'normal');
+        }
+        doc.setDrawColor(210, 220, 230);
+        doc.rect(cellX, y, width, rowHeight);
+
+        if (cellIndex === 0) {
+          doc.text(String(cell), cellX + 1.8, y + 4.8, { maxWidth: width - 3 });
+        } else {
+          doc.text(String(cell), cellX + width / 2, y + 4.8, { align: 'center', maxWidth: width - 2 });
+        }
+        cellX += width;
+      });
+
+      y += rowHeight;
+    });
+
+    if (reportCardRemark.trim()) {
+      y += 8;
+      doc.setFont(undefined, 'bold');
+      doc.text('Admin Remark:', margin, y);
+      doc.setFont(undefined, 'normal');
+      const wrapped = doc.splitTextToSize(reportCardRemark.trim(), pageWidth - margin * 2);
+      doc.text(wrapped, margin, y + 5);
+    }
+
+    const fileSuffix = new Date().toISOString().slice(0, 10);
+    const fileStudent = String(student.student_number || student.id || 'student').replace(/\s+/g, '-');
+    doc.save(`report-card-${fileStudent}-${fileSuffix}.pdf`);
+  };
+
+  const printReportCard = () => {
+    if (!reportCardData || !reportCardData.student) return;
+
+    const student = reportCardData.student;
+    const subjects = Array.isArray(reportCardData.subjects) ? reportCardData.subjects : [];
+    const rowsHtml = subjects
+      .map(
+        (row) => `
+          <tr>
+            <td>${escapeHtml(row.subject_name || '—')}</td>
+            <td>${escapeHtml(safeValue(row.q1))}</td>
+            <td>${escapeHtml(safeValue(row.q2))}</td>
+            <td>${escapeHtml(safeValue(row.q3))}</td>
+            <td>${escapeHtml(safeValue(row.q4))}</td>
+            <td>${escapeHtml(safeValue(row.final_grade))}</td>
+            <td>${escapeHtml(safeValue(row.remarks))}</td>
+          </tr>`
+      )
+      .join('');
+
+    const remarkHtml = reportCardRemark.trim()
+      ? `<div class="rc-remark"><strong>Admin Remark:</strong> ${escapeHtml(reportCardRemark.trim())}</div>`
+      : '';
+
+    const printWindow = window.open('', '', 'height=900,width=900');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Report Card</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; color: #1f2937; }
+            .rc-title { text-align: center; font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+            .rc-meta { margin-bottom: 14px; font-size: 13px; }
+            .rc-meta p { margin: 3px 0; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #cfd8e3; padding: 6px 8px; text-align: center; }
+            th:first-child, td:first-child { text-align: left; }
+            th { background: #1976d2; color: #fff; }
+            tfoot td { font-weight: 700; background: #e8f0fe; }
+            .rc-remark { margin-top: 14px; font-size: 12px; line-height: 1.4; }
+            @media print { @page { size: A4 portrait; margin: 12mm; } }
+          </style>
+        </head>
+        <body>
+          <div class="rc-title">Student Report Card</div>
+          <div class="rc-meta">
+            <p><strong>School Year:</strong> ${escapeHtml(safeValue(reportCardData.school_year))}</p>
+            <p><strong>Name:</strong> ${escapeHtml(safeValue(student.student_name))}</p>
+            <p><strong>Student Number:</strong> ${escapeHtml(safeValue(student.student_number))}</p>
+            <p><strong>Grade / Section:</strong> ${escapeHtml(safeValue(student.grade_level_label))} - ${escapeHtml(safeValue(student.section_name))}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Learning Area</th>
+                <th>Q1</th>
+                <th>Q2</th>
+                <th>Q3</th>
+                <th>Q4</th>
+                <th>Final Grade</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>General Average</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>${escapeHtml(safeValue(reportCardData.general_average))}</td>
+                <td>${escapeHtml(safeValue(reportCardData.overall_remarks))}</td>
+              </tr>
+            </tfoot>
+          </table>
+          ${remarkHtml}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
   const renderStats = () => {
     if (activeTab === 'history') {
       return (
@@ -1667,6 +1910,7 @@ const GradesRecords = () => {
                   <th>Graded Subjects</th>
                   <th>Average</th>
                   <th>Status</th>
+                  <th>Report Card</th>
                   <th>Details</th>
                 </tr>
               </thead>
@@ -1707,6 +1951,15 @@ const GradesRecords = () => {
                             {student.status}
                           </span>
                         </td>
+                        <td data-label="Report Card">
+                          <button
+                            className="gr-btn-report"
+                            onClick={() => openReportCard(student)}
+                            title="Open student report card"
+                          >
+                            Report Card
+                          </button>
+                        </td>
                         <td data-label="Details">
                           <button
                             className="gr-btn-icon"
@@ -1722,7 +1975,7 @@ const GradesRecords = () => {
 
                       {expanded && (
                         <tr className="gr-expand-row">
-                          <td colSpan={8}>
+                          <td colSpan={9}>
                             <div className="gr-subject-list">
                               {(student.subject_breakdown || []).map((subject) => (
                                 <div key={subject.subject_id} className="gr-subject-card">
@@ -1919,6 +2172,104 @@ const GradesRecords = () => {
           )}
         </div>
       </section>
+
+      {isReportCardOpen && (
+        <div className="gr-report-modal-overlay" onClick={closeReportCard}>
+          <div className="gr-report-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="gr-report-header">
+              <div>
+                <h3>Student Report Card</h3>
+                {!reportCardLoading && reportCardData?.student && (
+                  <p>
+                    {reportCardData.student.student_name} - {reportCardData.student.grade_level_label} - {reportCardData.student.section_name}
+                  </p>
+                )}
+              </div>
+              <button className="gr-btn-icon" onClick={closeReportCard} title="Close report card">X</button>
+            </div>
+
+            <div className="gr-report-body">
+              {reportCardLoading && <div className="gr-empty">Loading report card...</div>}
+              {!reportCardLoading && reportCardError && (
+                <div className="gr-error-box">
+                  <AlertCircle size={18} />
+                  <span>{reportCardError}</span>
+                </div>
+              )}
+
+              {!reportCardLoading && !reportCardError && reportCardData && (
+                <>
+                  <div className="gr-report-meta">
+                    <div><strong>School Year:</strong> {safeValue(reportCardData.school_year)}</div>
+                    <div><strong>Student Number:</strong> {safeValue(reportCardData.student?.student_number)}</div>
+                  </div>
+
+                  <div className="gr-report-table-wrap">
+                    <table className="gr-report-table">
+                      <thead>
+                        <tr>
+                          <th>Learning Area</th>
+                          <th>Q1</th>
+                          <th>Q2</th>
+                          <th>Q3</th>
+                          <th>Q4</th>
+                          <th>Final Grade</th>
+                          <th>Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(reportCardData.subjects || []).map((row) => (
+                          <tr key={row.subject_id}>
+                            <td>{safeValue(row.subject_name)}</td>
+                            <td>{safeValue(row.q1)}</td>
+                            <td>{safeValue(row.q2)}</td>
+                            <td>{safeValue(row.q3)}</td>
+                            <td>{safeValue(row.q4)}</td>
+                            <td>{safeValue(row.final_grade)}</td>
+                            <td>{safeValue(row.remarks)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td>General Average</td>
+                          <td></td>
+                          <td></td>
+                          <td></td>
+                          <td></td>
+                          <td>{safeValue(reportCardData.general_average)}</td>
+                          <td>{safeValue(reportCardData.overall_remarks)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+
+                  <div className="gr-report-remark">
+                    <label htmlFor="gr-admin-remark">Admin Remark (included in PDF/Print)</label>
+                    <textarea
+                      id="gr-admin-remark"
+                      value={reportCardRemark}
+                      onChange={(e) => setReportCardRemark(e.target.value)}
+                      placeholder="Enter admin remark before printing or saving as PDF"
+                      rows={3}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="gr-report-footer">
+              <button className="gr-btn-secondary" onClick={printReportCard} disabled={reportCardLoading || !reportCardData}>
+                Print
+              </button>
+              <button className="gr-btn-primary" onClick={downloadReportCardPDF} disabled={reportCardLoading || !reportCardData}>
+                Save as PDF
+              </button>
+              <button className="gr-btn-icon" onClick={closeReportCard}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <PreviewModal
         isOpen={showPreview}

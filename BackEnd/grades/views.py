@@ -804,6 +804,159 @@ def _compute_overall_record(quarter_scores):
     return final_grade, "FAILED"
 
 
+def _pick_preferred_portal_student(candidates):
+    preferred = None
+    for candidate in candidates:
+        if not candidate:
+            continue
+        username = str(getattr(candidate, "username", "") or "").strip().lower()
+        if username and username != "public_user":
+            return candidate
+        if preferred is None:
+            preferred = candidate
+    return preferred
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_student_report_card(request, student_id):
+    """
+    Admin-only report-card payload for a single student in the active school year.
+    Returns all section subjects with Q1-Q4, final grade, remarks, and general average.
+    """
+    user = request.user
+    if user.role != "ADMIN":
+        return Response({"detail": "Forbidden"}, status=403)
+
+    active_school_year = get_active_school_year_obj()
+    if not active_school_year:
+        return Response({"detail": "No active school year"}, status=404)
+
+    enrollment = (
+        Enrollment.objects.filter(status="ACTIVE", section__school_year=active_school_year)
+        .filter(Q(student_id=student_id) | Q(parent_user_id=student_id))
+        .select_related("student", "student__profile", "parent_user", "parent_user__profile", "section")
+        .order_by("-created_at", "-id")
+        .first()
+    )
+
+    if not enrollment:
+        return Response({"detail": "Student enrollment not found in active school year"}, status=404)
+
+    resolved_student = resolve_portal_student_user(enrollment)
+    candidate_users = [resolved_student, enrollment.student, enrollment.parent_user]
+
+    student_number = (
+        enrollment.student_number
+        or getattr(getattr(resolved_student, "profile", None), "student_number", None)
+        or enrollment.lrn
+        or ""
+    )
+    student_number_key = str(student_number or "").strip()
+    if student_number_key:
+        matched_user_ids = list(
+            UserProfile.objects.filter(
+                Q(student_number__iexact=student_number_key) | Q(lrn__iexact=student_number_key),
+                user__role="PARENT_STUDENT",
+            ).values_list("user_id", flat=True)
+        )
+        if matched_user_ids:
+            candidate_users.extend(User.objects.filter(id__in=matched_user_ids, role="PARENT_STUDENT"))
+
+    canonical_student = _pick_preferred_portal_student(candidate_users)
+    if not canonical_student:
+        return Response({"detail": "Unable to resolve student account"}, status=404)
+
+    section_obj = enrollment.section
+    if not section_obj:
+        return Response({"detail": "Student has no active section"}, status=400)
+
+    grade_level_value = normalize_grade_level(
+        getattr(section_obj, "grade_level", None) if section_obj else None
+    )
+    if grade_level_value is None:
+        grade_level_value = normalize_grade_level(enrollment.grade_level)
+    if grade_level_value is None:
+        grade_level_value = normalize_grade_level(getattr(getattr(canonical_student, "profile", None), "grade_level", None))
+
+    schedule_subject_ids = list(
+        Schedule.objects.filter(
+            section_id=section_obj.id,
+            school_year=active_school_year,
+            subject__isnull=False,
+        )
+        .values_list("subject_id", flat=True)
+        .distinct()
+    )
+
+    if not schedule_subject_ids and grade_level_value is not None:
+        schedule_subject_ids = list(
+            GradeItem.objects.filter(grade_level=grade_level_value, subject__isnull=False)
+            .values_list("subject_id", flat=True)
+            .distinct()
+        )
+
+    if not schedule_subject_ids:
+        return Response({"detail": "No subjects found for student section"}, status=404)
+
+    subjects = list(Subject.objects.filter(id__in=schedule_subject_ids).order_by("name"))
+
+    subject_rows = []
+    final_parts = []
+
+    for subject in subjects:
+        quarter_scores = []
+        for quarter in range(1, 5):
+            q_data = _compute_quarter_grade(
+                canonical_student.id,
+                subject.id,
+                quarter,
+                grade_level=grade_level_value,
+            )
+            quarter_scores.append(q_data["quarter_grade"])
+
+        final_grade, remarks = _compute_overall_record(quarter_scores)
+        if final_grade is not None:
+            final_parts.append(final_grade)
+
+        subject_rows.append({
+            "subject_id": subject.id,
+            "subject_name": subject.name,
+            "subject_code": subject.code,
+            "q1": quarter_scores[0],
+            "q2": quarter_scores[1],
+            "q3": quarter_scores[2],
+            "q4": quarter_scores[3],
+            "final_grade": final_grade,
+            "remarks": remarks,
+        })
+
+    general_average = round(sum(final_parts) / len(final_parts), 2) if final_parts else None
+
+    student_name = " ".join(
+        part for part in [enrollment.first_name or "", enrollment.last_name or ""] if part
+    ).strip() or resolve_student_display_name(canonical_student, resolve_school_year_label(active_school_year))
+
+    return Response({
+        "school_year": resolve_school_year_label(active_school_year),
+        "student": {
+            "id": canonical_student.id,
+            "student_name": student_name,
+            "student_number": student_number,
+            "grade_level": grade_level_value,
+            "grade_level_label": grade_level_label(grade_level_value),
+            "section_name": section_obj.name,
+        },
+        "subjects": subject_rows,
+        "general_average": general_average,
+        "overall_remarks": (
+            "PASSED" if general_average is not None and general_average >= 75
+            else "FAILED" if general_average is not None
+            else "INCOMPLETE"
+        ),
+    })
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def grades_root(request):
