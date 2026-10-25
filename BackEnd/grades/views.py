@@ -867,6 +867,23 @@ def admin_student_report_card(request, student_id):
     if not canonical_student:
         return Response({"detail": "Unable to resolve student account"}, status=404)
 
+    candidate_student_ids = []
+    for candidate in candidate_users:
+        candidate_id = getattr(candidate, "id", None)
+        if candidate_id and candidate_id not in candidate_student_ids:
+            candidate_student_ids.append(candidate_id)
+
+    if not candidate_student_ids:
+        candidate_student_ids = [canonical_student.id]
+
+    # Keep only valid parent-student identities.
+    valid_student_ids = set(
+        User.objects.filter(id__in=candidate_student_ids, role="PARENT_STUDENT").values_list("id", flat=True)
+    )
+    candidate_student_ids = [sid for sid in candidate_student_ids if sid in valid_student_ids]
+    if not candidate_student_ids:
+        candidate_student_ids = [canonical_student.id]
+
     section_obj = enrollment.section
     if not section_obj:
         return Response({"detail": "Student has no active section"}, status=400)
@@ -901,19 +918,155 @@ def admin_student_report_card(request, student_id):
 
     subjects = list(Subject.objects.filter(id__in=schedule_subject_ids).order_by("name"))
 
+    default_weights = {
+        "activity": 40,
+        "quiz": 20,
+        "exam": 20,
+        "class_standing": 20,
+    }
+    weights_by_subject = {
+        weight.subject_id: {
+            "activity": weight.activity_weight,
+            "quiz": weight.quiz_weight,
+            "exam": weight.exam_weight,
+            "class_standing": weight.class_standing_weight,
+        }
+        for weight in GradeWeight.objects.filter(subject_id__in=[subj.id for subj in subjects])
+    }
+
+    def _is_public_user(user_obj):
+        username = str(getattr(user_obj, "username", "") or "").strip().lower()
+        return username == "public_user"
+
+    def _pick_preferred_score(existing_score, new_score):
+        if existing_score is None:
+            return new_score
+        if _is_public_user(getattr(existing_score, "student", None)) and not _is_public_user(getattr(new_score, "student", None)):
+            return new_score
+        if getattr(new_score, "updated_at", None) and getattr(existing_score, "updated_at", None):
+            if new_score.updated_at > existing_score.updated_at:
+                return new_score
+        return existing_score
+
+    def _pick_preferred_standing(existing_row, new_row):
+        if existing_row is None:
+            return new_row
+        existing_public = _is_public_user(getattr(existing_row, "student", None))
+        new_public = _is_public_user(getattr(new_row, "student", None))
+        if existing_public and not new_public:
+            return new_row
+        return existing_row
+
+    def _compute_quarter_grade_for_candidates(subject_id, quarter, weights):
+        items = GradeItem.objects.filter(
+            subject_id=subject_id,
+            quarter=quarter,
+        )
+
+        if grade_level_value is not None:
+            items = items.filter(grade_level=grade_level_value)
+
+        items = list(items.values("id", "category", "total_score"))
+        if not items:
+            return None
+
+        item_ids = [item["id"] for item in items]
+        item_meta = {item["id"]: item for item in items}
+
+        score_rows = (
+            StudentScore.objects.filter(
+                student_id__in=candidate_student_ids,
+                grade_item_id__in=item_ids,
+            )
+            .select_related("student")
+            .order_by("-updated_at", "-id")
+        )
+
+        best_score_by_item = {}
+        for row in score_rows:
+            grade_item_id = row.grade_item_id
+            existing = best_score_by_item.get(grade_item_id)
+            best_score_by_item[grade_item_id] = _pick_preferred_score(existing, row)
+
+        category_totals = {
+            "ACTIVITY": {"earned": Decimal("0"), "possible": Decimal("0")},
+            "QUIZ": {"earned": Decimal("0"), "possible": Decimal("0")},
+            "EXAM": {"earned": Decimal("0"), "possible": Decimal("0")},
+        }
+
+        for grade_item_id, score_row in best_score_by_item.items():
+            meta = item_meta.get(grade_item_id)
+            if not meta:
+                continue
+            category = str(meta.get("category") or "").upper()
+            if category not in category_totals:
+                continue
+
+            total_score = meta.get("total_score") or 0
+            category_totals[category]["earned"] += Decimal(str(score_row.score))
+            category_totals[category]["possible"] += Decimal(str(total_score))
+
+        def _category_avg(category):
+            totals = category_totals.get(category, {})
+            possible = totals.get("possible", Decimal("0"))
+            earned = totals.get("earned", Decimal("0"))
+            if possible <= 0:
+                return None
+            return (earned / possible) * 100
+
+        cs_rows = (
+            ClassStanding.objects.filter(
+                student_id__in=candidate_student_ids,
+                subject_id=subject_id,
+                quarter=quarter,
+            )
+            .select_related("student")
+            .order_by("-id")
+        )
+
+        best_cs = None
+        for cs_row in cs_rows:
+            best_cs = _pick_preferred_standing(best_cs, cs_row)
+
+        act_avg = _category_avg("ACTIVITY")
+        quiz_avg = _category_avg("QUIZ")
+        exam_avg = _category_avg("EXAM")
+        cs_score = Decimal(str(best_cs.score)) if best_cs is not None else None
+
+        components = []
+        if act_avg is not None:
+            components.append((act_avg, weights["activity"]))
+        if quiz_avg is not None:
+            components.append((quiz_avg, weights["quiz"]))
+        if exam_avg is not None:
+            components.append((exam_avg, weights["exam"]))
+        if cs_score is not None:
+            components.append((cs_score, weights["class_standing"]))
+
+        if not components:
+            return None
+
+        total_weight = sum(weight for _, weight in components)
+        if total_weight <= 0:
+            return None
+
+        weighted_total = sum(value * weight for value, weight in components) / Decimal(str(total_weight))
+        return round(float(weighted_total), 2)
+
     subject_rows = []
     final_parts = []
 
     for subject in subjects:
+        subject_weights = weights_by_subject.get(subject.id, default_weights)
         quarter_scores = []
         for quarter in range(1, 5):
-            q_data = _compute_quarter_grade(
-                canonical_student.id,
-                subject.id,
-                quarter,
-                grade_level=grade_level_value,
+            quarter_scores.append(
+                _compute_quarter_grade_for_candidates(
+                    subject.id,
+                    quarter,
+                    subject_weights,
+                )
             )
-            quarter_scores.append(q_data["quarter_grade"])
 
         final_grade, remarks = _compute_overall_record(quarter_scores)
         if final_grade is not None:
