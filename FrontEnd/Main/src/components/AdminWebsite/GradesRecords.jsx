@@ -601,7 +601,11 @@ const GradesRecords = () => {
     if (activeTab === 'grades') {
       const summary = gradeMonitoring.summary || {};
       const totalStudents = Number(summary.total_students || filteredStudents.length || 0);
-      const gradedStudents = Number(summary.graded_students || 0);
+      const gradedStudents = Number(
+        summary.graded_students ??
+          filteredStudents.filter((student) => student.status !== 'pending').length ??
+          0
+      );
       const pendingGrades = Number(
         summary.pending_grades ?? Math.max(totalStudents - gradedStudents, 0)
       );
@@ -672,7 +676,7 @@ const GradesRecords = () => {
           title: 'Recent Snapshot',
           body: `Latest school year in view is ${latestYear || 'not available'} with average final grade ${
             historyStats.averageFinal ?? '—'
-          }.`,
+          } .`,
         },
       ];
     }
@@ -750,6 +754,135 @@ const GradesRecords = () => {
 
   const totalPages = Math.max(1, Math.ceil(activeRows.length / ITEMS_PER_PAGE));
   const paginatedRows = activeRows.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+  const renderStats = () => {
+    if (activeTab === 'grades') {
+      const summary = gradeMonitoring.summary || {};
+      const totalStudents = Number(summary.total_students || filteredStudents.length || 0);
+      const gradedStudents = Number(
+        summary.graded_students ??
+          filteredStudents.filter((student) => student.status !== 'pending').length ??
+          0
+      );
+      const pendingStudents = Math.max(totalStudents - gradedStudents, 0);
+      const averageGradeValue = filteredStudents.length
+        ? filteredStudents.reduce((sum, student) => {
+            const value = Number(student.average_grade);
+            return Number.isFinite(value) ? sum + value : sum;
+          }, 0) / filteredStudents.length
+        : 0;
+
+      return (
+        <StatsGrid>
+          <StatCard
+            label="Total Students"
+            value={totalStudents}
+            icon={<Users size={18} />}
+            color="blue"
+            subtitle="Current quarter view"
+          />
+          <StatCard
+            label="Graded"
+            value={gradedStudents}
+            icon={<CheckCircle size={18} />}
+            color="green"
+            subtitle={`${Math.round((gradedStudents / Math.max(totalStudents, 1)) * 100)}% completion`}
+          />
+          <StatCard
+            label="Pending"
+            value={pendingStudents}
+            icon={<Clock size={18} />}
+            color="yellow"
+            subtitle="Need grading"
+          />
+          <StatCard
+            label="Average"
+            value={Number.isFinite(averageGradeValue) ? averageGradeValue.toFixed(2) : '0.00'}
+            icon={<TrendingUp size={18} />}
+            color="purple"
+            subtitle="on filtered students"
+          />
+        </StatsGrid>
+      );
+    }
+
+    if (activeTab === 'history') {
+      const totalStudents = historyStats.uniqueStudents || 0;
+      const totalRecords = historyStats.totalRecords || 0;
+      const averageFinal = historyStats.averageFinal ?? '0.00';
+
+      return (
+        <StatsGrid>
+          <StatCard
+            label="Student Records"
+            value={totalStudents}
+            icon={<Users size={18} />}
+            color="blue"
+            subtitle="Unique students"
+          />
+          <StatCard
+            label="Published Grades"
+            value={totalRecords}
+            icon={<FileText size={18} />}
+            color="green"
+            subtitle="Academic entries"
+          />
+          <StatCard
+            label="School Years"
+            value={historyStats.schoolYears || 0}
+            icon={<Calendar size={18} />}
+            color="yellow"
+            subtitle="Covered"
+          />
+          <StatCard
+            label="Avg Final"
+            value={averageFinal}
+            icon={<TrendingUp size={18} />}
+            color="purple"
+            subtitle="Across filtered records"
+          />
+        </StatsGrid>
+      );
+    }
+
+    const totalStudents = attendanceStats.uniqueStudents || 0;
+    const present = attendanceStats.present || 0;
+    const absent = attendanceStats.absent || 0;
+    const late = attendanceStats.late || 0;
+
+    return (
+      <StatsGrid>
+        <StatCard
+          label="Students"
+          value={totalStudents}
+          icon={<Users size={18} />}
+          color="blue"
+          subtitle="Tracked for date"
+        />
+        <StatCard
+          label="Present"
+          value={present}
+          icon={<CheckCircle size={18} />}
+          color="green"
+          subtitle="Attendance entries"
+        />
+        <StatCard
+          label="Absent"
+          value={absent}
+          icon={<XCircle size={18} />}
+          color="red"
+          subtitle="Unexcused"
+        />
+        <StatCard
+          label="Late"
+          value={late}
+          icon={<Clock size={18} />}
+          color="yellow"
+          subtitle="Tardy entries"
+        />
+      </StatsGrid>
+    );
+  };
 
   const handleOpenPreview = () => {
     try {
@@ -1299,20 +1432,18 @@ const GradesRecords = () => {
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 12;
-    const student = reportCardData.student;
-    const subjects = Array.isArray(reportCardData.subjects) ? reportCardData.subjects : [];
-    const attendanceRows = attendanceSummary;
+    let yPos = 14;
 
     doc.setFontSize(14);
     doc.setFont(undefined, 'bold');
-    doc.text('Student Report Card', pageWidth / 2, 14, { align: 'center' });
+    doc.text('Student Report Card', pageWidth / 2, yPos, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
-    doc.text(`School Year: ${safeValue(reportCardData.school_year)}`, margin, 22);
-    doc.text(`Name: ${safeValue(student.student_name)}`, margin, 27);
-    doc.text(`Student Number: ${safeValue(student.student_number)}`, margin, 32);
-    doc.text(`Grade / Section: ${safeValue(student.grade_level_label)} - ${safeValue(student.section_name)}`, margin, 37);
+    doc.text(`School Year: ${safeValue(reportCardData.school_year)}`, margin, yPos + 22);
+    doc.text(`Name: ${safeValue(student.student_name)}`, margin, yPos + 27);
+    doc.text(`Student Number: ${safeValue(student.student_number)}`, margin, yPos + 32);
+    doc.text(`Grade / Section: ${safeValue(student.grade_level_label)} - ${safeValue(student.section_name)}`, margin, yPos + 37);
 
     const headers = ['Learning Area', 'Q1', 'Q2', 'Q3', 'Q4', 'Final', 'Remarks'];
     const rows = subjects.map((row) => [
