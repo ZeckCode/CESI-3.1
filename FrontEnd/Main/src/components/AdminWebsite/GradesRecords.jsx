@@ -1448,210 +1448,247 @@ const GradesRecords = () => {
 
     doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
-    doc.text('Student Report Card', pageWidth / 2, 16, { align: 'center' });
+    doc.text('Student Report Card', pageWidth / 2, 18, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
-    doc.text(`School Year: ${safeValue(reportCardData.school_year)}`, margin, 28);
-    doc.text(`Name: ${safeValue(student.student_name)}`, margin, 34);
-    doc.text(`Student Number: ${safeValue(student.student_number)}`, margin, 40);
-    doc.text(`Grade / Section: ${safeValue(student.grade_level_label)} - ${safeValue(student.section_name)}`, margin, 46);
+    let infoY = 30;
+    doc.text(`School Year: ${safeValue(reportCardData.school_year)}`, margin, infoY);
+    infoY += 6;
+    doc.text(`Name: ${safeValue(student.student_name)}`, margin, infoY);
+    infoY += 6;
+    doc.text(`Student Number: ${safeValue(student.student_number)}`, margin, infoY);
+    infoY += 6;
+    doc.text(`Grade / Section: ${safeValue(student.grade_level_label)} - ${safeValue(student.section_name)}`, margin, infoY);
 
+    const tableTopY = 52;
+    const headerHeight = 9;
+    const leftPad = 2;
     const totalWidth = pageWidth - margin * 2;
-    const firstCol = totalWidth * 0.34;
-    const tailCol = totalWidth * 0.14;
-    const otherCol = (totalWidth - firstCol - tailCol) / 5;
-    const rowHeight = 7;
-    let startY = 44;
+    const subjectWidth = totalWidth * 0.34;
+    const remarkWidth = totalWidth * 0.16;
+    const gradeWidth = (totalWidth - subjectWidth - remarkWidth) / 5;
+    const colWidths = [subjectWidth, gradeWidth, gradeWidth, gradeWidth, gradeWidth, gradeWidth, remarkWidth];
+    const headers = ['Learning Area', 'Q1', 'Q2', 'Q3', 'Q4', 'Final', 'Remarks'];
 
-    doc.setFillColor(25, 118, 210);
+    let currentY = tableTopY + headerHeight;
+    doc.setFillColor(78, 141, 216);
     doc.setTextColor(255, 255, 255);
     doc.setFont(undefined, 'bold');
 
     let x = margin;
     headers.forEach((header, index) => {
-      const width = index === 0 ? firstCol : index === headers.length - 1 ? tailCol : otherCol;
-      doc.rect(x, startY, width, rowHeight, 'F');
-      doc.text(header, x + width / 2, startY + 4.8, { align: 'center' });
-      x += width;
+      const cellWidth = colWidths[index];
+      doc.rect(x, tableTopY, cellWidth, headerHeight, 'F');
+      doc.text(header, index === 0 ? x + leftPad : x + cellWidth / 2, tableTopY + 6, {
+        align: index === 0 ? 'left' : 'center',
+      });
+      x += cellWidth;
     });
 
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
-    let y = startY + rowHeight;
 
-    rows.forEach((row, rowIndex) => {
+    subjects.forEach((row, rowIndex) => {
+      const rowValues = [
+        row.subject_name || '—',
+        safeValue(row.q1),
+        safeValue(row.q2),
+        safeValue(row.q3),
+        safeValue(row.q4),
+        safeValue(row.final_grade),
+        row.remarks || 'PASSED',
+      ];
+
+      const wrappedText = doc.splitTextToSize(String(rowValues[0]), colWidths[0] - 4);
+      const rowHeight = Math.max(8, wrappedText.length * 4 + 2);
+
+      if (currentY + rowHeight > pageHeight - 42) {
+        doc.addPage();
+        currentY = 16;
+      }
+
+      if (rowIndex % 2 === 0) {
+        doc.setFillColor(246, 249, 252);
+        doc.rect(margin, currentY, totalWidth, rowHeight, 'F');
+      }
+
+      doc.setDrawColor(200, 210, 220);
+      doc.setLineWidth(0.25);
       let cellX = margin;
-      row.forEach((cell, cellIndex) => {
-        const width = cellIndex === 0 ? firstCol : cellIndex === row.length - 1 ? tailCol : otherCol;
-        if (rowIndex % 2 === 0) {
-          doc.setFillColor(248, 250, 252);
-          doc.rect(cellX, y, width, rowHeight, 'F');
-        }
-        doc.setDrawColor(210, 220, 230);
-        doc.rect(cellX, y, width, rowHeight);
+      rowValues.forEach((cell, cellIndex) => {
+        const cellWidth = colWidths[cellIndex];
+        doc.rect(cellX, currentY, cellWidth, rowHeight, 'S');
 
         if (cellIndex === 0) {
-          doc.text(String(cell), cellX + 1.8, y + 4.8, { maxWidth: width - 3 });
+          doc.text(wrappedText, cellX + leftPad, currentY + 4, { maxWidth: cellWidth - 4 });
         } else {
-          doc.text(String(cell), cellX + width / 2, y + 4.8, { align: 'center', maxWidth: width - 2 });
+          doc.text(String(cell), cellX + cellWidth / 2, currentY + 4.5, { align: 'center' });
         }
-        cellX += width;
+
+        cellX += cellWidth;
       });
-      y += rowHeight;
+
+      currentY += rowHeight;
     });
 
-    const averageY = y + 8;
-    doc.setFillColor(232, 240, 254);
+    const averageBoxY = currentY + 8;
+    doc.setFillColor(223, 233, 246);
+    doc.setDrawColor(0, 0, 0);
+    doc.rect(margin, averageBoxY, totalWidth, 10, 'F');
+    doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'bold');
-    doc.rect(margin, averageY, firstCol, rowHeight, 'F');
-    doc.text('General Average', margin + 2, averageY + 4.8);
-    doc.rect(margin + firstCol, averageY, otherCol * 5, rowHeight, 'F');
-    doc.text(String(safeValue(reportCardData.general_average)), margin + firstCol + otherCol * 2.5, averageY + 4.8, { align: 'center' });
-    doc.rect(margin + firstCol + otherCol * 5, averageY, tailCol, rowHeight, 'F');
-    doc.text(String(safeValue(reportCardData.overall_remarks)), margin + firstCol + otherCol * 5 + tailCol / 2, averageY + 4.8, { align: 'center' });
+    doc.text('General Average', margin + 2, averageBoxY + 6.8);
+    doc.setFont(undefined, 'normal');
+    doc.text(String(safeValue(reportCardData.general_average)), margin + totalWidth * 0.72, averageBoxY + 6.8, { align: 'center' });
 
+    const remarkY = averageBoxY + 18;
     if (reportCardRemark.trim()) {
-      const remarkY = Math.max(210, attendanceRows.length ? (attendanceRows.length * 7 + 110) : 200);
       doc.setFont(undefined, 'bold');
       doc.text('Admin Remark:', margin, remarkY);
       doc.setFont(undefined, 'normal');
-      const wrapped = doc.splitTextToSize(reportCardRemark.trim(), pageWidth - margin * 2);
-      doc.text(wrapped, margin, remarkY + 5);
+      const wrappedRemark = doc.splitTextToSize(reportCardRemark.trim(), pageWidth - margin * 2);
+      doc.text(wrappedRemark, margin, remarkY + 6);
     }
 
-    const signatureY = reportCardRemark.trim() ? 260 : 220;
+    const signatureY = pageHeight - 28;
     doc.setDrawColor(60, 60, 60);
-    doc.line(margin, signatureY, pageWidth / 2 - 20, signatureY);
-    doc.line(pageWidth / 2 + 20, signatureY, pageWidth - margin, signatureY);
+    doc.line(margin, signatureY, pageWidth / 2 - 18, signatureY);
+    doc.line(pageWidth / 2 + 18, signatureY, pageWidth - margin, signatureY);
     doc.setFont(undefined, 'normal');
-    doc.text('Parent Signature', margin + 18, signatureY + 6);
-    doc.text('Teacher Signature', pageWidth / 2 + 35, signatureY + 6);
+    doc.text('Parent Signature', margin + 16, signatureY + 6);
+    doc.text('Teacher Signature', pageWidth / 2 + 32, signatureY + 6);
 
-    const pdfBlob = doc.output('blob');
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    const printWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-
-    if (printWindow) {
-      printWindow.focus();
-      setTimeout(() => {
-        try {
-          printWindow.print();
-        } catch (error) {
-          console.warn('Print preview blocked:', error);
-        }
-        setTimeout(() => URL.revokeObjectURL(pdfUrl), 2000);
-      }, 500);
-    } else {
-      alert('Please allow pop-ups to print the report card.');
-      URL.revokeObjectURL(pdfUrl);
-    }
+    const fileSuffix = new Date().toISOString().slice(0, 10);
+    const fileStudent = String(student.student_number || student.id || 'student').replace(/\s+/g, '-');
+    doc.save(`report-card-${fileStudent}-${fileSuffix}.pdf`);
   };
 
   const printReportCard = () => {
     if (!reportCardData || !reportCardData.student) return;
 
-    const student = reportCardData.student;
-    const subjects = Array.isArray(reportCardData.subjects) ? reportCardData.subjects : [];
-    const attendanceRows = attendanceSummary;
-
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 12;
-    let yPos = 14;
+    const student = reportCardData.student;
+    const subjects = Array.isArray(reportCardData.subjects) ? reportCardData.subjects : [];
 
-    doc.setFontSize(14);
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+    doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
-    doc.text('Student Report Card', pageWidth / 2, yPos, { align: 'center' });
+    doc.text('Student Report Card', pageWidth / 2, 18, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
-    doc.text(`School Year: ${safeValue(reportCardData.school_year)}`, margin, yPos + 22);
-    doc.text(`Name: ${safeValue(student.student_name)}`, margin, yPos + 27);
-    doc.text(`Student Number: ${safeValue(student.student_number)}`, margin, yPos + 32);
-    doc.text(`Grade / Section: ${safeValue(student.grade_level_label)} - ${safeValue(student.section_name)}`, margin, yPos + 37);
+    let infoY = 30;
+    doc.text(`School Year: ${safeValue(reportCardData.school_year)}`, margin, infoY);
+    infoY += 6;
+    doc.text(`Name: ${safeValue(student.student_name)}`, margin, infoY);
+    infoY += 6;
+    doc.text(`Student Number: ${safeValue(student.student_number)}`, margin, infoY);
+    infoY += 6;
+    doc.text(`Grade / Section: ${safeValue(student.grade_level_label)} - ${safeValue(student.section_name)}`, margin, infoY);
 
-    const headers = ['Learning Area', 'Q1', 'Q2', 'Q3', 'Q4', 'Final', 'Remarks'];
-    const rows = subjects.map((row) => [
-      row.subject_name || '—',
-      safeValue(row.q1),
-      safeValue(row.q2),
-      safeValue(row.q3),
-      safeValue(row.q4),
-      safeValue(row.final_grade),
-      row.remarks || 'PASSED',
-    ]);
-
+    const tableTopY = 52;
+    const headerHeight = 9;
+    const leftPad = 2;
     const totalWidth = pageWidth - margin * 2;
-    const firstCol = totalWidth * 0.34;
-    const tailCol = totalWidth * 0.14;
-    const otherCol = (totalWidth - firstCol - tailCol) / 5;
-    const rowHeight = 7;
-    let startY = 44;
+    const subjectWidth = totalWidth * 0.34;
+    const remarkWidth = totalWidth * 0.16;
+    const gradeWidth = (totalWidth - subjectWidth - remarkWidth) / 5;
+    const colWidths = [subjectWidth, gradeWidth, gradeWidth, gradeWidth, gradeWidth, gradeWidth, remarkWidth];
+    const headers = ['Learning Area', 'Q1', 'Q2', 'Q3', 'Q4', 'Final', 'Remarks'];
 
-    doc.setFillColor(25, 118, 210);
+    let currentY = tableTopY + headerHeight;
+    doc.setFillColor(78, 141, 216);
     doc.setTextColor(255, 255, 255);
     doc.setFont(undefined, 'bold');
 
     let x = margin;
     headers.forEach((header, index) => {
-      const width = index === 0 ? firstCol : index === headers.length - 1 ? tailCol : otherCol;
-      doc.rect(x, startY, width, rowHeight, 'F');
-      doc.text(header, x + width / 2, startY + 4.8, { align: 'center' });
-      x += width;
+      const cellWidth = colWidths[index];
+      doc.rect(x, tableTopY, cellWidth, headerHeight, 'F');
+      doc.text(header, index === 0 ? x + leftPad : x + cellWidth / 2, tableTopY + 6, {
+        align: index === 0 ? 'left' : 'center',
+      });
+      x += cellWidth;
     });
 
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
-    let y = startY + rowHeight;
 
-    rows.forEach((row, rowIndex) => {
+    subjects.forEach((row, rowIndex) => {
+      const rowValues = [
+        row.subject_name || '—',
+        safeValue(row.q1),
+        safeValue(row.q2),
+        safeValue(row.q3),
+        safeValue(row.q4),
+        safeValue(row.final_grade),
+        row.remarks || 'PASSED',
+      ];
+
+      const wrappedText = doc.splitTextToSize(String(rowValues[0]), colWidths[0] - 4);
+      const rowHeight = Math.max(8, wrappedText.length * 4 + 2);
+
+      if (currentY + rowHeight > pageHeight - 42) {
+        doc.addPage();
+        currentY = 16;
+      }
+
+      if (rowIndex % 2 === 0) {
+        doc.setFillColor(246, 249, 252);
+        doc.rect(margin, currentY, totalWidth, rowHeight, 'F');
+      }
+
+      doc.setDrawColor(200, 210, 220);
+      doc.setLineWidth(0.25);
       let cellX = margin;
-      row.forEach((cell, cellIndex) => {
-        const width = cellIndex === 0 ? firstCol : cellIndex === row.length - 1 ? tailCol : otherCol;
-        if (rowIndex % 2 === 0) {
-          doc.setFillColor(248, 250, 252);
-          doc.rect(cellX, y, width, rowHeight, 'F');
-        }
-        doc.setDrawColor(210, 220, 230);
-        doc.rect(cellX, y, width, rowHeight);
+      rowValues.forEach((cell, cellIndex) => {
+        const cellWidth = colWidths[cellIndex];
+        doc.rect(cellX, currentY, cellWidth, rowHeight, 'S');
 
         if (cellIndex === 0) {
-          doc.text(String(cell), cellX + 1.8, y + 4.8, { maxWidth: width - 3 });
+          doc.text(wrappedText, cellX + leftPad, currentY + 4, { maxWidth: cellWidth - 4 });
         } else {
-          doc.text(String(cell), cellX + width / 2, y + 4.8, { align: 'center', maxWidth: width - 2 });
+          doc.text(String(cell), cellX + cellWidth / 2, currentY + 4.5, { align: 'center' });
         }
-        cellX += width;
+
+        cellX += cellWidth;
       });
-      y += rowHeight;
+
+      currentY += rowHeight;
     });
 
-    const averageY = y + 8;
-    doc.setFillColor(232, 240, 254);
+    const averageBoxY = currentY + 8;
+    doc.setFillColor(223, 233, 246);
+    doc.setDrawColor(0, 0, 0);
+    doc.rect(margin, averageBoxY, totalWidth, 10, 'F');
+    doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'bold');
-    doc.rect(margin, averageY, firstCol, rowHeight, 'F');
-    doc.text('General Average', margin + 2, averageY + 4.8);
-    doc.rect(margin + firstCol, averageY, otherCol * 5, rowHeight, 'F');
-    doc.text(String(safeValue(reportCardData.general_average)), margin + firstCol + otherCol * 2.5, averageY + 4.8, { align: 'center' });
-    doc.rect(margin + firstCol + otherCol * 5, averageY, tailCol, rowHeight, 'F');
-    doc.text(String(safeValue(reportCardData.overall_remarks)), margin + firstCol + otherCol * 5 + tailCol / 2, averageY + 4.8, { align: 'center' });
+    doc.text('General Average', margin + 2, averageBoxY + 6.8);
+    doc.setFont(undefined, 'normal');
+    doc.text(String(safeValue(reportCardData.general_average)), margin + totalWidth * 0.72, averageBoxY + 6.8, { align: 'center' });
 
+    const remarkY = averageBoxY + 18;
     if (reportCardRemark.trim()) {
-      const remarkY = Math.max(210, attendanceRows.length ? (attendanceRows.length * 7 + 110) : 200);
       doc.setFont(undefined, 'bold');
       doc.text('Admin Remark:', margin, remarkY);
       doc.setFont(undefined, 'normal');
-      const wrapped = doc.splitTextToSize(reportCardRemark.trim(), pageWidth - margin * 2);
-      doc.text(wrapped, margin, remarkY + 5);
+      const wrappedRemark = doc.splitTextToSize(reportCardRemark.trim(), pageWidth - margin * 2);
+      doc.text(wrappedRemark, margin, remarkY + 6);
     }
 
-    const signatureY = reportCardRemark.trim() ? 260 : 220;
+    const signatureY = pageHeight - 28;
     doc.setDrawColor(60, 60, 60);
-    doc.line(margin, signatureY, pageWidth / 2 - 20, signatureY);
-    doc.line(pageWidth / 2 + 20, signatureY, pageWidth - margin, signatureY);
+    doc.line(margin, signatureY, pageWidth / 2 - 18, signatureY);
+    doc.line(pageWidth / 2 + 18, signatureY, pageWidth - margin, signatureY);
     doc.setFont(undefined, 'normal');
-    doc.text('Parent Signature', margin + 18, signatureY + 6);
-    doc.text('Teacher Signature', pageWidth / 2 + 35, signatureY + 6);
+    doc.text('Parent Signature', margin + 16, signatureY + 6);
+    doc.text('Teacher Signature', pageWidth / 2 + 32, signatureY + 6);
 
     const pdfBlob = doc.output('blob');
     const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -1665,18 +1702,15 @@ const GradesRecords = () => {
         } catch (error) {
           console.warn('Print preview blocked:', error);
         }
-        setTimeout(() => URL.revokeObjectURL(pdfUrl), 2000);
-      }, 500);
+        setTimeout(() => URL.revokeObjectURL(pdfUrl), 1500);
+      }, 600);
     } else {
       alert('Please allow pop-ups to print the report card.');
       URL.revokeObjectURL(pdfUrl);
     }
   };
 
-  const attendanceSummary = useMemo(
-    () => getReportCardAttendanceSummary(reportCardData),
-    [reportCardData]
-  );
+  const attendanceSummary = useMemo(() => [], [reportCardData]);
 
   const reportCardStudent = reportCardData?.student ?? null;
 
