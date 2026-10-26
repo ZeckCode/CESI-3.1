@@ -1263,20 +1263,21 @@ const GradesRecords = () => {
   };
 
   const openReportCard = async (student) => {
-    const studentId = student?.student_id;
+    const studentId = student?.student_id ?? student?.id;
     if (!studentId) {
       alert('Student ID is missing for this row.');
       return;
     }
 
     setIsReportCardOpen(true);
+    setReportCardData(null);
     setReportCardLoading(true);
     setReportCardError('');
     setReportCardRemark('');
 
     try {
       const data = await apiFetchData(`/api/grades/admin-report-card/${studentId}/`);
-      setReportCardData(data);
+      setReportCardData(data || null);
     } catch (err) {
       setReportCardData(null);
       setReportCardError(err.message || 'Failed to load report card data.');
@@ -1442,112 +1443,164 @@ const GradesRecords = () => {
     doc.save(`report-card-${fileStudent}-${fileSuffix}.pdf`);
   };
 
-  const renderStats = () => {
-    if (activeTab === 'history') {
-      return (
-        <StatsGrid>
-          <StatCard
-            label="Academic Records"
-            value={historyStats.totalRecords}
-            icon={<History size={20} />}
-            color="blue"
-            subtitle={historyStats.totalRecords === 0 ? 'No history yet' : historyStats.totalRecords < 100 ? 'Growing database' : historyStats.totalRecords < 500 ? 'Good documentation' : 'Comprehensive records'}
-          />
-          <StatCard
-            label="Students With History"
-            value={historyStats.uniqueStudents}
-            icon={<Users size={20} />}
-            color="green"
-            subtitle={historyStats.uniqueStudents === 0 ? 'No tracked students' : 'Student tracking active'}
-          />
-          <StatCard
-            label="School Years"
-            value={historyStats.schoolYears}
-            icon={<Calendar size={20} />}
-            color="yellow"
-            subtitle={historyStats.schoolYears < 2 ? 'Limited history' : historyStats.schoolYears < 5 ? 'Growing records' : 'Long-term tracking'}
-          />
-          <StatCard
-            label="Average Final Grade"
-            value={historyStats.averageFinal ?? '—'}
-            icon={<TrendingUp size={20} />}
-            color="purple"
-            subtitle={historyStats.averageFinal >= 80 ? 'Excellent performance' : historyStats.averageFinal >= 70 ? 'Good average' : historyStats.averageFinal >= 60 ? 'Fair average' : historyStats.averageFinal ? 'Below target' : 'No grades yet'}
-          />
-        </StatsGrid>
-      );
+  const printReportCard = () => {
+    if (!reportCardData || !reportCardData.student) return;
+
+    const student = reportCardData.student;
+    const subjects = Array.isArray(reportCardData.subjects) ? reportCardData.subjects : [];
+    const attendanceRows = attendanceSummary;
+
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 12;
+    let yPos = 14;
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Student Report Card', pageWidth / 2, yPos, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`School Year: ${safeValue(reportCardData.school_year)}`, margin, yPos + 22);
+    doc.text(`Name: ${safeValue(student.student_name)}`, margin, yPos + 27);
+    doc.text(`Student Number: ${safeValue(student.student_number)}`, margin, yPos + 32);
+    doc.text(`Grade / Section: ${safeValue(student.grade_level_label)} - ${safeValue(student.section_name)}`, margin, yPos + 37);
+
+    const headers = ['Learning Area', 'Q1', 'Q2', 'Q3', 'Q4', 'Final', 'Remarks'];
+    const rows = subjects.map((row) => [
+      row.subject_name || '—',
+      safeValue(row.q1),
+      safeValue(row.q2),
+      safeValue(row.q3),
+      safeValue(row.q4),
+      safeValue(row.final_grade),
+      row.remarks || 'PASSED',
+    ]);
+
+    const totalWidth = pageWidth - margin * 2;
+    const firstCol = totalWidth * 0.34;
+    const tailCol = totalWidth * 0.14;
+    const otherCol = (totalWidth - firstCol - tailCol) / 5;
+    const rowHeight = 7;
+    let startY = 44;
+
+    doc.setFillColor(25, 118, 210);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, 'bold');
+
+    let x = margin;
+    headers.forEach((header, index) => {
+      const width = index === 0 ? firstCol : index === headers.length - 1 ? tailCol : otherCol;
+      doc.rect(x, startY, width, rowHeight, 'F');
+      doc.text(header, x + width / 2, startY + 4.8, { align: 'center' });
+      x += width;
+    });
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'normal');
+    let y = startY + rowHeight;
+
+    rows.forEach((row, rowIndex) => {
+      let cellX = margin;
+      row.forEach((cell, cellIndex) => {
+        const width = cellIndex === 0 ? firstCol : cellIndex === row.length - 1 ? tailCol : otherCol;
+        if (rowIndex % 2 === 0) {
+          doc.setFillColor(248, 250, 252);
+          doc.rect(cellX, y, width, rowHeight, 'F');
+        }
+        doc.setDrawColor(210, 220, 230);
+        doc.rect(cellX, y, width, rowHeight);
+
+        if (cellIndex === 0) {
+          doc.text(String(cell), cellX + 1.8, y + 4.8, { maxWidth: width - 3 });
+        } else {
+          doc.text(String(cell), cellX + width / 2, y + 4.8, { align: 'center', maxWidth: width - 2 });
+        }
+        cellX += width;
+      });
+      y += rowHeight;
+    });
+
+    const averageY = y + 8;
+    doc.setFillColor(232, 240, 254);
+    doc.setFont(undefined, 'bold');
+    doc.rect(margin, averageY, firstCol, rowHeight, 'F');
+    doc.text('General Average', margin + 2, averageY + 4.8);
+    doc.rect(margin + firstCol, averageY, otherCol * 5, rowHeight, 'F');
+    doc.text(String(safeValue(reportCardData.general_average)), margin + firstCol + otherCol * 2.5, averageY + 4.8, { align: 'center' });
+    doc.rect(margin + firstCol + otherCol * 5, averageY, tailCol, rowHeight, 'F');
+    doc.text(String(safeValue(reportCardData.overall_remarks)), margin + firstCol + otherCol * 5 + tailCol / 2, averageY + 4.8, { align: 'center' });
+
+    if (attendanceRows.length) {
+      const attendanceStartY = averageY + 18;
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(11);
+      doc.text('Attendance Summary', margin, attendanceStartY);
+
+      const attendanceTableWidth = totalWidth;
+      const attendanceHeaderHeight = 7;
+      const attendanceCellWidth = attendanceTableWidth / (REPORT_CARD_MONTHS.length + 2);
+      let attendanceX = margin;
+      let attendanceY = attendanceStartY + 6;
+
+      doc.setFillColor(25, 118, 210);
+      doc.setTextColor(255, 255, 255);
+      doc.rect(attendanceX, attendanceY, attendanceCellWidth * 2, attendanceHeaderHeight, 'F');
+      doc.text('Subject', attendanceX + attendanceCellWidth, attendanceY + 4.8, { align: 'center' });
+      REPORT_CARD_MONTHS.forEach((month) => {
+        const monthIndex = REPORT_CARD_MONTHS.indexOf(month);
+        doc.rect(attendanceX + attendanceCellWidth * 2 + monthIndex * attendanceCellWidth, attendanceY, attendanceCellWidth, attendanceHeaderHeight, 'F');
+        doc.text(month, attendanceX + attendanceCellWidth * 2 + monthIndex * attendanceCellWidth + attendanceCellWidth / 2, attendanceY + 4.8, { align: 'center' });
+      });
+      doc.rect(attendanceX + attendanceCellWidth * 2 + REPORT_CARD_MONTHS.length * attendanceCellWidth, attendanceY, attendanceCellWidth, attendanceHeaderHeight, 'F');
+      doc.text('School Days', attendanceX + attendanceCellWidth * 2 + REPORT_CARD_MONTHS.length * attendanceCellWidth + attendanceCellWidth / 2, attendanceY + 4.8, { align: 'center' });
+
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'normal');
+      attendanceRows.forEach((subjectRow, index) => {
+        const rowY = attendanceY + attendanceHeaderHeight + index * 7;
+        doc.rect(attendanceX, rowY, attendanceCellWidth * 2, 7, 'F');
+        doc.text(String(subjectRow.subject_name || '—'), attendanceX + 2, rowY + 4.8);
+        REPORT_CARD_MONTHS.forEach((month) => {
+          const monthIndex = REPORT_CARD_MONTHS.indexOf(month);
+          const val = getReportCardMonthValue(subjectRow, month);
+          doc.rect(attendanceX + attendanceCellWidth * 2 + monthIndex * attendanceCellWidth, rowY, attendanceCellWidth, 7);
+          doc.text(String(val), attendanceX + attendanceCellWidth * 2 + monthIndex * attendanceCellWidth + attendanceCellWidth / 2, rowY + 4.8, { align: 'center' });
+        });
+        const schoolDays = Number(subjectRow.total_school_days || 0);
+        doc.rect(attendanceX + attendanceCellWidth * 2 + REPORT_CARD_MONTHS.length * attendanceCellWidth, rowY, attendanceCellWidth, 7);
+        doc.text(String(schoolDays), attendanceX + attendanceCellWidth * 2 + REPORT_CARD_MONTHS.length * attendanceCellWidth + attendanceCellWidth / 2, rowY + 4.8, { align: 'center' });
+      });
     }
 
-    if (activeTab === 'attendance') {
-      return (
-        <StatsGrid>
-          <StatCard
-            label="Attendance Records"
-            value={attendanceStats.totalRecords}
-            icon={<Calendar size={20} />}
-            color="blue"
-            subtitle={attendanceStats.totalRecords === 0 ? 'No records for this date' : 'Records tracked'}
-          />
-          <StatCard
-            label="Present"
-            value={attendanceStats.present}
-            icon={<CheckCircle size={20} />}
-            color="green"
-            subtitle={attendanceStats.totalRecords > 0 ? `${Math.round((attendanceStats.present / attendanceStats.totalRecords) * 100)}% attendance` : 'No data'}
-          />
-          <StatCard
-            label="Absent"
-            value={attendanceStats.absent}
-            icon={<XCircle size={20} />}
-            color="red"
-            subtitle={attendanceStats.absent === 0 ? 'All present!' : attendanceStats.absent < 5 ? 'Few absences' : 'Review needed!'}
-          />
-          <StatCard
-            label="Late / Excused"
-            value={attendanceStats.late + attendanceStats.excused}
-            icon={<Clock size={20} />}
-            color="yellow"
-            subtitle={(attendanceStats.late + attendanceStats.excused) === 0 ? 'None recorded' : 'Justified absences'}
-          />
-        </StatsGrid>
-      );
+    if (reportCardRemark.trim()) {
+      const remarkY = Math.max(210, attendanceRows.length ? (attendanceSummary.length * 7 + 110) : 200);
+      doc.setFont(undefined, 'bold');
+      doc.text('Admin Remark:', margin, remarkY);
+      doc.setFont(undefined, 'normal');
+      const wrapped = doc.splitTextToSize(reportCardRemark.trim(), pageWidth - margin * 2);
+      doc.text(wrapped, margin, remarkY + 5);
     }
 
-    const summary = gradeMonitoring.summary || {};
+    const signatureY = reportCardRemark.trim() ? 260 : 220;
+    doc.setDrawColor(60, 60, 60);
+    doc.line(margin, signatureY, pageWidth / 2 - 20, signatureY);
+    doc.line(pageWidth / 2 + 20, signatureY, pageWidth - margin, signatureY);
+    doc.setFont(undefined, 'normal');
+    doc.text('Parent Signature', margin + 18, signatureY + 6);
+    doc.text('Teacher Signature', pageWidth / 2 + 35, signatureY + 6);
 
-    return (
-      <StatsGrid>
-        <StatCard
-          label="Total Students"
-          value={summary.total_students ?? 0}
-          icon={<Users size={20} />}
-          color="blue"
-          subtitle={(summary.total_students ?? 0) === 0 ? 'No students monitored' : (summary.total_students ?? 0) < 30 ? 'Small class' : (summary.total_students ?? 0) < 100 ? 'Good enrollment' : 'Large class'}
-        />
-        <StatCard
-          label="Students With Grades"
-          value={summary.graded_students ?? 0}
-          icon={<CheckCircle size={20} />}
-          color="green"
-          subtitle={(summary.total_students ?? 0) > 0 ? `${Math.round(((summary.graded_students ?? 0) / (summary.total_students ?? 1)) * 100)}% graded` : 'No grades yet'}
-        />
-        <StatCard
-          label="Pending / Partial"
-          value={summary.pending_grades ?? 0}
-          icon={<AlertCircle size={20} />}
-          color="yellow"
-          subtitle={(summary.pending_grades ?? 0) === 0 ? 'All grades submitted!' : (summary.pending_grades ?? 0) < 10 ? 'Few pending' : 'Review needed!'}
-        />
-        <StatCard
-          label="Average Grade"
-          value={summary.average_grade ?? '—'}
-          icon={<TrendingUp size={20} />}
-          color="purple"
-          subtitle={summary.average_grade >= 80 ? 'Excellent performance' : summary.average_grade >= 70 ? 'Good average' : summary.average_grade >= 60 ? 'Fair average' : summary.average_grade ? 'Below target' : 'No grades yet'}
-        />
-      </StatsGrid>
-    );
+    const fileSuffix = new Date().toISOString().slice(0, 10);
+    const fileStudent = String(student.student_number || student.id || 'student').replace(/\s+/g, '-');
+    doc.save(`report-card-${fileStudent}-${fileSuffix}.pdf`);
   };
+
+  const attendanceSummary = useMemo(
+    () => getReportCardAttendanceSummary(reportCardData),
+    [reportCardData]
+  );
+
+  const reportCardStudent = reportCardData?.student ?? null;
 
   return (
     <main className="grades-records-main">
