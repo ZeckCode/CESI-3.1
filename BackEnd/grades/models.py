@@ -155,6 +155,8 @@ class AcademicRecord(models.Model):
         limit_choices_to={"role": "PARENT_STUDENT"},
     )
     school_year = models.CharField(max_length=12, help_text="e.g. 2023-2024")
+    student_name = models.CharField(max_length=150, blank=True, default="")
+    student_number = models.CharField(max_length=20, blank=True, default="")
     grade_level = models.IntegerField(
         help_text="0=Kinder, 1=Grade 1 … 6=Grade 6",
     )
@@ -183,4 +185,5 @@ class AcademicRecord(models.Model):
         ordering = ["-school_year", "subject_name"]
 
     def __str__(self):
-        return f"[{self.school_year}] {self.student.username} — {self.subject_name} ({self.final_grade})"
+        display_name = self.student_name or self.student.username
+        return f"[{self.school_year}] {display_name} — {self.subject_name} ({self.final_grade})"

@@ -3,9 +3,7 @@ import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import DOMPurify from "dompurify";
 import "../AdminWebsiteCSS/CMSModule.css";
-import { getToken } from "../Auth/auth";
-
-const API_BASE = "http://127.0.0.1:8000";
+import { apiFetch } from "../api/apiFetch";
 
 // Basic formatting modules for React Quill
 const modules = {
@@ -35,6 +33,7 @@ export default function PageEditor({ endpoint, title, fields }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
   
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -45,7 +44,7 @@ export default function PageEditor({ endpoint, title, fields }) {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/cms/${endpoint}/`);
+      const res = await apiFetch(`/api/cms/${endpoint}/`);
       if (!res.ok) throw new Error("Failed to load data");
       const json = await res.json();
       
@@ -55,6 +54,7 @@ export default function PageEditor({ endpoint, title, fields }) {
         if (!initData[f.key]) initData[f.key] = "";
       });
       setData(initData);
+      setLastUpdated(json.updated_at || json.last_modified || new Date().toISOString());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -68,12 +68,10 @@ export default function PageEditor({ endpoint, title, fields }) {
       setError("");
       setSuccess("");
       
-      const token = getToken();
-      const res = await fetch(`${API_BASE}/api/cms/${endpoint}/`, {
+      const res = await apiFetch(`/api/cms/${endpoint}/`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Token ${token}`,
         },
         body: JSON.stringify(data),
       });
@@ -81,6 +79,7 @@ export default function PageEditor({ endpoint, title, fields }) {
       if (!res.ok) throw new Error("Failed to save data");
       const json = await res.json();
       setData(json);
+      setLastUpdated(json.updated_at || json.last_modified || new Date().toISOString());
       setSuccess("Changes saved successfully!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
@@ -98,11 +97,11 @@ export default function PageEditor({ endpoint, title, fields }) {
 
   return (
     <div className="cms-page-editor">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="cms-page-editor-header">
         <h3>{title}</h3>
         <button 
+          className="cms-preview-btn"
           onClick={() => setPreviewOpen(true)}
-          style={{ padding: "8px 16px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "6px", cursor: "pointer" }}
         >
           👀 Preview
         </button>
@@ -142,7 +141,10 @@ export default function PageEditor({ endpoint, title, fields }) {
           </div>
         ))}
 
-        <div className="cms-actions" style={{ marginTop: "20px" }}>
+        <div className="cms-actions" style={{ marginTop: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+            {lastUpdated ? `Last updated: ${new Date(lastUpdated).toLocaleString()}` : ''}
+          </span>
           <button 
             className="cms-publish" 
             onClick={handleSave} 
@@ -155,14 +157,8 @@ export default function PageEditor({ endpoint, title, fields }) {
       </div>
 
       {previewOpen && (
-        <div className="cms-preview-overlay" style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0, 
-          background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000
-        }} onClick={() => setPreviewOpen(false)}>
-          <div className="cms-preview-modal" style={{
-            background: "#fff", width: "80%", maxWidth: "800px", maxHeight: "90vh", 
-            borderRadius: "12px", overflowY: "auto", padding: "24px"
-          }} onClick={e => e.stopPropagation()}>
+        <div className="cms-preview-overlay" onClick={() => setPreviewOpen(false)}>
+          <div className="cms-preview-modal" onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #eee", paddingBottom: "16px", marginBottom: "16px" }}>
               <h2>Live Preview</h2>
               <button onClick={() => setPreviewOpen(false)} style={{ background: "transparent", border: "none", fontSize: "20px", cursor: "pointer" }}>✕</button>

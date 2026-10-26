@@ -1,7 +1,7 @@
 
 import Grade from './Grade.jsx';
 import AttendanceMonitoring from './AttendanceMonitoring.jsx';
-import Message from './Message.jsx';
+import Message from './Messages.jsx';
 import TeacherClassSchedule from './TeacherClassSchedule.jsx';
 import Students from './Students.jsx';
 import SPerformance from './SPerformance.jsx';

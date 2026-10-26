@@ -10,7 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
+from urllib.parse import urlparse
 from pathlib import Path
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +23,56 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-8x_h%6zc09e!^ro6&dj$d+dwq&!8+pnn$4-^*_j4w^s933*@qh'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-dev-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# For testing in production_test branch, we keep True (dev/test). Set DJANGO_DEBUG=False in DigitalOcean when ready.
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') != 'False'
 
+# --- ADD THIS LINE BEFORE THE IF STATEMENT ---
+USE_SPACES = os.environ.get('DO_SPACES_KEY') is not None
 
+if USE_SPACES:
+    # 1. Credentials and Setup
+    AWS_ACCESS_KEY_ID = os.environ.get('DO_SPACES_KEY')
+    AWS_SECRET_ACCESS_KEY = os.environ.get('DO_SPACES_SECRET')
+    AWS_STORAGE_BUCKET_NAME = os.environ.get('DO_SPACES_BUCKET')
+    AWS_S3_REGION_NAME = os.environ.get('DO_SPACES_REGION')
+    raw_endpoint = os.environ.get('DO_SPACES_ENDPOINT') or ""
+    AWS_S3_ENDPOINT_URL = raw_endpoint or (
+        f"https://{AWS_S3_REGION_NAME}.digitaloceanspaces.com"
+        if AWS_S3_REGION_NAME
+        else None
+    )
+    custom_domain = (
+        os.environ.get("DO_SPACES_CDN_DOMAIN")
+        or os.environ.get("DO_SPACES_CUSTOM_DOMAIN")
+        or None
+    )
+
+    if AWS_S3_ENDPOINT_URL and AWS_STORAGE_BUCKET_NAME:
+        parsed = urlparse(AWS_S3_ENDPOINT_URL)
+        host = parsed.netloc
+        bucket_prefix = f"{AWS_STORAGE_BUCKET_NAME}."
+        if host.startswith(bucket_prefix):
+            custom_domain = custom_domain or host
+            AWS_S3_ENDPOINT_URL = f"{parsed.scheme}://{host[len(bucket_prefix):]}"
+        elif parsed.path and parsed.path != "/":
+            path_bucket = parsed.path.strip("/").split("/")[0]
+            if path_bucket == AWS_STORAGE_BUCKET_NAME:
+                AWS_S3_ENDPOINT_URL = f"{parsed.scheme}://{host}"
+
+    if custom_domain:
+        AWS_S3_CUSTOM_DOMAIN = custom_domain
+
+    # 2. Storage Rules
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = 'private'
+    AWS_QUERYSTRING_AUTH = True
+    AWS_QUERYSTRING_EXPIRE = int(os.environ.get('DO_SPACES_SIGNED_URL_TTL', '3600'))
+    
+    # 3. Tell Django to use this as the default storage engine
+    DEFAULT_FILE_STORAGE = 'CESI.storage_backends.PrivateMediaStorage'
 
 # Application definition
 
@@ -38,8 +85,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'announcements',
     'rest_framework',
+    'storages',
     
-    'rest_framework.authtoken',
+    'rest_framework.authtoken', # For token-based authentication
     'corsheaders',
     'accounts',
     'enrollment',
@@ -56,21 +104,21 @@ INSTALLED_APPS = [
 # DRF defaults
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.TokenAuthentication",
-        "CESI.authentication.CsrfExemptSessionAuthentication",
+        "rest_framework.authentication.TokenAuthentication", # Primary for API auth
+        "CESI.authentication.CsrfExemptSessionAuthentication", # For admin and session-based auth
     ],
      "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
+        "rest_framework.permissions.IsAuthenticated", # Default to authenticated users only; override with AllowAny for public endpoints
     ],
-         "DEFAULT_THROTTLE_CLASSES": [
+        "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
         "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "300/hour",         # general anonymous traffic (dev-friendly)
-        "user": "2000/hour",        # authenticated users (avoid dashboard burst 429s)
-        "enrollment_public": "5/hour",  # STRICT: public enrollment submit
+        "anon": "10000/hour",         # general anonymous traffic (dev-friendly)
+        "user": "1000/hour",        # authenticated users (avoid dashboard burst 429s)
+        "enrollment_public": "30/hour",  # STRICT: public enrollment submit
     },
     
     # "DEFAULT_THROTTLE_RATES": {
@@ -106,15 +154,21 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "ral531715@gmail.com"  # Your Gmail address
-EMAIL_HOST_PASSWORD = "mjacgbzzcjzubtmr"  # Gmail App Password (not normal password)
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-FRONTEND_URL = "http://localhost:5173"
+
+FRONTEND_URL = os.environ.get(
+    "FRONTEND_URL",
+    "https://cesiportal-app-nypkd.ondigitalocean.app"
+)
+
 
 # CORS settings for development - adjust for production as needed
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware', 
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # ADD THIS LINE HERE
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -125,16 +179,33 @@ MIDDLEWARE = [
 ] # dev only
 ROOT_URLCONF = 'CESI.urls'
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = True
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+CORS_ALLOW_ALL_ORIGINS = False
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "162.159.140.98",
+    "172.66.0.96",
+    "cesiportal-app-nypkd.ondigitalocean.app",
+    "*",  # Temporary for testing; replace with specific hostname in production.
+]
 # CSRF / Session config for cross-origin dev
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
-    "http://127.0.0.1:5173",
- ]
+    "https://cesiportal-app-nypkd.ondigitalocean.app",
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://cesiportal-app-nypkd.ondigitalocean.app",
+]
+
 CORS_ALLOW_HEADERS = [
     "accept",
     "authorization",
@@ -148,9 +219,11 @@ CORS_ALLOW_HEADERS = [
 # Allow session cookie to be sent on cross-origin requests (dev only)
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
 
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 
 
 
@@ -175,12 +248,50 @@ WSGI_APPLICATION = 'CESI.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# DATABASES = {
+#     'default': dj_database_url.config(
+#         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+#         conn_max_age=600,
+#         ssl_require=False,
+#     )
+# }
+
+# DATABASES = {
+#     "default": dj_database_url.config(
+#         default=os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
+#         conn_max_age=60,
+#         ssl_require=True,
+#     )
+# }
+# if DATABASES["default"]["ENGINE"] != "django.db.backends.sqlite3":
+#     DATABASES["default"]["OPTIONS"] = {
+#         "connect_timeout": 10,
+#     }
+
+
+
+
+
+database_url = os.environ.get("DATABASE_URL")
+
+if database_url:
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=database_url,
+            conn_max_age=60,
+            ssl_require=True,
+        )
     }
-}
+    DATABASES["default"]["OPTIONS"] = {
+        "connect_timeout": 10,
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # Password validation
@@ -207,7 +318,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 
@@ -217,7 +328,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = 'api/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 AUTH_USER_MODEL = 'accounts.User'
 
@@ -225,3 +338,5 @@ AUTH_USER_MODEL = 'accounts.User'
 import os
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+LOGIN_URL = '/api/admin/login/'
+LOGOUT_REDIRECT_URL = '/api/admin/'

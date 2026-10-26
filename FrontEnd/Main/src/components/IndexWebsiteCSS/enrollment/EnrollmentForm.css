@@ -1,0 +1,1185 @@
+/* Ñ/ñ Insert Button Styles */
+.enye-insert-btn {
+  background: linear-gradient(135deg, #f1f5f9, #e0e7ef);
+  border: 1px solid #b6c2d1;
+  color: #1e293b;
+  font-size: 1.1em;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 10px;
+  margin-left: 4px;
+  cursor: pointer;
+  transition: background 0.18s, box-shadow 0.18s;
+  box-shadow: 0 1px 2px rgba(30,40,60,0.04);
+}
+.enye-insert-btn:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #60a5fa;
+  box-shadow: 0 2px 8px rgba(30,64,175,0.10);
+}
+.enye-insert-btn:active {
+  background: #bae6fd;
+  color: #0c4a6e;
+}
+/* =========================
+   MAIN CONTAINER
+========================= */
+.enrollment-container {
+  max-width: 660px;            /* NOT TOO WIDE */
+  width: 100%;
+  margin: 40px auto;
+  padding: 36px 42px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+  box-sizing: border-box;
+}
+
+/* Page container */
+.enrollment-container1 {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+/* Main card */
+.enrollment-closed {
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 35px 28px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+}
+
+/* Lock icon */
+.enrollment-closed__icon {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+
+/* Title */
+.enrollment-closed__title {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #1f2937;
+}
+
+/* Subtitle */
+.enrollment-closed__subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+/* Info box */
+.enrollment-closed__info {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  border: 1px solid #eef0f2;
+}
+
+/* Info rows */
+.enrollment-closed__info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  padding: 6px 0;
+}
+
+.enrollment-closed__info-row span {
+  color: #6b7280;
+}
+
+.enrollment-closed__info-row strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+/* Note */
+.enrollment-closed__note {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+/* Button */
+.enrollment-closed__btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.enrollment-closed__btn:hover {
+  background: #1d4ed8;
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .enrollment-closed {
+    padding: 28px 20px;
+  }
+
+  .enrollment-closed__title {
+    font-size: 20px;
+  }
+
+  .enrollment-closed__info-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+}
+/* =========================
+   HEADER
+========================= */
+.enrollment-container h2 {
+  text-align: center;
+  margin-bottom: 10px;
+  color: #2c3e50;
+}
+
+.enrollment-container h3 {
+font-size: 25px;
+}
+
+
+.enrollment-container .subtitle {
+  text-align: center;
+  color: #666;
+  margin-bottom: 30px;
+  font-size: 14px;
+}
+
+/* =========================
+   FORM LAYOUT (ONE COLUMN)
+========================= */
+.enrollment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* =========================
+   FORM GROUP
+========================= */
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #34495e;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #cfd3d8;
+  font-size: 15px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #1e90ff;
+  box-shadow: 0 0 0 3px rgba(30, 144, 255, 0.15);
+}
+
+/* =========================
+   RADIO / OPTIONS
+========================= */
+.option-group {
+  display: flex;
+  gap: 24px;
+  margin-top: 6px;
+}
+
+.option-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* =========================
+   STATIC VALUES (FEES)
+========================= */
+.static-value {
+  padding: 12px 14px;
+  background: #eef2f7;
+  border-radius: 8px;
+  border: 1px solid #d5dbe5;
+  font-size: 15px;
+  color: #2c3e50;
+}
+
+/* =========================
+   SECTION DIVIDER
+========================= */
+.section-title {
+  margin-top: 28px;
+  margin-bottom: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #2c3e50;
+  border-bottom: 2px solid #e6e9ef;
+  padding-bottom: 6px;
+}
+
+/* =========================
+   TUITION BOX
+========================= */
+.tuition-box {
+  margin-top: 5px;
+  padding: 28px;
+  background: #f7f9fc;
+  border-radius: 14px;
+  border: 1px solid #e1e6ef;
+}
+
+.tuition-box h3 {
+  margin-bottom: 16px;
+  color: #2c3e50;
+  font-size: 17px;
+}
+
+/* Tuition rows */
+.tuition-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px dashed #ccd3dd;
+  font-size: 15px;
+}
+
+.tuition-row:last-child {
+  border-bottom: none;
+}
+
+/* Sub section inside tuition */
+.tuition-section {
+  margin-top: 18px;
+  font-weight: 600;
+  color: #555;
+}
+
+/* Highlight */
+.tuition-row.highlight {
+  font-weight: 600;
+  color: #1e90ff;
+}
+
+/* TOTAL */
+.tuition-row.total {
+  margin-top: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #c0392b;
+}
+
+.tuition-total {
+  margin-top: 16px;    
+  padding-top: 12px;
+  border-top: 2px solid #ccd3dd; 
+  display: flex;
+  justify-content: space-between;
+  font-size: 18px;
+  font-weight: 700;
+  color: #c0392b;
+}
+
+
+/* =========================
+   FORM ACTIONS
+========================= */
+.form-actions {
+  margin-top: 36px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.form-actions button {
+  padding: 14px 26px;
+  border-radius: 10px;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-actions button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+}
+
+.form-actions button.primary {
+  background: #1e90ff;
+  color: #fff;
+}
+
+.form-actions button.secondary {
+  background: #e0e0e0;
+  color: #333;
+}
+
+/* =========================
+   MOBILE RESPONSIVE
+========================= */
+@media (max-width: 768px) {
+  .enrollment-container {
+    padding: 24px;
+  }
+
+  .option-group {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+
+/* Full-width field inside the 2-col grid */
+.form-group--full {
+  grid-column: 1 / -1;
+}
+
+/* Live address preview */
+.address-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: -8px 0 20px 0;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #166534;
+  line-height: 1.5;
+}
+
+.address-preview span:first-child {
+  flex-shrink: 0;
+  font-size: 15px;
+}
+
+
+/* ── Add these to your EnrollmentForm.css ── */
+
+/* Parent/Guardian section sub-labels */
+.parent-section-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: #374151;
+  margin: 16px 0 8px 0;
+  padding: 6px 12px;
+  background: #f3f4f6;
+  border-left: 3px solid #4f6ef7;
+  border-radius: 0 6px 6px 0;
+}
+
+
+/* Full-width field inside the 2-col grid */
+.form-group--full {
+  grid-column: 1 / -1;
+}
+
+/* Live address preview */
+.address-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: -8px 0 20px 0;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #166534;
+  line-height: 1.5;
+}
+.address-preview span:first-child { flex-shrink: 0; font-size: 15px; }
+
+/* ── Countdown timer banner ── */
+.enrollment-timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #f0f9ff;
+  border: 1.5px solid #7dd3fc;
+  color: #0369a1;
+}
+.enrollment-timer--urgent {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #c2410c;
+  font-weight: 500;
+}
+.enrollment-window-notice {
+  text-align: center;
+  margin-top: 10px;
+  margin-bottom: 30px;
+  font-style: italic ;
+}
+
+/* ── Age/grade validation hint ── */
+.age-validation-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.age-validation-hint--ok {
+  color: #1e7e34;
+}
+
+.age-validation-hint--error {
+  color: #c0392b;
+}
+
+.age-validation-hint span:first-child {
+  font-weight: bold;
+}
+
+/* Age reference container */
+.age-reference {
+  margin-top: 15px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafafa;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+.age-reference summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 6px 0;
+  list-style: none;
+}
+
+.age-reference summary::-webkit-details-marker {
+  display: none;
+}
+
+.age-reference summary::before {
+  content: "▶ ";
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.age-reference[open] summary::before {
+  content: "▼ ";
+}
+
+.age-reference__table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.age-reference__table th,
+.age-reference__table td {
+  padding: 8px 10px;
+  text-align: center;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.age-reference__table thead th {
+  background: #f1f3f5;
+  font-weight: 600;
+  color: #444;
+}
+
+.age-reference__table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.age-ref-row--valid {
+  background: #e8f8ee;
+  color: #1e7e34;
+  font-weight: 500;
+}
+
+.age-ref-row--invalid {
+  background: #fdecea;
+  color: #c0392b;
+  font-weight: 500;
+}
+
+@media (max-width: 600px) {
+  .age-reference__table th,
+  .age-reference__table td {
+    padding: 6px;
+    font-size: 13px;
+  }
+}
+
+/* ── Expired screen ── */
+.enrollment-expired {
+  text-align: center;
+  padding: 48px 24px;
+}
+.enrollment-expired__icon {
+  font-size: 56px;
+  margin-bottom: 16px;
+}
+.enrollment-expired h2 {
+  font-size: 22px;
+  color: #1f2937;
+  margin-bottom: 12px;
+}
+.enrollment-expired p {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+
+
+/* Enrollment Stepper */
+.stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0 32px;
+  justify-content: center;
+}
+
+.stepper__item {
+  min-width: 88px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  appearance: none;
+}
+
+.stepper__item.is-clickable {
+  cursor: pointer;
+}
+
+.stepper__item:disabled {
+  cursor: default;
+}
+
+.stepper__circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.stepper__item.is-active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.stepper__item.is-active .stepper__circle {
+  background: #2563eb;
+  color: #fff;
+}
+
+.stepper__item.is-done {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.stepper__item.is-done .stepper__circle {
+  background: #22c55e;
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .stepper {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .stepper {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.step-confirmation {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.confirmation-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.success-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.confirmation-header h2 {
+  color: #10b981;
+  margin: 0;
+}
+
+.reminder-box {
+  background: #fef3c7;
+  border-left: 4px solid #f59e0b;
+  padding: 20px;
+  margin: 20px 0;
+  border-radius: 8px;
+}
+
+.reminder-box h3 {
+  color: #92400e;
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.email-highlight {
+  background: white;
+  padding: 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  color: #059669;
+  text-align: center;
+  margin: 15px 0;
+  border: 1px solid #e5e7eb;
+}
+
+.reminder-box ul {
+  margin: 15px 0;
+  padding-left: 20px;
+}
+
+.reminder-box li {
+  margin: 8px 0;
+  color: #78350f;
+}
+
+.reminder-note {
+  margin-top: 15px;
+  padding: 10px;
+  background: #fffbeb;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 14px;
+  color: #b45309;
+}
+
+.confirmation-footer {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.close-btn {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.close-btn:hover {
+  background: #059669;
+}
+
+/* ── Date Input Hover & Error States ── */
+.birth-date-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.birth-date-wrapper input[type="date"] {
+  width: 100%;
+  padding-right: 40px;
+}
+
+.birth-date-wrapper.has-error input[type="date"] {
+  border-color: #dc2626;
+}
+
+/* Error icon inside input field (clickable button) */
+.error-icon-inside {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  font-weight: bold;
+  color: #dc2626;
+  opacity: 0;
+  transition: opacity 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  pointer-events: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  z-index: 10;
+}
+
+.error-icon-inside:hover {
+  background: rgba(220, 38, 38, 0.1);
+  transform: translateY(-50%) scale(1.2);
+}
+
+.birth-date-wrapper.has-error input[type="date"]:hover ~ .error-icon-inside,
+.birth-date-wrapper.has-error:hover .error-icon-inside {
+  opacity: 1;
+}
+
+/* Error message tooltip (shows only on hover) */
+.hover-error-message {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #dc2626;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+/* Arrow pointing down for error message */
+.hover-error-message::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #dc2626;
+}
+
+/* Show error on input hover */
+.birth-date-wrapper.has-error input[type="date"]:hover,
+.birth-date-wrapper.has-error input[type="date"]:focus {
+  border-color: #dc2626;
+}
+
+.birth-date-wrapper.has-error input[type="date"]:hover ~ .hover-error-message,
+.birth-date-wrapper.has-error input[type="date"]:focus ~ .hover-error-message,
+.birth-date-wrapper.has-error:hover .hover-error-message {
+  visibility: visible;
+  opacity: 1;
+}
+
+.error-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.error-text::before {
+  content: '✕';
+  font-weight: bold;
+}
+
+.birth-date-input--invalid {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2;
+}
+
+.birth-date-input--invalid:hover {
+  border-color: #991b1b;
+}
+
+/* ── Age Reference Modal Overlay ── */
+.age-ref-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.age-ref-modal {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 2px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  border-radius: 4px;
+}
+
+.modal-close-btn:hover {
+  color: #111827;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-body .age-ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.modal-body .age-ref-table th,
+.modal-body .age-ref-table td {
+  padding: 12px;
+  text-align: center;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-body .age-ref-table th {
+  background: #f3f4f6;
+  font-weight: 600;
+  color: #111827;
+  border-bottom: 2px solid #d1d5db;
+}
+
+.modal-body .age-ref-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.modal-body .age-ref-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+@media (max-width: 480px) {
+  .age-ref-modal {
+    width: 95%;
+    max-height: 90vh;
+  }
+
+  .modal-header {
+    padding: 16px;
+  }
+
+  .modal-header h3 {
+    font-size: 16px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .modal-body .age-ref-table th,
+  .modal-body .age-ref-table td {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+}
+
+/* =========================
+   STEP CARD
+========================= */
+.step-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 28px;
+  margin-bottom: 24px;
+}
+
+.step-card h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  color: #1f2937;
+}
+
+.step-card p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* =========================
+   ERROR BANNER
+========================= */
+.error-banner {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  color: #991b1b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.error-banner svg {
+  margin-right: 8px;
+}
+
+/* =========================
+   SUBMIT ERROR
+========================= */
+.submit-error {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  color: #991b1b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* =========================
+   FORM GRID (2 columns)
+========================= */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* =========================
+   FILE NAME DISPLAY
+========================= */
+.file-name {
+  font-size: 13px;
+  color: #10b981;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+/* =========================
+   INFO TEXT
+========================= */
+.info-text {
+  color: #6b7280;
+  font-size: 14px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+/* =========================
+   REQUIRED LABEL
+========================= */
+.required {
+  color: #dc2626;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+/* =========================
+   BIRTH DATE WITH WARNING ICON
+========================= */
+.birth-date-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.birth-date-wrapper input {
+  flex: 1;
+}
+
+.birth-date-input--invalid {
+  border-color: #fca5a5 !important;
+  background-color: #fef2f2;
+}
+
+.birth-date-warning {
+  font-size: 18px;
+  color: #dc2626;
+  cursor: help;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 40px;
+}
+
+/* =========================
+   AGE REFERENCE TOOLTIP
+========================= */
+.age-reference-tooltip {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fafafa;
+  cursor: pointer;
+}
+
+.age-reference-tooltip summary {
+  list-style: none;
+  font-weight: 600;
+  color: #374151;
+  padding: 6px 0;
+  user-select: none;
+  transition: color 0.2s ease;
+}
+
+.age-reference-tooltip summary:hover {
+  color: #1f2937;
+}
+
+.age-reference-tooltip summary::before {
+  content: "▶ ";
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.2s ease;
+  font-size: 12px;
+}
+
+.age-reference-tooltip[open] summary::before {
+  content: "▼ ";
+  transform: rotate(0deg);
+}
+
+/* Age Reference Table */
+.age-ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.age-ref-table thead {
+  background: #e5e7eb;
+}
+
+.age-ref-table th {
+  padding: 8px 10px;
+  text-align: center;
+  font-weight: 600;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.age-ref-table td {
+  padding: 8px 10px;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+}
+
+.age-ref-table tbody tr:hover {
+  background: #f3f4f6;
+}

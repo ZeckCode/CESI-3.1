@@ -29,6 +29,18 @@
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
+@media (max-width: 768px) {
+  .tcs {
+    padding: 16px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tcs {
+    padding: 12px 8px;
+  }
+}
+
 .tcs__loading {
   padding: 40px;
   text-align: center;
@@ -53,6 +65,19 @@
   margin-bottom: 24px;
 }
 
+@media (max-width: 768px) {
+  .tcs__header {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tcs__header {
+    gap: 10px;
+  }
+}
+
 .tcs__headerLeft {
   flex: 1 1 auto;
 }
@@ -69,6 +94,18 @@
   font-weight: 800;
   font-size: 28px;
   color: var(--dark);
+}
+
+@media (max-width: 768px) {
+  .tcs__title {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tcs__title {
+    font-size: 20px;
+  }
 }
 
 .tcs__subtitle{
@@ -129,38 +166,38 @@
   align-items: center;
   gap: 8px;
   padding: 12px 18px;
-  background: var(--primary);
-  color: #fff;
-  border: none;
+  background: #fff;
+  color: var(--text, #1f2937);
+  border: 1px solid var(--border, #e5e7eb);
   border-radius: 12px;
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
   transition: all 0.15s;
-  box-shadow: 0 10px 18px rgba(91, 163, 199, 0.15);
+  box-shadow: none;
 }
 
 .tcs__exportBtn:hover {
-  background: #4c8fb3;
+  background: #f8fafc;
+  border-color: var(--primary, #5ba3c7);
+  color: var(--primary, #5ba3c7);
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(91, 163, 199, 0.2);
 }
 
 .tcs__exportBtn:active {
   transform: translateY(0);
-  box-shadow: 0 8px 12px rgba(91, 163, 199, 0.15);
 }
 
 /* stats */
 .tcs__stats{
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   margin-bottom: 24px;
 }
 
-@media (max-width: 900px){
-  .tcs__stats{ grid-template-columns: 1fr; }
+@media (max-width: 500px){
+  .tcs__stats{ gap: 12px; }
 }
 
 .tcsStat{
@@ -215,7 +252,10 @@
 
 .tcsTableWrap{
   overflow: auto;
-  max-height: calc(100vh - 320px);
+  overflow-x: auto;
+  max-height: 70vh;
+  min-height: 420px;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* table view */
@@ -311,7 +351,7 @@
 }
 
 .calTd{
-  height: 90px;
+  min-height: 90px;
   vertical-align: top;
   border-right: 1px solid var(--border);
   border-left: 1px solid var(--border);
@@ -321,8 +361,13 @@
 .calBlock{
   padding: 6px;
   border-radius: 10px;
-  background: rgba(255,255,255,.7);
+  background: rgba(255,255,255,.88);
   border: 1px solid rgba(0,0,0,.06);
+  margin-bottom: 6px;
+}
+
+.calTd .calBlock:last-child {
+  margin-bottom: 0;
 }
 
 .calBlock__title{

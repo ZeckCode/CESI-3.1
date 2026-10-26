@@ -115,8 +115,44 @@ class Schedule(models.Model):
 
     def __str__(self):
         room_str = f" in {self.room.code}" if self.room else ""
+        teacher_name = self.teacher.username if self.teacher else "(No teacher)"
+        subject_name = self.subject.name if self.subject else "(No subject)"
+        section_name = self.section.name if self.section else "(No section)"
+
         return (
-            f"{self.teacher.username} — {self.subject.name} "
-            f"@ {self.section.name} ({self.get_day_of_week_display()} "
+            f"{teacher_name} — {subject_name} "
+            f"@ {section_name} ({self.get_day_of_week_display()} "
             f"{self.start_time:%H:%M}–{self.end_time:%H:%M}){room_str}"
         )
+
+
+class ScheduleTemplate(models.Model):
+    """
+    Reusable schedule blueprint that can be applied to another school year.
+    Payload stores denormalized rows so templates stay usable even after section resets.
+    """
+
+    name = models.CharField(max_length=120)
+    source_school_year = models.ForeignKey(
+        SchoolYear,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="schedule_templates",
+    )
+    payload = models.JSONField(default=list, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_schedule_templates",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.name
