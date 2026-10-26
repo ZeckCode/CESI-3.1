@@ -23,6 +23,7 @@ from classmanagement.models import Schedule, SchoolYear
 from enrollment.models import Enrollment
 
 from finance.models import Transaction
+from attendance.models import AttendanceRecord
 
 
 logger = logging.getLogger(__name__)
@@ -1090,6 +1091,74 @@ def admin_student_report_card(request, student_id):
         part for part in [enrollment.first_name or "", enrollment.last_name or ""] if part
     ).strip() or resolve_student_display_name(canonical_student, resolve_school_year_label(active_school_year))
 
+    # Add attendance summary for each subject
+    attendance_summary = []
+    
+    # Get all distinct dates for the student's subjects in the active school year
+    from datetime import date
+    from django.utils import timezone
+    
+    # Get all schedule IDs for the student's section
+    schedule_ids = list(
+        Schedule.objects.filter(
+            section_id=section_obj.id,
+            school_year=active_school_year,
+            subject__isnull=False,
+        ).values_list("id", flat=True)
+    )
+    
+    # Get all attendance records for the student in the active school year
+    if schedule_ids:
+        attendance_records = AttendanceRecord.objects.filter(
+            student_id=canonical_student.id,
+            schedule_id__in=schedule_ids,
+            date__year__gte=active_school_year.start_date.year,
+            date__year__lte=active_school_year.end_date.year,
+        ).select_related("schedule", "schedule__subject", "subject").order_by("date")
+        
+        # Group attendance by subject and month
+        subject_attendance = {}
+        for record in attendance_records:
+            subject = record.schedule.subject if record.schedule and record.schedule.subject else record.subject
+            if not subject:
+                continue
+                
+            subject_id = subject.id
+            subject_name = subject.name
+            
+            if subject_id not in subject_attendance:
+                subject_attendance[subject_id] = {
+                    "subject_name": subject_name,
+                    "months": [],
+                    "total_school_days": 0
+                }
+                
+            # Get the month from the date
+            record_month = record.date.strftime('%b')  # Abbreviated month name (e.g., 'Jun', 'Jul')
+            
+            # Check if this month already exists in the subject's months
+            month_exists = False
+            for month_data in subject_attendance[subject_id]["months"]:
+                if month_data["month"] == record_month:
+                    month_exists = True
+                    month_data["present_days"] = month_data.get("present_days", 0) + 1
+                    break
+                    
+            if not month_exists:
+                subject_attendance[subject_id]["months"].append({
+                    "month": record_month,
+                    "present_days": 1
+                })
+                
+            # Count total school days for this subject (unique dates)
+            subject_attendance[subject_id]["total_school_days"] = len(set(
+                record.date for record in attendance_records if 
+                (record.schedule.subject == subject if record.schedule and record.schedule.subject else record.subject == subject)
+            ))
+            
+        # Convert to list format for response
+        attendance_summary = list(subject_attendance.values())
+
     return Response({
         "school_year": resolve_school_year_label(active_school_year),
         "student": {
@@ -1107,6 +1176,7 @@ def admin_student_report_card(request, student_id):
             else "FAILED" if general_average is not None
             else "INCOMPLETE"
         ),
+        "attendance_summary": attendance_summary,
     })
 
 
