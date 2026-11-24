@@ -68,6 +68,16 @@
   color: #1f2937;
 }
 
+.admin-stat-insight {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.3;
+  letter-spacing: 0.2px;
+  opacity: 0.85;
+}
+
 /* ========== TEACHER ASSIGNMENT TABLE ========== */
 .admin-assign-teachers-view {
   margin-bottom: 25px;
@@ -231,29 +241,98 @@
 }
 
 /* ========== RESPONSIVE DESIGN ========== */
+/* ── Tablet (1024px - 1200px) ── */
 @media (max-width: 1200px) {
+  .admin-class-management {
+    padding: 18px;
+  }
+
   .admin-teacher-details {
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   }
-}
 
-@media (max-width: 768px) {
-  .admin-class-management {
-    padding: 10px;
+  .admin-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
   }
 
-  .admin-class-header {
-    flex-direction: column;
-    gap: 15px;
-    align-items: flex-start;
+  .admin-class-header h1 {
+    font-size: 24px;
+  }
+}
+
+/* ── Tablet (<1024px) ── */
+@media (max-width: 1024px) {
+  .admin-class-management {
+    padding: 16px;
   }
 
   .admin-stats-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .admin-stat-card {
+    padding: 16px;
+  }
+
+  .admin-stat-number {
+    font-size: 24px;
+  }
+
+  .admin-class-header {
+    flex-wrap: wrap;
+    gap: 12px;
   }
 
   .admin-teacher-details {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ── Mobile (<768px) ── */
+@media (max-width: 768px) {
+  .admin-class-management {
+    padding: 12px;
+  }
+
+  .admin-class-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .admin-class-header h1 {
+    font-size: 20px;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .admin-stat-card {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .admin-stat-card h3 {
+    font-size: 12px;
+  }
+
+  .admin-stat-number {
+    font-size: 20px;
+    margin-top: 8px;
+  }
+
+  .admin-teacher-assignment-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-assignments-table {
+    min-width: 800px;
   }
 
   .admin-assignments-table th,
@@ -261,8 +340,110 @@
     font-size: 12px;
     padding: 10px;
   }
+
+  .admin-teacher-details {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .admin-teacher-card {
+    padding: 14px;
+  }
+
+  .admin-teacher-card h3 {
+    font-size: 16px;
+  }
+
+  .admin-badge {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .admin-subjects-list {
+    gap: 5px;
+  }
+
+  .admin-subject-tag-small {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
 }
 
+/* ── Small Mobile (<600px) ── */
+@media (max-width: 600px) {
+  .admin-class-management {
+    padding: 10px;
+  }
+
+  .admin-class-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 14px;
+  }
+
+  .admin-class-header h1 {
+    font-size: 18px;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .admin-stat-card {
+    padding: 10px;
+  }
+
+  .admin-stat-card h3 {
+    font-size: 11px;
+  }
+
+  .admin-stat-number {
+    font-size: 18px;
+  }
+
+  .admin-assignments-table {
+    min-width: 700px;
+    font-size: 12px;
+  }
+
+  .admin-assignments-table th {
+    padding: 8px;
+    font-size: 11px;
+  }
+
+  .admin-assignments-table td {
+    padding: 8px;
+    font-size: 11px;
+  }
+
+  .admin-teacher-details {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .admin-teacher-card {
+    padding: 12px;
+  }
+
+  .admin-teacher-card h3 {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .admin-badge {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+
+  .admin-subject-tag-small {
+    padding: 3px 7px;
+    font-size: 9px;
+  }
+}
+
+/* ── Ultra Mobile (<480px) ── */
 @media (max-width: 480px) {
   .admin-class-management {
     padding: 10px;
@@ -270,16 +451,35 @@
 
   .admin-class-header {
     flex-direction: column;
-    gap: 15px;
+    gap: 10px;
     align-items: flex-start;
+    padding: 12px;
+  }
+
+  .admin-class-header h1 {
+    font-size: 16px;
   }
 
   .admin-stats-grid {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
-  .admin-teacher-details {
-    grid-template-columns: 1fr;
+  .admin-stat-card {
+    padding: 10px;
+  }
+
+  .admin-stat-card h3 {
+    font-size: 10px;
+  }
+
+  .admin-stat-number {
+    font-size: 16px;
+  }
+
+  .admin-assignments-table {
+    min-width: 600px;
+    font-size: 11px;
   }
 
   .admin-assignments-table th,
@@ -288,8 +488,34 @@
     padding: 8px;
   }
 
+  .admin-teacher-details {
+    grid-template-columns: 1fr;
+  }
+
   .admin-subjects-list {
     flex-direction: column;
     gap: 4px;
+  }
+
+  .admin-teacher-card {
+    padding: 10px;
+  }
+
+  .admin-teacher-card h3 {
+    font-size: 13px;
+  }
+
+  .admin-teacher-info {
+    font-size: 12px;
+  }
+
+  .admin-badge {
+    padding: 3px 6px;
+    font-size: 9px;
+  }
+
+  .admin-subject-tag-small {
+    padding: 2px 6px;
+    font-size: 8.5px;
   }
 }

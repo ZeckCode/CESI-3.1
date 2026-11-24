@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "../TeacherWebsiteCSS/Dashboard.css";
 import { apiFetch } from "../api/apiFetch";
-
-const API_BASE = ""; // only needed if file/file_url returns /media/...
+import { generateTeacherMetricsInsight, getTeacherMetricColor } from "../../utils/roleInsights";
+import { API_BASE_URL } from "../../config/api";
 
 function toAbsUrl(path) {
   if (!path) return null;
-  return path.startsWith("http") ? path : `${API_BASE}${path}`;
+  if (/^https?:\/\//i.test(path)) return path;
+  const base = String(API_BASE_URL || "").replace(/\/api\/?$/i, "").replace(/\/$/, "");
+  const p = String(path).replace(/^\/+/, "");
+  return `${base}/${p}`.replace(/([^:]\/)\/+/, "$1");
 }
 
 function getFirstImagePath(a) {
@@ -220,7 +223,7 @@ const Dashboard = () => {
         const [meRes, secRes, schRes] = await Promise.all([
           apiFetch("/api/accounts/me/detail/"),
           apiFetch("/api/grades/my-sections/"),
-          apiFetch("/api/classmanagement/schedules/my/"),
+          apiFetch("/api/classmanagement/schedules/my/?include_free_period=0"),
         ]);
         if (meRes.ok) setTeacherInfo(await meRes.json());
         if (secRes.ok) {
@@ -244,9 +247,74 @@ const Dashboard = () => {
     [schedule]
   );
 
+  const todayScheduleSorted = useMemo(() => {
+    const toMinutes = (rawTime) => {
+      if (!rawTime) return Number.MAX_SAFE_INTEGER;
+      const [h = "0", m = "0"] = String(rawTime).split(":");
+      return Number(h) * 60 + Number(m);
+    };
+
+    return [...todaySchedule].sort(
+      (a, b) => toMinutes(a.start_time) - toMinutes(b.start_time)
+    );
+  }, [todaySchedule]);
+
   const subjectName =
     teacherInfo?.teacher_profile?.subject?.name || "No subject assigned";
   const teacherName = teacherInfo?.username || "Teacher";
+
+  const gradeCoverage = useMemo(() => {
+    const source = schedule.length ? schedule : sections;
+    const grades = source
+      .map((item) => item?.grade_level)
+      .filter((g) => g !== null && g !== undefined && g !== "");
+
+    return Array.from(new Set(grades)).map((g) => GRADE_LBL(g));
+  }, [schedule, sections]);
+
+  const teacherInsights = useMemo(() => {
+    const classCount = todayScheduleSorted.length;
+    const firstClass = todayScheduleSorted[0];
+    const lastClass = todayScheduleSorted[classCount - 1];
+
+    const workIntensity =
+      classCount >= 5
+        ? "High-load teaching day"
+        : classCount >= 3
+        ? "Balanced class load"
+        : classCount > 0
+        ? "Light class load"
+        : "No classes scheduled";
+
+    const coverageText =
+      gradeCoverage.length > 0
+        ? `You are covering ${gradeCoverage.join(", ")} this cycle.`
+        : "Grade-level coverage will appear once your schedule syncs.";
+
+    const windowText =
+      classCount > 0
+        ? `Teaching window is ${FMT_TIME(firstClass.start_time)} to ${FMT_TIME(
+            lastClass.end_time
+          )}.`
+        : "You currently have an open day for planning or remediation tasks.";
+
+    return [
+      {
+        title: "Workload Interpretation",
+        body: `${workIntensity}. You are assigned to ${sections.length} section${
+          sections.length === 1 ? "" : "s"
+        } for ${subjectName}.`,
+      },
+      {
+        title: "Schedule Interpretation",
+        body: windowText,
+      },
+      {
+        title: "Coverage Interpretation",
+        body: coverageText,
+      },
+    ];
+  }, [todayScheduleSorted, sections.length, subjectName, gradeCoverage]);
 
   const toggleScheduleExpand = (id) => {
     setExpandedScheduleId(expandedScheduleId === id ? null : id);
@@ -261,6 +329,9 @@ const Dashboard = () => {
           <div className="tdbStat__content">
             <div className="tdbStat__label">Sections</div>
             <div className="tdbStat__value">{loading ? "—" : sections.length}</div>
+            <div className="tdbStat__insight" style={{ color: getTeacherMetricColor(generateTeacherMetricsInsight('sectionsCovered', sections.length)) }}>
+              {loading ? "—" : generateTeacherMetricsInsight('sectionsCovered', sections.length)}
+            </div>
           </div>
         </div>
 
@@ -269,6 +340,9 @@ const Dashboard = () => {
           <div className="tdbStat__content">
             <div className="tdbStat__label">Subject</div>
             <div className="tdbStat__value--sm">{loading ? "—" : subjectName}</div>
+            <div className="tdbStat__insight">
+              {loading ? "—" : "Primary teaching focus"}
+            </div>
           </div>
         </div>
 
@@ -277,6 +351,9 @@ const Dashboard = () => {
           <div className="tdbStat__content">
             <div className="tdbStat__label">Today's Classes</div>
             <div className="tdbStat__value">{loading ? "—" : todaySchedule.length}</div>
+            <div className="tdbStat__insight" style={{ color: getTeacherMetricColor(generateTeacherMetricsInsight('classLoad', todaySchedule.length)) }}>
+              {loading ? "—" : generateTeacherMetricsInsight('classLoad', todaySchedule.length)}
+            </div>
           </div>
         </div>
       </div>

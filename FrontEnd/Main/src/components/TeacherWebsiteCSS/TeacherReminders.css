@@ -2,6 +2,18 @@
   padding: 24px;
 }
 
+@media (max-width: 768px) {
+  .teacher-reminders-main {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .teacher-reminders-main {
+    padding: 12px;
+  }
+}
+
 .tr-section {
   background: #fff;
   border-radius: 16px;
@@ -9,17 +21,51 @@
   box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
 }
 
+@media (max-width: 768px) {
+  .tr-section {
+    padding: 18px;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tr-section {
+    padding: 14px;
+  }
+}
+
 .tr-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 480px) {
+  .tr-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .tr-title {
   margin: 0;
   font-size: 1.4rem;
   font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .tr-title {
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .tr-title {
+    font-size: 1rem;
+  }
 }
 
 .tr-subtitle {
@@ -150,4 +196,42 @@
   padding: 28px;
   text-align: center;
   color: #64748b;
+}
+
+.tr-snackbar {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1200;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(92vw, 420px);
+  background: #b91c1c;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 12px;
+  box-shadow: 0 12px 26px rgba(127, 29, 29, 0.28);
+  font-weight: 600;
+  animation: tr-snackbar-in 180ms ease-out;
+}
+
+@keyframes tr-snackbar-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .tr-snackbar {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+  }
 }

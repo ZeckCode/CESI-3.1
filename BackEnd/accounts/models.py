@@ -5,19 +5,21 @@ from django.contrib.auth.models import BaseUserManager, PermissionsMixin
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.utils import timezone
 from django.conf import settings
+from CESI.storage_backends import get_public_storage
 # from BackEnd.CESI import settings
 
 # =========================
 # User Manager
 # =========================
+PUBLIC_MEDIA_STORAGE = get_public_storage()
 class UserManager(BaseUserManager):
-    def create_user(self, username, email, password=None, role="PARENT_STUDENT", **extra_fields):
+    def create_user(self, username, email=None, password=None, role="PARENT_STUDENT", **extra_fields):
         if not username:
             raise ValueError("Username required")
-        if not email:
+        if not email and role != "PARENT_STUDENT":
             raise ValueError("Email required")
 
-        email = self.normalize_email(email)
+        email = self.normalize_email(email) if email else None
 
         user = self.model(
             username=username,
@@ -58,16 +60,20 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     STATUS_CHOICES = (
+        ("NEW", "New"),
         ("ACTIVE", "Active"),
         ("INACTIVE", "Inactive"),
         ("SUSPENDED", "Suspended"),
+        ("TRANSFERRED", "Transferred"),
     )
 
     username = models.CharField(max_length=50, unique=True)
-    email = models.EmailField(unique=True)  # keep unique (good for real systems)
+    email = models.EmailField(null=True, blank=True)
+    first_name = models.CharField(max_length=50, blank=True, default="")
+    last_name = models.CharField(max_length=50, blank=True, default="")
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="PARENT_STUDENT")
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="ACTIVE")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -110,6 +116,13 @@ class Section(models.Model):
     name = models.CharField(max_length=50)
     grade_level = models.CharField(max_length=20, choices=GRADE_LEVEL_CHOICES)
     capacity = models.PositiveIntegerField(default=40)
+    school_year = models.ForeignKey(
+        "classmanagement.SchoolYear",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sections",
+    )
     room = models.ForeignKey(
         "classmanagement.Room",
         on_delete=models.SET_NULL,
@@ -172,7 +185,46 @@ class UserProfile(models.Model):
     address = models.TextField()
     
     # Profile Picture
-    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
+    avatar = models.ImageField(
+        upload_to="avatars/",
+        blank=True,
+        null=True,
+        storage=PUBLIC_MEDIA_STORAGE,
+    )
+
+    # Transfer lifecycle data (admin-managed)
+    TRANSFER_STATUS_CHOICES = [
+        ("NONE", "None"),
+        ("PENDING", "Pending"),
+        ("APPROVED", "Approved"),
+        ("REJECTED", "Rejected"),
+    ]
+    transfer_status = models.CharField(max_length=20, choices=TRANSFER_STATUS_CHOICES, default="NONE")
+    is_read_only = models.BooleanField(default=False)
+    transfer_date = models.DateField(blank=True, null=True)
+    transfer_reason = models.TextField(blank=True, null=True)
+    destination_school_name = models.CharField(max_length=255, blank=True, null=True)
+    destination_school_address = models.TextField(blank=True, null=True)
+    destination_school_contact = models.CharField(max_length=120, blank=True, null=True)
+    transfer_reference_number = models.CharField(max_length=100, blank=True, null=True)
+    transfer_notes = models.TextField(blank=True, null=True)
+    allow_transfer_with_balance = models.BooleanField(default=False)
+    outstanding_balance_snapshot = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    transfer_requested_at = models.DateTimeField(blank=True, null=True)
+    transfer_approved_at = models.DateTimeField(blank=True, null=True)
+    transfer_approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_transfers",
+    )
+    transfer_clearance = models.FileField(
+        upload_to="transfer_clearance/",
+        blank=True,
+        null=True,
+        storage=PUBLIC_MEDIA_STORAGE,
+    )
 
     def __str__(self):
         return f"{self.student_first_name} {self.student_last_name} / Parent: {self.parent_last_name}"
@@ -195,7 +247,10 @@ class AdminProfile(models.Model):
 class TeacherProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="teacher_profile")
 
+    # Legacy primary subject kept for backward compatibility with older endpoints/UI.
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name="teachers")
+    # New multi-subject assignment used by scheduling and grade encoding.
+    subjects = models.ManyToManyField(Subject, blank=True, related_name="teacher_profiles")
 
     # teacher assigned to a section (NOT adviser); avoid clash with Section.adviser reverse name
     section = models.ForeignKey(
@@ -209,7 +264,12 @@ class TeacherProfile(models.Model):
     employee_id = models.CharField(max_length=50, blank=True, default="")
     
     # Profile Picture
-    avatar = models.ImageField(upload_to="avatars/teachers/", blank=True, null=True)
+    avatar = models.ImageField(
+        upload_to="avatars/teachers/",
+        blank=True,
+        null=True,
+        storage=PUBLIC_MEDIA_STORAGE,
+    )
 
     def __str__(self):
         return f"TeacherProfile({self.user.username})"

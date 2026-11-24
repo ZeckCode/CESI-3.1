@@ -3,8 +3,10 @@
   display: flex;
   background-color: #ffffff;
   margin: 0;
-  height: calc(100vh - 0px);
+  height: 100vh;
+  max-height: 100vh;
   min-width: 0;
+  overflow: hidden;
 }
 
 /* Left sidebar with chat list */
@@ -14,6 +16,7 @@
   border-right: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .chat-nav-header {
@@ -27,6 +30,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .chat-new-btn {
@@ -57,6 +61,7 @@
   background: #f9fafb;
   max-height: 300px;
   overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .chat-new-form select,
@@ -150,6 +155,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 /* Chat Header */
@@ -160,6 +166,7 @@
   display: flex;
   align-items: center;
   gap: 15px;
+  flex-shrink: 0;
 }
 
 .member-btn {
@@ -194,6 +201,7 @@
   padding: 1rem 2rem;
   max-height: 200px;
   overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .member-panel h5 {
@@ -238,12 +246,34 @@
   flex: 1;
   padding: 2rem;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 1.2rem;
   background-image: radial-gradient(#d1d1d1 0.5px, transparent 0.5px);
   background-size: 20px 20px;
   min-width: 0;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: #24148a #f0f0f0;
+}
+
+/* Webkit scrollbar styling for Chrome, Safari */
+.messages-area::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-area::-webkit-scrollbar-track {
+  background: #f0f0f0;
+}
+
+.messages-area::-webkit-scrollbar-thumb {
+  background: #24148a;
+  border-radius: 4px;
+}
+
+.messages-area::-webkit-scrollbar-thumb:hover {
+  background: #1a0d5c;
 }
 
 /* Message Bubbles */
@@ -318,6 +348,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .input-row {
@@ -565,4 +596,674 @@
 .modal-actions button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN - TABLET (1024px and below)
+   ============================================ */
+@media (max-width: 1024px) {
+  .chat-main-layout {
+    height: calc(100vh - 0px);
+  }
+
+  .chat-nav-sidebar {
+    width: 220px;
+  }
+
+  .chat-nav-header {
+    padding: 1.2rem;
+    font-size: 0.9rem;
+  }
+
+  .chat-new-btn {
+    padding: 0.5rem 0.8rem;
+    font-size: 1rem;
+  }
+
+  .chat-nav-item {
+    padding: 1rem;
+  }
+
+  .message-bubble {
+    max-width: 75%;
+    padding: 0.9rem;
+  }
+
+  .messages-area {
+    padding: 1.5rem;
+    gap: 1rem;
+  }
+
+  .chat-header {
+    padding: 0.8rem 1.5rem;
+  }
+
+  .chat-input-area {
+    padding: 1.2rem;
+  }
+}
+
+/* ============================================
+   RESPONSIVE DESIGN - MEDIUM TABLET (900px and below)
+   ============================================ */
+@media (max-width: 900px) {
+  .chat-nav-sidebar {
+    width: 200px;
+  }
+
+  .chat-nav-header {
+    padding: 1rem;
+  }
+
+  .chat-nav-item {
+    padding: 0.9rem;
+    font-size: 0.9rem;
+  }
+
+  .message-bubble {
+    max-width: 80%;
+  }
+
+  .chat-header {
+    gap: 10px;
+  }
+
+  .member-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* ============================================
+   RESPONSIVE DESIGN - SMALL TABLET (768px and below)
+   ============================================ */
+@media (max-width: 768px) {
+  .chat-main-layout {
+    flex-direction: column;
+  }
+
+  .chat-nav-sidebar {
+    width: 100%;
+    max-height: 180px;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .chat-nav-header {
+    padding: 0.8rem;
+    font-size: 0.85rem;
+    min-width: 150px;
+    border-bottom: none;
+  }
+
+  .chat-new-btn {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.85rem;
+  }
+
+  .chat-new-form {
+    display: none;
+  }
+
+  .chat-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 8px;
+  }
+
+  .chat-nav-item {
+    padding: 0.8rem;
+    border-bottom: none;
+    border-right: 1px solid #eee;
+    min-width: 200px;
+    white-space: nowrap;
+  }
+
+  .chat-nav-item.active {
+    border-right: 8px solid #24148a;
+  }
+
+  .chat-preview {
+    display: none;
+  }
+
+  .chat-container {
+    flex: 1;
+  }
+
+  .chat-header {
+    padding: 0.8rem 1.2rem;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .chat-header h3 {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .member-btn {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.85rem;
+  }
+
+  .member-panel {
+    padding: 0.8rem 1.2rem;
+    max-height: 150px;
+  }
+
+  .messages-area {
+    padding: 1.2rem;
+    gap: 1rem;
+  }
+
+  .message-bubble {
+    max-width: 85%;
+    padding: 0.8rem;
+  }
+
+  .chat-input-area {
+    padding: 1rem;
+  }
+
+  .chat-input {
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .send-btn {
+    padding: 0.5rem 1.2rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* ============================================
+   RESPONSIVE DESIGN - MOBILE (600px and below)
+   ============================================ */
+@media (max-width: 600px) {
+  .chat-main-layout {
+    height: calc(100vh - 0px);
+    flex-direction: column;
+  }
+
+  .chat-nav-sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 150px;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0;
+  }
+
+  .chat-nav-header {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.8rem;
+    min-width: 140px;
+    border-bottom: none;
+    border-right: 1px solid #e5e7eb;
+  }
+
+  .chat-new-btn {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.75rem;
+    min-width: 100px;
+  }
+
+  .chat-new-form {
+    display: none;
+  }
+
+  .chat-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 0;
+    padding: 0;
+  }
+
+  .chat-empty {
+    display: none;
+  }
+
+  .chat-nav-item {
+    padding: 0.7rem;
+    border-bottom: none;
+    border-right: 1px solid #eee;
+    min-width: 180px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  .chat-nav-item.active {
+    border-right: 6px solid #24148a;
+    background-color: #FDEF3B;
+  }
+
+  .chat-preview {
+    display: none;
+  }
+
+  .chat-container {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .chat-header {
+    padding: 0.6rem 1rem;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-bottom: 2px solid #000;
+  }
+
+  .chat-header h3 {
+    flex: 1;
+    font-size: 1rem;
+    min-width: 150px;
+  }
+
+  .member-btn {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+    border: 1px solid #000;
+  }
+
+  .member-panel {
+    padding: 0.6rem 1rem;
+    max-height: 120px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .member-panel h5 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.85rem;
+  }
+
+  .member-list {
+    gap: 0.4rem;
+  }
+
+  .member-item {
+    padding: 0.4rem;
+    font-size: 0.85rem;
+    gap: 0.4rem;
+  }
+
+  .remove-member-btn {
+    padding: 0.15rem 0.4rem;
+    font-size: 0.7rem;
+  }
+
+  .messages-area {
+    padding: 1rem;
+    gap: 0.8rem;
+    background-size: 20px 20px;
+  }
+
+  .message-bubble {
+    max-width: 90%;
+    padding: 0.7rem;
+    border-radius: 12px;
+    border: 1px solid #000;
+    box-shadow: 2px 2px 0px #000;
+    font-size: 0.9rem;
+  }
+
+  .sender-name {
+    font-size: 0.7rem;
+    margin-bottom: 3px;
+  }
+
+  .message-bubble p {
+    font-size: 0.9rem;
+    line-height: 1.3;
+  }
+
+  .message-bubble img {
+    max-width: 150px;
+    border-radius: 6px;
+  }
+
+  .timestamp {
+    font-size: 0.6rem;
+    margin-top: 4px;
+  }
+
+  .flag-indicator {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.65rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .chat-input-area {
+    padding: 0.8rem;
+    gap: 0.5rem;
+    border-top: 2px solid #000;
+  }
+
+  .input-row {
+    gap: 0.7rem;
+  }
+
+  .chat-input {
+    padding: 0.6rem 0.9rem;
+    border: 1px solid #000;
+    font-size: 0.85rem;
+    min-height: 36px;
+  }
+
+  .image-upload-label {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.8rem;
+    border: 1px solid #000;
+    white-space: nowrap;
+  }
+
+  .send-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    border: 1px solid #000;
+  }
+
+  .image-preview {
+    font-size: 0.75rem;
+  }
+
+  .modal-box {
+    max-width: 90vw;
+    padding: 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  .modal-box h3 {
+    font-size: 1rem;
+  }
+
+  .modal-box button {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.85rem;
+  }
+
+  .report-msg-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+  }
+
+  .form-group {
+    margin: 0.75rem 0;
+  }
+
+  .form-group label {
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .form-group select,
+  .form-group textarea {
+    padding: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .modal-actions {
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .modal-actions button {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* ============================================
+   RESPONSIVE DESIGN - EXTRA SMALL MOBILE (480px and below)
+   ============================================ */
+@media (max-width: 480px) {
+  .chat-main-layout {
+    height: calc(100vh - 0px);
+  }
+
+  .chat-nav-sidebar {
+    max-height: 130px;
+    padding: 0;
+  }
+
+  .chat-nav-header {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.75rem;
+    min-width: 120px;
+  }
+
+  .chat-new-btn {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.7rem;
+    min-width: 80px;
+  }
+
+  .chat-nav-item {
+    padding: 0.6rem;
+    min-width: 160px;
+    font-size: 0.8rem;
+  }
+
+  .chat-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .chat-header {
+    padding: 0.5rem 0.8rem;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .chat-header h3 {
+    font-size: 0.9rem;
+    flex: 1 100%;
+  }
+
+  .member-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.7rem;
+    border: 1px solid #000;
+  }
+
+  .member-panel {
+    padding: 0.5rem 0.8rem;
+    max-height: 100px;
+  }
+
+  .member-panel h5 {
+    font-size: 0.8rem;
+  }
+
+  .member-item {
+    padding: 0.3rem;
+    font-size: 0.8rem;
+  }
+
+  .messages-area {
+    padding: 0.8rem;
+    gap: 0.6rem;
+  }
+
+  .message-bubble {
+    max-width: 92%;
+    padding: 0.6rem;
+    border: 1px solid #000;
+    box-shadow: 1px 1px 0px #000;
+    font-size: 0.85rem;
+  }
+
+  .sender-name {
+    font-size: 0.65rem;
+  }
+
+  .message-bubble img {
+    max-width: 120px;
+  }
+
+  .timestamp {
+    font-size: 0.55rem;
+  }
+
+  .chat-input-area {
+    padding: 0.6rem;
+    gap: 0.4rem;
+  }
+
+  .input-row {
+    gap: 0.5rem;
+  }
+
+  .chat-input {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+    min-height: 32px;
+  }
+
+  .image-upload-label {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .send-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.75rem;
+  }
+
+  .modal-box {
+    max-width: 95vw;
+    padding: 1.2rem;
+    border: 2px solid #24148a;
+  }
+
+  .modal-box h3 {
+    font-size: 0.95rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .modal-box p {
+    font-size: 0.85rem;
+  }
+
+  .modal-box button {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  .form-group label {
+    font-size: 0.8rem;
+  }
+
+  .form-group select,
+  .form-group textarea {
+    padding: 0.45rem;
+    font-size: 0.8rem;
+  }
+
+  .modal-actions button {
+    padding: 0.45rem 0.9rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* ============================================
+   RESPONSIVE DESIGN - TINY PHONES (360px and below)
+   ============================================ */
+@media (max-width: 360px) {
+  .chat-nav-header {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.7rem;
+    min-width: 100px;
+  }
+
+  .chat-new-btn {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.65rem;
+  }
+
+  .chat-nav-item {
+    padding: 0.5rem;
+    min-width: 140px;
+    font-size: 0.75rem;
+  }
+
+  .chat-header {
+    padding: 0.4rem 0.6rem;
+  }
+
+  .chat-header h3 {
+    font-size: 0.85rem;
+  }
+
+  .member-btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.65rem;
+  }
+
+  .member-panel {
+    padding: 0.4rem 0.6rem;
+  }
+
+  .member-item {
+    padding: 0.25rem;
+    font-size: 0.75rem;
+  }
+
+  .messages-area {
+    padding: 0.6rem;
+    gap: 0.5rem;
+  }
+
+  .message-bubble {
+    max-width: 94%;
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .sender-name {
+    font-size: 0.6rem;
+  }
+
+  .message-bubble img {
+    max-width: 100px;
+  }
+
+  .chat-input-area {
+    padding: 0.5rem;
+  }
+
+  .chat-input {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.75rem;
+  }
+
+  .send-btn {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.7rem;
+  }
+
+  .modal-box {
+    padding: 1rem;
+  }
+
+  .modal-box h3 {
+    font-size: 0.9rem;
+  }
+
+  .form-group select,
+  .form-group textarea {
+    padding: 0.4rem;
+    font-size: 0.75rem;
+  }
 }

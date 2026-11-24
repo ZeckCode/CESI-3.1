@@ -1,16 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Bell, CheckCircle, Clock, AlertCircle } from "lucide-react";
-import { getToken } from "../Auth/auth";
+import { apiFetch } from "../api/apiFetch";
 import "../TeacherWebsiteCSS/TeacherReminders.css";
 
-const API_BASE = "";
-
-const authHeaders = (extra = {}) => {
-  const token = getToken();
-  return {
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-    ...extra,
-  };
+const normalizeReminderPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.results)) return payload.results;
+  return [];
 };
 
 export default function TeacherReminders() {
@@ -27,15 +23,12 @@ export default function TeacherReminders() {
           ? "/api/reminders/?type=PERFORMANCE"
           : `/api/reminders/?type=PERFORMANCE&is_read=${activeFilter === "read" ? "true" : "false"}`;
 
-      const res = await fetch(`${API_BASE}${query}`, {
-        credentials: "include",
-        headers: authHeaders(),
-      });
+      const res = await apiFetch(query);
 
       if (!res.ok) throw new Error("Failed to load reminders");
 
       const data = await res.json();
-      setReminders(Array.isArray(data) ? data : []);
+      setReminders(normalizeReminderPayload(data));
     } catch (err) {
       console.error("Error loading reminders:", err);
       setReminders([]);
@@ -56,11 +49,16 @@ export default function TeacherReminders() {
   const markAsRead = async (id) => {
     setMarkingId(id);
     try {
-      const res = await fetch(`${API_BASE}/api/reminders/${id}/read/`, {
+      let res = await apiFetch(`/api/reminders/mark-read/${id}/`, {
         method: "POST",
-        credentials: "include",
-        headers: authHeaders(),
       });
+
+      if (!res.ok && res.status === 404) {
+        // Backward compatibility for older backend route.
+        res = await apiFetch(`/api/reminders/${id}/read/`, {
+          method: "POST",
+        });
+      }
 
       if (!res.ok) throw new Error("Failed to mark as read");
 

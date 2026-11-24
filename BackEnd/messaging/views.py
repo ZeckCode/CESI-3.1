@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
 from django.db.models import Q, Count
 import re
 
@@ -16,9 +16,120 @@ from .serializers import (
     ChatMemberSerializer, MessageSerializer, ChatRestrictionSerializer,
     ChatRestrictionAuditLogSerializer, MessageFlagSerializer, MessageDeletionLogSerializer,
     ChatCreateSerializer, MessageCreateSerializer, ChatRequestSerializer,
-    ChatRequestCreateSerializer, MessageReportSerializer, MessageReportCreateSerializer
+    ChatRequestCreateSerializer, MessageReportSerializer, MessageReportCreateSerializer,
+    UserMinimalSerializer
 )
 from accounts.models import User, Section, Subject
+from classmanagement.models import SchoolYear
+
+
+# Auto-mute escalation tiers (in minutes). Resets daily.
+# 1st offense -> 10 min, 2nd -> 30 min, 3rd+ -> 120 min (2 hours).
+AUTO_MUTE_TIERS = [10, 30, 120]
+AUTO_MUTE_MAX_MINUTES = 120
+
+
+def get_auto_mute_minutes(user):
+    """Return the auto-mute duration (minutes) for the user's next offense today.
+
+    Offenses are counted from MessageFlag rows created today for messages sent
+    by this user. The duration escalates through AUTO_MUTE_TIERS and caps at
+    AUTO_MUTE_MAX_MINUTES.
+    """
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    offense_count = MessageFlag.objects.filter(
+        message__sender=user,
+        flagged_at__gte=today_start,
+    ).count()
+
+    tier_index = min(offense_count, len(AUTO_MUTE_TIERS) - 1)
+    return AUTO_MUTE_TIERS[tier_index]
+
+
+def parse_restriction_duration(request_data):
+    """Parse restriction duration from payload."""
+    restrict_hours = request_data.get('restrict_duration_hours')
+    restrict_minutes = request_data.get('restrict_duration_minutes')
+    raw_duration = request_data.get('restrict_duration')
+
+    parsed_hours = None
+    parsed_minutes = None
+
+    if restrict_hours is not None:
+        try:
+            parsed_hours = int(restrict_hours)
+        except (ValueError, TypeError):
+            parsed_hours = 0
+
+    if restrict_minutes is not None:
+        try:
+            parsed_minutes = int(restrict_minutes)
+        except (ValueError, TypeError):
+            parsed_minutes = 0
+
+    if parsed_hours is None and raw_duration is not None:
+        try:
+            parsed_hours = int(raw_duration)
+        except (ValueError, TypeError):
+            parsed_hours = 0
+
+    parsed_hours = parsed_hours if parsed_hours is not None else 0
+    parsed_minutes = parsed_minutes if parsed_minutes is not None else 0
+
+    parsed_hours = max(0, parsed_hours)
+    parsed_minutes = max(0, min(60, parsed_minutes))
+
+    if parsed_hours == 0 and parsed_minutes == 0:
+        parsed_minutes = 30
+
+    restriction_duration_delta = timedelta(hours=parsed_hours, minutes=parsed_minutes)
+    if restriction_duration_delta.total_seconds() <= 0:
+        restriction_duration_delta = timedelta(minutes=30)
+
+    return restriction_duration_delta
+
+
+def apply_admin_restriction(user, restricted_by, is_permanent, reason, restriction_duration_delta):
+    """Apply one global restriction update for a user.
+
+    If a temporary mute already exists and is active, extend it once from the
+    current expiry instead of resetting or applying per-flag multiplication.
+    """
+    now = timezone.now()
+    restriction, created = ChatRestriction.objects.get_or_create(
+        chat=None,
+        user=user,
+        defaults={
+            'restriction_type': 'PERMANENT_REMOVE' if is_permanent else 'TEMP_MUTE',
+            'restricted_by': restricted_by,
+            'reason': reason,
+            'expires_at': None if is_permanent else (now + restriction_duration_delta),
+        }
+    )
+
+    if created:
+        return restriction
+
+    restriction.restricted_by = restricted_by
+    restriction.reason = reason
+
+    if is_permanent:
+        restriction.restriction_type = 'PERMANENT_REMOVE'
+        restriction.expires_at = None
+    else:
+        base_time = now
+        if (
+            restriction.restriction_type == 'TEMP_MUTE'
+            and restriction.expires_at
+            and restriction.expires_at > now
+        ):
+            base_time = restriction.expires_at
+
+        restriction.restriction_type = 'TEMP_MUTE'
+        restriction.expires_at = base_time + restriction_duration_delta
+
+    restriction.save()
+    return restriction
 
 
 # ═══════════════════════════════════════════════════════════
@@ -101,6 +212,45 @@ class ProfanityWordViewSet(viewsets.ModelViewSet):
 class ChatViewSet(viewsets.ModelViewSet):
     """Manage chats (create, list, detail)."""
     permission_classes = [IsAuthenticated]
+
+    def _sync_class_chat_members(self, chat, teacher=None):
+        from enrollment.models import Enrollment
+
+        public_user_id = User.objects.filter(
+            username='public_user'
+        ).values_list('id', flat=True).first()
+
+        enrollments = Enrollment.objects.filter(
+            section=chat.section,
+            status="ACTIVE"
+        ).values('parent_user_id', 'student_id')
+
+        student_ids = set()
+        for row in enrollments:
+            candidate_id = row.get('parent_user_id') or row.get('student_id')
+            if not candidate_id:
+                continue
+            if public_user_id and candidate_id == public_user_id:
+                continue
+            student_ids.add(candidate_id)
+
+        teacher_user = teacher or chat.creator
+        if teacher_user:
+            member, created = ChatMember.objects.get_or_create(
+                chat=chat,
+                user=teacher_user,
+                defaults={'is_admin': True}
+            )
+            if not created and not member.is_admin:
+                member.is_admin = True
+                member.save(update_fields=['is_admin'])
+
+        for student_id in student_ids:
+            ChatMember.objects.get_or_create(
+                chat=chat,
+                user_id=student_id,
+                defaults={'is_admin': False}
+            )
     
     def get_queryset(self):
         """Filter chats user is member of and not restricted from."""
@@ -142,6 +292,49 @@ class ChatViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Create a new chat (individual or group)."""
+        chat_type = request.data.get('chat_type')
+
+        if chat_type == 'GROUP_CLASS':
+            if request.user.role != 'TEACHER':
+                return Response(
+                    {'detail': 'Only teachers can create class group chats.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            section_id = request.data.get('section')
+            subject_id = request.data.get('subject')
+            school_year = request.data.get('school_year')
+
+            if not section_id or not subject_id:
+                return Response(
+                    {'detail': 'Class chat requires section and subject.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if not school_year:
+                return Response(
+                    {'detail': 'Class chat requires school year.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            existing = Chat.objects.filter(
+                chat_type='GROUP_CLASS',
+                section_id=section_id,
+                subject_id=subject_id,
+                school_year=school_year,
+            ).first()
+
+            if existing:
+                if not existing.is_active:
+                    existing.is_active = True
+                    existing.save(update_fields=['is_active', 'updated_at'])
+
+                self._sync_class_chat_members(existing, teacher=request.user)
+                return Response(
+                    ChatDetailSerializer(existing, context={'request': request}).data,
+                    status=status.HTTP_200_OK
+                )
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -157,11 +350,12 @@ class ChatViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Check if chat already exists
+            # Check if chat already exists (either direction)
             existing = Chat.objects.filter(
-                chat_type='INDIVIDUAL',
-                creator=request.user,
-                participant_two=participant_two
+                chat_type='INDIVIDUAL'
+            ).filter(
+                (Q(creator=request.user, participant_two=participant_two) |
+                 Q(creator=participant_two, participant_two=request.user))
             ).first()
             if existing:
                 # Ensure both users are in ChatMember (in case they were somehow removed)
@@ -173,10 +367,10 @@ class ChatViewSet(viewsets.ModelViewSet):
                 )
 
         elif chat_type == 'GROUP_CLASS':
-            # Teachers and parent/student accounts can create class groups
-            if request.user.role not in ['TEACHER', 'PARENT_STUDENT']:
+            # Teachers create class groups
+            if request.user.role != 'TEACHER':
                 return Response(
-                    {'detail': 'Only teachers or parent/student users can create class group chats.'},
+                    {'detail': 'Only teachers can create class group chats.'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             # Requires section + subject
@@ -207,19 +401,7 @@ class ChatViewSet(viewsets.ModelViewSet):
 
         elif chat.chat_type == 'GROUP_CLASS':
             # Auto-add all students in section + teacher
-            from enrollment.models import Enrollment
-            
-            students = Enrollment.objects.filter(
-                section=chat.section,
-                status="ACTIVE"
-            ).values_list('student_id', flat=True)
-
-            # Add teacher
-            ChatMember.objects.create(chat=chat, user=chat.creator, is_admin=True)
-
-            # Add students
-            for student_id in students:
-                ChatMember.objects.create(chat=chat, user_id=student_id, is_admin=False)
+            self._sync_class_chat_members(chat)
 
         elif chat.chat_type == 'GROUP_PROJECT':
             # Only add creator
@@ -295,6 +477,8 @@ class ChatViewSet(viewsets.ModelViewSet):
     def search_users(self, request):
         """Search for users to add to chat (autofill)."""
         query = request.query_params.get('q', '').strip()
+        scope = request.query_params.get('scope', '').strip().lower()
+        allow_global = scope in {'all', 'global', 'project', 'group_project', 'project_group'}
         if not query or len(query) < 2:
             return Response(
                 {'detail': 'Query must be at least 2 characters.'},
@@ -308,12 +492,16 @@ class ChatViewSet(viewsets.ModelViewSet):
             Q(profile__student_first_name__icontains=query) |
             Q(profile__student_last_name__icontains=query) |
             Q(profile__parent_first_name__icontains=query) |
-            Q(profile__parent_last_name__icontains=query)
+            Q(profile__parent_last_name__icontains=query) |
+            Q(profile__student_number__icontains=query) |
+            Q(parent_enrollments__first_name__icontains=query) |
+            Q(parent_enrollments__last_name__icontains=query) |
+            Q(parent_enrollments__student_number__icontains=query)
         ).exclude(id=request.user.id).distinct()
 
         # Student/parent accounts should primarily discover people in the same section.
         # This avoids unhelpful username-only global results.
-        if request.user.role == 'PARENT_STUDENT':
+        if request.user.role == 'PARENT_STUDENT' and not allow_global:
             from enrollment.models import Enrollment
             from classmanagement.models import Schedule
 
@@ -335,12 +523,21 @@ class ChatViewSet(viewsets.ModelViewSet):
             )
 
             if section_ids:
-                classmate_ids = set(
-                    Enrollment.objects.filter(
-                        section_id__in=section_ids,
-                        status='ACTIVE',
-                    ).values_list('student_id', flat=True)
-                )
+                public_user_id = User.objects.filter(
+                    username='public_user'
+                ).values_list('id', flat=True).first()
+                classmate_ids = set()
+                enrollments = Enrollment.objects.filter(
+                    section_id__in=section_ids,
+                    status='ACTIVE',
+                ).values('parent_user_id', 'student_id')
+                for row in enrollments:
+                    candidate_id = row.get('parent_user_id') or row.get('student_id')
+                    if not candidate_id:
+                        continue
+                    if public_user_id and candidate_id == public_user_id:
+                        continue
+                    classmate_ids.add(candidate_id)
                 teacher_ids = set(
                     Schedule.objects.filter(
                         section_id__in=section_ids
@@ -376,11 +573,22 @@ class ChatViewSet(viewsets.ModelViewSet):
     def search_sections(self, request):
         """Search for sections (autofill for class chats)."""
         query = request.query_params.get('q', '').strip()
-        if not query or len(query) < 1:
-            # Return all if no query
-            sections = Section.objects.all().values('id', 'name', 'grade_level')[:10]
+        school_year_id = request.query_params.get('school_year')
+
+        sections = Section.objects.all()
+        if school_year_id:
+            sections = sections.filter(school_year_id=school_year_id)
         else:
-            sections = Section.objects.filter(
+            active_sy = SchoolYear.objects.filter(is_active=True).first()
+            if active_sy:
+                sections = sections.filter(school_year=active_sy)
+            else:
+                sections = sections.filter(school_year__isnull=True)
+
+        if not query or len(query) < 1:
+            sections = sections.values('id', 'name', 'grade_level')[:10]
+        else:
+            sections = sections.filter(
                 Q(name__icontains=query) |
                 Q(grade_level__icontains=query)
             ).values('id', 'name', 'grade_level')[:10]
@@ -517,6 +725,35 @@ class MessageViewSet(viewsets.ModelViewSet):
                 flagged_words=','.join(flagged_words)
             )
 
+            # Automatically mute the sender with an escalating cooldown.
+            # This is a global mute (applies to all chats) so the admin can
+            # review the flag and extend, delete, or dismiss it afterwards.
+            auto_mute_minutes = get_auto_mute_minutes(request.user)
+            auto_mute_until = timezone.now() + timedelta(minutes=auto_mute_minutes)
+            auto_mute_reason = (
+                f"Auto-muted for {auto_mute_minutes} minutes: "
+                f"flagged words {', '.join(flagged_words)}"
+            )
+            existing_mute = ChatRestriction.objects.filter(
+                chat=None,
+                user=request.user,
+            ).first()
+            if existing_mute:
+                existing_mute.restriction_type = 'TEMP_MUTE'
+                existing_mute.restricted_by = None
+                existing_mute.reason = auto_mute_reason
+                existing_mute.expires_at = auto_mute_until
+                existing_mute.save()
+            else:
+                ChatRestriction.objects.create(
+                    chat=None,
+                    user=request.user,
+                    restriction_type='TEMP_MUTE',
+                    restricted_by=None,
+                    reason=auto_mute_reason,
+                    expires_at=auto_mute_until,
+                )
+
         return Response(
             MessageSerializer(message).data,
             status=status.HTTP_201_CREATED
@@ -581,6 +818,199 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
             return MessageFlag.objects.none()
         return MessageFlag.objects.filter(status='PENDING').order_by('-flagged_at')
 
+    @action(detail=False, methods=['get'])
+    def by_user(self, request):
+        """Group pending flags by offending user.
+
+        Returns a list of users, each with their pending flags and a summary
+        (offense count today, current auto-mute tier, and active restriction).
+        """
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only admins can review flags.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        flags = MessageFlag.objects.filter(status='PENDING').select_related(
+            'message', 'message__sender', 'chat'
+        ).order_by('-flagged_at')
+
+        grouped = {}
+        for flag in flags:
+            sender = flag.message.sender
+            if sender.id not in grouped:
+                grouped[sender.id] = {
+                    'user': sender,
+                    'flags': [],
+                }
+            grouped[sender.id]['flags'].append(flag)
+
+        result = []
+        for sender_id, entry in grouped.items():
+            sender = entry['user']
+            user_flags = entry['flags']
+
+            # Offense count for today (used to show escalation tier).
+            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_offenses = MessageFlag.objects.filter(
+                message__sender=sender,
+                flagged_at__gte=today_start,
+            ).count()
+
+            # Current active restriction (if any).
+            active_restriction = ChatRestriction.objects.filter(
+                user=sender,
+                chat=None,
+            ).order_by('-created_at').first()
+
+            restriction_data = None
+            if active_restriction and active_restriction.is_active:
+                restriction_data = {
+                    'id': active_restriction.id,
+                    'restriction_type': active_restriction.restriction_type,
+                    'expires_at': active_restriction.expires_at,
+                    'reason': active_restriction.reason,
+                }
+
+            result.append({
+                'user': UserMinimalSerializer(sender).data,
+                'pending_flag_count': len(user_flags),
+                'today_offense_count': today_offenses,
+                'auto_mute_minutes': get_auto_mute_minutes(sender),
+                'active_restriction': restriction_data,
+                'flags': MessageFlagSerializer(user_flags, many=True).data,
+            })
+
+        # Sort by most recent flag first.
+        result.sort(
+            key=lambda item: max(
+                (f['flagged_at'] for f in item['flags']),
+                default='',
+            ),
+            reverse=True,
+        )
+
+        return Response(result)
+
+    @action(detail=False, methods=['post'])
+    def take_user_action(self, request):
+        """Admin takes one action across all pending flags for a user."""
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only admins can review flags.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        user_id = request.data.get('user_id')
+        action_type = request.data.get('action')
+        admin_notes = request.data.get('admin_notes', '').strip()
+
+        if not user_id:
+            return Response(
+                {'detail': 'user_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'User not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        pending_flags = MessageFlag.objects.filter(
+            status='PENDING',
+            message__sender=target_user,
+        ).select_related('message')
+
+        pending_count = pending_flags.count()
+        if pending_count == 0:
+            return Response(
+                {'detail': 'No pending flags found for this user.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        restriction_data = None
+        if action_type == 'restrict':
+            is_permanent = bool(request.data.get('is_permanent', False))
+            restriction_duration_delta = parse_restriction_duration(request.data)
+            restriction_reason = admin_notes or f"Bulk restriction from {pending_count} flagged message(s)."
+
+            restriction = apply_admin_restriction(
+                user=target_user,
+                restricted_by=request.user,
+                is_permanent=is_permanent,
+                reason=restriction_reason,
+                restriction_duration_delta=restriction_duration_delta,
+            )
+
+            restriction_data = {
+                'id': restriction.id,
+                'restriction_type': restriction.restriction_type,
+                'expires_at': restriction.expires_at,
+                'reason': restriction.reason,
+            }
+
+        elif action_type not in {'delete', 'dismiss'}:
+            return Response(
+                {'detail': 'Invalid action. Use delete, dismiss, or restrict.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        reviewed_at = timezone.now()
+        deleted_messages = 0
+
+        for flag in pending_flags:
+            notes_to_store = admin_notes
+
+            if action_type == 'delete':
+                reason = admin_notes or (
+                    f"Bulk deletion from flagged review. Flagged words: {flag.flagged_words}"
+                    if flag.flagged_words else
+                    "Bulk deletion from flagged review."
+                )
+
+                if not flag.message.is_deleted:
+                    flag.message.is_deleted = True
+                    flag.message.deleted_by = request.user
+                    flag.message.deleted_at = reviewed_at
+                    flag.message.deletion_reason = reason
+                    flag.message.save()
+                    MessageDeletionLog.objects.create(
+                        message=flag.message,
+                        deleted_by=request.user,
+                        reason=reason,
+                    )
+                    deleted_messages += 1
+
+                flag.status = 'DELETED'
+                notes_to_store = reason
+
+            elif action_type == 'dismiss':
+                flag.status = 'DISMISSED'
+
+            elif action_type == 'restrict':
+                flag.status = 'USER_RESTRICTED'
+                if not notes_to_store:
+                    notes_to_store = 'Restricted by bulk admin action.'
+
+            flag.reviewed_by = request.user
+            flag.reviewed_at = reviewed_at
+            flag.admin_notes = notes_to_store
+            flag.save()
+
+        return Response(
+            {
+                'user_id': target_user.id,
+                'action': action_type,
+                'reviewed_flag_count': pending_count,
+                'deleted_message_count': deleted_messages,
+                'restriction': restriction_data,
+            },
+            status=status.HTTP_200_OK
+        )
+
     @action(detail=True, methods=['post'])
     def take_action(self, request, pk=None):
         """Admin takes action on flagged message."""
@@ -592,79 +1022,37 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
 
         flag = self.get_object()
         action_type = request.data.get('action')  # 'delete', 'restrict', 'approve', 'dismiss'
-        admin_notes = request.data.get('admin_notes', '')
+        admin_notes = request.data.get('admin_notes', '').strip()
 
         if action_type == 'delete':
+            reason = admin_notes or (
+                f"Flagged words: {flag.flagged_words}" if flag.flagged_words else "Deleted from flagged review."
+            )
             flag.message.is_deleted = True
             flag.message.deleted_by = request.user
             flag.message.deleted_at = timezone.now()
+            flag.message.deletion_reason = reason
             flag.message.save()
+            MessageDeletionLog.objects.create(
+                message=flag.message,
+                deleted_by=request.user,
+                reason=reason,
+            )
             flag.status = 'DELETED'
+            admin_notes = reason
 
         elif action_type == 'restrict':
             # Restrict user globally (across all chats) - temp mute or permanent remove
             is_permanent = bool(request.data.get('is_permanent', False))
 
-            # Support hours+minutes in request, fallback to old restrict_duration hours
-            restrict_hours = request.data.get('restrict_duration_hours')
-            restrict_minutes = request.data.get('restrict_duration_minutes')
-            raw_duration = request.data.get('restrict_duration')
-
-            parsed_hours = None
-            parsed_minutes = None
-
-            if restrict_hours is not None:
-                try:
-                    parsed_hours = int(restrict_hours)
-                except (ValueError, TypeError):
-                    parsed_hours = 0
-
-            if restrict_minutes is not None:
-                try:
-                    parsed_minutes = int(restrict_minutes)
-                except (ValueError, TypeError):
-                    parsed_minutes = 0
-
-            if parsed_hours is None and raw_duration is not None:
-                try:
-                    parsed_hours = int(raw_duration)
-                except (ValueError, TypeError):
-                    parsed_hours = 0
-
-            parsed_hours = parsed_hours if parsed_hours is not None else 0
-            parsed_minutes = parsed_minutes if parsed_minutes is not None else 0
-
-            parsed_hours = max(0, parsed_hours)
-            parsed_minutes = max(0, min(60, parsed_minutes))
-
-            if parsed_hours == 0 and parsed_minutes == 0:
-                parsed_minutes = 30
-
-            restriction_duration_delta = timedelta(hours=parsed_hours, minutes=parsed_minutes)
-            if restriction_duration_delta.total_seconds() <= 0:
-                restriction_duration_delta = timedelta(minutes=30)
-
-            restriction, created = ChatRestriction.objects.get_or_create(
-                chat=None,  # Global restriction - applies to ALL chats
+            restriction_duration_delta = parse_restriction_duration(request.data)
+            apply_admin_restriction(
                 user=flag.message.sender,
-                defaults={
-                    'restriction_type': 'PERMANENT_REMOVE' if is_permanent else 'TEMP_MUTE',
-                    'restricted_by': request.user,
-                    'reason': f"Flagged message with words: {flag.flagged_words}",
-                    'expires_at': None if is_permanent else (timezone.now() + restriction_duration_delta),
-                }
+                restricted_by=request.user,
+                is_permanent=is_permanent,
+                reason=f"Flagged message with words: {flag.flagged_words}",
+                restriction_duration_delta=restriction_duration_delta,
             )
-
-            if not created:
-                if is_permanent:
-                    restriction.restriction_type = 'PERMANENT_REMOVE'
-                    restriction.expires_at = None
-                else:
-                    restriction.restriction_type = 'TEMP_MUTE'
-                    restriction.expires_at = timezone.now() + restriction_duration_delta
-                restriction.restricted_by = request.user
-                restriction.reason = f"Flagged message with words: {flag.flagged_words}"
-                restriction.save()
 
             flag.status = 'USER_RESTRICTED'
 
@@ -830,15 +1218,23 @@ class ChatRequestViewSet(viewsets.ModelViewSet):
             )
 
         # Create individual chat if it doesn't exist
-        chat, created = Chat.objects.get_or_create(
-            chat_type='INDIVIDUAL',
-            creator=request.user,
-            participant_two=recipient,
-            defaults={'school_year': request.data.get('school_year', '')}
-        )
+        # Look for existing individual chat in either direction
+        chat = Chat.objects.filter(chat_type='INDIVIDUAL').filter(
+            (Q(creator=request.user, participant_two=recipient) |
+             Q(creator=recipient, participant_two=request.user))
+        ).first()
 
-        # Add members
-        if created:
+        created = False
+        if not chat:
+            chat = Chat.objects.create(
+                chat_type='INDIVIDUAL',
+                creator=request.user,
+                participant_two=recipient,
+                school_year=request.data.get('school_year', '')
+            )
+            created = True
+
+            # Add members for newly created chat
             ChatMember.objects.get_or_create(chat=chat, user=request.user)
             ChatMember.objects.get_or_create(chat=chat, user=recipient)
 

@@ -391,15 +391,10 @@
 }
 
 /* ========== RESPONSIVE ========== */
-@media (max-width: 768px) {
+/* ── Tablet (1024px - 768px) ── */
+@media (max-width: 1024px) {
   .org-chart-container {
-    padding: 16px;
-  }
-
-  .org-chart-header {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
+    padding: 20px;
   }
 
   .org-chart-title {
@@ -407,15 +402,211 @@
   }
 
   .org-level-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .org-card {
+    padding: 12px;
+  }
+
+  .org-card-role {
+    font-size: 12px;
+  }
+
+  .org-card-name {
+    font-size: 13px;
+  }
+}
+
+/* ── Mobile (<768px) ── */
+@media (max-width: 768px) {
+  .org-chart-container {
+    padding: 14px;
+  }
+
+  .org-chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    gap: 12px;
+  }
+
+  .org-chart-title {
+    font-size: 18px;
+  }
+
+  .org-chart-subtitle {
+    font-size: 13px;
+  }
+
+  .org-refresh-btn {
+    align-self: flex-end;
+    width: 36px;
+    height: 36px;
+  }
+
+  .org-chart-controls {
+    gap: 6px;
+    padding-bottom: 10px;
+  }
+
+  .org-view-btn {
+    padding: 7px 12px;
+    font-size: 13px;
+    margin-bottom: -11px;
+  }
+
+  .org-level-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .org-list-table {
     font-size: 12px;
+    min-width: 750px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .org-list-table th,
   .org-list-table td {
-    padding: 8px 12px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .org-card {
+    padding: 12px;
+  }
+
+  .org-card-role {
+    font-size: 11px;
+  }
+
+  .org-card-name {
+    font-size: 12px;
+  }
+
+  .org-card-dept {
+    font-size: 11px;
+  }
+}
+
+/* ── Small Mobile (<600px) ── */
+@media (max-width: 600px) {
+  .org-chart-container {
+    padding: 12px;
+  }
+
+  .org-chart-title {
+    font-size: 16px;
+  }
+
+  .org-chart-subtitle {
+    font-size: 12px;
+  }
+
+  .org-refresh-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+
+  .org-view-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .org-list-table {
+    min-width: 650px;
+    font-size: 11px;
+  }
+
+  .org-list-table th {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+
+  .org-list-table td {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .org-card {
+    padding: 10px;
+  }
+
+  .org-card-role {
+    font-size: 10px;
+  }
+
+  .org-card-name {
+    font-size: 11px;
+  }
+}
+
+/* ── Ultra Mobile (<480px) ── */
+@media (max-width: 480px) {
+  .org-chart-container {
+    padding: 10px;
+  }
+
+  .org-chart-title {
+    font-size: 14px;
+  }
+
+  .org-chart-subtitle {
+    font-size: 11px;
+  }
+
+  .org-refresh-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .org-view-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .org-level-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .org-list-table {
+    min-width: 600px;
+    font-size: 10px;
+  }
+
+  .org-list-table th {
+    padding: 5px 6px;
+    font-size: 9px;
+  }
+
+  .org-list-table td {
+    padding: 5px 6px;
+    font-size: 10px;
+  }
+
+  .org-card {
+    padding: 8px;
+  }
+
+  .org-card-role {
+    font-size: 9px;
+  }
+
+  .org-card-name {
+    font-size: 10px;
+  }
+
+  .org-card-dept {
+    font-size: 9px;
+  }
+
+  .org-total-count {
+    font-size: 12px;
   }
 }

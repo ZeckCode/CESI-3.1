@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   UserPlus,
@@ -15,36 +14,59 @@ import {
   X,
   FileBarChart,
   MessageSquare,
+  UserCircle2,
 } from "lucide-react";
 import "../AdminWebsiteCSS/Sidebar.css";
+import { apiFetch } from "../api/apiFetch";
 import { useAuth } from "../Auth/useAuth";
-import { getToken } from "../Auth/auth";
+import { getDisplayName } from "../../utils/userDisplayName";
 
 
 
 
-function getInitials(name = "User") {
-  const parts = String(name).trim().split(/\s+/);
-  const first = parts[0]?.[0] || "U";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (first + last).toUpperCase();
+function getAvatarLetter(username = "User") {
+  const value = String(username || "").trim();
+  return value ? value.charAt(0).toUpperCase() : "U";
 }
 
-function roleLabel(role) {
-  if (!role) return "User";
-  const r = String(role).toLowerCase();
-  if (r.includes("admin")) return "Administrator";
-  return role;
-}
-
-export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggleCollapse }) {
-  const navigate = useNavigate();
+export default function Sidebar({
+  activeMenu,
+  onMenuClick,
+  isCollapsed,
+  onToggleCollapse,
+  isHoverExpanded = false,
+  onHoverChange,
+}) {
   const { user, logout } = useAuth();
+  const [currentUser, setCurrentUser] = useState(user || null);
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState({});
   const sidebarRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCurrentUser = async () => {
+      try {
+        const res = await apiFetch("/api/accounts/me/detail/");
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (mounted && data) {
+          setCurrentUser((prev) => ({ ...(prev || {}), ...data }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch current user:", error);
+      }
+    };
+
+    loadCurrentUser();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Full menu definition
   const menuSections = useMemo(
@@ -84,6 +106,7 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
       {
         label: "SYSTEM",
         items: [
+          { id: "admin-profile", label: "Admin Profile", icon: UserCircle2 },
           { id: "cms", label: "CMS Module", icon: Globe },
           { id: "reports", label: "Reports", icon: FileBarChart },
           { id: "password-reset-requests", label: "Password Reset Requests", icon: UsersRound },
@@ -149,11 +172,21 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
     return false;
   };
 
+  const handleSidebarMouseEnter = () => {
+    if (!isMobile && isCollapsed) {
+      onHoverChange?.(true);
+    }
+  };
+
+  const handleSidebarMouseLeave = () => {
+    onHoverChange?.(false);
+  };
+
   const toggleMenu = (menuId) => setExpandedMenus((p) => ({ ...p, [menuId]: !p[menuId] }));
 
   const handleMenuClick = (menuId, hasSubItems) => {
     // Auto-expand sidebar when clicking in collapsed/icon mode
-    if (isCollapsed && !isMobile) {
+    if (isCollapsed && !isMobile && !isHoverExpanded) {
       onToggleCollapse?.();
     }
     if (hasSubItems) {
@@ -171,13 +204,8 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
 
   const handleLogout = async () => {
     try {
-      const token = getToken();
-      await fetch("/api/accounts/logout/", {
+      await apiFetch("/api/accounts/logout/", {
         method: "POST",
-        credentials: "include",
-        headers: {
-          ...(token ? { Authorization: `Token ${token}` } : {}),
-        },
       });
     } catch {;}
 
@@ -187,7 +215,12 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
   };
 
   const visible = !isMobile || drawerOpen;
-  const showLabels = !isCollapsed || isMobile;
+  const showLabels = !isCollapsed || isMobile || isHoverExpanded;
+  const displayName = getDisplayName(currentUser) || currentUser?.username || "Admin";
+  const avatarLetter = getAvatarLetter(displayName);
+  const sidebarInlineStyle = !isMobile && isCollapsed
+    ? { width: isHoverExpanded ? "var(--as-wide)" : "var(--as-narrow)" }
+    : undefined;
 
   return (
     <>
@@ -212,34 +245,38 @@ export default function Sidebar({ activeMenu, onMenuClick, isCollapsed, onToggle
 
       <aside
         ref={sidebarRef}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
+        style={sidebarInlineStyle}
         className={[
           "as-sidebar",
           visible ? "as-visible" : "as-hidden",
           !isMobile && isCollapsed ? "as-collapsed" : "",
+          !isMobile && isCollapsed && isHoverExpanded ? "as-hover-expanded" : "",
           isMobile ? "as-mobile" : "as-desktop",
         ].join(" ")}
       >
         {/* Fixed top section */}
         <div className="as-top-section">
           {/* Admin Panel card */}
-          {user && showLabels && (
+          {showLabels && (
             <div className="as-usercard">
-              <div className="as-avatar">{getInitials(user?.full_name || user?.username || user?.email)}</div>
+              <div className="as-avatar">{avatarLetter}</div>
               <div className="as-usermeta">
                 <div className="as-userrow">
-                  <div className="as-username">Admin Panel</div>
+                  <div className="as-username">{displayName}</div>
                 </div>
                 <div className="as-usersub">
-                  <div className="as-role">{roleLabel(user?.role)}</div>
+                  <div className="as-userhandle">Admin Portal</div>
                 </div>
               </div>
             </div>
           )}
 
           {/* Collapsed user avatar */}
-          {user && isCollapsed && !isMobile && (
+          {isCollapsed && !isMobile && !isHoverExpanded && (
             <div className="as-usercard-collapsed">
-              <div className="as-avatar">{getInitials(user?.full_name || user?.username || user?.email)}</div>
+              <div className="as-avatar">{avatarLetter}</div>
             </div>
           )}
         </div>

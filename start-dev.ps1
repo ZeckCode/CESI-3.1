@@ -31,20 +31,24 @@
 $ProjectRoot = $PSScriptRoot
 if (-not $ProjectRoot) { $ProjectRoot = (Get-Location).Path }
 
-$BackendDir    = Join-Path $ProjectRoot "BackEnd"
-$FrontendDir   = Join-Path (Join-Path $ProjectRoot "FrontEnd") "Main"
-$VenvDir       = Join-Path $BackendDir "venv"
-$VenvScripts   = Join-Path $VenvDir "Scripts"
+Set-Location $ProjectRoot
+
+$BackendDir = Join-Path $ProjectRoot "BackEnd"
+$FrontendSourceDir = Join-Path (Join-Path $ProjectRoot "FrontEnd") "Main"
+$LocalDevRoot = Join-Path $env:LOCALAPPDATA "CESI-Dev"
+$FrontendDir = Join-Path $LocalDevRoot "CESI-3.1\FrontEnd\Main"
+$VenvDir = Join-Path $LocalDevRoot "CESI-3.1\venv"
+$VenvScripts = Join-Path $VenvDir "Scripts"
 $ActivateScript = Join-Path $VenvScripts "Activate.ps1"
-$VenvPython    = Join-Path $VenvScripts "python.exe"
-$VenvPip       = Join-Path $VenvScripts "pip.exe"
-$ReqFile       = Join-Path $ProjectRoot "requirements.txt"
+$VenvPython = Join-Path $VenvScripts "python.exe"
+$VenvPip = Join-Path $VenvScripts "pip.exe"
+$ReqFile = Join-Path $BackendDir "requirements.txt"
 
 # --- Helper functions ---
-function Write-Step  { param($msg) Write-Host "`n>> $msg" -ForegroundColor Cyan }
-function Write-Ok    { param($msg) Write-Host "   OK: $msg" -ForegroundColor Green }
-function Write-Warn  { param($msg) Write-Host "   !! $msg" -ForegroundColor Yellow }
-function Write-Err   { param($msg) Write-Host "   ERROR: $msg" -ForegroundColor Red }
+function Write-Step { param($msg) Write-Host "`n>> $msg" -ForegroundColor Cyan }
+function Write-Ok { param($msg) Write-Host "   OK: $msg" -ForegroundColor Green }
+function Write-Warn { param($msg) Write-Host "   !! $msg" -ForegroundColor Yellow }
+function Write-Err { param($msg) Write-Host "   ERROR: $msg" -ForegroundColor Red }
 
 # =============================================
 #  PRE-FLIGHT CHECKS
@@ -54,15 +58,30 @@ Write-Host "=============================================" -ForegroundColor Mage
 Write-Host "   CESI Dev Server Launcher" -ForegroundColor Magenta
 Write-Host "=============================================" -ForegroundColor Magenta
 
-# Check Python
+# Prefer Python 3.12 for compatible Django/Pillow dependencies.
 Write-Step "Checking Python..."
-$pyExe = Get-Command python -ErrorAction SilentlyContinue
-if (-not $pyExe) {
-    Write-Err "Python not found! Install from https://python.org (check 'Add to PATH')"
+$PythonLauncher = $null
+$PythonArgs = @()
+$pyLauncher = Get-Command py -ErrorAction SilentlyContinue
+if ($pyLauncher) {
+    & py -3.12 --version 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        $PythonLauncher = "py"
+        $PythonArgs = @("-3.12")
+    }
+}
+if (-not $PythonLauncher) {
+    $pythonExe = Get-Command python -ErrorAction SilentlyContinue
+    if ($pythonExe) {
+        $PythonLauncher = $pythonExe.Source
+    }
+}
+if (-not $PythonLauncher) {
+    Write-Err "Python not found! Install Python 3.12 and add it to PATH."
     Read-Host "Press Enter to exit"
     exit 1
 }
-$pyVersion = & python --version 2>&1
+$pyVersion = & $PythonLauncher @PythonArgs --version 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Err "Python failed to run. Reinstall or fix PATH."
     Read-Host "Press Enter to exit"
@@ -106,67 +125,52 @@ Write-Ok "npm $npmVersion"
 # =============================================
 Write-Step "Setting up Backend..."
 
-# Create venv if missing or broken
 $venvNeedsRecreate = $false
 if (-not (Test-Path $VenvPython)) {
     $venvNeedsRecreate = $true
-    Write-Warn "Virtual environment not found"
-} else {
-    # Test if the venv actually works (catches venvs created on different machines)
+    Write-Warn "Local virtual environment not found"
+}
+else {
     Write-Step "Verifying virtual environment..."
-    $testResult = & "$VenvPython" -c "print('ok')" 2>&1
+    $testResult = & "$VenvPython" -c "import pip, django; print('ok')" 2>&1
     if ($testResult -ne "ok") {
-        Write-Warn "Virtual environment is broken (was created on a different machine)"
+        Write-Warn "Virtual environment is incomplete or broken"
         Write-Warn "Error: $testResult"
         $venvNeedsRecreate = $true
     }
 }
 
 if ($venvNeedsRecreate) {
-    # Remove broken venv if it exists
     if (Test-Path $VenvDir) {
-        Write-Warn "Removing broken virtual environment..."
-        Remove-Item -Recurse -Force "$VenvDir"
+        Write-Warn "Removing broken local virtual environment..."
+        Remove-Item -Recurse -Force "$VenvDir" -ErrorAction SilentlyContinue
     }
-    Write-Warn "Creating new virtual environment..."
-    & python -m venv "$VenvDir"
-    if (-not (Test-Path $VenvPython)) {
+    Write-Warn "Creating a fresh virtual environment outside OneDrive..."
+    & $PythonLauncher @PythonArgs -m venv "$VenvDir"
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $VenvPython)) {
         Write-Err "Failed to create venv at: $VenvDir"
-        Write-Err "Try manually: cd BackEnd && python -m venv venv"
         Read-Host "Press Enter to exit"
         exit 1
     }
     Write-Ok "Virtual environment created"
-} else {
+}
+else {
     Write-Ok "Virtual environment exists and is valid"
 }
 
-# Activate venv
-Write-Step "Activating virtual environment..."
-try {
-    & $ActivateScript
-    Write-Ok "Virtual environment activated"
-} catch {
-    Write-Err "Could not activate venv. Try: .\BackEnd\venv\Scripts\Activate.ps1"
-    Write-Err "If you get an execution policy error, run:"
-    Write-Err "  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned"
+# Directly use the venv interpreter; activation is not required.
+Write-Step "Installing/updating Python packages..."
+& "$VenvPython" -m pip install --upgrade pip --disable-pip-version-check
+if ($LASTEXITCODE -ne 0) {
+    Write-Err "pip upgrade failed"
     Read-Host "Press Enter to exit"
     exit 1
 }
-
-# Install / update Python deps
-Write-Step "Installing/updating Python packages..."
-Write-Step "Updating pip..."
-& "$VenvPython" -m pip install --upgrade pip --quiet --disable-pip-version-check 2>&1 | Out-Null
+& "$VenvPython" -m pip install -r "$ReqFile" --disable-pip-version-check
 if ($LASTEXITCODE -ne 0) {
-    Write-Warn "pip upgrade had warnings - trying again with output..."
-    & "$VenvPython" -m pip install --upgrade pip
-}
-Write-Ok "pip is up to date"
-& "$VenvPip" install -r "$ReqFile" --quiet --disable-pip-version-check 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    Write-Warn "pip install had warnings - trying again with output..."
-    & "$VenvPip" install -r "$ReqFile"
+    Write-Err "Python dependency installation failed"
+    Read-Host "Press Enter to exit"
+    exit 1
 }
 Write-Ok "Python packages up to date"
 
@@ -179,6 +183,7 @@ $makemigrationsOutput = & "$VenvPython" manage.py makemigrations --noinput 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Err "makemigrations failed"
     Write-Err $makemigrationsOutput
+    Pop-Location
     Read-Host "Press Enter to exit"
     exit 1
 }
@@ -200,7 +205,8 @@ $DbBackupFile = Join-Path $BackendDir "db_backup.json"
 if (Test-Path $DbBackupFile) {
     Write-Ok "Found db_backup.json - checking for data import..."
     & "$VenvPython" manage.py import_from_json --input "$DbBackupFile" 2>&1 | ForEach-Object { Write-Host "   $_" }
-} else {
+}
+else {
     Write-Warn "No db_backup.json found - database will use existing data"
 }
 
@@ -214,6 +220,38 @@ Pop-Location
 #  FRONTEND SETUP
 # =============================================
 Write-Step "Setting up Frontend..."
+
+Write-Step "Preparing local frontend mirror..."
+New-Item -ItemType Directory -Path $FrontendDir -Force -ErrorAction Stop | Out-Null
+
+$excludeDirs = @("node_modules", ".vite", "dist")
+& robocopy "$FrontendSourceDir" "$FrontendDir" /E /XD $excludeDirs /XF "*.log" /R:2 /W:1
+if ($LASTEXITCODE -gt 7) {
+    Write-Warn "Robocopy encountered a problem. Retrying with PowerShell copy..."
+    Get-ChildItem -LiteralPath $FrontendSourceDir -Force | ForEach-Object {
+        if ($excludeDirs -contains $_.Name) { return }
+        if ($_.PSIsContainer) {
+            Copy-Item -LiteralPath $_.FullName -Destination $FrontendDir -Recurse -Force -ErrorAction Stop
+        }
+        else {
+            Copy-Item -LiteralPath $_.FullName -Destination $FrontendDir -Force -ErrorAction Stop
+        }
+    }
+}
+
+if (-not (Test-Path (Join-Path $FrontendDir "package.json"))) {
+    Write-Err "Could not create the local frontend mirror at: $FrontendDir"
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+
+Write-Ok "Frontend mirrored locally at $FrontendDir"
+
+# Remove stale Vite artifacts in the local mirror.
+$viteCacheDir = Join-Path $FrontendDir "node_modules/.vite"
+if (Test-Path $viteCacheDir) {
+    Remove-Item -Recurse -Force $viteCacheDir -ErrorAction SilentlyContinue
+}
 
 function Test-NpmPackageInstalled {
     param(
@@ -229,6 +267,7 @@ Push-Location "$FrontendDir"
 $packageJsonPath = Join-Path $FrontendDir "package.json"
 $packageLockPath = Join-Path $FrontendDir "package-lock.json"
 $nodeModulesPath = Join-Path $FrontendDir "node_modules"
+$dejaVuFontPath = Join-Path $FrontendDir "node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf"
 
 if (-not (Test-Path $packageJsonPath)) {
     Write-Err "package.json not found in frontend: $FrontendDir"
@@ -262,7 +301,8 @@ if ($needsNpmInstall) {
         exit 1
     }
     Write-Ok "Frontend packages installed"
-} else {
+}
+else {
     Write-Ok "Frontend packages already installed - skipping npm install"
 }
 
@@ -278,10 +318,16 @@ if (-not (Test-NpmPackageInstalled "jspdf")) {
 if (-not (Test-NpmPackageInstalled "jspdf-autotable")) {
     $missingFrontendPackages += "jspdf-autotable@3.5.31"
 }
+if (-not (Test-NpmPackageInstalled "html2canvas")) {
+    $missingFrontendPackages += "html2canvas"
+}
+if (-not (Test-NpmPackageInstalled "dejavu-fonts-ttf")) {
+    $missingFrontendPackages += "dejavu-fonts-ttf"
+}
 
 if ($missingFrontendPackages.Count -gt 0) {
     Write-Step "Installing missing frontend libraries: $($missingFrontendPackages -join ', ')"
-    & npm install --save --legacy-peer-deps --no-audit --no-fund @missingFrontendPackages
+    & npm install --save --legacy-peer-deps --no-audit --no-fund $missingFrontendPackages
     if ($LASTEXITCODE -ne 0) {
         Write-Err "Failed to install required frontend libraries"
         Pop-Location
@@ -289,9 +335,20 @@ if ($missingFrontendPackages.Count -gt 0) {
         exit 1
     }
     Write-Ok "Required frontend libraries installed"
-} else {
-    Write-Ok "react-quill-new, jspdf and jspdf-autotable already installed"
 }
+else {
+    Write-Ok "react-quill-new, jspdf, jspdf-autotable, html2canvas and dejavu-fonts-ttf already installed"
+}
+
+if (-not (Test-Path $dejaVuFontPath)) {
+    Write-Err "DejaVu font file not found at: $dejaVuFontPath"
+    Write-Err "Reinstall dejavu-fonts-ttf in FrontEnd/Main or delete node_modules and rerun start-dev.ps1"
+    Pop-Location
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+
+Write-Ok "DejaVuSans.ttf found for PDF export"
 
 Pop-Location
 
@@ -313,7 +370,6 @@ Write-Host ""
 # Start Django in a NEW PowerShell window (use the venv python directly)
 $djangoCmd = @"
 Set-Location '$BackendDir'
-& '$ActivateScript'
 Write-Host '========================================' -ForegroundColor Green
 Write-Host '  Django server running on port 8000' -ForegroundColor Green
 Write-Host '  Press Ctrl+C to stop' -ForegroundColor Green

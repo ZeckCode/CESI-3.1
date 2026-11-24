@@ -87,3 +87,83 @@ body, html {
   margin-bottom: 10px;
   font-size: 14px;
 }
+
+/* ── Tablet (768px) ── */
+@media (max-width: 768px) {
+  .login-container {
+    width: 90%;
+    max-width: 350px;
+    padding: 2rem 2rem;
+  }
+
+  .login-container h1 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .login-container input {
+    font-size: 16px;
+    padding: 12px 12px;
+    min-height: 44px;
+  }
+
+  .login-container button {
+    font-size: 16px;
+    padding: 12px;
+    min-height: 44px;
+  }
+}
+
+/* ── Mobile (480px) ── */
+@media (max-width: 480px) {
+  .login-page {
+    padding: 16px;
+  }
+
+  .login-container {
+    width: 100%;
+    max-width: 320px;
+    padding: 1.5rem 1.5rem;
+  }
+
+  .login-container h1 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+  }
+
+  .login-container input {
+    font-size: 16px;
+    padding: 10px 12px;
+    margin: 8px 0;
+    min-height: 44px;
+  }
+
+  .login-container button {
+    font-size: 15px;
+    padding: 11px;
+    min-height: 44px;
+  }
+
+  .forgot-pass {
+    font-size: 13px;
+    margin: 6px 0 30px;
+  }
+}
+
+/* ── Small Mobile (360px) ── */
+@media (max-width: 360px) {
+  .login-container {
+    width: 95%;
+    padding: 1.2rem 1rem;
+  }
+
+  .login-container h1 {
+    font-size: 1.1rem;
+  }
+
+  .login-container input {
+    margin: 7px 0;
+    padding: 9px 10px;
+    font-size: 15px;
+  }
+}

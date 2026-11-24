@@ -6,7 +6,7 @@ export const TUITION_FEES = {
     monthly: 1700,
     misc_aug: 5120,
     misc_nov: 5120,
-    assessment: 300,
+    assessment: 300,// Assessment Fee for New Students/Transferees
     total_cash: 34240,       // includes tuition + misc
     total_installment: 36240 // includes tuition + misc
   },
@@ -18,7 +18,7 @@ export const TUITION_FEES = {
     monthly: 1750,
     misc_aug: 5120,
     misc_nov: 5120,
-    assessment: 300,
+    assessment: 300,// Assessment Fee for New Students/Transferees
     total_cash: 34740,
     total_installment: 36740
   },
@@ -30,7 +30,7 @@ export const TUITION_FEES = {
     monthly: 2300,
     misc_aug: 5920,
     misc_nov: 5920,
-    assessment: 300,
+    assessment: 300,// Assessment Fee for New Students/Transferees
     total_cash: 37340,
     total_installment: 39340
   },
@@ -42,7 +42,7 @@ export const TUITION_FEES = {
     monthly: 2360,
     misc_aug: 6120,
     misc_nov: 6120,
-    assessment: 300,
+    assessment: 300,// Assessment Fee for New Students/Transferees
     total_cash: 38740,
     total_installment: 40740
   },
@@ -54,7 +54,7 @@ export const TUITION_FEES = {
     monthly: 2360,
     misc_aug: 6645,
     misc_nov: 6645,
-    assessment: 300,
+    assessment: 300, // Assessment Fee for New Students/Transferees
     total_cash: 39790,
     total_installment: 41790
   },

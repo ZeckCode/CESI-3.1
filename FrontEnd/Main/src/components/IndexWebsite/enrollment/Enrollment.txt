@@ -1,0 +1,446 @@
+IndexWebsite/
+  enrollment/
+    EnrollmentForm.jsx
+    EnrollmentClosed.jsx
+    EnrollmentStepper.jsx
+    FieldError.jsx
+    constants.js
+    helpers.js
+    validators.js
+    steps/
+      StepPrivacy.jsx
+      StepInstructions.jsx
+      StepAcademic.jsx
+      StepStudent.jsx
+      StepFamily.jsx
+      StepDocuments.jsx
+      StepPayment.jsx
+
+
+
+
+
+      // EnrollmentForm.jsx
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { GRADE_AGE_RULES } from "../../../config/EnrollmentConfig.js";
+import { apiFetch } from "../../api/apiFetch";
+import { STEP_KEYS } from "./constants";
+import { fmtDate, buildAddress, buildName, normalizePHMobile } from "./helpers";
+import {
+  validateAcademicStep,
+  validateStudentStep,
+  validateFamilyStep,
+  validateDocumentsStep,
+  validatePaymentStep,
+  validateAgeForGrade,
+} from "./validators";
+import EnrollmentClosed from "./EnrollmentClosed";
+import EnrollmentStepper from "./EnrollmentStepper";
+import StepPrivacy from "./steps/StepPrivacy";
+import StepInstructions from "./steps/StepInstructions";
+import StepAcademic from "./steps/StepAcademic";
+import StepStudent from "./steps/StepStudent";
+import StepFamily from "./steps/StepFamily";
+import StepDocuments from "./steps/StepDocuments";
+import StepPayment from "./steps/StepPayment";
+
+import "../../IndexWebsiteCSS/enrollment/EnrollmentForm.css";
+
+
+const [currentStep, setCurrentStep] = useState(STEP_KEYS.PRIVACY);
+const [errors, setErrors] = useState({});
+const [submitError, setSubmitError] = useState("");
+const [isSubmitting, setIsSubmitting] = useState(false);
+
+const [form, setForm] = useState({...});
+const [files, setFiles] = useState({...});
+
+const [settings, setSettings] = useState(null);
+const [settingsLoading, setSettingsLoading] = useState(true);
+
+const [tuition, setTuition] = useState(null);
+const [tuitionLoading, setTuitionLoading] = useState(false);
+const [tuitionError, setTuitionError] = useState("");
+
+
+
+{currentStep === STEP_KEYS.PRIVACY && (
+  <StepPrivacy onNext={() => setCurrentStep(STEP_KEYS.INSTRUCTIONS)} />
+)}
+
+{currentStep === STEP_KEYS.INSTRUCTIONS && (
+  <StepInstructions
+    onBack={() => setCurrentStep(STEP_KEYS.PRIVACY)}
+    onNext={() => setCurrentStep(STEP_KEYS.ACADEMIC)}
+  />
+)}
+
+{currentStep === STEP_KEYS.ACADEMIC && (
+  <StepAcademic
+    form={form}
+    setForm={setForm}
+    errors={errors}
+    registerFieldRef={registerFieldRef}
+    gradeOptions={gradeOptions}
+  />
+)}
+
+const validateCurrentStep = () => {
+  let stepErrors = {};
+
+  if (currentStep === STEP_KEYS.ACADEMIC) {
+    stepErrors = validateAcademicStep(form);
+  } else if (currentStep === STEP_KEYS.STUDENT) {
+    stepErrors = validateStudentStep(form);
+  } else if (currentStep === STEP_KEYS.FAMILY) {
+    stepErrors = validateFamilyStep(form);
+  } else if (currentStep === STEP_KEYS.DOCUMENTS) {
+    stepErrors = validateDocumentsStep(files);
+  } else if (currentStep === STEP_KEYS.PAYMENT) {
+    stepErrors = validatePaymentStep({
+      paymentMode: form.paymentMode,
+      paymentMethod: form.paymentMethod,
+      paymentProofFile: files.paymentProofFile,
+    });
+  }
+
+  setErrors(stepErrors);
+
+  const firstKey = Object.keys(stepErrors)[0];
+  if (firstKey) focusFieldError(firstKey);
+
+  return Object.keys(stepErrors).length === 0;
+};
+
+
+
+const nextStep = () => {
+  if (currentStep === STEP_KEYS.PRIVACY || currentStep === STEP_KEYS.INSTRUCTIONS) {
+    setCurrentStep((prev) => prev + 1);
+    return;
+  }
+
+  if (validateCurrentStep()) {
+    setCurrentStep((prev) => prev + 1);
+  }
+};
+
+
+
+===========================
+// EnrollmentClosed.jsx
+import React from "react";
+import { fmtDate } from "./helpers";
+
+const EnrollmentClosed = ({ window_, onClose }) => {
+  return (
+    <div className="enrollment-container1">
+      <div className="enrollment-closed">
+        <div className="enrollment-closed__icon">🔒</div>
+        <h2 className="enrollment-closed__title">Enrollment is Currently Closed</h2>
+        <p className="enrollment-closed__subtitle">
+          We are not accepting enrollment submissions at this time.
+        </p>
+
+        <div className="enrollment-closed__info">
+          <div className="enrollment-closed__info-row">
+            <span>📅 Last enrollment period</span>
+            <strong>
+              {fmtDate(window_.openDate)} – {fmtDate(window_.closeDate)}
+            </strong>
+          </div>
+
+          <div className="enrollment-closed__info-row">
+            <span>🗓 Next enrollment opens</span>
+            <strong>{fmtDate(window_.nextOpenDate)}</strong>
+          </div>
+        </div>
+
+        <p className="enrollment-closed__note">
+          For concerns or late enrollment requests, please contact the school office directly.
+        </p>
+
+        {onClose && (
+          <button className="enrollment-closed__btn" onClick={onClose}>
+            Back to Home
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default EnrollmentClosed;
+
+
+===============================
+
+
+// FieldError.jsx
+const FieldError = ({ error }) => {
+  if (!error) return null;
+  return <div className="field-error">{Array.isArray(error) ? error[0] : error}</div>;
+};
+
+export default FieldError;
+
+=====================
+
+
+
+// EnrollmentStepper.jsx
+import React from "react";
+
+const EnrollmentStepper = ({ currentStep }) => {
+  const steps = [
+    "Privacy",
+    "Instructions",
+    "Academic",
+    "Student",
+    "Family",
+    "Documents",
+    "Payment",
+  ];
+
+  return (
+    <div className="stepper">
+      {steps.map((label, index) => {
+        const isActive = currentStep === index;
+        const isDone = currentStep > index;
+
+        return (
+          <div
+            key={label}
+            className={`stepper__item ${isActive ? "is-active" : ""} ${
+              isDone ? "is-done" : ""
+            }`}
+          >
+            <span className="stepper__circle">{index + 1}</span>
+            <small>{label}</small>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+export default EnrollmentStepper;
+
+
+====================================
+// validators.js
+import { GRADE_AGE_RULES } from "../../../config/EnrollmentConfig.js";
+import { LRN_REQUIRED_GRADES } from "./constants";
+import { calcAge, normalizePHMobile } from "./helpers";
+
+export const validateAgeForGrade = (birthDate, gradeLevel) => {
+  if (!birthDate || !gradeLevel) return null;
+
+  const rule = GRADE_AGE_RULES[gradeLevel];
+  if (!rule) return null;
+
+  const bd = new Date(birthDate + "T00:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (bd >= today) {
+    return { ok: false, msg: "Birth date must be earlier than today." };
+  }
+
+  const age = calcAge(birthDate);
+
+  if (age < 3) {
+    return { ok: false, msg: "Student must be at least 3 years old." };
+  }
+
+  if (age > 18) {
+    return { ok: false, msg: "Student age exceeds the allowed school range." };
+  }
+
+  if (age < rule.min) {
+    return {
+      ok: false,
+      msg: `Student is too young for ${rule.label}. Minimum age is ${rule.min}.`,
+    };
+  }
+
+  if (age > rule.max) {
+    return {
+      ok: false,
+      msg: `Student is too old for ${rule.label}. Maximum age is ${rule.max}.`,
+    };
+  }
+
+  return {
+    ok: true,
+    msg: `Age ${age} is valid for ${rule.label}.`,
+  };
+};
+
+export const validateAcademicStep = ({ studentType, educationLevel, gradeLevel, lrn }) => {
+  const errors = {};
+
+  if (!studentType) errors.studentType = "Please select student type.";
+
+  if (studentType === "new") {
+    if (!educationLevel) errors.educationLevel = "Please select education level.";
+    if (!gradeLevel) errors.gradeLevel = "Please select grade level.";
+
+    if (LRN_REQUIRED_GRADES.includes(gradeLevel)) {
+      if (!lrn) errors.lrn = "LRN is required for this grade level.";
+      else if (lrn.length !== 12) errors.lrn = "LRN must be exactly 12 digits.";
+    }
+  }
+
+  return errors;
+};
+
+export const validateStudentStep = (data) => {
+  const errors = {};
+  const ageValidation = validateAgeForGrade(data.birthDate, data.gradeLevel);
+
+  if (!data.lastName.trim()) errors.lastName = "Last name is required.";
+  if (!data.firstName.trim()) errors.firstName = "First name is required.";
+  if (!data.middleName.trim()) errors.middleName = "Middle name is required.";
+  if (!data.birthDate) errors.birthDate = "Birth date is required.";
+  else if (ageValidation && !ageValidation.ok) errors.birthDate = ageValidation.msg;
+
+  if (!data.gender) errors.gender = "Please select gender.";
+  if (!data.email.trim()) errors.email = "Email is required.";
+  if (!data.religion) errors.religion = "Please select religion.";
+
+  if (!data.mobile.trim()) errors.mobile = "Mobile number is required.";
+  else if (!normalizePHMobile(data.mobile)) {
+    errors.mobile = "Enter a valid PH mobile number (09XXXXXXXXX).";
+  }
+
+  if (!data.street.trim()) errors.street = "Street is required.";
+  if (!data.barangay.trim()) errors.barangay = "Barangay is required.";
+  if (!data.city.trim()) errors.city = "City / Municipality is required.";
+  if (!data.province.trim()) errors.province = "Province is required.";
+  if (!data.region) errors.region = "Please select region.";
+
+  return errors;
+};
+
+export const validateFamilyStep = ({ motherContact, fatherContact, guardianContact }) => {
+  const errors = {};
+
+  if (motherContact && !normalizePHMobile(motherContact)) {
+    errors.motherContact = "Enter a valid PH mobile number.";
+  }
+
+  if (fatherContact && !normalizePHMobile(fatherContact)) {
+    errors.fatherContact = "Enter a valid PH mobile number.";
+  }
+
+  if (guardianContact && !normalizePHMobile(guardianContact)) {
+    errors.guardianContact = "Enter a valid PH mobile number.";
+  }
+
+  return errors;
+};
+
+export const validateDocumentsStep = ({ studentPhotoFile }) => {
+  const errors = {};
+
+  if (!studentPhotoFile) {
+    errors.studentPhotoFile = "Please upload a 2x2 picture.";
+  }
+
+  return errors;
+};
+
+export const validatePaymentStep = ({ paymentMode, paymentMethod, paymentProofFile }) => {
+  const errors = {};
+
+  if (!paymentMode) errors.paymentMode = "Please select payment mode.";
+  if (!paymentMethod) errors.paymentMethod = "Please select payment method.";
+
+  if (paymentMethod === "online" && !paymentProofFile) {
+    errors.paymentProofFile = "Please upload proof of payment.";
+  }
+
+  return errors;
+};
+
+
+====================================
+
+// helpers.js
+export const fmtDate = (date) =>
+  date instanceof Date
+    ? date.toLocaleDateString("en-PH", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "—";
+
+export const formatMoney = (value) => Number(value || 0).toLocaleString();
+
+export const onlyDigits = (value, max = 20) =>
+  String(value || "").replace(/\D/g, "").slice(0, max);
+
+export const normalizePHMobile = (number) => {
+  if (!number) return null;
+  const cleaned = String(number).replace(/\D/g, "");
+  if (/^09\d{9}$/.test(cleaned)) return "+63" + cleaned.slice(1);
+  if (/^639\d{9}$/.test(cleaned)) return "+" + cleaned;
+  return null;
+};
+
+export const calcAge = (yyyyMMdd) => {
+  if (!yyyyMMdd) return null;
+  const bd = new Date(yyyyMMdd + "T00:00:00");
+  const today = new Date();
+  let age = today.getFullYear() - bd.getFullYear();
+  const m = today.getMonth() - bd.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < bd.getDate())) age--;
+  return age;
+};
+
+export const buildName = (first, middle, last) =>
+  [first, middle, last].map((p) => p.trim()).filter(Boolean).join(" ");
+
+export const buildAddress = ({ street, barangay, city, province, region }) =>
+  [street, barangay, city, province, region]
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .join(", ");
+
+export const computeEnrollmentWindow = (settings) => {
+  const autoOpen = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const startYear = today.getMonth() >= 5 ? year : year - 1;
+    return new Date(startYear, 5, 1);
+  };
+
+  const openDate = settings?.open_date
+    ? new Date(settings.open_date + "T00:00:00")
+    : autoOpen();
+
+  const days = Math.max(1, parseInt(settings?.window_days ?? 7, 10));
+  const closeDate = new Date(openDate);
+  closeDate.setDate(openDate.getDate() + days - 1);
+  closeDate.setHours(23, 59, 59, 999);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isOpen = today >= openDate && today <= closeDate;
+  const daysLeft = isOpen ? Math.ceil((closeDate - today) / 86400000) : 0;
+
+  const autoAY = () => {
+    const y = openDate.getFullYear();
+    return `${y}-${y + 1}`;
+  };
+
+  const academicYear = settings?.academic_year || autoAY();
+  const nextOpenDate = new Date(closeDate.getFullYear() + 1, 5, 1);
+
+  return { isOpen, openDate, closeDate, daysLeft, academicYear, nextOpenDate };
+};
+
+=====================

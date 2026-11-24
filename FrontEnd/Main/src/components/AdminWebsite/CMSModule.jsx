@@ -1,24 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import "../AdminWebsiteCSS/CMSModule.css";
 import Pagination from './Pagination';
 import { useAuth } from "../Auth/useAuth";
 import { getToken } from "../Auth/auth";
-import PageEditor from "./PageEditor";
-
-const API_BASE = "http://127.0.0.1:8000";
-
+import { apiFetch } from "../api/apiFetch";
+import { API_BASE_URL } from "../../config/api";
+import PageEditor from "./PageEditor";import Toast from '../Global/Toast';
 function toLocalDatetimeInputValue(date = new Date()) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
     date.getDate()
   )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-// Auto-detect JWT vs DRF Token
-function authHeader(token) {
-  if (!token) return {};
-  const isJwt = token.split(".").length === 3;
-  return { Authorization: `${isJwt ? "Bearer" : "Token"} ${token}` };
 }
 
 function isAdmin(user) {
@@ -32,13 +24,23 @@ function isAdmin(user) {
 // Image Modal Component
 function ImageModal({ isOpen, images, currentIndex, onClose, onNext, onPrev }) {
   if (!isOpen) return null;
-
   const currentImage = images[currentIndex];
-  const isVideo = currentImage?.file_url?.match(/\.(mp4|webm|ogg|mov)$/i) || 
-                  currentImage?.file?.match(/\.(mp4|webm|ogg|mov)$/i);
+
+  // Resolve absolute URL for media (handles both file and file_url)
+  const resolveMediaUrl = (pathOrUrl) => {
+    if (!pathOrUrl) return null;
+    if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+    const base = String(API_BASE_URL || '').replace(/\/api\/?$/i, '').replace(/\/$/, '');
+    const p = String(pathOrUrl).replace(/^\/+/, '');
+    return `${base}/${p}`.replace(/([^:]\/)\/+/, '$1');
+  };
+
+  const src = resolveMediaUrl(currentImage?.file_url || currentImage?.file);
+  const isVideo = Boolean(src && src.match(/\.(mp4|webm|ogg|mov)$/i));
 
   const handleDownload = async () => {
-    const url = currentImage.file_url || currentImage.file;
+    const url = src;
+    if (!url) return;
     try {
       const response = await fetch(url);
       const blob = await response.blob();
@@ -107,17 +109,18 @@ function MediaPreview({ media, onImageClick }) {
   return (
     <div className="cms-media-grid">
       {media.map((m, index) => {
-        const url = m.file_url || m.file;
-        const name = String(m.file || "").toLowerCase();
+        const raw = m.file_url || m.file;
+        const src = resolveMediaUrl(raw);
+        const name = String(m.file || m.file_url || "").toLowerCase();
 
-        if (!url) return null;
+        if (!src) return null;
 
         if (name.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
           return (
-            <img 
-              key={m.id} 
-              src={url} 
-              alt="" 
+            <img
+              key={m.id}
+              src={src}
+              alt=""
               className="cms-post-media"
               onClick={() => onImageClick(index)}
             />
@@ -126,19 +129,19 @@ function MediaPreview({ media, onImageClick }) {
 
         if (name.match(/\.(mp4|webm|ogg|mov)$/)) {
           return (
-            <video 
-              key={m.id} 
-              controls 
+            <video
+              key={m.id}
+              controls
               className="cms-post-media"
               onClick={() => onImageClick(index)}
             >
-              <source src={url} />
+              <source src={src} />
             </video>
           );
         }
 
         return (
-          <a key={m.id} href={url} target="_blank" rel="noreferrer">
+          <a key={m.id} href={src} target="_blank" rel="noreferrer">
             Open file
           </a>
         );
@@ -180,15 +183,16 @@ function PostDetailModal({ isOpen, post, onClose, onMediaClick }) {
               <h4>Media</h4>
               <div className="cms-media-grid">
                 {post.media.map((m, index) => {
-                  const url = m.file_url || m.file;
-                  const name = String(m.file || "").toLowerCase();
-                  if (!url) return null;
+                  const raw = m.file_url || m.file;
+                  const src = resolveMediaUrl(raw);
+                  const name = String(m.file || m.file_url || "").toLowerCase();
+                  if (!src) return null;
 
                   if (name.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
                     return (
                       <img
                         key={m.id}
-                        src={url}
+                        src={src}
                         alt=""
                         className="cms-post-media"
                         onClick={() => onMediaClick(index)}
@@ -204,13 +208,13 @@ function PostDetailModal({ isOpen, post, onClose, onMediaClick }) {
                         controls
                         onClick={() => onMediaClick(index)}
                       >
-                        <source src={url} />
+                        <source src={src} />
                       </video>
                     );
                   }
 
                   return (
-                    <a key={m.id} href={url} target="_blank" rel="noreferrer">
+                    <a key={m.id} href={src} target="_blank" rel="noreferrer">
                       Open file
                     </a>
                   );
@@ -254,6 +258,21 @@ export default function CMSModule() {
   
   // New: Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  
+  // Toast state
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((title, message, type = "warning") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const filteredPosts = useMemo(() => {
     const norm = (v) => String(v || "").toLowerCase();
@@ -322,10 +341,7 @@ export default function CMSModule() {
     setLoading(true);
 
     try {
-      const token = getToken();
-      const res = await fetch(`${API_BASE}/api/announcements/`, {
-        headers: authHeader(token),
-      });
+      const res = await apiFetch('/api/announcements/');
 
       if (!res.ok) throw new Error(await readError(res));
 
@@ -409,12 +425,11 @@ export default function CMSModule() {
 
     try {
       const url = editingPostId
-        ? `${API_BASE}/api/announcements/${editingPostId}/`
-        : `${API_BASE}/api/announcements/`;
+        ? `/api/announcements/${editingPostId}/`
+        : "/api/announcements/";
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: editingPostId ? "PUT" : "POST",
-        headers: authHeader(token),
         body: form,
       });
 
@@ -440,8 +455,10 @@ export default function CMSModule() {
 
       imagePreviews.forEach((u) => URL.revokeObjectURL(u));
       setImagePreviews([]);
+      addToast('Success', editingPostId ? 'Announcement updated successfully!' : 'Announcement published successfully!', 'success');
     } catch (e) {
       setError(e.message || "Failed to publish announcement");
+      addToast('Error', e.message || 'Failed to publish announcement', 'error');
     }
   };
 
@@ -497,42 +514,25 @@ export default function CMSModule() {
 
   // Delete post with confirmation
   const handleDeletePost = async (postId) => {
-    const token = getToken();
-    if (!token) {
-      setError("No token found.");
-      return;
-    }
-
     try {
-      const res = await fetch(`${API_BASE}/api/announcements/${postId}/`, {
+      const res = await apiFetch(`/api/announcements/${postId}/`, {
         method: "DELETE",
-        headers: authHeader(token),
       });
 
       if (!res.ok) throw new Error(await readError(res));
 
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setDeleteConfirm(null);
+      addToast('Success', 'Announcement deleted successfully!', 'success');
     } catch (e) {
       setError(e.message || "Failed to delete announcement");
+      addToast('Error', e.message || 'Failed to delete announcement', 'error');
     }
   };
 
   return (
     <div className="cms-container">
-      <div className="cms-header">
-        <div>
-          <h2>CMS Module (CESI Website Control)</h2>
-          {editingPostId && activeMainTab === "announcements" && (
-            <p style={{ margin: "8px 0 0 0", fontSize: "14px", color: "#3b82f6", fontWeight: "600" }}>
-              ✏️ Editing post #{editingPostId}
-            </p>
-          )}
-        </div>
-        <button className="cms-refresh" onClick={load} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </button>
-      </div>
+      
 
       <div className="cms-main-tabs" style={{ display: "flex", gap: "10px", marginBottom: "20px", borderBottom: "2px solid #e2e8f0", paddingBottom: "10px" }}>
         <button 
@@ -551,6 +551,10 @@ export default function CMSModule() {
           onClick={() => setActiveMainTab("contact")}
           style={{ padding: "8px 16px", borderRadius: "8px", border: "none", cursor: "pointer", background: activeMainTab === "contact" ? "#3b82f6" : "#f1f5f9", color: activeMainTab === "contact" ? "white" : "black", fontWeight: "600" }}
         >Contact & Inquiry</button>
+
+          <button className="cms-refresh" onClick={load} disabled={loading}>
+          {loading ? "Refreshing..." : "Refresh"}
+        </button>
       </div>
 
       {activeMainTab === "announcements" && (
@@ -969,7 +973,6 @@ export default function CMSModule() {
           ]} 
         />
       )}
-
-    </div>
+      <Toast toasts={toasts} dismissToast={dismissToast} />    </div>
   );
 }

@@ -1,0 +1,943 @@
+// steps/
+
+import React from "react";
+import FieldError from "../FieldError";
+
+const StepAcademic = ({
+  form,
+  setForm,
+  errors,
+  registerFieldRef,
+  gradeOptions,
+}) => {
+  const lrnRequired = [
+    "kinder",
+    "grade1",
+    "grade2",
+    "grade3",
+    "grade4",
+    "grade5",
+    "grade6",
+  ].includes(form.gradeLevel);
+
+  return (
+    <>
+      <h3>🎓 Academic Information</h3>
+
+      <div className="form-grid">
+        <div className="form-group">
+          <label>
+            Student Type <span className="required">*</span>
+          </label>
+          <select
+            ref={registerFieldRef("studentType")}
+            value={form.studentType}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                studentType: e.target.value,
+                educationLevel: "",
+                gradeLevel: "",
+                lrn: "",
+              }))
+            }
+          >
+            <option value="">Select</option>
+            <option value="new">New / Transferee</option>
+            <option value="old">Old Student</option>
+          </select>
+          <FieldError error={errors.studentType} />
+        </div>
+
+        {form.studentType === "new" && (
+          <>
+            <div className="form-group">
+              <label>
+                LRN {lrnRequired && <span className="required">*</span>}
+              </label>
+              <input
+                ref={registerFieldRef("lrn")}
+                value={form.lrn}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    lrn: e.target.value.replace(/\D/g, "").slice(0, 12),
+                  }))
+                }
+                placeholder={
+                  lrnRequired
+                    ? "12 digits (required)"
+                    : "Pre-Kinder students may leave blank"
+                }
+                maxLength={12}
+                inputMode="numeric"
+              />
+              <div className="field-counter">{form.lrn.length}/12</div>
+              <FieldError error={errors.lrn} />
+            </div>
+
+            <div className="form-group">
+              <label>
+                Education Level <span className="required">*</span>
+              </label>
+              <select
+                ref={registerFieldRef("educationLevel")}
+                value={form.educationLevel}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    educationLevel: e.target.value,
+                    gradeLevel: "",
+                  }))
+                }
+              >
+                <option value="">Select</option>
+                <option value="preschool">Preschool</option>
+                <option value="elementary">Elementary</option>
+              </select>
+              <FieldError error={errors.educationLevel} />
+            </div>
+
+            <div className="form-group">
+              <label>
+                Grade Level <span className="required">*</span>
+              </label>
+              <select
+                ref={registerFieldRef("gradeLevel")}
+                value={form.gradeLevel}
+                disabled={!form.educationLevel}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    gradeLevel: e.target.value,
+                  }))
+                }
+              >
+                <option value="">Select</option>
+                {gradeOptions.map((g) => (
+                  <option key={g.value} value={g.value}>
+                    {g.label}
+                  </option>
+                ))}
+              </select>
+              <FieldError error={errors.gradeLevel} />
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+};
+
+export default StepAcademic;
+
+
+======================
+
+
+
+import React from "react";
+import FieldError from "../FieldError";
+
+const StepDocuments = ({ files, setFiles, errors, registerFieldRef }) => {
+  const handleFileChange = (key) => (e) => {
+    const file = e.target.files?.[0] || null;
+    setFiles((prev) => ({
+      ...prev,
+      [key]: file,
+    }));
+  };
+
+  return (
+    <>
+      <h3>📎 Documents</h3>
+      <p className="info-text">
+        Upload the required student photo and any available supporting documents.
+      </p>
+
+      <div className="form-grid">
+        <div className="form-group">
+          <label>
+            2x2 Picture <span className="required">*</span>
+          </label>
+          <input
+            ref={registerFieldRef("studentPhotoFile")}
+            type="file"
+            accept=".jpg,.jpeg,.png"
+            onChange={handleFileChange("studentPhotoFile")}
+          />
+          {files.studentPhotoFile && (
+            <div className="file-name">{files.studentPhotoFile.name}</div>
+          )}
+          <FieldError error={errors.studentPhotoFile} />
+        </div>
+
+        <div className="form-group">
+          <label>Form 137-E</label>
+          <input
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            onChange={handleFileChange("form137File")}
+          />
+          {files.form137File && <div className="file-name">{files.form137File.name}</div>}
+        </div>
+
+        <div className="form-group">
+          <label>School Form 10 (SF10)</label>
+          <input
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            onChange={handleFileChange("sf10File")}
+          />
+          {files.sf10File && <div className="file-name">{files.sf10File.name}</div>}
+        </div>
+
+        <div className="form-group">
+          <label>Birth Certificate</label>
+          <input
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            onChange={handleFileChange("birthCertificateFile")}
+          />
+          {files.birthCertificateFile && (
+            <div className="file-name">{files.birthCertificateFile.name}</div>
+          )}
+        </div>
+
+        <div className="form-group">
+          <label>Good Moral Certificate</label>
+          <input
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            onChange={handleFileChange("goodMoralFile")}
+          />
+          {files.goodMoralFile && <div className="file-name">{files.goodMoralFile.name}</div>}
+        </div>
+
+        <div className="form-group">
+          <label>Report Card</label>
+          <input
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            onChange={handleFileChange("reportCardFile")}
+          />
+          {files.reportCardFile && <div className="file-name">{files.reportCardFile.name}</div>}
+        </div>
+
+        <div className="form-group">
+          <label>Other Document</label>
+          <input
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            onChange={handleFileChange("otherDocumentFile")}
+          />
+          {files.otherDocumentFile && (
+            <div className="file-name">{files.otherDocumentFile.name}</div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default StepDocuments;
+
+
+===============================
+import React from "react";
+import FieldError from "../FieldError";
+import { onlyDigits } from "../helpers";
+
+const StepFamily = ({ form, setForm, errors, registerFieldRef, onNext, onBack }) => {
+  return (
+    <div className="step-card">
+      <h3>👨‍👩‍👧 Parent / Guardian Information</h3>
+
+      <p className="parent-section-label">Mother</p>
+      <div className="form-grid">
+        <div className="form-group">
+          <label>First Name</label>
+          <input
+            value={form.motherFirst}
+            onChange={(e) => setForm((prev) => ({ ...prev, motherFirst: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label>Middle Name</label>
+          <input
+            value={form.motherMiddle}
+            onChange={(e) => setForm((prev) => ({ ...prev, motherMiddle: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label>Last Name</label>
+          <input
+            value={form.motherLast}
+            onChange={(e) => setForm((prev) => ({ ...prev, motherLast: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label>Mobile Number</label>
+          <input
+            ref={registerFieldRef("motherContact")}
+            value={form.motherContact}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                motherContact: onlyDigits(e.target.value, 11),
+              }))
+            }
+            inputMode="numeric"
+          />
+          <FieldError error={errors.motherContact} />
+        </div>
+        <div className="form-group">
+          <label>Occupation</label>
+          <input
+            value={form.motherOccupation}
+            onChange={(e) => setForm((prev) => ({ ...prev, motherOccupation: e.target.value }))}
+          />
+        </div>
+      </div>
+
+      <p className="parent-section-label">Father</p>
+      <div className="form-grid">
+        <div className="form-group">
+          <label>First Name</label>
+          <input
+            value={form.fatherFirst}
+            onChange={(e) => setForm((prev) => ({ ...prev, fatherFirst: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label>Middle Name</label>
+          <input
+            value={form.fatherMiddle}
+            onChange={(e) => setForm((prev) => ({ ...prev, fatherMiddle: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label>Last Name</label>
+          <input
+            value={form.fatherLast}
+            onChange={(e) => setForm((prev) => ({ ...prev, fatherLast: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label>Mobile Number</label>
+          <input
+            ref={registerFieldRef("fatherContact")}
+            value={form.fatherContact}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                fatherContact: onlyDigits(e.target.value, 11),
+              }))
+            }
+            inputMode="numeric"
+          />
+          <FieldError error={errors.fatherContact} />
+        </div>
+        <div className="form-group">
+          <label>Occupation</label>
+          <input
+            value={form.fatherOccupation}
+            onChange={(e) => setForm((prev) => ({ ...prev, fatherOccupation: e.target.value }))}
+          />
+        </div>
+      </div>
+
+      <p className="parent-section-label">Guardian (if applicable)</p>
+      <div className="form-grid">
+        <div className="form-group">
+          <label>First Name</label>
+          <input
+            value={form.guardianFirst}
+            onChange={(e) => setForm((prev) => ({ ...prev, guardianFirst: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label>Middle Name</label>
+          <input
+            value={form.guardianMiddle}
+            onChange={(e) => setForm((prev) => ({ ...prev, guardianMiddle: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label>Last Name</label>
+          <input
+            value={form.guardianLast}
+            onChange={(e) => setForm((prev) => ({ ...prev, guardianLast: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label>Mobile Number</label>
+          <input
+            ref={registerFieldRef("guardianContact")}
+            value={form.guardianContact}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                guardianContact: onlyDigits(e.target.value, 11),
+              }))
+            }
+            inputMode="numeric"
+          />
+          <FieldError error={errors.guardianContact} />
+        </div>
+        <div className="form-group">
+          <label>Relationship to Student</label>
+          <input
+            value={form.guardianRelationship}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                guardianRelationship: e.target.value,
+              }))
+            }
+          />
+        </div>
+      </div>
+
+      <div className="form-actions">
+        <button type="button" className="secondary" onClick={onBack}>
+          Back
+        </button>
+        <button type="button" onClick={onNext}>
+          Next
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default StepFamily;
+
+================================
+
+
+import React from "react";
+
+const StepInstructions = ({ onNext, onBack }) => {
+  return (
+    <div className="step-card">
+      <h3>📋 Instructions Before Proceeding</h3>
+
+      <div className="info-text">
+        <p>Please prepare the following before filling out the enrollment form:</p>
+        <ul>
+          <li>Complete student information</li>
+          <li>Parent / guardian contact details</li>
+          <li>2x2 student picture</li>
+          <li>Payment details</li>
+          <li>Proof of payment if using online payment</li>
+        </ul>
+      </div>
+
+      <div className="form-actions">
+        <button type="button" className="secondary" onClick={onBack}>
+          Back
+        </button>
+        <button type="button" onClick={onNext}>
+          I Understand
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default StepInstructions;
+
+
+===========================
+
+
+// StepPayment.jsx
+import React from "react";
+import FieldError from "../FieldError";
+import { formatMoney } from "../helpers";
+
+const StepPayment = ({
+  form,
+  setForm,
+  files,
+  setFiles,
+  errors,
+  registerFieldRef,
+  tuition,
+  tuitionLoading,
+  tuitionError,
+  studentType,
+}) => {
+  const handleFileChange = (key) => (e) => {
+    const file = e.target.files?.[0] || null;
+    setFiles((prev) => ({
+      ...prev,
+      [key]: file,
+    }));
+  };
+
+  return (
+    <>
+      <h3>💰 Payment Information</h3>
+
+      <div className="payment-policies">
+        <h4>Payment Policies</h4>
+        <ul>
+          <li>Please select your preferred payment mode and payment method.</li>
+          <li>For online payments, proof of payment is required before submission.</li>
+          <li>Submitted payment information is subject to school verification.</li>
+          <li>Enrollment processing may be delayed if payment details are incomplete.</li>
+        </ul>
+      </div>
+
+      <div className="form-grid">
+        <div className="form-group">
+          <label>
+            Payment Mode <span className="required">*</span>
+          </label>
+          <select
+            ref={registerFieldRef("paymentMode")}
+            value={form.paymentMode}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                paymentMode: e.target.value,
+              }))
+            }
+          >
+            <option value="">Select</option>
+            <option value="cash">Cash</option>
+            <option value="installment">Installment</option>
+          </select>
+          <FieldError error={errors.paymentMode} />
+        </div>
+
+        <div className="form-group">
+          <label>
+            Payment Method <span className="required">*</span>
+          </label>
+          <select
+            ref={registerFieldRef("paymentMethod")}
+            value={form.paymentMethod}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                paymentMethod: e.target.value,
+              }))
+            }
+          >
+            <option value="">Select</option>
+            <option value="onsite">Onsite Payment</option>
+            <option value="online">Online Payment</option>
+          </select>
+          <FieldError error={errors.paymentMethod} />
+        </div>
+
+        {form.paymentMethod === "online" && (
+          <div className="form-group form-group--full">
+            <label>
+              Proof of Payment <span className="required">*</span>
+            </label>
+            <input
+              ref={registerFieldRef("paymentProofFile")}
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf"
+              onChange={handleFileChange("paymentProofFile")}
+            />
+            {files.paymentProofFile && (
+              <div className="file-name">{files.paymentProofFile.name}</div>
+            )}
+            <FieldError error={errors.paymentProofFile} />
+          </div>
+        )}
+      </div>
+
+      {(tuitionLoading || tuitionError || tuition) && (
+        <div className="tuition-box">
+          <h3>📊 Tuition Breakdown</h3>
+
+          {tuitionLoading && (
+            <div className="tuition-row">
+              <span>Loading tuition configuration...</span>
+            </div>
+          )}
+
+          {!tuitionLoading && tuitionError && (
+            <div className="tuition-row tuition-row--error">
+              <span>{tuitionError}</span>
+            </div>
+          )}
+
+          {!tuitionLoading && tuition && form.paymentMode === "cash" && (
+            <>
+              <div className="tuition-row">
+                <span>Tuition Fee (Cash)</span>
+                <span>₱{formatMoney(tuition.cash)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Miscellaneous (August)</span>
+                <span>₱{formatMoney(tuition.misc_aug)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Miscellaneous (November)</span>
+                <span>₱{formatMoney(tuition.misc_nov)}</span>
+              </div>
+
+              {studentType === "new" && (
+                <div className="tuition-row">
+                  <span>Assessment Fee</span>
+                  <span>₱{formatMoney(tuition.assessment)}</span>
+                </div>
+              )}
+
+              <div className="tuition-total">
+                <strong>Total (Cash)</strong>
+                <strong>
+                  ₱
+                  {formatMoney(
+                    Number(tuition.total_cash || 0) +
+                      (studentType === "new" ? Number(tuition.assessment || 0) : 0)
+                  )}
+                </strong>
+              </div>
+            </>
+          )}
+
+          {!tuitionLoading && tuition && form.paymentMode === "installment" && (
+            <>
+              <div className="tuition-row">
+                <span>Tuition Fee (Installment)</span>
+                <span>₱{formatMoney(tuition.installment)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Initial Payment</span>
+                <span>₱{formatMoney(tuition.initial)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Reservation Fee</span>
+                <span>₱{formatMoney(tuition.reservation_fee)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Monthly Payment</span>
+                <span>₱{formatMoney(tuition.monthly)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Miscellaneous (August)</span>
+                <span>₱{formatMoney(tuition.misc_aug)}</span>
+              </div>
+              <div className="tuition-row">
+                <span>Miscellaneous (November)</span>
+                <span>₱{formatMoney(tuition.misc_nov)}</span>
+              </div>
+
+              {studentType === "new" && (
+                <div className="tuition-row">
+                  <span>Assessment Fee</span>
+                  <span>₱{formatMoney(tuition.assessment)}</span>
+                </div>
+              )}
+
+              <div className="tuition-total">
+                <strong>Total (Installment)</strong>
+                <strong>
+                  ₱
+                  {formatMoney(
+                    Number(tuition.total_installment || 0) +
+                      (studentType === "new" ? Number(tuition.assessment || 0) : 0)
+                  )}
+                </strong>
+              </div>
+            </>
+          )}
+
+          {!tuitionLoading && tuition && !form.paymentMode && (
+            <div className="tuition-row">
+              <span>Select a payment mode to view the breakdown.</span>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+};
+
+export default StepPayment;
+================================
+
+
+
+// StepPrivacy.jsx
+import React from "react";
+
+const StepPrivacy = ({ onNext }) => {
+  return (
+    <div className="step-card">
+      <h3>🛡 Data Privacy Agreement</h3>
+      <p className="info-text">
+        I agree that the school may collect, process, and store the information I provide
+        for enrollment, student records, communication, and related school transactions.
+      </p>
+
+      <div className="form-actions">
+        <button type="button" onClick={onNext}>
+          I Agree
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default StepPrivacy;
+
+===================================
+
+
+// StepStudent.jsx
+import React from "react";
+import FieldError from "../FieldError";
+import { RELIGION_OPTIONS } from "../constants";
+import { onlyDigits } from "../helpers";
+
+const StepStudent = ({
+  form,
+  setForm,
+  files,
+  setFiles,
+  errors,
+  registerFieldRef,
+  ageValidation,
+  maxBirthDate,
+  onNext,
+  onBack,
+}) => {
+  return (
+    <div className="step-card">
+      <h3>👤 Student Information</h3>
+
+      <div className="form-grid">
+        <div className="form-group">
+          <label>Last Name <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("lastName")}
+            value={form.lastName}
+            onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
+          />
+          <FieldError error={errors.lastName} />
+        </div>
+
+        <div className="form-group">
+          <label>First Name <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("firstName")}
+            value={form.firstName}
+            onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
+          />
+          <FieldError error={errors.firstName} />
+        </div>
+
+        <div className="form-group">
+          <label>Middle Name <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("middleName")}
+            value={form.middleName}
+            onChange={(e) => setForm((prev) => ({ ...prev, middleName: e.target.value }))}
+          />
+          <FieldError error={errors.middleName} />
+        </div>
+
+        <div className="form-group">
+          <label>Birth Date <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("birthDate")}
+            type="date"
+            value={form.birthDate}
+            max={maxBirthDate}
+            onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
+          />
+          <FieldError error={errors.birthDate} />
+        </div>
+
+        <div className="form-group">
+          <label>Gender <span className="required">*</span></label>
+          <select
+            ref={registerFieldRef("gender")}
+            value={form.gender}
+            onChange={(e) => setForm((prev) => ({ ...prev, gender: e.target.value }))}
+          >
+            <option value="">Select</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+          <FieldError error={errors.gender} />
+        </div>
+
+        <div className="form-group">
+          <label>Email <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("email")}
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+          />
+          <FieldError error={errors.email} />
+        </div>
+
+        <div className="form-group">
+          <label>Religion <span className="required">*</span></label>
+          <select
+            ref={registerFieldRef("religion")}
+            value={form.religion}
+            onChange={(e) => setForm((prev) => ({ ...prev, religion: e.target.value }))}
+          >
+            <option value="">Select</option>
+            {RELIGION_OPTIONS.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+          <FieldError error={errors.religion} />
+        </div>
+
+        <div className="form-group">
+          <label>Mobile Number <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("mobile")}
+            value={form.mobile}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                mobile: onlyDigits(e.target.value, 11),
+              }))
+            }
+            placeholder="09XXXXXXXXX"
+            inputMode="numeric"
+          />
+          <div className="field-counter">{form.mobile.length}/11</div>
+          <FieldError error={errors.mobile} />
+        </div>
+
+        <div className="form-group">
+          <label>Parent Facebook</label>
+          <input
+            value={form.parentFacebook}
+            onChange={(e) => setForm((prev) => ({ ...prev, parentFacebook: e.target.value }))}
+            placeholder="Optional"
+          />
+        </div>
+      </div>
+
+      {ageValidation && (
+        <div
+          className={`age-validation-hint ${
+            ageValidation.ok ? "age-validation-hint--ok" : "age-validation-hint--error"
+          }`}
+        >
+          <span>{ageValidation.ok ? "✓" : "✗"}</span>
+          <span>{ageValidation.msg}</span>
+        </div>
+      )}
+
+      <h3>📍 Address</h3>
+      <div className="form-grid">
+        <div className="form-group form-group--full">
+          <label>House No. / Street <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("street")}
+            value={form.street}
+            onChange={(e) => setForm((prev) => ({ ...prev, street: e.target.value }))}
+          />
+          <FieldError error={errors.street} />
+        </div>
+
+        <div className="form-group">
+          <label>Barangay <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("barangay")}
+            value={form.barangay}
+            onChange={(e) => setForm((prev) => ({ ...prev, barangay: e.target.value }))}
+          />
+          <FieldError error={errors.barangay} />
+        </div>
+
+        <div className="form-group">
+          <label>City / Municipality <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("city")}
+            value={form.city}
+            onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
+          />
+          <FieldError error={errors.city} />
+        </div>
+
+        <div className="form-group">
+          <label>Province <span className="required">*</span></label>
+          <input
+            ref={registerFieldRef("province")}
+            value={form.province}
+            onChange={(e) => setForm((prev) => ({ ...prev, province: e.target.value }))}
+          />
+          <FieldError error={errors.province} />
+        </div>
+
+        <div className="form-group">
+          <label>Region <span className="required">*</span></label>
+          <select
+            ref={registerFieldRef("region")}
+            value={form.region}
+            onChange={(e) => setForm((prev) => ({ ...prev, region: e.target.value }))}
+          >
+            <option value="">Select Region</option>
+            <option value="NCR">NCR – National Capital Region</option>
+            <option value="Region I">Region I – Ilocos Region</option>
+            <option value="Region II">Region II – Cagayan Valley</option>
+            <option value="Region III">Region III – Central Luzon</option>
+            <option value="Region IV-A">Region IV-A – CALABARZON</option>
+            <option value="Region IV-B">Region IV-B – MIMAROPA</option>
+            <option value="Region V">Region V – Bicol Region</option>
+            <option value="Region VI">Region VI – Western Visayas</option>
+            <option value="Region VII">Region VII – Central Visayas</option>
+            <option value="Region VIII">Region VIII – Eastern Visayas</option>
+            <option value="Region IX">Region IX – Zamboanga Peninsula</option>
+            <option value="Region X">Region X – Northern Mindanao</option>
+            <option value="Region XI">Region XI – Davao Region</option>
+            <option value="Region XII">Region XII – SOCCSKSARGEN</option>
+            <option value="Region XIII">Region XIII – Caraga</option>
+            <option value="CAR">CAR – Cordillera Administrative Region</option>
+            <option value="BARMM">BARMM – Bangsamoro</option>
+          </select>
+          <FieldError error={errors.region} />
+        </div>
+      </div>
+
+      <h3>🖼 Student 2x2 Picture</h3>
+      <div className="form-group">
+        <label>Upload 2x2 Picture <span className="required">*</span></label>
+        <input
+          ref={registerFieldRef("studentPhotoFile")}
+          type="file"
+          accept=".jpg,.jpeg,.png"
+          onChange={(e) =>
+            setFiles((prev) => ({
+              ...prev,
+              studentPhotoFile: e.target.files?.[0] || null,
+            }))
+          }
+        />
+        <FieldError error={errors.studentPhotoFile} />
+      </div>
+
+      <div className="form-actions">
+        <button type="button" className="secondary" onClick={onBack}>
+          Back
+        </button>
+        <button type="button" onClick={onNext}>
+          Next
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default StepStudent;

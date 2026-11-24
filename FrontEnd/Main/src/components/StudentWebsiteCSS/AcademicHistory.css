@@ -1,3 +1,125 @@
+/* --- Table Responsiveness and Readability --- */
+.sg-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.5rem;
+}
+
+.sg-table {
+  min-width: 600px;
+  border-collapse: collapse;
+  width: 100%;
+  background: white;
+  font-size: 1rem;
+}
+
+.sg-table th, .sg-table td {
+  white-space: nowrap;
+  padding: 0.7rem 0.7rem;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .sg-table {
+    min-width: 500px;
+    font-size: 0.92rem;
+  }
+  .sg-table th, .sg-table td {
+    padding: 0.5rem 0.4rem;
+    font-size: 0.92rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .sg-table {
+    min-width: 370px;
+    font-size: 0.85rem;
+  }
+  .sg-table th, .sg-table td {
+    padding: 0.32rem 0.2rem;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 340px) {
+  .sg-table {
+    min-width: 320px;
+    font-size: 0.78rem;
+  }
+  .sg-table th, .sg-table td {
+    padding: 0.18rem 0.1rem;
+    font-size: 0.78rem;
+  }
+}
+
+/* --- Stat Card Readability for Small Screens --- */
+@media (max-width: 350px) {
+  .sg-stat-card {
+    font-size: 0.82rem;
+    padding: 0.38rem 0.22rem;
+  }
+  .sg-stat-label, .sg-stat-value, .sg-stat-change {
+    font-size: 0.82rem;
+  }
+}
+/* Responsive stat grid: 2x2 on small screens */
+.sg-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.2rem;
+}
+
+@media (max-width: 900px) {
+  .sg-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 700px) {
+  .sg-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .sg-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .sg-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+
+/* Horizontal scroll for tables on small screens */
+.sg-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sg-table {
+  min-width: 600px;
+}
+
+@media (max-width: 600px) {
+  .sg-table {
+    min-width: 500px;
+  }
+}
+
+@media (max-width: 400px) {
+  .sg-table {
+    min-width: 400px;
+  }
+}
 /* Academic History — builds on sg-* classes from Grades.css */
 
 /* Year accordion block */
@@ -158,6 +280,111 @@
   font-weight: 500;
 }
 
+/* Skeleton loading */
+.ahSkel {
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.ah-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.ah-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  animation: ahShimmerMove 1.2s infinite;
+}
+
+@keyframes ahShimmerMove {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.ahSkel__line {
+  height: 0.72rem;
+}
+
+.ahSkel__line--subtitle {
+  width: 340px;
+  max-width: 100%;
+}
+
+.ahSkel__statCard {
+  border-left-color: #bfdbfe;
+}
+
+.ahSkel__line--statLabel {
+  width: 45%;
+}
+
+.ahSkel__icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 0.4rem;
+}
+
+.ahSkel__line--statValue {
+  width: 52%;
+  height: 1.6rem;
+  margin-bottom: 0.55rem;
+}
+
+.ahSkel__line--statNote {
+  width: 78%;
+}
+
+.ahSkel__yearBlock {
+  border-color: #e2e8f0;
+}
+
+.ahSkel__yearIcon {
+  width: 20px;
+  height: 20px;
+  border-radius: 0.4rem;
+}
+
+.ahSkel__line--yearTitle {
+  width: 180px;
+  max-width: 100%;
+  margin-bottom: 0.45rem;
+}
+
+.ahSkel__line--yearSub {
+  width: 150px;
+  max-width: 100%;
+}
+
+.ahSkel__pill {
+  width: 72px;
+  height: 22px;
+}
+
+.ahSkel__yearBody {
+  padding: 0.8rem;
+}
+
+.ahSkel__row {
+  display: grid;
+  grid-template-columns: 2fr repeat(6, 1fr);
+  gap: 0.55rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ahSkel__row:last-child {
+  border-bottom: none;
+}
+
+.ahSkel__line--cell {
+  height: 0.82rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .ah-year-header {
@@ -167,6 +394,10 @@
   .ah-year-right {
     flex-wrap: wrap;
     gap: 0.5rem;
+  }
+
+  .ahSkel__row {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 

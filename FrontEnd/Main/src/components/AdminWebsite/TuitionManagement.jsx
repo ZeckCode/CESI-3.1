@@ -2,14 +2,18 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Search, Filter, Download, Plus, Edit2, Trash2,
-  DollarSign, AlertCircle, CheckCircle, ToggleLeft, ToggleRight
+  Users, Split, AlertCircle, CheckCircle, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import Pagination from './Pagination';
+import StatCard, { StatsGrid } from './StatCard';
 import '../AdminWebsiteCSS/TuitionManagement.css';
 import { apiFetchData } from '../api/apiFetch';
 import Toast from '../Global/Toast';
+import PreviewModal from '../PreviewModal';
+import { TUITION_FEES } from '../../config/tuitionConfig';
 
 const API = '';
+const TUITION_SKELETON_ROWS = 6;
 
 const GRADE_OPTIONS = [
   { value: 'prek', label: 'Pre-Kinder' },
@@ -23,6 +27,23 @@ const GRADE_OPTIONS = [
 ];
 
 const gradeLabelMap = Object.fromEntries(GRADE_OPTIONS.map((g) => [g.value, g.label]));
+
+const REFERENCE_GRADE_KEY_MAP = {
+  prek: 'prek',
+  kinder: 'kinder',
+  grade1: 'grade1-3',
+  grade2: 'grade1-3',
+  grade3: 'grade1-3',
+  grade4: 'grade4-5',
+  grade5: 'grade4-5',
+  grade6: 'grade6',
+};
+
+const getReferenceBreakdownByGrade = (gradeKey) => {
+  const referenceKey = REFERENCE_GRADE_KEY_MAP[gradeKey];
+  if (!referenceKey) return null;
+  return TUITION_FEES[referenceKey] || null;
+};
 
 const formatCurrency = (value) => {
   const num = Number(value || 0);
@@ -39,6 +60,20 @@ const paymentModeLabel = (value) => {
 
 const getErrorMessage = (error, fallback) => {
   if (error?.data?.detail) return error.data.detail;
+
+  if (error?.data && typeof error.data === 'object') {
+    const firstKey = Object.keys(error.data)[0];
+    const firstValue = error.data[firstKey];
+
+    if (Array.isArray(firstValue) && firstValue.length > 0) {
+      return firstValue[0];
+    }
+
+    if (typeof firstValue === 'string') {
+      return firstValue;
+    }
+  }
+
   if (error?.message) return error.message;
   return fallback;
 };
@@ -46,6 +81,7 @@ const getErrorMessage = (error, fallback) => {
 const TuitionManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGrade, setFilterGrade] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [hoveredRow, setHoveredRow] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add');
@@ -63,13 +99,13 @@ const TuitionManagement = () => {
 
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [loadingFees, setLoadingFees] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [toasts, setToasts] = useState([]);
 
-  const [proofFile, setProofFile] = useState(null);
-  const [proofPreview, setProofPreview] = useState(null);
-  const [uploadingProof, setUploadingProof] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState([]);
 
   const addToast = useCallback((title, message, type = 'warning') => {
     const id = Date.now() + Math.random();
@@ -96,9 +132,6 @@ const TuitionManagement = () => {
     misc_aug: '',
     misc_nov: '',
     assessment: '300',
-    credit: '0',
-    transaction_type: 'cash',
-    payment_status: 'active',
     description: '',
     status: 'active',
     is_active: true,
@@ -118,19 +151,14 @@ const TuitionManagement = () => {
       misc_aug: '',
       misc_nov: '',
       assessment: '300',
-      credit: '0',
-      transaction_type: 'cash',
-      payment_status: 'active',
       description: '',
       status: 'active',
       is_active: true,
     });
     setSelectedFee(null);
-    setProofFile(null);
-    setProofPreview(null);
   };
 
-  const loadStudents = async () => {
+  const loadStudents = useCallback(async () => {
     try {
       setLoadingStudents(true);
 
@@ -164,9 +192,9 @@ const TuitionManagement = () => {
     } finally {
       setLoadingStudents(false);
     }
-  };
+  }, [addToast]);
 
-  const loadTuitionConfigs = async () => {
+  const loadTuitionConfigs = useCallback(async () => {
     try {
       setLoadingFees(true);
 
@@ -183,9 +211,9 @@ const TuitionManagement = () => {
     } finally {
       setLoadingFees(false);
     }
-  };
+  }, [addToast]);
 
-  const loadTuitionStats = async () => {
+  const loadTuitionStats = useCallback(async () => {
     try {
       const data = await apiFetchData(`${API}/api/finance/tuition-configs/stats/`, {
         method: 'GET',
@@ -204,23 +232,28 @@ const TuitionManagement = () => {
         avg_total_cash: 0,
       });
     }
-  };
+  }, []);
 
-  const refreshAll = async () => {
-    await Promise.all([
-      loadStudents(),
-      loadTuitionConfigs(),
-      loadTuitionStats(),
-    ]);
-  };
+  const refreshAll = useCallback(async () => {
+    setIsInitialLoading(true);
+    try {
+      await Promise.all([
+        loadStudents(),
+        loadTuitionConfigs(),
+        loadTuitionStats(),
+      ]);
+    } finally {
+      setIsInitialLoading(false);
+    }
+  }, [loadStudents, loadTuitionConfigs, loadTuitionStats]);
 
   useEffect(() => {
     refreshAll();
-  }, []);
+  }, [refreshAll]);
 
   useEffect(() => {
     setTmPage(1);
-  }, [searchTerm, filterGrade, viewMode]);
+  }, [searchTerm, filterGrade, filterStatus, viewMode]);
 
   const getFilteredData = () => {
     if (viewMode === 'student') {
@@ -239,7 +272,11 @@ const TuitionManagement = () => {
           studentGrade === filterGrade.toLowerCase() ||
           studentGrade === String(gradeLabelMap[filterGrade] || '').toLowerCase();
 
-        return matchesSearch && matchesFilter;
+        const matchesStatus =
+          filterStatus === 'all' ||
+          normalizeStatus(student.accountStatus) === filterStatus;
+
+        return matchesSearch && matchesFilter && matchesStatus;
       });
     }
 
@@ -252,7 +289,10 @@ const TuitionManagement = () => {
 
       const matchesFilter = filterGrade === 'all' || fee.grade_key === filterGrade;
 
-      return matchesSearch && matchesFilter;
+      const feeStatus = normalizeStatus(fee.status || (fee.is_active ? 'active' : 'inactive'));
+      const matchesStatus = filterStatus === 'all' || feeStatus === filterStatus;
+
+      return matchesSearch && matchesFilter && matchesStatus;
     });
   };
 
@@ -327,19 +367,28 @@ const TuitionManagement = () => {
     try {
       setSaving(true);
 
+      const cash = Number(formData.cash || 0);
+      const installment = Number(formData.installment || 0);
+      const initial = Number(formData.initial || 0);
+      const monthly = Number(formData.monthly || 0);
+      const reservation_fee = Number(formData.reservation_fee || 0);
+      const misc_aug = Number(formData.misc_aug || 0);
+      const misc_nov = Number(formData.misc_nov || 0);
+      const assessment = Number(formData.assessment || 0);
+
       const payload = {
         grade_key: formData.grade_key,
         grade_label: formData.grade_label,
-        cash: Number(formData.cash || 0),
-        installment: Number(formData.installment || 0),
-        initial: Number(formData.initial || 0),
-        monthly: Number(formData.monthly || 0),
-        reservation_fee: Number(formData.reservation_fee || 0),
-        misc_aug: Number(formData.misc_aug || 0),
-        misc_nov: Number(formData.misc_nov || 0),
-        assessment: Number(formData.assessment || 0),
-        description: formData.description,
-        status: formData.status,
+        cash,
+        installment,
+        initial,
+        monthly,
+        reservation_fee,
+        misc_aug,
+        misc_nov,
+        assessment,
+        description: formData.description || '',
+        status: formData.status || 'active',
         is_active: Boolean(formData.is_active),
       };
 
@@ -365,15 +414,67 @@ const TuitionManagement = () => {
       await loadTuitionStats();
     } catch (error) {
       console.error('Save failed:', error);
-      addToast('Save Failed', getErrorMessage(error, 'Failed to save tuition record.'), 'error');
+
+      const serverMessage =
+        error?.data?.installment?.[0] ||
+        error?.data?.grade_key?.[0] ||
+        error?.data?.detail ||
+        error?.message ||
+        'Failed to save tuition record.';
+
+      addToast('Save Failed', serverMessage, 'error');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleExportData = () => {
+  const handleOpenPreview = () => {
     const data = getFilteredData();
-    
+
+    if (data.length === 0) {
+      addToast('Preview', 'No data to preview.', 'warning');
+      return;
+    }
+
+    let previewData = [];
+    if (viewMode === 'student') {
+      previewData = data.map((student) => ({
+        'Student Name': student.studentName,
+        'Student Number': student.studentNumber,
+        'Grade Level': gradeLabelMap[student.gradeLevel] || student.gradeLevel || '—',
+        'Payment Mode': paymentModeLabel(student.paymentMode),
+        'Parent/Guardian': student.parentName,
+        'Contact Number': student.contactNumber,
+        'Tuition Fee': formatCurrency(student.totalDue),
+        'Total Paid': formatCurrency(student.totalPaid),
+        'Remaining Balance': formatCurrency(student.remainingBalance),
+        'Account Status': student.accountStatus,
+      }));
+    } else {
+      previewData = data.map((fee) => ({
+        'Grade Level': fee.grade_label || gradeLabelMap[fee.grade_key] || fee.grade_key || '—',
+        'Cash Payment': formatCurrency(fee.cash),
+        'Installment Tuition': formatCurrency(fee.installment),
+        'Initial Payment': formatCurrency(fee.initial),
+        'Monthly Payment': formatCurrency(fee.monthly),
+        'Reservation Fee': formatCurrency(fee.reservation_fee),
+        'Misc (Aug)': formatCurrency(fee.misc_aug),
+        'Misc (Nov)': formatCurrency(fee.misc_nov),
+        'Assessment': formatCurrency(fee.assessment),
+        'Total Cash': formatCurrency(fee.total_cash),
+        'Total Installment': formatCurrency(fee.total_installment),
+        'Status': fee.is_active ? 'Active' : 'Inactive',
+        'Description': fee.description,
+      }));
+    }
+
+    setPreviewData(previewData);
+    setShowPreview(true);
+  };
+
+  const _handleExportData = () => {
+    const data = getFilteredData();
+
     if (data.length === 0) {
       addToast('Export', 'No data to export.', 'warning');
       return;
@@ -390,11 +491,11 @@ const TuitionManagement = () => {
     let csv = [];
     if (viewMode === 'student') {
       csv = [
-        ['Student Number', 'Student Name', 'Grade Level', 'Payment Mode', 'Parent/Guardian', 'Contact Number', 'Tuition Fee', 'Total Paid', 'Remaining Balance', 'Account Status'].join(','),
+        ['Student Name', 'Student Number', 'Grade Level', 'Payment Mode', 'Parent/Guardian', 'Contact Number', 'Tuition Fee', 'Total Paid', 'Remaining Balance', 'Account Status'].join(','),
         ...data.map((student) => [
-          escapeCsv(student.studentNumber),
           escapeCsv(student.studentName),
-          escapeCsv(student.gradeLevel),
+          escapeCsv(student.studentNumber),
+          escapeCsv(gradeLabelMap[student.gradeLevel] || student.gradeLevel || '—'),
           escapeCsv(paymentModeLabel(student.paymentMode)),
           escapeCsv(student.parentName),
           escapeCsv(student.contactNumber),
@@ -406,16 +507,19 @@ const TuitionManagement = () => {
       ];
     } else {
       csv = [
-        ['Grade Level', 'Cash Payment', 'Initial Payment', 'Monthly Payment', 'Reservation Fee', 'Misc (Aug)', 'Misc (Nov)', 'Assessment', 'Status', 'Description'].join(','),
+        ['Grade Level', 'Cash Payment', 'Installment Tuition', 'Initial Payment', 'Monthly Payment', 'Reservation Fee', 'Misc (Aug)', 'Misc (Nov)', 'Assessment', 'Total Cash', 'Total Installment', 'Status', 'Description'].join(','),
         ...data.map((fee) => [
-          escapeCsv(fee.grade_label),
+          escapeCsv(fee.grade_label || gradeLabelMap[fee.grade_key] || fee.grade_key || '—'),
           escapeCsv(formatCurrency(fee.cash)),
+          escapeCsv(formatCurrency(fee.installment)),
           escapeCsv(formatCurrency(fee.initial)),
           escapeCsv(formatCurrency(fee.monthly)),
           escapeCsv(formatCurrency(fee.reservation_fee)),
           escapeCsv(formatCurrency(fee.misc_aug)),
           escapeCsv(formatCurrency(fee.misc_nov)),
           escapeCsv(formatCurrency(fee.assessment)),
+          escapeCsv(formatCurrency(fee.total_cash)),
+          escapeCsv(formatCurrency(fee.total_installment)),
           escapeCsv(fee.is_active ? 'Active' : 'Inactive'),
           escapeCsv(fee.description),
         ].join(','))
@@ -431,7 +535,7 @@ const TuitionManagement = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
+
     addToast('Export Successful', `Exported ${data.length} ${viewMode === 'student' ? 'students' : 'fee structures'}.`, 'success');
   };
 
@@ -439,10 +543,22 @@ const TuitionManagement = () => {
     const { name, value, type, checked } = e.target;
 
     if (name === 'grade_key') {
+      const reference = getReferenceBreakdownByGrade(value);
       setFormData((prev) => ({
         ...prev,
         grade_key: value,
         grade_label: gradeLabelMap[value] || '',
+        ...(reference
+          ? {
+              cash: reference.cash ?? '',
+              installment: reference.installment ?? '',
+              initial: reference.initial ?? '',
+              monthly: reference.monthly ?? '',
+              misc_aug: reference.misc_aug ?? '',
+              misc_nov: reference.misc_nov ?? '',
+              assessment: reference.assessment ?? '300',
+            }
+          : {}),
       }));
       return;
     }
@@ -453,43 +569,6 @@ const TuitionManagement = () => {
     }));
   };
 
-  const handleProofFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type (images and PDFs only)
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
-    if (!validTypes.includes(file.type)) {
-      addToast('Invalid File Type', 'Please upload an image or PDF file.', 'error');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      addToast('File Too Large', 'Maximum file size is 5MB.', 'error');
-      return;
-    }
-
-    setProofFile(file);
-
-    // Create preview for images
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setProofPreview(event.target?.result);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // For PDFs, show a generic icon
-      setProofPreview('PDF');
-    }
-  };
-
-  const removeProofFile = () => {
-    setProofFile(null);
-    setProofPreview(null);
-  };
-
   const filteredData = getFilteredData();
   const tmTotalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE) || 1;
   const paginatedData = filteredData.slice(
@@ -497,129 +576,184 @@ const TuitionManagement = () => {
     tmPage * ITEMS_PER_PAGE
   );
   const stats = getPaymentStats();
+  const tableColumns = viewMode === 'student' ? 8 : 11;
+
+  const renderSkeletonRows = (columns) =>
+    Array.from({ length: TUITION_SKELETON_ROWS }).map((_, rowIdx) => (
+      <tr key={`tm-skeleton-row-${rowIdx}`}>
+        {Array.from({ length: columns }).map((__, colIdx) => (
+          <td key={`tm-skeleton-cell-${rowIdx}-${colIdx}`} className="tm-table-cell">
+            <div
+              className={`tm-skeleton-line ${
+                colIdx === 0 ? 'w-lg' : colIdx === columns - 1 ? 'w-sm' : 'w-md'
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ));
 
   return (
     <main className="tuition-management-main">
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
       <section className="tm-section">
-        <div className="tm-stats-grid">
-          <div className="tm-stat-card tm-stat-blue">
-            <div className="tm-stat-header">
-              <span className="tm-stat-label">
-                {viewMode === 'student' ? 'Total Students' : 'Grade Levels'}
-              </span>
-              <DollarSign size={24} className="tm-stat-icon" />
+        {isInitialLoading ? (
+          <StatsGrid>
+            <div className="unified-stat-card tm-skeleton-stat-card">
+              <div className="tm-skeleton-line w-md" />
+              <div className="tm-skeleton-line w-sm" />
             </div>
-            <div className="tm-stat-value">
-              {viewMode === 'student' ? stats.totalStudents : stats.totalConfigs}
+            <div className="unified-stat-card tm-skeleton-stat-card">
+              <div className="tm-skeleton-line w-md" />
+              <div className="tm-skeleton-line w-sm" />
             </div>
-            <div className="tm-stat-change">
-              {viewMode === 'student' ? 'Student tuition profiles' : 'Fee structures configured'}
+            <div className="unified-stat-card tm-skeleton-stat-card">
+              <div className="tm-skeleton-line w-md" />
+              <div className="tm-skeleton-line w-sm" />
             </div>
-          </div>
-
-          <div className="tm-stat-card tm-stat-green">
-            <div className="tm-stat-header">
-              <span className="tm-stat-label">
-                {viewMode === 'student' ? 'Cash Mode' : 'Active Fees'}
-              </span>
-              <CheckCircle size={24} className="tm-stat-icon" />
-            </div>
-            <div className="tm-stat-value">
-              {viewMode === 'student' ? stats.cashCount : stats.activeConfigs}
-            </div>
-            <div className="tm-stat-change">
-              {viewMode === 'student' ? 'Students on cash plan' : 'Active tuition configurations'}
-            </div>
-          </div>
-
-          <div className="tm-stat-card tm-stat-purple">
-            <div className="tm-stat-header">
-              <span className="tm-stat-label">
-                {viewMode === 'student' ? 'Installment Mode' : 'Avg Total Cash'}
-              </span>
-              <DollarSign size={24} className="tm-stat-icon" />
-            </div>
-            <div className="tm-stat-value">
-              {viewMode === 'student' ? stats.installmentCount : formatCurrency(stats.avgTotalCash)}
-            </div>
-            <div className="tm-stat-change">
-              {viewMode === 'student' ? 'Students on installment plan' : 'Average configured cash total'}
-            </div>
-          </div>
-        </div>
+          </StatsGrid>
+        ) : (
+          <StatsGrid>
+            <StatCard
+              label={viewMode === 'student' ? 'Total Students' : 'Grade Levels'}
+              value={viewMode === 'student' ? stats.totalStudents : stats.totalConfigs}
+              icon={<Users size={20} />}
+              color="blue"
+              subtitle={viewMode === 'student' ? 'Student tuition profiles' : 'Fee structures configured'}
+            />
+            <StatCard
+              label={viewMode === 'student' ? 'Cash Mode' : 'Active Fees'}
+              value={viewMode === 'student' ? stats.cashCount : stats.activeConfigs}
+              icon={<CheckCircle size={20} />}
+              color="green"
+              subtitle={viewMode === 'student' ? 'Students on cash plan' : 'Active tuition configurations'}
+            />
+            <StatCard
+              label={viewMode === 'student' ? 'Installment Mode' : 'Avg Total Cash'}
+              value={viewMode === 'student' ? stats.installmentCount : formatCurrency(stats.avgTotalCash)}
+              icon={<Split size={20} />}
+              color="purple"
+              subtitle={viewMode === 'student' ? 'Students on installment plan' : 'Average configured cash total'}
+            />
+          </StatsGrid>
+        )}
       </section>
 
       <section className="tm-section">
-        <div className="tm-section-header">
-          <div>
-            <h2 className="tm-section-title">
-              {viewMode === 'student' ? 'Student Tuition Profiles' : 'Tuition Fee Structure'}
-            </h2>
-            <p className="tm-section-subtitle">
-              {viewMode === 'student'
-                ? 'View student payment plan information'
-                : 'Manage tuition configuration by grade'}
-            </p>
+        {isInitialLoading ? (
+          <div className="tm-section-header tm-section-header-skeleton">
+            <div>
+              <div className="tm-skeleton-line tm-skeleton-title" />
+              <div className="tm-skeleton-line tm-skeleton-subtitle" />
+            </div>
+            <div className="tm-button-group">
+              <div className="tm-skeleton-line tm-skeleton-control" />
+              <div className="tm-skeleton-line tm-skeleton-control" />
+            </div>
           </div>
+        ) : (
+          <div className="tm-section-header">
+            <div>
+              <h2 className="tm-section-title">
+                {viewMode === 'student' ? 'Student Tuition Profiles' : 'Tuition Fee Structure'}
+              </h2>
+              <p className="tm-section-subtitle">
+                {viewMode === 'student'
+                  ? 'View student payment plan information'
+                  : 'Manage tuition configuration by grade'}
+              </p>
+            </div>
 
-          <div className="tm-button-group">
-            <button
-              className={`tm-view-toggle ${viewMode === 'student' ? 'active' : ''}`}
-              onClick={() => setViewMode(viewMode === 'student' ? 'grade' : 'student')}
-              title={`Switch to ${viewMode === 'student' ? 'Grade' : 'Student'} View`}
-            >
-              {viewMode === 'student' ? <ToggleLeft size={18} /> : <ToggleRight size={18} />}
-              {viewMode === 'student' ? 'Student View' : 'Grade View'}
+            <div className="tm-button-group">
+              <button
+                className={`tm-view-toggle ${viewMode === 'student' ? 'active' : ''}`}
+                onClick={() => setViewMode(viewMode === 'student' ? 'grade' : 'student')}
+                title={`Switch to ${viewMode === 'student' ? 'Grade' : 'Student'} View`}
+              >
+                {viewMode === 'student' ? <ToggleLeft size={18} /> : <ToggleRight size={18} />}
+                {viewMode === 'student' ? 'Student View' : 'Grade View'}
+              </button>
+
+              {viewMode === 'grade' && (
+                <button className="tm-btn-primary" onClick={handleAddNew}>
+                  <Plus size={18} />
+                  Add New Fee
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {isInitialLoading ? (
+          <div className="tm-filters-container tm-filters-skeleton">
+            <div className="tm-skeleton-line tm-skeleton-search" />
+            <div className="tm-skeleton-line tm-skeleton-export" />
+            <div className="tm-skeleton-line tm-skeleton-filter" />
+          </div>
+        ) : (
+          <div className="tm-filters-container">
+            <div className="tm-search-box">
+              <Search size={20} className="tm-search-icon" />
+              <input
+                type="text"
+                placeholder={
+                  viewMode === 'student'
+                    ? 'Search by student, parent, student no., contact, or username...'
+                    : 'Search by grade level or description...'
+                }
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="tm-search-input"
+              />
+            </div>
+
+            <button className="tm-btn-export" onClick={handleOpenPreview}>
+              <Download size={18} />
+              View & Export
             </button>
 
-            {viewMode === 'grade' && (
-              <button className="tm-btn-primary" onClick={handleAddNew}>
-                <Plus size={18} />
-                Add New Fee
-              </button>
-            )}
-          </div>
-        </div>
+            <div className="tm-filter-group">
+              <Filter size={20} />
+              <select
+                value={filterGrade}
+                onChange={(e) => setFilterGrade(e.target.value)}
+                className="tm-filter-select"
+              >
+                <option value="all">All Grades</option>
+                {grades.filter((g) => g !== 'all').map((grade) => (
+                  <option key={grade} value={grade}>
+                    {gradeLabelMap[grade] || grade}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div className="tm-filters-container">
-          <div className="tm-search-box">
-            <Search size={20} className="tm-search-icon" />
-            <input
-              type="text"
-              placeholder={
-                viewMode === 'student'
-                  ? 'Search by student, parent, student no., contact, or username...'
-                  : 'Search by grade level or description...'
-              }
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="tm-search-input"
-            />
+            <div className="tm-filter-group">
+              <Filter size={20} />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="tm-filter-select"
+              >
+                <option value="all">All Status</option>
+                {viewMode === 'student' ? (
+                  <>
+                    <option value="pending">Pending</option>
+                    <option value="partial">Partial</option>
+                    <option value="paid">Paid</option>
+                    <option value="overdue">Overdue</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </>
+                )}
+              </select>
+            </div>
           </div>
-
-          <button className="tm-btn-export" onClick={handleExportData}>
-            <Download size={18} />
-            Export
-          </button>
-
-          <div className="tm-filter-group">
-            <Filter size={20} />
-            <select
-              value={filterGrade}
-              onChange={(e) => setFilterGrade(e.target.value)}
-              className="tm-filter-select"
-            >
-              <option value="all">All Grades</option>
-              {grades.filter((g) => g !== 'all').map((grade) => (
-                <option key={grade} value={grade}>
-                  {gradeLabelMap[grade] || grade}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        )}
 
         <div className="tm-table-container">
           <table className="tm-table">
@@ -627,16 +761,14 @@ const TuitionManagement = () => {
               <tr>
                 {viewMode === 'student' ? (
                   <>
-                    <th>Student Name</th>
-                    <th>Parent</th>
+                    <th>Student Name / No.</th>
                     <th>Grade</th>
                     <th>Payment Mode</th>
                     <th>Tuition Fee</th>
                     <th>Total Paid</th>
                     <th>Remaining</th>
                     <th>Status</th>
-                    <th>Student No.</th>
-                    <th>Contact</th>
+                    <th>Parent / Contact</th>
                   </>
                 ) : (
                   <>
@@ -645,7 +777,9 @@ const TuitionManagement = () => {
                     <th>Installment</th>
                     <th>Initial</th>
                     <th>Monthly</th>
+                    <th>Reservation Fee</th>
                     <th>Total Cash</th>
+                    <th>Total Installment</th>
                     <th>Status</th>
                     <th>Updated</th>
                     <th>Actions</th>
@@ -655,9 +789,11 @@ const TuitionManagement = () => {
             </thead>
 
             <tbody>
-              {(viewMode === 'student' ? loadingStudents : loadingFees) ? (
+              {isInitialLoading ? (
+                renderSkeletonRows(tableColumns)
+              ) : (viewMode === 'student' ? loadingStudents : loadingFees) ? (
                 <tr>
-                  <td colSpan={viewMode === 'student' ? 10 : 9} className="tm-no-data">
+                  <td colSpan={tableColumns} className="tm-no-data">
                     <p>Loading...</p>
                   </td>
                 </tr>
@@ -671,8 +807,12 @@ const TuitionManagement = () => {
                   >
                     {viewMode === 'student' ? (
                       <>
-                        <td className="tm-table-cell tm-cell-bold">{item.studentName}</td>
-                        <td className="tm-table-cell">{item.parentName}</td>
+                        <td className="tm-table-cell tm-cell-bold">
+                          <div>{item.studentName}</div>
+                          <div style={{ fontSize: '0.85em', opacity: 0.7, marginTop: '2px' }}>
+                            SN: {item.studentNumber || '—'}
+                          </div>
+                        </td>
                         <td className="tm-table-cell">
                           {gradeLabelMap[item.gradeLevel] || item.gradeLevel || '—'}
                         </td>
@@ -685,19 +825,25 @@ const TuitionManagement = () => {
                             {item.accountStatus}
                           </span>
                         </td>
-                        <td className="tm-table-cell">{item.studentNumber || '—'}</td>
-                        <td className="tm-table-cell">{item.contactNumber || '—'}</td>
+                        <td className="tm-table-cell">
+                          <div>{item.parentName}</div>
+                          <div style={{ fontSize: '0.85em', opacity: 0.7, marginTop: '2px' }}>
+                            📞 {item.contactNumber || '—'}
+                          </div>
+                        </td>
                       </>
                     ) : (
                       <>
                         <td className="tm-table-cell tm-cell-bold">
-                          {item.grade_label || gradeLabelMap[item.grade_key] || item.grade_key}
+                          {item.grade_label || gradeLabelMap[item.grade_key] || item.grade_key || '—'}
                         </td>
                         <td className="tm-table-cell">{formatCurrency(item.cash)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.installment)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.initial)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.monthly)}</td>
+                        <td className="tm-table-cell">{formatCurrency(item.reservation_fee)}</td>
                         <td className="tm-table-cell">{formatCurrency(item.total_cash)}</td>
+                        <td className="tm-table-cell">{formatCurrency(item.total_installment)}</td>
                         <td className="tm-table-cell">
                           <span className={`tm-status tm-status-${normalizeStatus(item.status)}`}>
                             {String(item.status || '').charAt(0).toUpperCase() + String(item.status || '').slice(1)}
@@ -728,7 +874,7 @@ const TuitionManagement = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={viewMode === 'student' ? 10 : 9} className="tm-no-data">
+                  <td colSpan={tableColumns} className="tm-no-data">
                     <AlertCircle size={24} />
                     <p>No records found</p>
                   </td>
@@ -736,7 +882,9 @@ const TuitionManagement = () => {
               )}
             </tbody>
           </table>
+        </div>
 
+        {!isInitialLoading && (
           <Pagination
             currentPage={tmPage}
             totalPages={tmTotalPages}
@@ -744,7 +892,7 @@ const TuitionManagement = () => {
             totalItems={filteredData.length}
             itemsPerPage={ITEMS_PER_PAGE}
           />
-        </div>
+        )}
       </section>
 
       {showModal && (
@@ -877,127 +1025,6 @@ const TuitionManagement = () => {
               </div>
 
               <div className="tm-form-group">
-                <label>Credit / Overpayment (₱)</label>
-                <input
-                  type="number"
-                  name="credit"
-                  value={formData.credit}
-                  onChange={handleInputChange}
-                  className="tm-form-input"
-                  placeholder="Amount paid above total due"
-                />
-              </div>
-
-              <div className="tm-form-group">
-                <label>Transaction Type</label>
-                <select
-                  name="transaction_type"
-                  value={formData.transaction_type}
-                  onChange={handleInputChange}
-                  className="tm-form-input"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="installment">Installment</option>
-                </select>
-              </div>
-
-              <div className="tm-form-group">
-                <label>Payment Status</label>
-                <select
-                  name="payment_status"
-                  value={formData.payment_status}
-                  onChange={handleInputChange}
-                  className="tm-form-input"
-                >
-                  <option value="active">Active</option>
-                  {formData.transaction_type === 'installment' && (
-                    <option value="pending">Pending</option>
-                  )}
-                  <option value="completed">Completed</option>
-                  <option value="overdue">Overdue</option>
-                </select>
-              </div>
-
-              <div className="tm-form-group">
-                <label>Proof of Payment</label>
-                <div style={{ marginTop: '8px' }}>
-                  {!proofPreview ? (
-                    <div style={{
-                      border: '2px dashed #cbd5e1',
-                      borderRadius: '8px',
-                      padding: '24px',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      backgroundColor: '#f8fafc',
-                      '&:hover': { borderColor: '#2196F3', backgroundColor: '#f0f7ff' }
-                    }} onClick={() => document.getElementById('proof-file-input')?.click()}>
-                      <div style={{ color: '#64748b', marginBottom: '8px' }}>
-                        📄 Click to upload or drag and drop
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-                        PNG, JPG, GIF or PDF (max. 5MB)
-                      </div>
-                      <input
-                        id="proof-file-input"
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={handleProofFileChange}
-                        style={{ display: 'none' }}
-                      />
-                    </div>
-                  ) : (
-                    <div style={{
-                      border: '2px solid #10b981',
-                      borderRadius: '8px',
-                      padding: '16px',
-                      backgroundColor: '#ecfdf5',
-                      position: 'relative'
-                    }}>
-                      {proofPreview === 'PDF' ? (
-                        <div style={{ textAlign: 'center', padding: '20px' }}>
-                          <div style={{ fontSize: '36px', marginBottom: '8px' }}>📄</div>
-                          <div style={{ fontSize: '14px', fontWeight: 600, color: '#065f46' }}>
-                            {proofFile?.name}
-                          </div>
-                        </div>
-                      ) : (
-                        <img
-                          src={proofPreview}
-                          alt="Proof Preview"
-                          style={{
-                            maxWidth: '100%',
-                            maxHeight: '200px',
-                            borderRadius: '6px',
-                            display: 'block',
-                            margin: '0 auto'
-                          }}
-                        />
-                      )}
-                      <button
-                        onClick={removeProofFile}
-                        style={{
-                          position: 'absolute',
-                          top: '8px',
-                          right: '8px',
-                          background: '#dc2626',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '4px 8px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          fontWeight: 600
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="tm-form-group">
                 <label>Status</label>
                 <select
                   name="status"
@@ -1046,6 +1073,16 @@ const TuitionManagement = () => {
           </div>
         </div>
       )}
+
+      <PreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        title={`Tuition ${viewMode === 'student' ? 'Profiles' : 'Fee Structure'}`}
+        data={previewData}
+        filename={`Tuition_${viewMode}`}
+      />
+      
+      <Toast toasts={toasts} dismissToast={dismissToast} />
     </main>
   );
 };

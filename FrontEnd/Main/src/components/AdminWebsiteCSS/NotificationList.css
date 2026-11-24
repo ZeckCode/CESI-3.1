@@ -12,7 +12,7 @@
   align-items: flex-start;
   z-index: 1000;
   padding: 80px 20px 20px 20px;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .notification-overlay > div {
@@ -105,6 +105,36 @@
   height: 24px;
   font-size: 12px;
   font-weight: 700;
+}
+
+.notification-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notification-mark-all-btn {
+  background: #3b82f6;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.notification-mark-all-btn:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.notification-mark-all-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .notification-close-btn {
@@ -305,11 +335,20 @@
 }
 
 .notification-item-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
   font-weight: 600;
   color: #1f2937;
   margin: 0 0 4px 0;
   word-break: break-word;
+}
+
+.notification-read-check {
+  color: #16a34a;
+  display: inline-flex;
+  align-items: center;
 }
 
 .notification-item-text {
@@ -318,6 +357,14 @@
   margin: 0 0 6px 0;
   line-height: 1.4;
   word-break: break-word;
+}
+
+.notification-item-text p {
+  margin: 0 0 6px 0;
+}
+
+.notification-item-text p:last-child {
+  margin-bottom: 0;
 }
 
 .notification-item-time {
@@ -335,6 +382,10 @@
 }
 
 .notification-item:hover .notification-item-actions {
+  opacity: 1;
+}
+
+.notification-item.unread .notification-item-actions {
   opacity: 1;
 }
 
@@ -364,6 +415,18 @@
   color: white;
 }
 
+.notification-check-btn.is-read {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #16a34a;
+  cursor: default;
+  opacity: 1;
+}
+
+.notification-check-btn.is-read:disabled {
+  opacity: 1;
+}
+
 /* Footer */
 .notification-footer {
   padding: 12px 20px;
@@ -387,28 +450,162 @@
 }
 
 /* Responsive */
-@media (max-width: 640px) {
+/* ── Tablet (768px - 1024px) ── */
+@media (max-width: 1024px) {
   .notification-overlay {
-    padding: 70px 10px 10px 10px;
+    padding: 70px 12px 10px 12px;
+  }
+
+  .notification-panel {
+    max-width: 90%;
+    max-height: 70vh;
+  }
+
+  .notification-item {
+    padding: 12px;
+  }
+
+  .notification-time {
+    font-size: 12px;
+  }
+}
+
+/* ── Mobile (<768px) ── */
+@media (max-width: 768px) {
+  .notification-overlay {
+    padding: 66px 10px 10px 10px;
   }
 
   .notification-panel {
     max-width: none;
-    max-height: 60vh;
-    margin: 0 10px 0 10px;
+    max-height: 65vh;
+    margin: 0 8px;
   }
 
   .notification-panel.expanded {
     max-width: none;
     max-height: 90vh;
-    margin: 0 10px 0 10px;
+    margin: 0 8px;
   }
 
   .notification-panel::before {
-    right: 30px;
+    right: 24px;
+  }
+
+  .notification-item {
+    padding: 12px;
+  }
+
+  .notification-avatar {
+    width: 40px;
+    height: 40px;
   }
 
   .notification-item-actions {
     opacity: 1;
+  }
+
+  .notification-content h4 {
+    font-size: 13px;
+  }
+
+  .notification-time {
+    font-size: 12px;
+  }
+}
+
+/* ── Small Mobile (<640px) ── */
+@media (max-width: 640px) {
+  .notification-overlay {
+    padding: 60px 8px 10px 8px;
+  }
+
+  .notification-panel {
+    max-width: none;
+    max-height: 60vh;
+    margin: 0 6px;
+  }
+
+  .notification-panel.expanded {
+    max-width: none;
+    max-height: 90vh;
+    margin: 0 6px;
+  }
+
+  .notification-panel::before {
+    right: 20px;
+  }
+
+  .notification-item {
+    padding: 11px;
+  }
+
+  .notification-avatar {
+    width: 38px;
+    height: 38px;
+    font-size: 13px;
+  }
+
+  .notification-item-actions {
+    opacity: 1;
+  }
+
+  .notification-content h4 {
+    font-size: 12px;
+  }
+
+  .notification-time {
+    font-size: 11px;
+  }
+}
+
+/* ── Ultra Mobile (<480px) ── */
+@media (max-width: 480px) {
+  .notification-overlay {
+    padding: 56px 6px 10px 6px;
+  }
+
+  .notification-panel {
+    max-width: none;
+    max-height: 55vh;
+    margin: 0 4px;
+  }
+
+  .notification-panel.expanded {
+    max-width: none;
+    max-height: 90vh;
+    margin: 0 4px;
+  }
+
+  .notification-panel::before {
+    right: 16px;
+  }
+
+  .notification-item {
+    padding: 10px;
+  }
+
+  .notification-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+
+  .notification-content h4 {
+    font-size: 11px;
+  }
+
+  .notification-content p {
+    font-size: 12px;
+  }
+
+  .notification-time {
+    font-size: 10px;
+  }
+
+  .notification-item-actions button {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
   }
 }

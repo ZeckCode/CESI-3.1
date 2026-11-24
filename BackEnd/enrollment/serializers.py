@@ -1,4 +1,7 @@
+from decimal import Decimal
+
 from rest_framework import serializers
+from CESI.serializer_safety import SafeSerializer, SafeModelSerializer
 from django.utils import timezone
 import re
 
@@ -6,12 +9,29 @@ from .models import Enrollment, ParentInfo, EnrollmentDocument
 from accounts.models import User
 from accounts.serializers import UserSerializer
 from enrollment.models import EnrollmentSettings
+from finance.models import TuitionConfig
 
 PRESCHOOL = {"prek", "kinder"}
 ELEMENTARY = {"grade1", "grade2", "grade3", "grade4", "grade5", "grade6"}
 
 PHONE_RE = re.compile(r"^[0-9+\-\s()]{7,20}$")
 PH_MOBILE_RE = re.compile(r"^(09\d{9}|\+639\d{9})$")
+
+
+def get_required_enrollment_payment(tuition, payment_mode, student_type):
+    if not tuition or not payment_mode:
+        return Decimal("0")
+
+    is_new_student = str(student_type or "").strip().lower() == "new"
+    assessment = Decimal(str(tuition.assessment or 0)) if is_new_student else Decimal("0")
+
+    if payment_mode == "cash":
+        return Decimal("0")
+
+    if payment_mode == "installment":
+        return Decimal(str(tuition.initial or 0)) + assessment
+
+    return assessment
 
 
 def normalize_ph_mobile(value):
@@ -28,7 +48,7 @@ def normalize_ph_mobile(value):
     return None
 
 
-class ParentInfoSerializer(serializers.ModelSerializer):
+class ParentInfoSerializer(SafeModelSerializer):
     class Meta:
         model = ParentInfo
         fields = [
@@ -44,7 +64,7 @@ class ParentInfoSerializer(serializers.ModelSerializer):
         ]
 
 
-class EnrollmentDocumentSerializer(serializers.ModelSerializer):
+class EnrollmentDocumentSerializer(SafeModelSerializer):
     class Meta:
         model = EnrollmentDocument
         fields = [
@@ -57,22 +77,103 @@ class EnrollmentDocumentSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "uploaded_at"]
 
 
-class EnrollmentSerializer(serializers.ModelSerializer):
+class EnrollmentSerializer(SafeModelSerializer):
     student_username = serializers.CharField(source="student.username", read_only=True)
     section_name = serializers.CharField(source="section.name", read_only=True)
     parent_info = ParentInfoSerializer(read_only=True)
     documents = EnrollmentDocumentSerializer(many=True, read_only=True)
+    id_image_url = serializers.SerializerMethodField()
+    payment_proof = serializers.SerializerMethodField()
+    parent_user_has_password = serializers.SerializerMethodField()
 
     class Meta:
         model = Enrollment
         fields = "__all__"
 
+    def get_id_image_url(self, obj):
+        request = self.context.get("request")
+        # Prefer storage URL when available
+        try:
+            if obj.id_image and obj.id_image.storage.exists(obj.id_image.name):
+                url = obj.id_image.url
+                return request.build_absolute_uri(url) if request else url
+        except Exception:
+            pass
 
-class EnrollmentDetailedSerializer(serializers.ModelSerializer):
+        if getattr(obj, "id_image_data", None):
+            if request:
+                return request.build_absolute_uri(f"/api/enrollments/{obj.pk}/id_image/")
+            return f"/api/enrollments/{obj.pk}/id_image/"
+
+        if obj.id_image:
+            url = obj.id_image.url
+            return request.build_absolute_uri(url) if request else url
+
+        return None
+    
+    def get_decline_reason(self, obj):
+        if not obj.remarks:
+            return ""
+
+        if "REASON:" in obj.remarks:
+            return obj.remarks.split("REASON:")[-1].strip()
+
+        return ""
+    
+    def get_payment_proof(self, obj):
+        try:
+            # Try to get payment proof by enrollment relation
+            if hasattr(obj, 'payment_proof'):
+                proof = obj.payment_proof
+                return {
+                    'id': proof.id,
+                    'status': proof.status,
+                    'proof_image_url': proof.proof_image.url if proof.proof_image else None,
+                    'reference_number': proof.reference_number,
+                    'payment_type': proof.payment_type,
+                    'source': proof.source,
+                }
+        except:
+            pass
+        
+        # Fallback: try by reference number format
+        try:
+            from finance.models import ProofOfPayment
+            proof = ProofOfPayment.objects.filter(
+                reference_number=f"ENROLL-{obj.id}",
+                payment_type='enrollment'
+            ).first()
+            if proof:
+                return {
+                    'id': proof.id,
+                    'status': proof.status,
+                    'proof_image_url': proof.proof_image.url if proof.proof_image else None,
+                    'reference_number': proof.reference_number,
+                    'payment_type': proof.payment_type,
+                    'source': proof.source,
+                }
+        except:
+            pass
+        
+        return None
+
+    def get_parent_user_has_password(self, obj):
+        parent = getattr(obj, "parent_user", None)
+        if not parent:
+            return False
+        try:
+            return bool(parent.has_usable_password())
+        except Exception:
+            return False
+
+
+class EnrollmentDetailedSerializer(SafeModelSerializer):
     student = UserSerializer(read_only=True)
     section_details = serializers.SerializerMethodField()
     parent_info = ParentInfoSerializer(read_only=True)
     documents = EnrollmentDocumentSerializer(many=True, read_only=True)
+    id_image_url = serializers.SerializerMethodField()
+    parent_user_has_password = serializers.SerializerMethodField()
 
     class Meta:
         model = Enrollment
@@ -85,8 +186,37 @@ class EnrollmentDetailedSerializer(serializers.ModelSerializer):
             "grade_level": obj.section.grade_level if obj.section else None,
         }
 
+    def get_id_image_url(self, obj):
+        request = self.context.get("request")
+        try:
+            if obj.id_image and obj.id_image.storage.exists(obj.id_image.name):
+                url = obj.id_image.url
+                return request.build_absolute_uri(url) if request else url
+        except Exception:
+            pass
 
-class OldStudentLookupSerializer(serializers.Serializer):
+        if getattr(obj, "id_image_data", None):
+            if request:
+                return request.build_absolute_uri(f"/api/enrollments/{obj.pk}/id_image/")
+            return f"/api/enrollments/{obj.pk}/id_image/"
+
+        if obj.id_image:
+            url = obj.id_image.url
+            return request.build_absolute_uri(url) if request else url
+
+        return None
+
+    def get_parent_user_has_password(self, obj):
+        parent = getattr(obj, "parent_user", None)
+        if not parent:
+            return False
+        try:
+            return bool(parent.has_usable_password())
+        except Exception:
+            return False
+
+
+class OldStudentLookupSerializer(SafeSerializer):
     identifier = serializers.CharField(required=True)
     identifier_type = serializers.ChoiceField(
         choices=["auto", "lrn", "student_number"],
@@ -101,9 +231,18 @@ class OldStudentLookupSerializer(serializers.Serializer):
         return value
 
 
-class EnrollmentCreateSerializer(serializers.ModelSerializer):
+class EnrollmentCreateSerializer(SafeModelSerializer):
     parent_info = ParentInfoSerializer(required=False)
+    payment_amount = serializers.DecimalField(required=False, allow_null=True, max_digits=10, decimal_places=2)
     website = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    student_photo = serializers.ImageField(required=False, allow_null=True, write_only=True)
+    payment_proof_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    form_137_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    sf10_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    birth_certificate_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    good_moral_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    report_card_file = serializers.FileField(required=False, allow_null=True, write_only=True)
+    other_document_file = serializers.FileField(required=False, allow_null=True, write_only=True)
 
     class Meta:
         model = Enrollment
@@ -128,6 +267,8 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid submission.")
 
         attrs.pop("website", None)
+
+        payment_amount = merged_value("payment_amount")
 
         if is_create:
             required = [
@@ -224,11 +365,77 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
                         }
                     })
 
+        section_obj = merged_value("section")
+        effective_status = str(merged_value("status") or "").upper()
+        if section_obj is not None and effective_status == "ACTIVE":
+            room_capacity = None
+            if getattr(section_obj, "room", None) is not None:
+                room_capacity = getattr(section_obj.room, "capacity", None)
+
+            capacity = room_capacity or getattr(section_obj, "capacity", None) or 40
+
+            active_assigned = Enrollment.objects.filter(section=section_obj, status="ACTIVE")
+            if self.instance is not None:
+                active_assigned = active_assigned.exclude(pk=self.instance.pk)
+
+            active_count = active_assigned.count()
+            if active_count >= int(capacity):
+                raise serializers.ValidationError(
+                    {
+                        "section": (
+                            f"Section {section_obj.name} is full ({active_count}/{int(capacity)}). "
+                            f"Please open a new room/section for {section_obj.get_grade_level_display()}."
+                        )
+                    }
+                )
+
+        payment_mode = merged_value("payment_mode")
+        payment_method = merged_value("payment_method")
+        student_type = merged_value("student_type")
+        grade_level = merged_value("grade_level")
+
+        requires_online_amount = (
+            is_create
+            or attrs.get("payment_method") == "online"
+            or "payment_amount" in attrs
+        )
+
+        if payment_method == "online" and requires_online_amount:
+            amount_value = Decimal(str(payment_amount or 0))
+            if amount_value <= 0:
+                raise serializers.ValidationError({
+                    "payment_amount": "Please enter the payment amount."
+                })
+
+            tuition = TuitionConfig.objects.filter(
+                grade_key=str(grade_level or "").strip().lower(),
+                is_active=True,
+                status="active",
+            ).first()
+
+            if tuition:
+                minimum_amount = get_required_enrollment_payment(tuition, payment_mode, student_type)
+                if minimum_amount > 0 and amount_value < minimum_amount:
+                    raise serializers.ValidationError({
+                        "payment_amount": (
+                            f"Please pay a minimum of Php {minimum_amount:.2f} before submitting enrollment."
+                        )
+                    })
+
         return attrs
 
     def create(self, validated_data):
         validated_data.pop("website", None)
+        payment_amount = validated_data.pop("payment_amount", None)
         parent_data = validated_data.pop("parent_info", None)
+        student_photo = validated_data.pop("student_photo", None)
+        payment_proof_file = validated_data.pop("payment_proof_file", None)
+        form_137_file = validated_data.pop("form_137_file", None)
+        sf10_file = validated_data.pop("sf10_file", None)
+        birth_certificate_file = validated_data.pop("birth_certificate_file", None)
+        good_moral_file = validated_data.pop("good_moral_file", None)
+        report_card_file = validated_data.pop("report_card_file", None)
+        other_document_file = validated_data.pop("other_document_file", None)
 
         public_user, created = User.objects.get_or_create(
             username="public_user",
@@ -241,20 +448,19 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         )
 
         updated_fields = []
-
         if not public_user.email:
             public_user.email = "public@school.com"
             updated_fields.append("email")
-
         if public_user.role not in ["ADMIN", "TEACHER", "PARENT_STUDENT"]:
             public_user.role = "PARENT_STUDENT"
             updated_fields.append("role")
-
         if updated_fields:
             public_user.save(update_fields=updated_fields)
 
         validated_data["student"] = public_user
         validated_data["status"] = "PENDING"
+        if student_photo:
+            validated_data["id_image"] = student_photo
 
         possible_duplicate = Enrollment.objects.filter(
             first_name__iexact=validated_data.get("first_name"),
@@ -270,15 +476,55 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             ).strip(" |")
 
         enrollment = super().create(validated_data)
-
         if parent_data:
             ParentInfo.objects.create(enrollment=enrollment, **parent_data)
 
+        # Create Proof of Payment if file was uploaded
+        # if payment_proof_file:
+        #     from finance.models import ProofOfPayment
+            
+        #     # Get reference number from form or generate one
+        #     reference_number = validated_data.get('reference_number') or f"ENR-{enrollment.id}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+            
+        #     ProofOfPayment.objects.create(
+        #         user=public_user,
+        #         enrollment=enrollment,
+        #         reference_number=reference_number,
+        #         description="Enrollment Initial Payment",  # Base description
+        #         proof_image=payment_proof_file,
+        #         payment_type='enrollment',  # Mark as enrollment payment
+        #         source='enrollment_form',   # Mark source as enrollment form
+        #         status='pending'
+        #     )
+            
+        # Store files for perform_create to handle
+        self.context['_files'] = {
+            'payment_proof_file': payment_proof_file,
+            'payment_amount': payment_amount,
+            'form_137_file': form_137_file,
+            'sf10_file': sf10_file,
+            'birth_certificate_file': birth_certificate_file,
+            'good_moral_file': good_moral_file,
+            'report_card_file': report_card_file,
+            'other_document_file': other_document_file,
+        }
         return enrollment
 
     def update(self, instance, validated_data):
         validated_data.pop("website", None)
+        payment_amount = validated_data.pop("payment_amount", None)
         parent_data = validated_data.pop("parent_info", None)
+        student_photo = validated_data.pop("student_photo", None)
+        payment_proof_file = validated_data.pop("payment_proof_file", None)
+        form_137_file = validated_data.pop("form_137_file", None)
+        sf10_file = validated_data.pop("sf10_file", None)
+        birth_certificate_file = validated_data.pop("birth_certificate_file", None)
+        good_moral_file = validated_data.pop("good_moral_file", None)
+        report_card_file = validated_data.pop("report_card_file", None)
+        other_document_file = validated_data.pop("other_document_file", None)
+
+        if student_photo:
+            validated_data["id_image"] = student_photo
 
         instance = super().update(instance, validated_data)
 
@@ -288,10 +534,21 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
                 defaults=parent_data
             )
 
+        # Store files for perform_update to handle
+        self.context['_files'] = {
+            'payment_proof_file': payment_proof_file,
+            'payment_amount': payment_amount,
+            'form_137_file': form_137_file,
+            'sf10_file': sf10_file,
+            'birth_certificate_file': birth_certificate_file,
+            'good_moral_file': good_moral_file,
+            'report_card_file': report_card_file,
+            'other_document_file': other_document_file,
+        }
         return instance
 
 
-class EnrollmentSettingsSerializer(serializers.ModelSerializer):
+class EnrollmentSettingsSerializer(SafeModelSerializer):
     class Meta:
         model = EnrollmentSettings
         fields = ["open_date", "window_days", "academic_year", "updated_at"]

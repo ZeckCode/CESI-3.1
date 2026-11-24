@@ -14,11 +14,11 @@ setlocal enabledelayedexpansion
 set "PROJECT_ROOT=%~dp0"
 set "BACKEND=%PROJECT_ROOT%BackEnd"
 set "FRONTEND=%PROJECT_ROOT%FrontEnd\Main"
-set "VENV=%BACKEND%\venv"
+set "VENV=%LOCALAPPDATA%\CESI-Dev\CESI-3.1\venv"
 set "VENV_PYTHON=%VENV%\Scripts\python.exe"
 set "VENV_PIP=%VENV%\Scripts\pip.exe"
 set "VENV_ACTIVATE=%VENV%\Scripts\activate.bat"
-set "REQUIREMENTS=%PROJECT_ROOT%requirements.txt"
+set "REQUIREMENTS=%BACKEND%\requirements.txt"
 
 echo.
 echo =============================================
@@ -55,17 +55,17 @@ echo.
 echo ^>^> Setting up Backend...
 
 if not exist "%VENV_PYTHON%" (
-    echo    Virtual environment not found - creating...
-    python -m venv "%VENV%"
+    echo    Local virtual environment not found - creating...
+    py -3.12 -m venv "%VENV%"
     if not exist "%VENV_PYTHON%" (
-        echo    ERROR: Failed to create venv!
-        echo    Try manually: cd BackEnd ^&^& python -m venv venv
+        echo    ERROR: Failed to create a Python 3.12 virtual environment!
+        echo    Try manually: py -3.12 -m venv "%VENV%"
         pause
         exit /b 1
     )
-    echo    OK: venv created
+    echo    OK: venv created outside OneDrive
 ) else (
-    echo    OK: venv exists
+    echo    OK: local venv exists
 )
 
 REM -- Activate venv --
@@ -75,10 +75,17 @@ echo    OK: venv activated
 REM -- Install Python deps --
 echo.
 echo ^>^> Installing/updating Python packages...
-"%VENV_PIP%" install -r "%REQUIREMENTS%" --quiet --disable-pip-version-check >nul 2>&1
+"%VENV_PYTHON%" -m pip install --upgrade pip --disable-pip-version-check
 if %errorlevel% neq 0 (
-    echo    Retrying with output...
-    "%VENV_PIP%" install -r "%REQUIREMENTS%"
+    echo    ERROR: pip upgrade failed
+    pause
+    exit /b 1
+)
+"%VENV_PYTHON%" -m pip install -r "%REQUIREMENTS%" --disable-pip-version-check
+if %errorlevel% neq 0 (
+    echo    ERROR: Python dependency installation failed
+    pause
+    exit /b 1
 )
 echo    OK: Python packages up to date
 
@@ -86,7 +93,18 @@ REM -- Run migrations --
 echo.
 echo ^>^> Applying database migrations...
 cd /d "%BACKEND%"
-"%VENV_PYTHON%" manage.py migrate --run-syncdb >nul 2>&1
+"%VENV_PYTHON%" manage.py makemigrations --noinput
+if %errorlevel% neq 0 (
+    echo    ERROR: makemigrations failed
+    pause
+    exit /b 1
+)
+"%VENV_PYTHON%" manage.py migrate --run-syncdb
+if %errorlevel% neq 0 (
+    echo    ERROR: migrate failed
+    pause
+    exit /b 1
+)
 echo    OK: Migrations applied
 
 REM -- Frontend: npm install --

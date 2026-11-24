@@ -26,18 +26,24 @@ export async function updateChat(chatId, payload) {
   });
 }
 
-export async function searchUsers(query) {
+export async function searchUsers(query, options = {}) {
   const params = new URLSearchParams();
   if (query) {
     params.set('q', query);
   }
+  if (options.scope) {
+    params.set('scope', options.scope);
+  }
   return apiFetchData(`${API_BASE}/chats/search_users/?${params.toString()}`);
 }
 
-export async function searchSections(query) {
+export async function searchSections(query, options = {}) {
   const params = new URLSearchParams();
   if (query) {
     params.set('q', query);
+  }
+  if (options.schoolYearId) {
+    params.set('school_year', options.schoolYearId);
   }
   return apiFetchData(`${API_BASE}/chats/search_sections/?${params.toString()}`);
 }
@@ -194,6 +200,10 @@ export async function listFlaggedMessages() {
   return apiFetchData(`${API_BASE}/flags/`);
 }
 
+export async function listFlaggedMessagesByUser() {
+  return apiFetchData(`${API_BASE}/flags/by_user/`);
+}
+
 export async function takeFlagAction(flagId, action, options = {}) {
   // action: 'delete', 'restrict', 'approve', 'dismiss'
   // options: { restrict_duration, is_permanent, admin_notes }
@@ -201,6 +211,16 @@ export async function takeFlagAction(flagId, action, options = {}) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, ...options }),
+  });
+}
+
+export async function takeFlagUserAction(userId, action, options = {}) {
+  // action: 'delete', 'restrict', 'dismiss'
+  // options: { restrict_duration_hours, restrict_duration_minutes, is_permanent, admin_notes }
+  return apiFetchData(`${API_BASE}/flags/take_user_action/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, action, ...options }),
   });
 }
 
