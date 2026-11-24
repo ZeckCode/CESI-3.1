@@ -1398,36 +1398,8 @@ const GradesRecords = () => {
         yPos += rowHeight;
       });
 
-      const averageBoxY = yPos + 8;
-      const averageText = String(safeValue(reportCardData.general_average));
-      doc.setFillColor(224, 234, 247);
-      doc.setDrawColor(0, 0, 0);
-      doc.rect(margin, averageBoxY, totalWidth, 10, 'F');
-      doc.setTextColor(0, 0, 0);
-      doc.setFont(undefined, 'bold');
-      doc.text('General Average', margin + 2, averageBoxY + 6.8);
-      doc.setFont(undefined, 'normal');
-      doc.text(averageText, pageWidth - margin - 2, averageBoxY + 6.8, { align: 'right' });
-
-      const remarkY = averageBoxY + 18;
-      if (reportCardRemark.trim()) {
-        doc.setFont(undefined, 'bold');
-        doc.text('Admin Remark:', margin, remarkY);
-        doc.setFont(undefined, 'normal');
-        const wrappedRemark = doc.splitTextToSize(reportCardRemark.trim(), pageWidth - margin * 2);
-        doc.text(wrappedRemark, margin, remarkY + 6);
-      }
-
-      const signatureY = pageHeight - 28;
-      doc.setDrawColor(60, 60, 60);
-      doc.line(margin, signatureY, pageWidth / 2 - 18, signatureY);
-      doc.line(pageWidth / 2 + 18, signatureY, pageWidth - margin, signatureY);
-      doc.setFont(undefined, 'normal');
-      doc.text('Parent Signature', margin + 16, signatureY + 6);
-      doc.text('Teacher Signature', pageWidth / 2 + 32, signatureY + 6);
-
-      const fileName = getReportCardFileName(reportCardData, student);
-      doc.save(fileName);
+      doc.save(`admin-academic-history-${timestamp}.pdf`);
+      alert('✓ PDF file downloaded successfully!');
     } catch (err) {
       console.error('Error exporting PDF:', err);
       alert('Failed to export PDF. Please try again.');
@@ -1465,10 +1437,10 @@ const GradesRecords = () => {
     setReportCardRemark('');
   };
 
-  const downloadReportCardPDF = () => {
-    if (!reportCardData || !reportCardData.student) return;
+  const buildReportCardPDF = () => {
+    if (!reportCardData || !reportCardData.student) return null;
 
-    try {
+    {
       const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -1593,9 +1565,29 @@ const GradesRecords = () => {
       doc.text('Parent Signature', margin + 16, signatureY + 6);
       doc.text('Teacher Signature', pageWidth / 2 + 32, signatureY + 6);
 
+      return doc;
+    }
+  };
+
+  const downloadReportCardPDF = () => {
+    try {
+      const doc = buildReportCardPDF();
+      if (!doc) return;
+      doc.save(getReportCardFileName(reportCardData, reportCardData.student));
+    } catch (err) {
+      console.error('Error saving report card PDF:', err);
+      alert('Failed to save report card PDF. Please try again.');
+    }
+  };
+
+  const printReportCard = () => {
+    try {
+      const doc = buildReportCardPDF();
+      if (!doc) return;
+
       const pdfBlob = doc.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
-      const printWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+      const printWindow = window.open(pdfUrl, '_blank');
 
       if (printWindow) {
         printWindow.focus();
@@ -1605,7 +1597,7 @@ const GradesRecords = () => {
           } catch (error) {
             console.warn('Print preview blocked:', error);
           }
-          setTimeout(() => URL.revokeObjectURL(pdfUrl), 1500);
+          setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
         }, 600);
       } else {
         alert('Please allow pop-ups to print the report card.');
