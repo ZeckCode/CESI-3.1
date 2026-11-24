@@ -22,6 +22,7 @@ const AdminMessages = () => {
   const [activeTab, setActiveTab] = useState("profanity");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successToast, setSuccessToast] = useState("");
   const [recordsPage, setRecordsPage] = useState(1);
   const recordsPerPage = 12;
 
@@ -66,6 +67,14 @@ const AdminMessages = () => {
     }, 2000);
     return () => clearInterval(interval);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!successToast) return undefined;
+    const timeoutId = setTimeout(() => {
+      setSuccessToast("");
+    }, 3000);
+    return () => clearTimeout(timeoutId);
+  }, [successToast]);
 
   const loadData = async () => {
     try {
@@ -244,6 +253,7 @@ const AdminMessages = () => {
 
     if ((selectedFlagUser.flags || []).length === 0) {
       setError("No pending flagged messages for this user.");
+      setSuccessToast("");
       return;
     }
 
@@ -276,7 +286,7 @@ const AdminMessages = () => {
         }
       }
 
-      await takeFlagUserAction(selectedFlagUser.user.id, action, options);
+      const result = await takeFlagUserAction(selectedFlagUser.user.id, action, options);
 
       const refreshedUsers = await listFlaggedMessagesByUser();
       setFlaggedUsers(refreshedUsers || []);
@@ -290,6 +300,17 @@ const AdminMessages = () => {
         await loadRestrictions();
       }
 
+      const reviewedCount = Number(result?.reviewed_flag_count || 0);
+      const deletedCount = Number(result?.deleted_message_count || 0);
+      const successMessage =
+        action === "delete"
+          ? `Deleted ${deletedCount} message${deletedCount === 1 ? "" : "s"} and resolved ${reviewedCount} flag${reviewedCount === 1 ? "" : "s"}.`
+          : action === "dismiss"
+            ? `Dismissed ${reviewedCount} flag${reviewedCount === 1 ? "" : "s"}.`
+            : `Applied restriction once and resolved ${reviewedCount} flag${reviewedCount === 1 ? "" : "s"}.`;
+      setSuccessToast(successMessage);
+      setError("");
+
       setSelectedFlagModal(null);
       setFlagAdminNotes("");
       setFlagRestrictionHours(0);
@@ -297,6 +318,7 @@ const AdminMessages = () => {
       setFlagRestrictionType("TEMP_MUTE");
     } catch (err) {
       setError("Failed to take bulk action on flags");
+      setSuccessToast("");
       console.error(err);
     } finally {
       setFlagActionSubmitting(false);
@@ -484,6 +506,7 @@ const AdminMessages = () => {
       </div>
 
       {error && <div className="admin-error">{error}</div>}
+      {successToast && <div className="admin-success">{successToast}</div>}
 
       <div className="admin-messages-content">
         {/* PROFANITY TAB */}

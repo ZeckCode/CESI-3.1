@@ -576,6 +576,17 @@
   font-size: 13px;
 }
 
+.admin-success {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #dcfce7;
+  border-left: 4px solid #16a34a;
+  color: #14532d;
+  font-weight: 500;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
 /* ========== RESPONSIVE ========== */
 @media (max-width: 1024px) {
   .admin-messages-layout {
