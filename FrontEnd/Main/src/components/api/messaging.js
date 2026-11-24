@@ -214,6 +214,16 @@ export async function takeFlagAction(flagId, action, options = {}) {
   });
 }
 
+export async function takeFlagUserAction(userId, action, options = {}) {
+  // action: 'delete', 'restrict', 'dismiss'
+  // options: { restrict_duration_hours, restrict_duration_minutes, is_permanent, admin_notes }
+  return apiFetchData(`${API_BASE}/flags/take_user_action/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, action, ...options }),
+  });
+}
+
 // ═══════════════════════════════════════════════════════════
 // CHAT RESTRICTIONS (Admin Only)
 // ═══════════════════════════════════════════════════════════

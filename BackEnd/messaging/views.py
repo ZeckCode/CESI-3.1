@@ -46,6 +46,92 @@ def get_auto_mute_minutes(user):
     return AUTO_MUTE_TIERS[tier_index]
 
 
+def parse_restriction_duration(request_data):
+    """Parse restriction duration from payload."""
+    restrict_hours = request_data.get('restrict_duration_hours')
+    restrict_minutes = request_data.get('restrict_duration_minutes')
+    raw_duration = request_data.get('restrict_duration')
+
+    parsed_hours = None
+    parsed_minutes = None
+
+    if restrict_hours is not None:
+        try:
+            parsed_hours = int(restrict_hours)
+        except (ValueError, TypeError):
+            parsed_hours = 0
+
+    if restrict_minutes is not None:
+        try:
+            parsed_minutes = int(restrict_minutes)
+        except (ValueError, TypeError):
+            parsed_minutes = 0
+
+    if parsed_hours is None and raw_duration is not None:
+        try:
+            parsed_hours = int(raw_duration)
+        except (ValueError, TypeError):
+            parsed_hours = 0
+
+    parsed_hours = parsed_hours if parsed_hours is not None else 0
+    parsed_minutes = parsed_minutes if parsed_minutes is not None else 0
+
+    parsed_hours = max(0, parsed_hours)
+    parsed_minutes = max(0, min(60, parsed_minutes))
+
+    if parsed_hours == 0 and parsed_minutes == 0:
+        parsed_minutes = 30
+
+    restriction_duration_delta = timedelta(hours=parsed_hours, minutes=parsed_minutes)
+    if restriction_duration_delta.total_seconds() <= 0:
+        restriction_duration_delta = timedelta(minutes=30)
+
+    return restriction_duration_delta
+
+
+def apply_admin_restriction(user, restricted_by, is_permanent, reason, restriction_duration_delta):
+    """Apply one global restriction update for a user.
+
+    If a temporary mute already exists and is active, extend it once from the
+    current expiry instead of resetting or applying per-flag multiplication.
+    """
+    now = timezone.now()
+    restriction, created = ChatRestriction.objects.get_or_create(
+        chat=None,
+        user=user,
+        defaults={
+            'restriction_type': 'PERMANENT_REMOVE' if is_permanent else 'TEMP_MUTE',
+            'restricted_by': restricted_by,
+            'reason': reason,
+            'expires_at': None if is_permanent else (now + restriction_duration_delta),
+        }
+    )
+
+    if created:
+        return restriction
+
+    restriction.restricted_by = restricted_by
+    restriction.reason = reason
+
+    if is_permanent:
+        restriction.restriction_type = 'PERMANENT_REMOVE'
+        restriction.expires_at = None
+    else:
+        base_time = now
+        if (
+            restriction.restriction_type == 'TEMP_MUTE'
+            and restriction.expires_at
+            and restriction.expires_at > now
+        ):
+            base_time = restriction.expires_at
+
+        restriction.restriction_type = 'TEMP_MUTE'
+        restriction.expires_at = base_time + restriction_duration_delta
+
+    restriction.save()
+    return restriction
+
+
 # ═══════════════════════════════════════════════════════════
 # PROFANITY FILTERING UTILITIES
 # ═══════════════════════════════════════════════════════════
@@ -806,6 +892,125 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(result)
 
+    @action(detail=False, methods=['post'])
+    def take_user_action(self, request):
+        """Admin takes one action across all pending flags for a user."""
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only admins can review flags.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        user_id = request.data.get('user_id')
+        action_type = request.data.get('action')
+        admin_notes = request.data.get('admin_notes', '').strip()
+
+        if not user_id:
+            return Response(
+                {'detail': 'user_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'User not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        pending_flags = MessageFlag.objects.filter(
+            status='PENDING',
+            message__sender=target_user,
+        ).select_related('message')
+
+        pending_count = pending_flags.count()
+        if pending_count == 0:
+            return Response(
+                {'detail': 'No pending flags found for this user.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        restriction_data = None
+        if action_type == 'restrict':
+            is_permanent = bool(request.data.get('is_permanent', False))
+            restriction_duration_delta = parse_restriction_duration(request.data)
+            restriction_reason = admin_notes or f"Bulk restriction from {pending_count} flagged message(s)."
+
+            restriction = apply_admin_restriction(
+                user=target_user,
+                restricted_by=request.user,
+                is_permanent=is_permanent,
+                reason=restriction_reason,
+                restriction_duration_delta=restriction_duration_delta,
+            )
+
+            restriction_data = {
+                'id': restriction.id,
+                'restriction_type': restriction.restriction_type,
+                'expires_at': restriction.expires_at,
+                'reason': restriction.reason,
+            }
+
+        elif action_type not in {'delete', 'dismiss'}:
+            return Response(
+                {'detail': 'Invalid action. Use delete, dismiss, or restrict.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        reviewed_at = timezone.now()
+        deleted_messages = 0
+
+        for flag in pending_flags:
+            notes_to_store = admin_notes
+
+            if action_type == 'delete':
+                reason = admin_notes or (
+                    f"Bulk deletion from flagged review. Flagged words: {flag.flagged_words}"
+                    if flag.flagged_words else
+                    "Bulk deletion from flagged review."
+                )
+
+                if not flag.message.is_deleted:
+                    flag.message.is_deleted = True
+                    flag.message.deleted_by = request.user
+                    flag.message.deleted_at = reviewed_at
+                    flag.message.deletion_reason = reason
+                    flag.message.save()
+                    MessageDeletionLog.objects.create(
+                        message=flag.message,
+                        deleted_by=request.user,
+                        reason=reason,
+                    )
+                    deleted_messages += 1
+
+                flag.status = 'DELETED'
+                notes_to_store = reason
+
+            elif action_type == 'dismiss':
+                flag.status = 'DISMISSED'
+
+            elif action_type == 'restrict':
+                flag.status = 'USER_RESTRICTED'
+                if not notes_to_store:
+                    notes_to_store = 'Restricted by bulk admin action.'
+
+            flag.reviewed_by = request.user
+            flag.reviewed_at = reviewed_at
+            flag.admin_notes = notes_to_store
+            flag.save()
+
+        return Response(
+            {
+                'user_id': target_user.id,
+                'action': action_type,
+                'reviewed_flag_count': pending_count,
+                'deleted_message_count': deleted_messages,
+                'restriction': restriction_data,
+            },
+            status=status.HTTP_200_OK
+        )
+
     @action(detail=True, methods=['post'])
     def take_action(self, request, pk=None):
         """Admin takes action on flagged message."""
@@ -840,66 +1045,14 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
             # Restrict user globally (across all chats) - temp mute or permanent remove
             is_permanent = bool(request.data.get('is_permanent', False))
 
-            # Support hours+minutes in request, fallback to old restrict_duration hours
-            restrict_hours = request.data.get('restrict_duration_hours')
-            restrict_minutes = request.data.get('restrict_duration_minutes')
-            raw_duration = request.data.get('restrict_duration')
-
-            parsed_hours = None
-            parsed_minutes = None
-
-            if restrict_hours is not None:
-                try:
-                    parsed_hours = int(restrict_hours)
-                except (ValueError, TypeError):
-                    parsed_hours = 0
-
-            if restrict_minutes is not None:
-                try:
-                    parsed_minutes = int(restrict_minutes)
-                except (ValueError, TypeError):
-                    parsed_minutes = 0
-
-            if parsed_hours is None and raw_duration is not None:
-                try:
-                    parsed_hours = int(raw_duration)
-                except (ValueError, TypeError):
-                    parsed_hours = 0
-
-            parsed_hours = parsed_hours if parsed_hours is not None else 0
-            parsed_minutes = parsed_minutes if parsed_minutes is not None else 0
-
-            parsed_hours = max(0, parsed_hours)
-            parsed_minutes = max(0, min(60, parsed_minutes))
-
-            if parsed_hours == 0 and parsed_minutes == 0:
-                parsed_minutes = 30
-
-            restriction_duration_delta = timedelta(hours=parsed_hours, minutes=parsed_minutes)
-            if restriction_duration_delta.total_seconds() <= 0:
-                restriction_duration_delta = timedelta(minutes=30)
-
-            restriction, created = ChatRestriction.objects.get_or_create(
-                chat=None,  # Global restriction - applies to ALL chats
+            restriction_duration_delta = parse_restriction_duration(request.data)
+            apply_admin_restriction(
                 user=flag.message.sender,
-                defaults={
-                    'restriction_type': 'PERMANENT_REMOVE' if is_permanent else 'TEMP_MUTE',
-                    'restricted_by': request.user,
-                    'reason': f"Flagged message with words: {flag.flagged_words}",
-                    'expires_at': None if is_permanent else (timezone.now() + restriction_duration_delta),
-                }
+                restricted_by=request.user,
+                is_permanent=is_permanent,
+                reason=f"Flagged message with words: {flag.flagged_words}",
+                restriction_duration_delta=restriction_duration_delta,
             )
-
-            if not created:
-                if is_permanent:
-                    restriction.restriction_type = 'PERMANENT_REMOVE'
-                    restriction.expires_at = None
-                else:
-                    restriction.restriction_type = 'TEMP_MUTE'
-                    restriction.expires_at = timezone.now() + restriction_duration_delta
-                restriction.restricted_by = request.user
-                restriction.reason = f"Flagged message with words: {flag.flagged_words}"
-                restriction.save()
 
             flag.status = 'USER_RESTRICTED'
 

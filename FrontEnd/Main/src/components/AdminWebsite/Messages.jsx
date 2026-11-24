@@ -8,6 +8,7 @@ import {
   listFlaggedMessages,
   listFlaggedMessagesByUser,
   takeFlagAction,
+  takeFlagUserAction,
   listChatRestrictions,
   liftRestriction,
   listMessageReports,
@@ -232,6 +233,70 @@ const AdminMessages = () => {
       setFlagRestrictionType("TEMP_MUTE");
     } catch (err) {
       setError("Failed to take action on flag");
+      console.error(err);
+    } finally {
+      setFlagActionSubmitting(false);
+    }
+  };
+
+  const handleTakeFlagUserAction = async (action) => {
+    if (!selectedFlagUser?.user?.id) return;
+
+    if ((selectedFlagUser.flags || []).length === 0) {
+      setError("No pending flagged messages for this user.");
+      return;
+    }
+
+    const actionLabel =
+      action === "delete"
+        ? "delete all flagged messages"
+        : action === "dismiss"
+          ? "dismiss all pending flags"
+          : "apply one restriction to this user";
+
+    if (!window.confirm(`Are you sure you want to ${actionLabel}?`)) {
+      return;
+    }
+
+    setFlagActionSubmitting(true);
+    try {
+      const options = {
+        admin_notes: flagAdminNotes,
+      };
+
+      if (action === "restrict") {
+        const isPermanent = flagRestrictionType === "PERMANENT_REMOVE";
+        options.is_permanent = isPermanent;
+        if (!isPermanent) {
+          options.restrict_duration_hours = Number(flagRestrictionHours || 0);
+          options.restrict_duration_minutes = Number(flagRestrictionMinutes || 0);
+          if (options.restrict_duration_hours === 0 && options.restrict_duration_minutes === 0) {
+            options.restrict_duration_minutes = 30;
+          }
+        }
+      }
+
+      await takeFlagUserAction(selectedFlagUser.user.id, action, options);
+
+      const refreshedUsers = await listFlaggedMessagesByUser();
+      setFlaggedUsers(refreshedUsers || []);
+
+      const updatedUser = (refreshedUsers || []).find(
+        (entry) => entry?.user?.id === selectedFlagUser.user.id
+      );
+      setSelectedFlagUser(updatedUser || null);
+
+      if (action === "restrict") {
+        await loadRestrictions();
+      }
+
+      setSelectedFlagModal(null);
+      setFlagAdminNotes("");
+      setFlagRestrictionHours(0);
+      setFlagRestrictionMinutes(30);
+      setFlagRestrictionType("TEMP_MUTE");
+    } catch (err) {
+      setError("Failed to take bulk action on flags");
       console.error(err);
     } finally {
       setFlagActionSubmitting(false);
@@ -642,6 +707,91 @@ const AdminMessages = () => {
                         </div>
                       </div>
                     )}
+
+                    <hr style={{ margin: "20px 0", border: "1px solid var(--border)" }} />
+
+                    <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "var(--dark)" }}>
+                      Quick Actions (All Pending Flags)
+                    </h4>
+
+                    <div className="admin-btn-group" style={{ marginBottom: "12px" }}>
+                      <button
+                        onClick={() => handleTakeFlagUserAction("dismiss")}
+                        disabled={flagActionSubmitting}
+                        className="admin-btn admin-btn--secondary"
+                      >
+                        ✕ Dismiss All
+                      </button>
+                      <button
+                        onClick={() => handleTakeFlagUserAction("delete")}
+                        disabled={flagActionSubmitting}
+                        className="admin-btn admin-btn--danger admin-btn-group full"
+                      >
+                        🗑️ Delete All
+                      </button>
+                    </div>
+
+                    <div className="admin-form-group">
+                      <label className="admin-detail-label">Restriction Type</label>
+                      <select
+                        value={flagRestrictionType}
+                        onChange={(e) => setFlagRestrictionType(e.target.value)}
+                        disabled={flagActionSubmitting}
+                        className="admin-form-select"
+                      >
+                        <option value="TEMP_MUTE">Temporary Mute</option>
+                        <option value="PERMANENT_REMOVE">Permanent Remove</option>
+                      </select>
+                    </div>
+
+                    {flagRestrictionType === "TEMP_MUTE" && (
+                      <div className="admin-form-group" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        <div style={{ flex: "1 1 120px" }}>
+                          <label className="admin-detail-label">Hours</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="24"
+                            value={flagRestrictionHours}
+                            onChange={(e) => setFlagRestrictionHours(Math.max(0, Math.min(24, Number(e.target.value))))}
+                            disabled={flagActionSubmitting}
+                            className="admin-form-input"
+                          />
+                        </div>
+                        <div style={{ flex: "1 1 120px" }}>
+                          <label className="admin-detail-label">Minutes</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="60"
+                            value={flagRestrictionMinutes}
+                            onChange={(e) => setFlagRestrictionMinutes(Math.max(0, Math.min(60, Number(e.target.value))))}
+                            disabled={flagActionSubmitting}
+                            className="admin-form-input"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="admin-form-group">
+                      <label className="admin-detail-label">Admin Notes</label>
+                      <textarea
+                        value={flagAdminNotes}
+                        onChange={(e) => setFlagAdminNotes(e.target.value)}
+                        disabled={flagActionSubmitting}
+                        placeholder="Optional notes for all actions..."
+                        className="admin-form-textarea"
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => handleTakeFlagUserAction("restrict")}
+                      disabled={flagActionSubmitting}
+                      className="admin-btn admin-btn--primary"
+                      style={{ width: "100%" }}
+                    >
+                      🔒 Restrict User Once
+                    </button>
 
                     <hr style={{ margin: "20px 0", border: "1px solid var(--border)" }} />
 
