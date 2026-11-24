@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
 from django.db.models import Q, Count
 import re
 
@@ -16,10 +16,34 @@ from .serializers import (
     ChatMemberSerializer, MessageSerializer, ChatRestrictionSerializer,
     ChatRestrictionAuditLogSerializer, MessageFlagSerializer, MessageDeletionLogSerializer,
     ChatCreateSerializer, MessageCreateSerializer, ChatRequestSerializer,
-    ChatRequestCreateSerializer, MessageReportSerializer, MessageReportCreateSerializer
+    ChatRequestCreateSerializer, MessageReportSerializer, MessageReportCreateSerializer,
+    UserMinimalSerializer
 )
 from accounts.models import User, Section, Subject
 from classmanagement.models import SchoolYear
+
+
+# Auto-mute escalation tiers (in minutes). Resets daily.
+# 1st offense -> 10 min, 2nd -> 30 min, 3rd+ -> 120 min (2 hours).
+AUTO_MUTE_TIERS = [10, 30, 120]
+AUTO_MUTE_MAX_MINUTES = 120
+
+
+def get_auto_mute_minutes(user):
+    """Return the auto-mute duration (minutes) for the user's next offense today.
+
+    Offenses are counted from MessageFlag rows created today for messages sent
+    by this user. The duration escalates through AUTO_MUTE_TIERS and caps at
+    AUTO_MUTE_MAX_MINUTES.
+    """
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    offense_count = MessageFlag.objects.filter(
+        message__sender=user,
+        flagged_at__gte=today_start,
+    ).count()
+
+    tier_index = min(offense_count, len(AUTO_MUTE_TIERS) - 1)
+    return AUTO_MUTE_TIERS[tier_index]
 
 
 # ═══════════════════════════════════════════════════════════
@@ -615,6 +639,35 @@ class MessageViewSet(viewsets.ModelViewSet):
                 flagged_words=','.join(flagged_words)
             )
 
+            # Automatically mute the sender with an escalating cooldown.
+            # This is a global mute (applies to all chats) so the admin can
+            # review the flag and extend, delete, or dismiss it afterwards.
+            auto_mute_minutes = get_auto_mute_minutes(request.user)
+            auto_mute_until = timezone.now() + timedelta(minutes=auto_mute_minutes)
+            auto_mute_reason = (
+                f"Auto-muted for {auto_mute_minutes} minutes: "
+                f"flagged words {', '.join(flagged_words)}"
+            )
+            existing_mute = ChatRestriction.objects.filter(
+                chat=None,
+                user=request.user,
+            ).first()
+            if existing_mute:
+                existing_mute.restriction_type = 'TEMP_MUTE'
+                existing_mute.restricted_by = None
+                existing_mute.reason = auto_mute_reason
+                existing_mute.expires_at = auto_mute_until
+                existing_mute.save()
+            else:
+                ChatRestriction.objects.create(
+                    chat=None,
+                    user=request.user,
+                    restriction_type='TEMP_MUTE',
+                    restricted_by=None,
+                    reason=auto_mute_reason,
+                    expires_at=auto_mute_until,
+                )
+
         return Response(
             MessageSerializer(message).data,
             status=status.HTTP_201_CREATED
@@ -678,6 +731,80 @@ class MessageFlagViewSet(viewsets.ReadOnlyModelViewSet):
         if self.request.user.role != 'ADMIN':
             return MessageFlag.objects.none()
         return MessageFlag.objects.filter(status='PENDING').order_by('-flagged_at')
+
+    @action(detail=False, methods=['get'])
+    def by_user(self, request):
+        """Group pending flags by offending user.
+
+        Returns a list of users, each with their pending flags and a summary
+        (offense count today, current auto-mute tier, and active restriction).
+        """
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only admins can review flags.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        flags = MessageFlag.objects.filter(status='PENDING').select_related(
+            'message', 'message__sender', 'chat'
+        ).order_by('-flagged_at')
+
+        grouped = {}
+        for flag in flags:
+            sender = flag.message.sender
+            if sender.id not in grouped:
+                grouped[sender.id] = {
+                    'user': sender,
+                    'flags': [],
+                }
+            grouped[sender.id]['flags'].append(flag)
+
+        result = []
+        for sender_id, entry in grouped.items():
+            sender = entry['user']
+            user_flags = entry['flags']
+
+            # Offense count for today (used to show escalation tier).
+            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_offenses = MessageFlag.objects.filter(
+                message__sender=sender,
+                flagged_at__gte=today_start,
+            ).count()
+
+            # Current active restriction (if any).
+            active_restriction = ChatRestriction.objects.filter(
+                user=sender,
+                chat=None,
+            ).order_by('-created_at').first()
+
+            restriction_data = None
+            if active_restriction and active_restriction.is_active:
+                restriction_data = {
+                    'id': active_restriction.id,
+                    'restriction_type': active_restriction.restriction_type,
+                    'expires_at': active_restriction.expires_at,
+                    'reason': active_restriction.reason,
+                }
+
+            result.append({
+                'user': UserMinimalSerializer(sender).data,
+                'pending_flag_count': len(user_flags),
+                'today_offense_count': today_offenses,
+                'auto_mute_minutes': get_auto_mute_minutes(sender),
+                'active_restriction': restriction_data,
+                'flags': MessageFlagSerializer(user_flags, many=True).data,
+            })
+
+        # Sort by most recent flag first.
+        result.sort(
+            key=lambda item: max(
+                (f['flagged_at'] for f in item['flags']),
+                default='',
+            ),
+            reverse=True,
+        )
+
+        return Response(result)
 
     @action(detail=True, methods=['post'])
     def take_action(self, request, pk=None):

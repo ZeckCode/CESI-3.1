@@ -200,6 +200,10 @@ export async function listFlaggedMessages() {
   return apiFetchData(`${API_BASE}/flags/`);
 }
 
+export async function listFlaggedMessagesByUser() {
+  return apiFetchData(`${API_BASE}/flags/by_user/`);
+}
+
 export async function takeFlagAction(flagId, action, options = {}) {
   // action: 'delete', 'restrict', 'approve', 'dismiss'
   // options: { restrict_duration, is_permanent, admin_notes }

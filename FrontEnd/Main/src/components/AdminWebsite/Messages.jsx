@@ -6,6 +6,7 @@ import {
   updateProfanityWord,
   deleteProfanityWord,
   listFlaggedMessages,
+  listFlaggedMessagesByUser,
   takeFlagAction,
   listChatRestrictions,
   liftRestriction,
@@ -33,7 +34,9 @@ const AdminMessages = () => {
 
   // Flagged Messages State
   const [flaggedMessages, setFlaggedMessages] = useState([]);
+  const [flaggedUsers, setFlaggedUsers] = useState([]);
   const [selectedFlagModal, setSelectedFlagModal] = useState(null);
+  const [selectedFlagUser, setSelectedFlagUser] = useState(null);
   const [flagRestrictionType, setFlagRestrictionType] = useState("TEMP_MUTE");
   const [flagRestrictionHours, setFlagRestrictionHours] = useState(0);
   const [flagRestrictionMinutes, setFlagRestrictionMinutes] = useState(30);
@@ -66,10 +69,11 @@ const AdminMessages = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [wordsRes, flagsRes, restrictionsRes, reportsRes, deletionLogsRes, restrictionAuditLogsRes] =
+      const [wordsRes, flagsRes, flaggedUsersRes, restrictionsRes, reportsRes, deletionLogsRes, restrictionAuditLogsRes] =
         await Promise.all([
           listProfanityWords(),
           listFlaggedMessages(),
+          listFlaggedMessagesByUser(),
           listChatRestrictions(),
           listMessageReports('PENDING'),
           listMessageDeletionLogs(),
@@ -78,6 +82,7 @@ const AdminMessages = () => {
 
       setProfanityWords(wordsRes || []);
       setFlaggedMessages(flagsRes || []);
+      setFlaggedUsers(flaggedUsersRes || []);
       setRestrictions(restrictionsRes || []);
       setMessageReports(reportsRes.results || reportsRes || []);
       setDeletionLogs(deletionLogsRes || []);
@@ -88,6 +93,15 @@ const AdminMessages = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadFlaggedUsers = async () => {
+    try {
+      const flaggedUsersRes = await listFlaggedMessagesByUser();
+      setFlaggedUsers(flaggedUsersRes || []);
+    } catch (err) {
+      console.error("Failed to refresh flagged users", err);
     }
   };
 
@@ -104,6 +118,38 @@ const AdminMessages = () => {
     if (!user) return "User";
     const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
     return user.display_name || fullName || user.username || "User";
+  };
+
+  const formatFlagDate = (value) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const formatFlagDateTime = (value) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatMuteDuration = (minutes) => {
+    if (!minutes || minutes <= 0) return "—";
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
   // Profanity Management
@@ -175,7 +221,11 @@ const AdminMessages = () => {
         await loadRestrictions();
       }
 
+      // Refresh the grouped flagged-users view.
+      await loadFlaggedUsers();
+
       setSelectedFlagModal(null);
+      setSelectedFlagUser(null);
       setFlagAdminNotes("");
       setFlagRestrictionHours(24);
       setFlagRestrictionMinutes(0);
@@ -248,7 +298,6 @@ const AdminMessages = () => {
       ? profanityWords
       : profanityWords.filter((w) => w.category === filterCategory);
 
-  const pendingFlags = flaggedMessages.filter((f) => f.status === "PENDING");
   const pendingReports = messageReports.filter((r) => r.status === "PENDING");
 
   const activeMessageReports = messageReports.filter(
@@ -347,7 +396,7 @@ const AdminMessages = () => {
           className={`admin-tab ${activeTab === "flags" ? "active" : ""}`}
           onClick={() => setActiveTab("flags")}
         >
-          ⚠️ Flagged ({pendingFlags.length})
+          ⚠️ Flagged ({flaggedUsers.length})
         </button>
         <button
           className={`admin-tab ${activeTab === "restrictions" ? "active" : ""}`}
@@ -514,38 +563,135 @@ const AdminMessages = () => {
           <>
             <div className="admin-messages-list">
               <div className="admin-list-header">
-                <h3 style={{ margin: 0 }}>Pending Flags</h3>
-                <div className="admin-list-count">{pendingFlags.length}</div>
+                <h3 style={{ margin: 0 }}>Flagged Users</h3>
+                <div className="admin-list-count">{flaggedUsers.length}</div>
               </div>
 
               <div className="admin-list-container">
-                {pendingFlags.length === 0 ? (
+                {flaggedUsers.length === 0 ? (
                   <div className="admin-list-empty">
                     <div className="admin-list-empty-icon">✨</div>
-                    <p>No pending flags</p>
+                    <p>No flagged users</p>
                   </div>
                 ) : (
-                  pendingFlags.map((flag) => (
+                  flaggedUsers.map((entry) => (
                     <div
-                      key={flag.id}
-                      className={`admin-list-item ${selectedFlagModal?.id === flag.id ? "selected" : ""}`}
-                      onClick={() => setSelectedFlagModal(flag)}
+                      key={entry.user?.id}
+                      className={`admin-list-item ${selectedFlagUser?.user?.id === entry.user?.id ? "selected" : ""}`}
+                      onClick={() => setSelectedFlagUser(entry)}
                     >
-                      <div className="admin-list-item-title">{getUserDisplayName(flag.message.sender)}</div>
+                      <div className="admin-list-item-title">
+                        {getUserDisplayName(entry.user)}
+                      </div>
                       <div className="admin-list-item-meta">
-                        {new Date(flag.created_at).toLocaleDateString()}
+                        {entry.today_offense_count} offense{entry.today_offense_count === 1 ? "" : "s"} today
+                        {" • "}auto-mute {formatMuteDuration(entry.auto_mute_minutes)}
                       </div>
                       <div className="admin-list-item-preview">
-                        "{flag.message.content.substring(0, 60)}..."
+                        {entry.pending_flag_count} pending flag{entry.pending_flag_count === 1 ? "" : "s"}
                       </div>
-                      <div className="admin-list-item-flag">
-                        {flag.flagged_words}
-                      </div>
+                      {entry.active_restriction && (
+                        <div className="admin-list-item-flag">
+                          {entry.active_restriction.restriction_type === "PERMANENT_REMOVE"
+                            ? "🔒 Permanent Remove"
+                            : `⏱️ Muted until ${formatFlagDateTime(entry.active_restriction.expires_at)}`}
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
               </div>
             </div>
+
+            {/* Flagged User Detail Modal */}
+            {selectedFlagUser && (
+              <div className="admin-modal-overlay" onClick={() => setSelectedFlagUser(null)}>
+                <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="admin-modal-header">
+                    <h2 className="admin-modal-title">
+                      {getUserDisplayName(selectedFlagUser.user)}
+                    </h2>
+                    <button
+                      className="admin-modal-close"
+                      onClick={() => setSelectedFlagUser(null)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="admin-modal-body">
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Offenses Today</div>
+                      <div className="admin-detail-value">{selectedFlagUser.today_offense_count}</div>
+                    </div>
+
+                    <div className="admin-detail-row">
+                      <div className="admin-detail-label">Auto-Mute Tier</div>
+                      <div className="admin-detail-value">
+                        {formatMuteDuration(selectedFlagUser.auto_mute_minutes)}
+                      </div>
+                    </div>
+
+                    {selectedFlagUser.active_restriction && (
+                      <div className="admin-detail-row">
+                        <div className="admin-detail-label">Current Restriction</div>
+                        <div className="admin-detail-value">
+                          {selectedFlagUser.active_restriction.restriction_type === "PERMANENT_REMOVE"
+                            ? "Permanent Remove"
+                            : `Muted until ${formatFlagDateTime(selectedFlagUser.active_restriction.expires_at)}`}
+                        </div>
+                      </div>
+                    )}
+
+                    <hr style={{ margin: "20px 0", border: "1px solid var(--border)" }} />
+
+                    <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", color: "var(--dark)" }}>
+                      Flagged Messages ({selectedFlagUser.flags.length})
+                    </h4>
+
+                    {selectedFlagUser.flags.length === 0 ? (
+                      <p style={{ color: "var(--muted)" }}>No flagged messages.</p>
+                    ) : (
+                      <div style={{ display: "grid", gap: "10px" }}>
+                        {selectedFlagUser.flags.map((flag) => (
+                          <div
+                            key={flag.id}
+                            style={{
+                              border: "1px solid var(--border)",
+                              borderRadius: "8px",
+                              padding: "12px",
+                              backgroundColor: "var(--surface, #f9fafb)",
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", marginBottom: "6px" }}>
+                              <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                                {formatFlagDateTime(flag.flagged_at)}
+                              </span>
+                              <span className="admin-pill admin-pill--danger">
+                                {flag.flagged_words}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: "14px", marginBottom: "6px" }}>
+                              "{flag.message?.content}"
+                            </div>
+                            <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "10px" }}>
+                              Chat: {flag.chat?.name || flag.chat_name || "Global"}
+                            </div>
+                            <button
+                              onClick={() => setSelectedFlagModal(flag)}
+                              className="admin-btn admin-btn--secondary"
+                              style={{ width: "100%" }}
+                            >
+                              Review & Take Action
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Flag Detail Modal */}
             {selectedFlagModal && (
@@ -553,12 +699,25 @@ const AdminMessages = () => {
                 <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
                   <div className="admin-modal-header">
                     <h2 className="admin-modal-title">Flagged Message</h2>
-                    <button
-                      className="admin-modal-close"
-                      onClick={() => setSelectedFlagModal(null)}
-                    >
-                      ✕
-                    </button>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      {selectedFlagUser && (
+                        <button
+                          className="admin-btn admin-btn--secondary"
+                          onClick={() => setSelectedFlagModal(null)}
+                        >
+                          ← Back
+                        </button>
+                      )}
+                      <button
+                        className="admin-modal-close"
+                        onClick={() => {
+                          setSelectedFlagModal(null);
+                          setSelectedFlagUser(null);
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
 
                   <div className="admin-modal-body">

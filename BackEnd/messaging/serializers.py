@@ -255,14 +255,20 @@ class MessageFlagSerializer(SafeModelSerializer):
     """Serialize flagged messages for admin review."""
     message = MessageSerializer(read_only=True)
     reviewed_by = UserMinimalSerializer(read_only=True)
+    chat_name = serializers.SerializerMethodField()
 
     class Meta:
         model = MessageFlag
         fields = [
-            'id', 'message', 'chat', 'flagged_at', 'flagged_words', 'status',
+            'id', 'message', 'chat', 'chat_name', 'flagged_at', 'flagged_words', 'status',
             'reviewed_by', 'reviewed_at', 'admin_notes'
         ]
         read_only_fields = ['id', 'flagged_at']
+
+    def get_chat_name(self, obj):
+        if obj.chat:
+            return obj.chat.name or f"Chat #{obj.chat.id}"
+        return None
 
 
 class ChatCreateSerializer(SafeModelSerializer):
