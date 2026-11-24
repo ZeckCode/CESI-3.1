@@ -160,9 +160,14 @@ const StudentMessage = () => {
         }
       }
 
-      // Fetch school year
-      const sy = await getSchoolYear();
-      setSchoolYear(sy);
+      // Fetch school year (optional — chats must still load without it)
+      try {
+        const sy = await getSchoolYear();
+        setSchoolYear(sy);
+      } catch (syErr) {
+        console.warn("Could not load active school year:", syErr);
+        setSchoolYear(null);
+      }
 
       // Fetch chats
       const chatsData = await listChats();

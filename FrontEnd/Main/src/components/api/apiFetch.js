@@ -58,6 +58,7 @@ export function authHeaders(extra = {}) {
 export async function apiFetch(url, options = {}) {
   const { headers: extraHeaders, credentials, ...rest } = options;
   const requestUrl = resolveUrl(url);
+  const token = getToken();
   const response = await fetch(requestUrl, {
     // Send cookies by default so session-authenticated requests also work.
     credentials: credentials || 'include',
@@ -65,7 +66,10 @@ export async function apiFetch(url, options = {}) {
     headers: authHeaders(extraHeaders),
   });
 
-  if (response.status === 401) {
+  // Only treat a 401 as an expired session when we actually sent a token.
+  // Otherwise a probe/public request would wipe a still-valid session and
+  // log the user out (which then cascades into every other request).
+  if (response.status === 401 && token) {
     clearAuth();
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('cesi-auth-changed'));

@@ -21,6 +21,7 @@ import {
   listMessageDeletionLogs,
 } from "../api/messaging";
 import { getSchoolYear } from "../api/announcements";
+import { apiFetch } from "../api/apiFetch";
 import { getToken } from "../Auth/auth";
 
 const MESSAGE_POLL_INTERVAL_MS = 2000;
@@ -170,29 +171,30 @@ const Messages = () => {
       const token = getToken();
       let currentUserData = null;
       if (token) {
-        const userRes = await fetch("/api/accounts/me/detail/", {
-          headers: { Authorization: `Token ${token}` },
-        });
+        const userRes = await apiFetch("/api/accounts/me/detail/");
         if (userRes.ok) {
           currentUserData = await userRes.json();
           setCurrentUser(currentUserData);
         }
       }
 
-      const sy = await getSchoolYear();
-      setSchoolYear(sy);
+      // Fetch school year (optional — chats must still load without it)
+      let sy = null;
+      try {
+        sy = await getSchoolYear();
+        setSchoolYear(sy);
+      } catch (syErr) {
+        console.warn("Could not load active school year:", syErr);
+        setSchoolYear(null);
+      }
 
       const sectionUrl = sy?.id
         ? `/api/accounts/sections/?school_year=${sy.id}`
         : "/api/accounts/sections/";
 
       const [sectionsRes, subjectsRes] = await Promise.all([
-        fetch(sectionUrl, {
-          headers: { Authorization: `Token ${token}` },
-        }),
-        fetch("/api/accounts/subjects/", {
-          headers: { Authorization: `Token ${token}` },
-        }),
+        apiFetch(sectionUrl),
+        apiFetch("/api/accounts/subjects/"),
       ]);
 
       if (sectionsRes.ok) {

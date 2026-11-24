@@ -17,8 +17,6 @@ import { apiFetch } from "../api/apiFetch";
 import NotificationList from "../AdminWebsite/NotificationList";
 import "../AdminWebsiteCSS/AdminDashboard.css";
 import "../StudentWebsiteCSS/StudentPortal.css";
-
-const API_BASE = "";
 const READ_OVERRIDES_KEY = "reminder-read-overrides:PAYMENT";
 
 const normalizeReminderPayload = (payload) => {
@@ -144,7 +142,7 @@ export default function StudentMain() {
       }
 
       try {
-        const res = await apiFetch(`${API_BASE}/api/reminders/`);
+        const res = await apiFetch("/api/reminders/");
 
         if (!res.ok) throw new Error("Failed to load reminders");
 
@@ -189,7 +187,7 @@ export default function StudentMain() {
 
     const loadEnrollmentSettings = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/enrollment-settings/`);
+        const res = await apiFetch("/api/enrollment-settings/");
         const data = await parseResponseJson(res);
 
         if (!isMounted) return;

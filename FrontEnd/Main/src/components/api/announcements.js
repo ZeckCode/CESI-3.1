@@ -1,31 +1,16 @@
-import { getToken } from "../Auth/auth.js";
-
-const API_BASE = "";  // use Vite proxy
+import { apiFetch, apiFetchData } from "./apiFetch";
 
 export async function getSchoolYear() {
-  const token = getToken();
+  const res = await apiFetch("/api/classmanagement/school-years/active/");
 
-  const res = await fetch(`${API_BASE}/api/classmanagement/school-years/active/`, {
-    headers: {
-      ...(token ? { Authorization: `Token ${token}` } : {}),
-    },
-  });
-
+  // "No active school year" is a valid state, not a failure.
+  if (res.status === 404) return null;
   if (!res.ok) throw new Error("Failed to load school year");
   return res.json();
 }
 
 export async function fetchAnnouncements() {
-  const token = getToken();
-
-  const res = await fetch(`${API_BASE}/api/announcements/`, {
-    headers: {
-      ...(token ? { Authorization: `Token ${token}` } : {}),
-    },
-  });
-
-  if (!res.ok) throw new Error("Failed to load announcements");
-  return res.json();
+  return apiFetchData("/api/announcements/");
 }
 
 export async function createAnnouncement({
@@ -35,9 +20,6 @@ export async function createAnnouncement({
   publish_date,
   files,
 }) {
-  const token = getToken();
-  if (!token) throw new Error("Not authenticated");
-
   const form = new FormData();
   form.append("title", title);
   form.append("content", content);
@@ -48,18 +30,8 @@ export async function createAnnouncement({
     form.append("files", file);
   }
 
-  const res = await fetch(
-    `${API_BASE}/api/announcements/create-with-media/`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${token}`,
-      },
-      body: form,
-    }
-  );
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || "Create failed");
-  return data;
+  return apiFetchData("/api/announcements/create-with-media/", {
+    method: "POST",
+    body: form,
+  });
 }

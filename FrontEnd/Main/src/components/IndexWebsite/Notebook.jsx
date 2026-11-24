@@ -18,8 +18,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-const API_BASE = ""; // keep for backwards-compat; prefer toAbsUrl below
-
 function toAbsUrl(path) {
   if (!path) return null;
   if (/^https?:\/\//i.test(path)) return path;
@@ -69,19 +67,44 @@ const Notebook = ({ onClose, openEnrollment }) => {
   ];
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/announcements/`)
-      .then((res) => res.json())
-      .then((data) => {
-        const list = Array.isArray(data) ? data : data.results || [];
-        setAnnouncements(list);
-      })
-      .catch((err) => console.error("Error fetching announcements:", err));
+    let mounted = true;
 
-    // Fetch CMS Content
-    fetch(`${API_BASE}/api/cms/school-info/`).then(res => res.json()).then(data => setCmsData(prev => ({...prev, school: data}))).catch(() => {});
-    fetch(`${API_BASE}/api/cms/mission-vision/`).then(res => res.json()).then(data => setCmsData(prev => ({...prev, mission: data}))).catch(() => {});
-    fetch(`${API_BASE}/api/cms/contact-inquiry/`).then(res => res.json()).then(data => setCmsData(prev => ({...prev, contact: data}))).catch(() => {});
+    (async () => {
+      try {
+        const announcementsRes = await apiFetch("/api/announcements/");
+        const announcementsData = announcementsRes.ok ? await announcementsRes.json() : [];
+        if (mounted) {
+          const list = Array.isArray(announcementsData)
+            ? announcementsData
+            : announcementsData.results || [];
+          setAnnouncements(list);
+        }
+      } catch (err) {
+        console.error("Error fetching announcements:", err);
+      }
 
+      try {
+        const [schoolRes, missionRes, contactRes] = await Promise.all([
+          apiFetch("/api/cms/school-info/"),
+          apiFetch("/api/cms/mission-vision/"),
+          apiFetch("/api/cms/contact-inquiry/"),
+        ]);
+
+        const school = schoolRes.ok ? await schoolRes.json() : {};
+        const mission = missionRes.ok ? await missionRes.json() : {};
+        const contact = contactRes.ok ? await contactRes.json() : {};
+
+        if (mounted) {
+          setCmsData({ school, mission, contact });
+        }
+      } catch {
+        // Keep notebook usable even when CMS blocks are unavailable.
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // local helper used by components below
